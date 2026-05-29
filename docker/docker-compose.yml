@@ -1,0 +1,55 @@
+# Local development stack: the app, Postgres, and MinIO (an S3-compatible stand-in
+# for DigitalOcean Spaces). The relay is the public wss://relay.clasp.to, so no
+# relay service runs here.
+#
+# Note: in the current MVP the app only needs the relay to host and play. Postgres
+# and MinIO are wired up here ready for the auth, saved-games, and uploads work
+# (PRD phase one) so the local stack matches production from the start.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - CLASP_RELAY_URL=wss://relay.clasp.to
+      - PUBLIC_BASE_URL=http://localhost:3000
+      - DATABASE_URL=postgres://doot:doot@db:5432/doot
+      - SPACES_ENDPOINT=http://minio:9000
+      - SPACES_REGION=us-east-1
+      - SPACES_BUCKET=doot
+      - SPACES_KEY=minioadmin
+      - SPACES_SECRET=minioadmin
+      - SESSION_PASSWORD=dev-only-change-me-please-32-chars
+    depends_on:
+      - db
+      - minio
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=doot
+      - POSTGRES_PASSWORD=doot
+      - POSTGRES_DB=doot
+    ports:
+      - '5432:5432'
+    volumes:
+      - doot-pgdata:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - doot-minio:/data
+
+volumes:
+  doot-pgdata:
+  doot-minio:

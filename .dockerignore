@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.output
+**/.nuxt
+**/.data
+**/coverage
+.git
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store

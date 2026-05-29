@@ -1,0 +1,7 @@
+# Caddy reverse proxy with automatic HTTPS. Replace doot.games with your domain.
+# Caddy provisions and renews TLS certificates on its own.
+
+doot.games {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

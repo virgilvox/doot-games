@@ -1,0 +1,51 @@
+# Single-droplet production stack: the app behind Caddy (automatic HTTPS), with
+# Postgres on an attached block-storage volume. Object storage is DigitalOcean
+# Spaces (set the SPACES_* vars below). The relay is the public relay.
+#
+# Mount your DigitalOcean Volume at /mnt/doot-data on the host first.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - CLASP_RELAY_URL=${CLASP_RELAY_URL:-wss://relay.clasp.to}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+      - DATABASE_URL=postgres://doot:${DB_PASSWORD}@db:5432/doot
+      - SPACES_ENDPOINT=${SPACES_ENDPOINT}
+      - SPACES_REGION=${SPACES_REGION}
+      - SPACES_BUCKET=${SPACES_BUCKET}
+      - SPACES_KEY=${SPACES_KEY}
+      - SPACES_SECRET=${SPACES_SECRET}
+      - SESSION_PASSWORD=${SESSION_PASSWORD}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=doot
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=doot
+    volumes:
+      - /mnt/doot-data/pg:/var/lib/postgresql/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
+  caddy-config:
