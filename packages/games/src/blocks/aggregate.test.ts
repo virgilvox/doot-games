@@ -4,6 +4,7 @@ import { gameAnswerKeys, scoreGame } from '../runtime/derive'
 import { voteBox } from '../games/votebox'
 import { guessBlock } from './guess/block'
 import { pollBlock } from './poll/block'
+import { rankBlock } from './rank/block'
 import { type RateScale, formatScore, rateBlock, scaleMin } from './rate/block'
 
 describe('guess block aggregate', () => {
@@ -109,6 +110,33 @@ describe('poll block aggregate', () => {
       { label: 'A', count: 2 },
       { label: 'B', count: 1 },
     ])
+  })
+})
+
+describe('rank block aggregate', () => {
+  it('aggregates orders into a consensus ranking', () => {
+    const content = {
+      ...rankBlock.defaultContent(),
+      prompt: 'Rank',
+      items: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+        { id: 'c', label: 'C' },
+      ],
+    }
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content }],
+      inputsFor: () =>
+        new Map([
+          ['p1', { order: ['a', 'b', 'c'] }],
+          ['p2', { order: ['a', 'c', 'b'] }], // a clearly first; b/c contested
+        ]),
+      answerFor: () => undefined,
+      players: [],
+    })
+    const bars = frag?.distributions?.[0]?.bars
+    expect(bars?.[0]).toMatchObject({ label: 'A', display: '#1' }) // unanimous first
+    expect(frag?.leaderboard).toBeUndefined() // consensus, no winner
   })
 })
 

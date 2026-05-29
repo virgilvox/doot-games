@@ -22,6 +22,7 @@ export { default as ControlBar } from './components/ControlBar.vue'
 // Inputs
 export { default as OptionGrid } from './components/OptionGrid.vue'
 export { default as RatingStrip } from './components/RatingStrip.vue'
+export { default as RankList } from './components/RankList.vue'
 export { default as JoinForm } from './components/JoinForm.vue'
 
 // Display
