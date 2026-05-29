@@ -10,10 +10,12 @@ export { guessBlock } from './blocks/guess/block'
 export { rateBlock } from './blocks/rate/block'
 export { pollBlock } from './blocks/poll/block'
 export { rankBlock } from './blocks/rank/block'
+export { drawBlock } from './blocks/draw/block'
 
 // Games (block compositions)
 export { guess } from './games/guess'
 export { rate } from './games/rate'
 export { poll } from './games/poll'
 export { rank } from './games/rank'
+export { draw } from './games/draw'
 export { voteBox } from './games/votebox'

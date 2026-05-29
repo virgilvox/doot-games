@@ -31,6 +31,11 @@ export { default as VoteBars } from './components/VoteBars.vue'
 export { default as RosterChips } from './components/RosterChips.vue'
 export { default as Avatar } from './components/Avatar.vue'
 
+// Drawing (Pixi surface + SVG thumbnail + shared format)
+export { default as DrawCanvas } from './components/DrawCanvas.vue'
+export { default as DrawThumb } from './components/DrawThumb.vue'
+export { type DrawStroke, type DrawValue, emptyDrawing, strokePath } from './draw'
+
 // Editor (schema-driven authoring form)
 export { default as SchemaForm } from './schema-form/SchemaForm.vue'
 export {

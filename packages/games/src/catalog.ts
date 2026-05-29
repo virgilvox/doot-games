@@ -16,6 +16,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'rate', name: 'Rate', description: 'Score subjects on flexible scales — numbers, letter grades, or tiers.' },
   { id: 'poll', name: 'Poll', description: 'Opinion questions with no right answer; reveal the live distribution.' },
   { id: 'rank', name: 'Rank', description: 'Players order a set of items into one room-consensus ranking.' },
+  { id: 'draw', name: 'Draw', description: "Sketch the prompt on your phone; everyone's drawings fill the screen." },
   { id: 'votebox', name: 'VoteBox', description: 'Guess then Rate — the original Doot party game.' },
 ]
 

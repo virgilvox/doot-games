@@ -2,6 +2,7 @@ import type { ScorePlayer } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
 import { distributionToBars, gameAnswerKeys, scoreGame } from '../runtime/derive'
 import { voteBox } from '../games/votebox'
+import { drawBlock } from './draw/block'
 import { guessBlock } from './guess/block'
 import { pollBlock } from './poll/block'
 import { rankBlock } from './rank/block'
@@ -31,6 +32,26 @@ describe('guess block aggregate', () => {
       { id: 'a', name: 'Ann', score: 2, detail: '2 / 2' },
       { id: 'b', name: 'Bo', score: 1, detail: '1 / 1' }, // only eligible for round 2
     ])
+  })
+})
+
+describe('draw block aggregate', () => {
+  it('counts drawings and strokes, ignoring empty submissions', () => {
+    const content = drawBlock.defaultContent()
+    const frag = drawBlock.aggregate?.({
+      rounds: [{ index: 0, content }],
+      inputsFor: () =>
+        new Map<string, { strokes: Array<{ color: string; size: number; points: number[] }> }>([
+          ['a', { strokes: [{ color: '#000', size: 0.01, points: [0, 0, 1, 1] }] }],
+          ['b', { strokes: [] }], // submitted nothing meaningful
+          ['c', { strokes: [{ color: '#f00', size: 0.01, points: [0, 0] }, { color: '#00f', size: 0.02, points: [0.2, 0.2, 0.8, 0.8] }] }],
+        ]),
+      answerFor: () => undefined,
+      players: [],
+    })
+    const stat = (label: string) => frag?.stats?.find((s) => s.label === label)?.value
+    expect(stat('Drawings made')).toBe(2)
+    expect(stat('Strokes drawn')).toBe(3)
   })
 })
 
