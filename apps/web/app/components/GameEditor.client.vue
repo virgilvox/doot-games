@@ -25,6 +25,8 @@ if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game t
 const config = reactive<GameComposition>(structuredClone(toRaw(plugin.defaultConfig)))
 const themeId = ref(themeState.value)
 const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
+const { loggedIn } = useUserSession()
+const visibility = ref<'private' | 'unlisted' | 'public'>('private')
 
 const blockChoices = computed(() => plugin.blocks)
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
@@ -108,12 +110,22 @@ const saveError = ref('')
 const savedId = ref<string | null>(null)
 async function saveGame() {
   if (!valid.value || saving.value) return
+  // Saving requires an account; hosting/playing never do.
+  if (!loggedIn.value) {
+    router.push(`/login?redirect=/editor/${props.pluginId}`)
+    return
+  }
   saving.value = true
   saveError.value = ''
   try {
     const res = await $fetch<{ id: string }>('/api/games', {
       method: 'POST',
-      body: { pluginId: props.pluginId, themeId: themeId.value, config: toRaw(config) },
+      body: {
+        pluginId: props.pluginId,
+        themeId: themeId.value,
+        visibility: visibility.value,
+        config: toRaw(config),
+      },
     })
     savedId.value = res.id
   } catch (e) {
@@ -147,8 +159,16 @@ watch(
               <option v-for="t in themes" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </label>
+          <label class="ed-theme">
+            <span class="sf-label">Visibility</span>
+            <select v-model="visibility" class="sf-select" aria-label="Visibility">
+              <option value="private">Private</option>
+              <option value="unlisted">Unlisted (link only)</option>
+              <option value="public">Public (listed)</option>
+            </select>
+          </label>
           <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
-            {{ saving ? 'Saving…' : 'Save' }}
+            {{ saving ? 'Saving…' : loggedIn ? 'Save' : 'Log in to save' }}
           </button>
           <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
         </div>

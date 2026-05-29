@@ -5,6 +5,13 @@ import { DootLogo, ThemeProvider } from '@doot-games/ui'
 const theme = useState('doot-theme', () => 'doot')
 const route = useRoute()
 const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.startsWith('/play/'))
+
+const { loggedIn, user, clear: clearSession } = useUserSession()
+async function logout() {
+  await $fetch('/api/auth/logout', { method: 'POST' })
+  await clearSession()
+  await navigateTo('/')
+}
 </script>
 
 <template>
@@ -20,6 +27,13 @@ const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.st
           <NuxtLink to="/create" class="navlink">Create</NuxtLink>
         </nav>
         <div class="bar-spacer" />
+        <div class="account">
+          <template v-if="loggedIn">
+            <span class="account-email" :title="user?.email">{{ user?.email }}</span>
+            <button class="linkbtn" @click="logout">Log out</button>
+          </template>
+          <NuxtLink v-else to="/login" class="navlink">Log in</NuxtLink>
+        </div>
         <div class="themebar">
           <span class="lbl mono">theme</span>
           <button
@@ -40,6 +54,30 @@ const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.st
 </template>
 
 <style scoped>
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 14px;
+}
+.account-email {
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.linkbtn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+}
 .themebar {
   display: flex;
   align-items: center;

@@ -1,5 +1,13 @@
-/** List saved games (most recent first) for discovery. */
-export default defineEventHandler(async () => {
-  const games = await listGames()
-  return { games }
+/**
+ * List saved games. `?scope=mine` returns the current user's games (any
+ * visibility; requires a session); the default lists publicly-listed games for
+ * discovery.
+ */
+export default defineEventHandler(async (event) => {
+  const scope = getQuery(event).scope
+  if (scope === 'mine') {
+    const { user } = await requireUserSession(event)
+    return { games: await listMyGames((user as { id: string }).id) }
+  }
+  return { games: await listPublicGames() }
 })

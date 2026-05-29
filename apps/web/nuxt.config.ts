@@ -6,6 +6,9 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: false },
 
+  // Optional, non-blocking auth (sealed-cookie sessions, no server store).
+  modules: ['nuxt-auth-utils'],
+
   // Workspace packages ship TypeScript/SFC source; let Nuxt transpile them.
   build: {
     transpile: [
@@ -46,6 +49,14 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // Seals the session cookie. Set SESSION_PASSWORD (32+ chars) in production;
+    // the dev fallback only keeps local sessions stable across restarts.
+    session: {
+      password:
+        process.env.SESSION_PASSWORD ||
+        process.env.NUXT_SESSION_PASSWORD ||
+        'doot-dev-session-password-change-me-32',
+    },
     public: {
       relayUrl: process.env.CLASP_RELAY_URL || 'wss://relay.clasp.to',
       baseUrl: process.env.PUBLIC_BASE_URL || '',

@@ -8,7 +8,7 @@ _Last updated: 2026-05-29. Branch: `main` (the scaffold was merged to `main`; wo
 
 A pnpm monorepo built from the PRD. **72 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (see below), and authored games now **persist** and are shareable. Multiple rounds of deep multi-agent audit ran; all findings are fixed.
 
-**The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. No account or DB setup required; saving uses a zero-config local SQLite file.
+**The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. Hosting and playing never need an account; **saving** uses an optional account (email/password, argon2id) and each saved game has a **visibility**: private (owner only), unlisted (anyone with the link), or public (also listed on `/explore`). Zero DB setup — accounts and games live in a local SQLite file.
 
 | Package | State |
 | --- | --- |
@@ -17,7 +17,7 @@ A pnpm monorepo built from the PRD. **72 tests pass (+1 live test, opt-in), ever
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
 | `@doot-games/ui` | Done. 18 theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm` + `describeSchema`/`blankValue` introspection, tested). |
 | `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank), the generic renderer (GameHost/GamePlayer/GameResults), and five games (Guess, Rate, Poll, Rank, VoteBox) as block compositions. |
-| `apps/web` | Builds. Home/explore/create + client-only host/play + the **editor** (`/editor/<type>`) + **persistence** (`/api/games` over Drizzle+libSQL, save → shareable `/g/<id>`, host-by-id at `/host/g/<id>`); renders a game's block-driven views (or a custom override) over the live relay. |
+| `apps/web` | Builds. Home/explore/create + client-only host/play + the **editor** (`/editor/<type>`) + **persistence** (`/api/games` over Drizzle+libSQL, save → shareable `/g/<id>`, host-by-id at `/host/g/<id>`) + **optional auth** (`nuxt-auth-utils` + argon2id, `/login`, owner-scoped saves with private/unlisted/public visibility); renders a game's block-driven views (or a custom override) over the live relay. |
 
 ## The architecture (read this first)
 
@@ -47,7 +47,9 @@ DOOT_LIVE=1 pnpm vitest run packages/games/src/relay.live.test.ts
 
 Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds, then **Host now** or **Save** (→ shareable `/g/<id>`). Or exercise a default deck directly: host a type (e.g. `/host/votebox`) on one screen, open `/play/<CODE>` on another.
 
-**Persistence** is zero-config: with no `DATABASE_URL`, saved games go to a local SQLite file (`apps/web/.data/doot.sqlite`, git-ignored). A libSQL/Turso URL (`file:`, `libsql://`, `http(s)://`) is used as-is; a `postgres://` URL currently falls back to SQLite with a warning (Postgres wiring is a follow-up).
+**Persistence** is zero-config: with no `DATABASE_URL`, accounts and saved games go to a local SQLite file (`apps/web/.data/doot.sqlite`, git-ignored). A libSQL/Turso URL (`file:`, `libsql://`, `http(s)://`) is used as-is; a `postgres://` URL currently falls back to SQLite with a warning (Postgres wiring is a follow-up).
+
+**Auth** is optional — needed only to save games. Set `SESSION_PASSWORD` (32+ chars) to seal session cookies in production; dev uses a stable fallback. Sign up / in at `/login`.
 
 ## Key decisions
 
@@ -58,6 +60,7 @@ Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds
 - **Per-game theme** is applied on host/play (host stamps `meta.themeId`; player adopts it via the global ThemeProvider).
 - **The editor is schema-driven**: `SchemaForm` (in `@doot-games/ui`) walks a block's `contentSchema` and renders the form — no per-block editor code. Doot field-name conventions (`image`/`prompt`/`timer`/`correct`/`id`) get nicer controls; a block can still set `Editor` for a full-custom round editor.
 - **Persistence stores definitions only.** Drizzle over libSQL (SQLite by default, zero-config); the `games` table holds the JSON `GameComposition`. `/api/games` validates at the boundary (shape + known plugin via the server-safe `@doot-games/games/catalog`; deep per-round validation is client-side in the editor). Honors the invariant: nothing about a live room is ever written here. "Host now" still uses the in-memory draft for an ephemeral game.
+- **Auth is optional and only gates saving.** `nuxt-auth-utils` (sealed httpOnly cookie, no server store) + argon2id (`@node-rs/argon2`). Hosting and playing need no account. Saving requires login and stamps an `ownerId`; `/api/games` returns the caller's games for `?scope=mine` and publicly-listed games otherwise. **Visibility** (`private`/`unlisted`/`public`) is enforced server-side: a private game reads as 404 to non-owners (so its existence doesn't leak); unlisted is link-only; public is also listed. Augment the session-user type in `apps/web/auth.d.ts`.
 - **The core loop is verified live.** A `DOOT_LIVE=1` test drives a host + player headlessly through the engine against `wss://relay.clasp.to` and asserts redacted-config delivery, the answer-withholding invariant over the wire, input round-trip, and play-to-results. It is skipped by default so the suite stays offline.
 - **The design system** is `doot-mockup.html`, ported to `@doot-games/themes` + `@doot-games/ui`, with an accessibility baseline.
 - Commit messages contain **no AI attribution** (project rule).
@@ -70,24 +73,26 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 
 ## Not built yet (PRD phase one and beyond)
 
-1. **Auth**: `nuxt-auth-utils` email/password, optional and non-blocking — only gates create/publish/stats. With it, saved games get an owner (today they're anonymous/shared); without it the app still fully works.
-2. **Uploads**: presigned PUT to Spaces/MinIO. The editor's image fields are URL-input + preview today (`ImageField.vue`); swapping in an uploader only changes how the field's value is set.
-3. **Postgres**: the durable store is libSQL/SQLite today (zero-config). For multi-instance prod, wire `drizzle-orm/node-postgres` behind the same `useDb()`/repo seam and select the driver by `DATABASE_URL`. The docker prod compose still names Postgres — reconcile when this lands.
-4. **More blocks**: Draw (Pixi canvas + ephemeral media — would finally exercise vue3-pixi), Buzz (reaction/first-correct), Quip (free-text + a follow-on vote). Each is one block — and each becomes authorable in the editor and savable for free the moment it ships.
+1. **Uploads**: presigned PUT to Spaces/MinIO. The editor's image fields are URL-input + preview today (`ImageField.vue`); swapping in an uploader only changes how the field's value is set.
+2. **Postgres**: the durable store is libSQL/SQLite today (zero-config). For multi-instance prod, wire `drizzle-orm/node-postgres` behind the same `useDb()`/repo seam and select the driver by `DATABASE_URL`. The docker prod compose still names Postgres — reconcile when this lands.
+3. **More blocks**: Draw (Pixi canvas + ephemeral media — would finally exercise vue3-pixi), Buzz (reaction/first-correct), Quip (free-text + a follow-on vote). Each is one block — and each becomes authorable in the editor and savable for free the moment it ships.
+4. **Account niceties**: editing/deleting saved games, changing visibility after save, and magic-link (SMTP) sign-in are not built. Today a save creates a new immutable record; there is no update/delete route yet.
 5. **External plugins**: sandboxed iframe + postMessage bridge + publishing (PRD §9).
-6. **A real-browser playtest** (two phones) has not been run; the headless engine loop is verified live and all routes are HTTP-smoke-tested, but interactive form/preview behavior wants a manual pass.
+6. **A real-browser playtest** (two phones) has not been run; the headless engine loop is verified live and all routes/flows are HTTP-smoke-tested (incl. the full auth + visibility matrix), but interactive form/preview behavior wants a manual pass.
 
 ## Known gaps / things to check first
 
 - `apps/web` typecheck via `nuxi typecheck` is heavier than the library `tsc` checks (it applies `noUncheckedIndexedAccess` to imported package source). It is **green now** — a latent guarded-index hole in `poll/block.ts` it surfaced was fixed — so keep `pnpm -r typecheck` clean. The production build remains the fast signal that everything integrates.
 - **DB driver**: only the libSQL/SQLite path is implemented; a `postgres://` `DATABASE_URL` silently falls back to the local file (with a console warning). Don't assume Postgres works in prod yet.
-- Saved games are **anonymous** (no auth) and listed publicly on `/explore` — fine for a single-host instance; revisit when auth lands.
+- **Set `SESSION_PASSWORD`** (32+ chars) in production — the dev fallback in `nuxt.config.ts` must not ship.
+- There is **no update/delete** for saved games yet, and **no rate-limiting** on auth routes — add before exposing an instance publicly.
+- A pre-auth saved game (legacy/anonymous, `owner_id` null) can still be fetched by anyone if its visibility is `private`, since "no owner" matches "no requester". New games always have an owner, so this only affects rows created before auth.
 - Per-package READMEs are not written yet (PRD §22 asks for them).
 - PRD §8 still describes the pre-block plugin contract; the block model is in `docs/authoring-a-game.md` and `packages/sdk/src/block.ts`. Reconcile when convenient.
 
 ## Suggested next step
 
-The end-to-end loop (author → save/share → host → play → results) works and is verified. The highest-leverage next moves: **(a) a real-browser two-phone playtest** to validate the interactive UI (the one thing not yet exercised), **(b) auth** (`nuxt-auth-utils`) so saved games get an owner, **(c) the Draw block** to exercise Pixi + ephemeral media (and get an editor form + persistence for free), and **(d) uploads** (presigned PUT) to upgrade `ImageField` from URL-only. (a) and (b) most directly harden "real users can use this"; (c)/(d) widen what they can make.
+The end-to-end loop (author → save/share → host → play → results) works, with optional accounts and per-game visibility. The highest-leverage next moves: **(a) a real-browser two-phone playtest** to validate the interactive UI (the one thing not yet exercised), **(b) the Draw block** to exercise Pixi + ephemeral media (and get an editor form + persistence for free), **(c) uploads** (presigned PUT) to upgrade `ImageField` from URL-only, and **(d) account niceties** (edit/delete a saved game, change visibility, magic-link sign-in). (a) hardens confidence; (b)/(c) widen what hosts can make; (d) rounds out account UX.
 
 ---
 
@@ -108,4 +113,4 @@ Paste this into a new session to onboard the next agent:
 >
 > **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. `pnpm install && pnpm dev` → http://localhost:3000 (uses the public relay `wss://relay.clasp.to`; saved games use a zero-config local SQLite file — no DB setup needed). Author at `/editor/<type>`, **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank), play at `/play/<CODE>`.
 >
-> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely **auth** (`nuxt-auth-utils`, to give saved games an owner), the **Draw block** (vue3-pixi canvas + ephemeral media on the relay), or **uploads** (presigned PUT for `ImageField`). Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
+> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely the **Draw block** (vue3-pixi canvas + ephemeral media on the relay), **uploads** (presigned PUT for `ImageField`), or **account niceties** (edit/delete saved games, change visibility). Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.

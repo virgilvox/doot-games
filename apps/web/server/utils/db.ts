@@ -14,6 +14,14 @@ import { type Client, createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+/** A registered account. Auth is optional; it only gates saving games. */
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: integer('created_at').notNull(),
+})
+
 /** A saved game definition (a composition authored in the editor). */
 export const games = sqliteTable('games', {
   id: text('id').primaryKey(),
@@ -22,9 +30,17 @@ export const games = sqliteTable('games', {
   themeId: text('theme_id').notNull().default('doot'),
   /** JSON-serialized GameComposition (`{ title, rounds: [{ block, content }] }`). */
   config: text('config').notNull(),
+  /** Owning account, or null for pre-auth / anonymous saves. */
+  ownerId: text('owner_id'),
+  /** 'private' (owner only), 'unlisted' (anyone with the link), or 'public' (listed). */
+  visibility: text('visibility').notNull().default('private'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
+
+/** Game visibility levels. */
+export type Visibility = 'private' | 'unlisted' | 'public'
+export const VISIBILITIES: Visibility[] = ['private', 'unlisted', 'public']
 
 const DEFAULT_URL = 'file:./.data/doot.sqlite'
 
@@ -54,6 +70,26 @@ async function ensureSchema(c: Client): Promise<void> {
       updated_at INTEGER NOT NULL
     )
   `)
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `)
+  // Additive migrations for databases created before auth/visibility (SQLite
+  // errors on a duplicate column — ignore that).
+  for (const ddl of [
+    'ALTER TABLE games ADD COLUMN owner_id TEXT',
+    "ALTER TABLE games ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+  ]) {
+    try {
+      await c.execute(ddl)
+    } catch {
+      /* column already exists */
+    }
+  }
 }
 
 /** Get the Drizzle handle, creating the connection and table on first use. */

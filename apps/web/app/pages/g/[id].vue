@@ -11,6 +11,7 @@ interface SavedGame {
   pluginId: string
   title: string
   themeId: string
+  visibility: 'private' | 'unlisted' | 'public'
   config: GameComposition
   createdAt: number
 }
@@ -35,6 +36,7 @@ const roundCount = computed(() => game.value?.config.rounds.length ?? 0)
           <span class="badge type">{{ typeName }}</span>
           <span class="badge">{{ roundCount }} {{ roundCount === 1 ? 'round' : 'rounds' }}</span>
           <span class="badge">{{ game.themeId }} theme</span>
+          <span v-if="game.visibility !== 'public'" class="badge">{{ game.visibility }}</span>
         </div>
         <p class="detail-note">
           Host this on a big screen — players join from their phones with the room code that appears.
