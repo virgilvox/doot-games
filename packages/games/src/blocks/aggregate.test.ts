@@ -1,6 +1,6 @@
 import type { ScorePlayer } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
-import { gameAnswerKeys, scoreGame } from '../runtime/derive'
+import { distributionToBars, gameAnswerKeys, scoreGame } from '../runtime/derive'
 import { voteBox } from '../games/votebox'
 import { guessBlock } from './guess/block'
 import { pollBlock } from './poll/block'
@@ -137,6 +137,22 @@ describe('rank block aggregate', () => {
     const bars = frag?.distributions?.[0]?.bars
     expect(bars?.[0]).toMatchObject({ label: 'A', display: '#1' }) // unanimous first
     expect(frag?.leaderboard).toBeUndefined() // consensus, no winner
+  })
+})
+
+describe('distributionToBars (results rendering)', () => {
+  it('defaults to vote semantics when a block gives only counts', () => {
+    const bars = distributionToBars({ title: 'Q', bars: [{ label: 'A', count: 2 }, { label: 'B', count: 1 }] })
+    expect(bars[0]).toEqual({ label: 'A', value: 2, max: 3, display: undefined, note: '2 votes' })
+    expect(bars[1]?.note).toBe('1 vote')
+  })
+
+  it('honors block-provided max/display/note (e.g. a ranking chart)', () => {
+    const bars = distributionToBars({
+      title: 'R',
+      bars: [{ label: 'A', count: 3, max: 3, display: '#1', note: 'avg 0.5' }],
+    })
+    expect(bars[0]).toEqual({ label: 'A', value: 3, max: 3, display: '#1', note: 'avg 0.5' })
   })
 })
 

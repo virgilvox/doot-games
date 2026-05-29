@@ -19,6 +19,7 @@ const bars = computed(() => {
     value: n - rank,
     max: n,
     display: `#${rank + 1}`,
+    note: `avg ${r.avg.toFixed(1)}`,
   }))
 })
 const voted = computed(() => props.inputs.size)

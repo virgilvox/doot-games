@@ -2,21 +2,13 @@
 /** Generic results page: renders whatever fragments the blocks contributed. */
 import type { StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, Leaderboard, StatStrip, VoteBars } from '@doot-games/ui'
+import { distributionToBars } from './derive'
 
 const props = withDefaults(
   defineProps<{ results: StandardResults; me?: string | null; compact?: boolean }>(),
   { me: null, compact: false },
 )
 
-function bars(d: NonNullable<StandardResults['distributions']>[number]) {
-  const total = d.bars.reduce((s, b) => s + b.count, 0) || 1
-  return d.bars.map((b) => ({
-    label: b.label,
-    value: b.count,
-    max: total,
-    note: `${b.count} vote${b.count === 1 ? '' : 's'}`,
-  }))
-}
 const hasLeaderboard = props.results.leaderboard && props.results.leaderboard.length > 0
 const hasAwards = props.results.awards && props.results.awards.length > 0
 </script>
@@ -48,7 +40,7 @@ const hasAwards = props.results.awards && props.results.awards.length > 0
 
       <section v-for="(d, i) in results.distributions ?? []" :key="`d${i}`" class="panel dist">
         <h3>{{ d.title }}</h3>
-        <VoteBars :bars="bars(d)" />
+        <VoteBars :bars="distributionToBars(d)" />
       </section>
     </div>
 

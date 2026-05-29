@@ -48,6 +48,7 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
         bars: ranked.map((r, rank) => ({
           label: r.label,
           count: n - rank, // #1 gets the fullest bar
+          max: n, // fill against item count, not a vote sum
           display: `#${rank + 1}`,
           note: `avg ${r.avg.toFixed(1)}`,
         })),
@@ -67,7 +68,11 @@ function consensus(content: RankContent, inputs: Map<string, RankInput>) {
   for (const item of content.items) totals.set(item.id, { sum: 0, n: 0 })
   for (const input of inputs.values()) {
     if (!Array.isArray(input?.order)) continue
+    // Count each id at most once per ballot (defend against malformed payloads).
+    const seen = new Set<string>()
     input.order.forEach((id, pos) => {
+      if (seen.has(id)) return
+      seen.add(id)
       const t = totals.get(id)
       if (t) {
         t.sum += pos
@@ -75,11 +80,12 @@ function consensus(content: RankContent, inputs: Map<string, RankInput>) {
       }
     })
   }
+  const n = content.items.length
   return content.items
-    .map((item, i) => {
+    .map((item) => {
       const t = totals.get(item.id)
-      // No votes yet: keep the authored order via the index as a tiebreaker.
-      const avg = t && t.n > 0 ? t.sum / t.n : i
+      // Unranked items sort to the bottom; authored order breaks ties (stable sort).
+      const avg = t && t.n > 0 ? t.sum / t.n : n
       return { id: item.id, label: item.label, avg }
     })
     .sort((a, b) => a.avg - b.avg)

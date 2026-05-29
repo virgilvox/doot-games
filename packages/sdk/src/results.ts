@@ -26,9 +26,17 @@ export interface AwardCard {
 
 export interface DistributionBar {
   label: string
+  /** The bar's value (for a vote distribution, the number of votes). */
   count: number
   /** Marks the correct option after reveal. */
   correct?: boolean
+  /** Fill ceiling; defaults to the sum of counts in the distribution. Set this
+   *  when `count` is not a vote tally (e.g. a ranking weight against item count). */
+  max?: number
+  /** Shown instead of the numeric value (e.g. a rank "#1" or a tier "B"). */
+  display?: string
+  /** Caption under the value; defaults to "N votes". */
+  note?: string
 }
 
 export interface Distribution {

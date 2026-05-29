@@ -5,12 +5,39 @@
  */
 import type {
   AnyBlock,
+  Distribution,
   GameComposition,
   GamePlugin,
   ResultsFragment,
   ScorePlayer,
   StandardResults,
 } from '@doot-games/sdk'
+
+/** VoteBars-ready bar (label/value/max/display/note). */
+export interface RenderBar {
+  label: string
+  value: number
+  max: number
+  display?: string
+  note: string
+}
+
+/**
+ * Map a results distribution to VoteBars input. By default a bar's `count` is a
+ * vote tally filled against the distribution total; a block may override `max`
+ * (e.g. a ranking weight against item count), `display` (e.g. "#1" / "B"), and
+ * `note`.
+ */
+export function distributionToBars(distribution: Distribution): RenderBar[] {
+  const total = distribution.bars.reduce((sum, b) => sum + b.count, 0) || 1
+  return distribution.bars.map((b) => ({
+    label: b.label,
+    value: b.count,
+    max: b.max ?? total,
+    display: b.display,
+    note: b.note ?? `${b.count} vote${b.count === 1 ? '' : 's'}`,
+  }))
+}
 
 export function getBlock(plugin: GamePlugin, kind: string): AnyBlock | undefined {
   return plugin.blocks.find((b) => b.kind === kind)
