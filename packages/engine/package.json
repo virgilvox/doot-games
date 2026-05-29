@@ -1,0 +1,25 @@
+{
+  "name": "@doot-games/engine",
+  "version": "0.0.0",
+  "description": "CLASP wrapper and room runtime for Doot. Framework-agnostic core plus Vue composables.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./vue": "./src/vue/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@clasp-to/core": "4.3.2"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "peerDependenciesMeta": {
+    "vue": { "optional": true }
+  }
+}

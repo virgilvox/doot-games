@@ -1,0 +1,99 @@
+/**
+ * Vue bindings for the engine. `useDootRoom` mounts a {@link RoomRuntime},
+ * mirrors its state into reactive refs, drives the host countdown loop, and
+ * tears everything down on scope dispose. This is the single surface a game's
+ * views consume — they never touch CLASP. See PRD section 7.6.
+ */
+import { computed, inject, onScopeDispose, type InjectionKey, provide, shallowRef } from 'vue'
+import { RoomRuntime, type RoomRuntimeOptions } from '../room'
+import type { HostAction } from '../state-machine'
+
+const HOST_TICK_MS = 250
+
+export interface UseDootRoomOptions extends RoomRuntimeOptions {
+  /** Auto-connect on creation (default true). */
+  autoConnect?: boolean
+  /** Called if the initial connect rejects. */
+  onConnectError?: (err: unknown) => void
+}
+
+export function useDootRoom(options: UseDootRoomOptions) {
+  const runtime = new RoomRuntime(options)
+  const snapshot = shallowRef(runtime.getSnapshot())
+  const refresh = () => {
+    snapshot.value = runtime.getSnapshot()
+  }
+  const off = runtime.onChange(refresh)
+
+  let tick: ReturnType<typeof setInterval> | null = null
+  if (options.role === 'host') {
+    tick = setInterval(() => runtime.tick(), HOST_TICK_MS)
+  }
+
+  if (options.autoConnect !== false) {
+    runtime.connect().catch((err) => {
+      options.onConnectError?.(err)
+    })
+  }
+
+  onScopeDispose(() => {
+    if (tick) clearInterval(tick)
+    off()
+    runtime.dispose()
+  })
+
+  return {
+    runtime,
+    // reactive reads
+    phase: computed(() => snapshot.value.phase),
+    round: computed(() => snapshot.value.round),
+    players: computed(() => snapshot.value.players),
+    me: computed(() => snapshot.value.me),
+    config: computed(() => snapshot.value.config),
+    meta: computed(() => snapshot.value.meta),
+    results: computed(() => snapshot.value.results),
+    theme: computed(() => snapshot.value.meta?.themeId ?? null),
+    connected: computed(() => snapshot.value.connected),
+    reconnecting: computed(() => snapshot.value.reconnecting),
+    error: computed(() => snapshot.value.error),
+    ready: computed(() => snapshot.value.ready),
+    isHost: computed(() => snapshot.value.me.role === 'host'),
+    joinedAtIndex: computed(() => runtime.joinedAtIndex),
+
+    // player actions
+    submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
+    inputFor: (roundIndex: number) => runtime.inputFor(roundIndex),
+
+    // host aggregation
+    inputsFor: (roundIndex: number) => runtime.inputsFor(roundIndex),
+
+    // host actions
+    host: {
+      loadGame: (game: Parameters<RoomRuntime['loadGame']>[0]) => runtime.loadGame(game),
+      start: () => runtime.start(),
+      openVoting: () => runtime.openVoting(),
+      lock: () => runtime.lock(),
+      reveal: () => runtime.reveal(),
+      next: () => runtime.next(),
+      finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
+      can: (action: HostAction['type']) => runtime.can(action),
+    },
+  }
+}
+
+export type DootRoom = ReturnType<typeof useDootRoom>
+
+/** Injection key for sharing a room with plugin view components. */
+export const DOOT_ROOM_KEY: InjectionKey<DootRoom> = Symbol('doot-room')
+
+/** The shell calls this after `useDootRoom` so plugin components can inject it. */
+export function provideDootRoom(room: DootRoom): void {
+  provide(DOOT_ROOM_KEY, room)
+}
+
+/** Plugin view components (Host/Player/Results) call this to reach the room. */
+export function injectDootRoom(): DootRoom {
+  const room = inject(DOOT_ROOM_KEY)
+  if (!room) throw new Error('No Doot room provided. Wrap views with provideDootRoom().')
+  return room
+}
