@@ -70,6 +70,8 @@ export interface RoomSnapshot {
   error: string | null
   /** True once the first phase value has arrived from the relay. */
   ready: boolean
+  /** First round index this client may act on (player only; 0 otherwise). */
+  joinedAtIndex: number
 }
 
 type Listener = () => void
@@ -138,13 +140,17 @@ export class RoomRuntime {
     })
     await this.relay.connect()
     this.subscribe()
+    // Seed connection state from the synchronous truth: onConnect may have
+    // already fired (a shared relay can be connected before we register), in
+    // which case the callback above never runs for this runtime.
+    if (this.relay.connected) this.connected = true
     if (this.me.role === 'host') {
       // The host is authoritative; publish the lobby phase so early joiners
       // receive it on subscribe, and mark ourselves ready immediately.
       this.publish(addr.phase(this.room), 'lobby')
       this.ready = true
-      this.emit()
     }
+    this.emit()
   }
 
   /** Tear down subscriptions and timers. Does not close the shared relay. */
@@ -176,7 +182,7 @@ export class RoomRuntime {
         const first = !this.ready
         this.state = { ...this.state, phase: v as Phase }
         this.ready = true
-        if (first && this.me.role === 'player') this.ensureProfilePublished()
+        if (first && this.me.role === 'player') void this.ensureProfilePublished()
         this.emit()
       })
       on(addr.meta(r), (v) => {
@@ -271,6 +277,7 @@ export class RoomRuntime {
       reconnecting: this.reconnecting,
       error: this.error,
       ready: this.ready,
+      joinedAtIndex: this.myJoinedAtIndex,
     }
   }
 
@@ -283,14 +290,21 @@ export class RoomRuntime {
     for (const l of this.listeners) l()
   }
 
-  /** Players considered present: a recent heartbeat, or any submitted input. */
+  /**
+   * Players considered present: a recent heartbeat, or any submitted input.
+   * Keeping players who have answered (even if their heartbeat lapsed) is
+   * intentional so scoring counts everyone who played.
+   */
   recentPlayers(): Player[] {
     const now = this.now()
+    const pidsWithInput = new Set<string>()
+    for (const key of this.inputs.keys()) {
+      pidsWithInput.add(key.slice(key.indexOf(':') + 1))
+    }
     const out: Player[] = []
     for (const [pid, p] of this.playersMap) {
-      const hasInput = [...this.inputs.keys()].some((k) => k.endsWith(`:${pid}`))
       const live = p.lastPing != null && now - p.lastPing < PRESENCE_WINDOW_MS
-      if (live || hasInput) out.push({ ...p })
+      if (live || pidsWithInput.has(pid)) out.push({ ...p })
     }
     return out
   }
@@ -321,11 +335,20 @@ export class RoomRuntime {
     this.emit()
   }
 
-  private ensureProfilePublished(): void {
+  private async ensureProfilePublished(): Promise<void> {
     if (this.me.role !== 'player' || this.profilePublished) return
-    const existing = this.relay.cached(addr.playerProfile(this.room, this.me.id)) as
-      | { joinedAtIndex?: number }
-      | undefined
+    this.profilePublished = true // guard re-entry while the read is in flight
+    // A player does not subscribe to its own profile, so `cached()` is empty;
+    // round-trip with `get()` to detect a reconnect and keep the original join
+    // index. Falling back to the current state is correct for a first join.
+    let existing: { joinedAtIndex?: number } | undefined
+    try {
+      existing = (await this.relay.get(addr.playerProfile(this.room, this.me.id))) as
+        | { joinedAtIndex?: number }
+        | undefined
+    } catch {
+      existing = undefined
+    }
     const joinedAtIndex =
       existing && typeof existing.joinedAtIndex === 'number'
         ? existing.joinedAtIndex // reconnect: keep original join point
@@ -335,8 +358,8 @@ export class RoomRuntime {
       name: this.me.name,
       joinedAtIndex,
     })
-    this.profilePublished = true
     this.startHeartbeat()
+    this.emit()
   }
 
   /** First round index this player may act on (0 until the profile is published). */
@@ -378,7 +401,9 @@ export class RoomRuntime {
   openVoting(): void {
     this.assertHost()
     const timer = this.game?.rounds[this.state.round.index]?.timer ?? null
-    const deadline = timer ? this.now() + timer * 1000 : null
+    // `timer != null` (not truthiness) so a 0-second timer auto-locks immediately
+    // instead of being mistaken for "no timer".
+    const deadline = timer != null ? this.now() + timer * 1000 : null
     this.publish(addr.roundDeadline(this.room), deadline)
     this.publish(addr.roundState(this.room), 'open')
     this.transition({ type: 'open', deadline })

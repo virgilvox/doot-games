@@ -66,6 +66,9 @@ class FakeRelayClient implements RelayClient {
   close() {}
 }
 
+/** Flush pending microtasks + timers so async profile publishing settles. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
 const cleanups: Array<() => void> = []
 afterEach(() => {
   for (const c of cleanups.splice(0)) c()
@@ -158,6 +161,7 @@ describe('RoomRuntime host + player over a shared relay', () => {
     // A player joins mid-round (state 'open') -> eligible from round 0.
     const player = makePlayer(hub, 'Robin', now)
     await player.connect()
+    await flush() // the profile publish round-trips through relay.get()
 
     const pid = playerId('ABCD', 'Robin')
     expect(player.joinedAtIndex).toBe(0)
@@ -172,7 +176,7 @@ describe('RoomRuntime host + player over a shared relay', () => {
     expect(host.inputsFor(0).get(pid)).toEqual({ choice: 1 })
   })
 
-  it('reclaims identity and join index on reconnect by name', async () => {
+  it('reclaims identity, join index, and inputs on reconnect by name', async () => {
     const hub = new FakeHub()
     const now = () => 0
     const host = makeHost(hub, now)
@@ -180,14 +184,23 @@ describe('RoomRuntime host + player over a shared relay', () => {
     host.loadGame(GAME)
     host.start()
 
+    // Sam joins while round 0 is still open -> eligible from round 0.
     const p1 = makePlayer(hub, 'Sam', now)
     await p1.connect()
+    await flush()
+    expect(p1.joinedAtIndex).toBe(0)
     p1.submit({ choice: 0 } as RelayValue)
 
-    // Same name, same room -> same id, and the prior input is restored.
+    // The host advances past round 0. A *fresh* joiner now would be deferred to
+    // round 1 (state is locked), so this distinguishes reconnect from re-join.
+    host.openVoting()
+    host.lock()
+
     const p2 = makePlayer(hub, 'Sam', now)
     await p2.connect()
+    await flush()
     expect(p2.me.id).toBe(p1.me.id)
+    expect(p2.joinedAtIndex).toBe(0) // kept the original, not recomputed to 1
     expect(p2.inputFor(0)).toEqual({ choice: 0 })
   })
 })

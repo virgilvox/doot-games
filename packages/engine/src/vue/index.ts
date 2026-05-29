@@ -58,14 +58,23 @@ export function useDootRoom(options: UseDootRoomOptions) {
     error: computed(() => snapshot.value.error),
     ready: computed(() => snapshot.value.ready),
     isHost: computed(() => snapshot.value.me.role === 'host'),
-    joinedAtIndex: computed(() => runtime.joinedAtIndex),
+    joinedAtIndex: computed(() => snapshot.value.joinedAtIndex),
 
     // player actions
     submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
-    inputFor: (roundIndex: number) => runtime.inputFor(roundIndex),
+    // inputFor/inputsFor touch the reactive snapshot first so that a computed
+    // calling them re-evaluates on every relay update (e.g. a vote arriving).
+    // The runtime's maps are plain (non-reactive); the snapshot is the signal.
+    inputFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.inputFor(roundIndex)
+    },
 
     // host aggregation
-    inputsFor: (roundIndex: number) => runtime.inputsFor(roundIndex),
+    inputsFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.inputsFor(roundIndex)
+    },
 
     // host actions
     host: {
