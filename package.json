@@ -1,0 +1,32 @@
+{
+  "name": "doot",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hostable platform for live, collaborative party games on the CLASP relay.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.10.0",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @doot-games/web dev",
+    "build": "pnpm -r --filter=!@doot-games/web run build && pnpm --filter @doot-games/web run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5",
+    "vue": "^3.5.13",
+    "vue-tsc": "^2.2.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+  }
+}
