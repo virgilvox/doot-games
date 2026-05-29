@@ -1,0 +1,16 @@
+{
+  "name": "@doot-games/themes",
+  "version": "0.0.0",
+  "description": "Doot theme token packs and the theme registry. The central design system.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": ["*.css"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./base.css": "./src/base.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
