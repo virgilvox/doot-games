@@ -1,0 +1,25 @@
+{
+  "name": "@doot-games/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Doot shell: discovery, lobby, host, player.",
+  "scripts": {
+    "dev": "nuxi dev",
+    "build": "nuxi build",
+    "generate": "nuxi generate",
+    "postinstall": "nuxi prepare",
+    "typecheck": "nuxi typecheck"
+  },
+  "dependencies": {
+    "@doot-games/engine": "workspace:*",
+    "@doot-games/games": "workspace:*",
+    "@doot-games/sdk": "workspace:*",
+    "@doot-games/themes": "workspace:*",
+    "@doot-games/ui": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "nuxt": "^4.0.0"
+  }
+}
