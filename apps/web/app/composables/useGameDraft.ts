@@ -10,6 +10,7 @@ import type { GameComposition } from '@doot-games/sdk'
 export interface GameDraft {
   pluginId: string
   config: GameComposition
+  themeId?: string
 }
 
 export function useGameDraft() {

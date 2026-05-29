@@ -101,10 +101,13 @@ ergonomics for free. When a block needs something the generic form can't
 express, set `Editor` on the block (the `RoundBlock.Editor?` slot) for a custom
 per-round editor; everything else still renders generically.
 
-"Host this game" stows the authored composition in an in-memory draft
-(`useGameDraft`) and opens `/host/<type>`, which publishes it (redacted) to the
-relay exactly as it does the default deck. Nothing is written to a database —
-saved games (Postgres) are a separate roadmap item.
+From the editor you can either **Host now** — which stows the composition in an
+in-memory draft (`useGameDraft`) and opens `/host/<type>` — or **Save**, which
+`POST`s it to `/api/games` and returns a shareable `/g/<id>` link. A saved game
+is hosted by id at `/host/g/<id>` (HostRoom loads the stored composition);
+either way the host publishes the **redacted** config to the relay exactly as
+it does the default deck. The durable store holds game *definitions* only —
+never live room state, which stays on the relay.
 
 ## How it fits together
 

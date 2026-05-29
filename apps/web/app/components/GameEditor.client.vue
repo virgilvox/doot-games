@@ -9,18 +9,22 @@
  */
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin } from '@doot-games/games'
+import { themeList } from '@doot-games/themes'
 import { SchemaForm } from '@doot-games/ui'
-import { computed, reactive, ref, toRaw } from 'vue'
+import { computed, reactive, ref, toRaw, watch } from 'vue'
 
 const props = defineProps<{ pluginId: string }>()
 const router = useRouter()
 const draft = useGameDraft()
+const themeState = useState<string>('doot-theme', () => 'doot')
 
 const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
 
 // Seed from the type's default composition (deep-cloned so edits stay local).
 const config = reactive<GameComposition>(structuredClone(toRaw(plugin.defaultConfig)))
+const themeId = ref(themeState.value)
+const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
 
 const blockChoices = computed(() => plugin.blocks)
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
@@ -93,9 +97,39 @@ function toggle(i: number) {
 
 function hostGame() {
   if (!valid.value) return
-  draft.value = { pluginId: props.pluginId, config: structuredClone(toRaw(config)) }
+  themeState.value = themeId.value
+  draft.value = { pluginId: props.pluginId, config: structuredClone(toRaw(config)), themeId: themeId.value }
   router.push(`/host/${props.pluginId}`)
 }
+
+// Save the composition to the durable store and surface a shareable link.
+const saving = ref(false)
+const saveError = ref('')
+const savedId = ref<string | null>(null)
+async function saveGame() {
+  if (!valid.value || saving.value) return
+  saving.value = true
+  saveError.value = ''
+  try {
+    const res = await $fetch<{ id: string }>('/api/games', {
+      method: 'POST',
+      body: { pluginId: props.pluginId, themeId: themeId.value, config: toRaw(config) },
+    })
+    savedId.value = res.id
+  } catch (e) {
+    saveError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not save the game.'
+  } finally {
+    saving.value = false
+  }
+}
+const shareUrl = computed(() => (savedId.value ? `/g/${savedId.value}` : ''))
+// Editing again invalidates the saved snapshot's "saved" indicator.
+watch(
+  () => JSON.stringify(config),
+  () => {
+    savedId.value = null
+  },
+)
 </script>
 
 <template>
@@ -106,12 +140,29 @@ function hostGame() {
           <span class="kicker">Editing · {{ plugin.manifest.name }}</span>
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
         </div>
-        <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host this game →</button>
+        <div class="ed-actions">
+          <label class="ed-theme">
+            <span class="sf-label">Theme</span>
+            <select v-model="themeId" class="sf-select" aria-label="Theme">
+              <option v-for="t in themes" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+          </label>
+          <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+          <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
+        </div>
       </header>
 
       <p v-if="!valid" class="ed-note">
         Fix the highlighted rounds and give the game a title to start hosting.
       </p>
+      <p v-if="saveError" class="ed-note ed-note--err" role="alert">{{ saveError }}</p>
+      <div v-if="savedId" class="ed-saved" role="status">
+        <span>Saved. Share this link to host it from anywhere:</span>
+        <NuxtLink :to="shareUrl" class="ed-saved-link mono">{{ shareUrl }}</NuxtLink>
+        <NuxtLink :to="`/host/g/${savedId}`" class="btn btn-primary btn-sm">Host saved game →</NuxtLink>
+      </div>
 
       <ol class="ed-rounds">
         <li v-for="(round, i) in config.rounds" :key="i" class="ed-round" :class="{ open: expanded === i, bad: errors[i] }">
@@ -195,10 +246,40 @@ function hostGame() {
   outline: none;
   border-bottom-color: var(--primary);
 }
+.ed-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.ed-theme .sf-select {
+  width: auto;
+  min-width: 130px;
+}
 .ed-note {
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 16px;
+}
+.ed-note--err {
+  color: var(--primary);
+  font-weight: 600;
+}
+.ed-saved {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: color-mix(in srgb, var(--c5, var(--primary)) 12%, var(--surface));
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 13px;
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+.ed-saved-link {
+  font-weight: 700;
+  color: var(--primary);
+  word-break: break-all;
 }
 .ed-rounds {
   list-style: none;

@@ -17,6 +17,8 @@
     "@doot-games/sdk": "workspace:*",
     "@doot-games/themes": "workspace:*",
     "@doot-games/ui": "workspace:*",
+    "@libsql/client": "^0.17.3",
+    "drizzle-orm": "^0.45.2",
     "vue": "^3.5.13"
   },
   "devDependencies": {

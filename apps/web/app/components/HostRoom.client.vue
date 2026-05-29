@@ -11,28 +11,40 @@ import { GameHost, gameAnswerKeys, gameRounds, getPlugin, redactGameConfig } fro
 import { DootLogo, Stage } from '@doot-games/ui'
 import { computed } from 'vue'
 
-const props = defineProps<{ pluginId: string }>()
+import type { GameComposition } from '@doot-games/sdk'
+
+const props = defineProps<{
+  pluginId: string
+  /** An explicit composition to host (a saved game); falls back to the draft, then the default deck. */
+  config?: GameComposition
+  /** Theme to host under; falls back to the global theme selection. */
+  themeId?: string
+}>()
 const runtime = useRuntimeConfig()
 
 const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
 
-const themeId = useState<string>('doot-theme', () => 'doot')
+const themeState = useState<string>('doot-theme', () => 'doot')
+// A saved game carries its own theme; adopt it for the whole host shell.
+if (props.themeId) themeState.value = props.themeId
+const themeId = props.themeId ?? themeState.value
 const roomCode = makeRoomCode()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host' })
 provideDootRoom(room)
 
-// Use the composition authored in the editor if it's for this game type;
-// otherwise fall back to the type's default deck (e.g. on a direct /host link).
+// Precedence: an explicit config (a saved game) > the editor draft (if it's for
+// this game type) > the game type's default deck (a direct /host link).
 const draft = useGameDraft()
 const config =
-  draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value.config : plugin.defaultConfig
+  props.config ??
+  (draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value.config : plugin.defaultConfig)
 const meta: RoomMeta = {
   pluginId: plugin.manifest.id,
   pluginVersion: plugin.manifest.version,
   title: config.title || plugin.manifest.name,
-  themeId: themeId.value,
+  themeId,
 }
 room.host.loadGame({
   meta,

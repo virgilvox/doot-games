@@ -16,6 +16,9 @@ services:
     environment:
       - CLASP_RELAY_URL=wss://relay.clasp.to
       - PUBLIC_BASE_URL=http://localhost:3000
+      # Persistence currently uses libSQL/SQLite; a postgres:// URL falls back to
+      # a local SQLite file (with a warning) until the Postgres driver is wired
+      # (see HANDOFF.md). The db service below is kept ready for that work.
       - DATABASE_URL=postgres://doot:doot@db:5432/doot
       - SPACES_ENDPOINT=http://minio:9000
       - SPACES_REGION=us-east-1
