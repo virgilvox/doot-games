@@ -1,0 +1,29 @@
+{
+  "name": "@doot-games/ui",
+  "version": "0.0.0",
+  "description": "Doot's shared, theme-aware Vue component library and design-system styles.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": ["*.css", "*.vue"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/index.css"
+  },
+  "scripts": {
+    "build": "vue-tsc -p tsconfig.json",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@doot-games/engine": "workspace:*",
+    "@doot-games/themes": "workspace:*",
+    "pixi.js": "8.14.3",
+    "qrcode": "^1.5.4",
+    "vue3-pixi": "^1.0.1"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5"
+  }
+}

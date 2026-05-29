@@ -1,0 +1,335 @@
+/* =============================================================================
+   @doot-games/ui — design-system component styles.
+   Ported and tidied from doot-mockup.html (shell) and votebox (1).html
+   (gameplay). Everything reads theme tokens, so a component looks correct in
+   any theme. Import once in the app, after @doot-games/themes/base.css.
+   ============================================================================= */
+
+/* ---------------------------------------------------------------- buttons -- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: var(--bd) solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 20px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.09s ease, box-shadow 0.09s ease, filter 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover {
+  transform: translate(-1px, -1px);
+}
+.btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  filter: saturate(0.5);
+}
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--line);
+  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--primary) 55%, transparent);
+}
+.btn-ghost {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--line-soft);
+}
+.btn-ghost:hover {
+  background: var(--surface-2);
+}
+.btn-lg {
+  font-size: 17px;
+  padding: 15px 26px;
+}
+.btn-sm {
+  font-size: 13px;
+  padding: 8px 14px;
+  border-width: 2px;
+}
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+
+/* --------------------------------------------------------------- surfaces -- */
+.panel {
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+.badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 2px solid var(--line-soft);
+  color: var(--ink-soft);
+}
+.badge.type {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--line);
+}
+.chip {
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 8px 15px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-soft);
+  transition: all 0.12s;
+}
+.chip:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+.chip.on {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--line);
+}
+
+/* ----------------------------------------------------------------- topbar -- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: var(--bd) solid var(--line-soft);
+}
+.topbar .inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 13px 26px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.navlink {
+  padding: 9px 15px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-soft);
+  transition: background 0.12s, color 0.12s;
+  cursor: pointer;
+}
+.navlink:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.navlink.on {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  border: var(--bd) solid var(--line-soft);
+}
+.bar-spacer {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------------- hero -- */
+.hero {
+  padding: 54px 0 30px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 48px;
+  align-items: center;
+}
+.hero .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: 999px;
+  padding: 7px 15px;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+.hero .tag i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c5);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c5) 35%, transparent);
+}
+.hero h1 {
+  font-size: clamp(44px, 6vw, 74px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+.hero h1 .hl {
+  color: var(--primary);
+}
+.hero p.lead {
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  margin: 20px 0 28px;
+  max-width: 46ch;
+}
+.hero-cta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* --------------------------------------------------------------- sections -- */
+.section {
+  padding: 46px 0;
+}
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.section-head h2 {
+  font-size: 34px;
+  font-weight: 800;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 20px;
+}
+.rail {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 6px 2px 16px;
+  scroll-snap-type: x mandatory;
+}
+
+/* ------------------------------------------------------------ game cards -- */
+.card {
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  cursor: pointer;
+  min-width: 248px;
+  scroll-snap-align: start;
+}
+.card:hover {
+  transform: translate(-2px, -3px);
+  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.cover {
+  height: 150px;
+  position: relative;
+  overflow: hidden;
+  border-bottom: var(--bd) solid var(--line);
+}
+.card-body {
+  padding: 14px 15px 16px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  line-height: 1.05;
+  margin-bottom: 9px;
+}
+.card-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/* ------------------------------------------------------------------ steps -- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.step {
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.step .n {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  border: var(--bd) solid var(--line);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 22px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.step h4 {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+.step p {
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------ icons / fx -- */
+.ic {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ic-lg {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 980px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .nav {
+    display: none;
+  }
+}
