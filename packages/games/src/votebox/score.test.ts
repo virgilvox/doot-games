@@ -91,6 +91,29 @@ describe('answer withholding', () => {
   })
 })
 
+describe('rate-only deck', () => {
+  it('does not declare a winner when there are no guess rounds', () => {
+    const rateConfig: VoteBoxConfig = {
+      title: 'Rate Only',
+      ratingScale: { min: 1, max: 10, step: 1 },
+      categories: [{ id: 'art', label: 'Art' }],
+      slides: [
+        { id: 'r0', type: 'rate', subject: 'A', prompt: 'Rate A', image: '', timer: null, categories: ['art'] },
+      ],
+    }
+    const r = voteBoxScore({
+      config: rateConfig,
+      rounds: voteBoxRounds(rateConfig),
+      players,
+      inputsFor: (i) => (i === 0 ? new Map([['p_robin', { ratings: { art: 7 } }]]) : new Map()),
+      answerKeys: voteBoxAnswerKeys(rateConfig),
+    })
+    expect(r.leaderboard).toEqual([])
+    expect(r.headline).toBe('The results are in')
+    expect(r.awards.find((a) => a.label === 'Top rated Art')?.subject).toBe('A')
+  })
+})
+
 describe('rounds mapping', () => {
   it('maps slides to round primitives with resolved category labels', () => {
     const rounds = voteBoxRounds(config)

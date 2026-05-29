@@ -27,7 +27,17 @@ watch(
   () => `${index.value}:${room.round.value.state}`,
   () => {
     choice.value = null
-    ratings.value = {}
+    const s = slide.value
+    if (s && s.type === 'rate') {
+      // Prefill to the scale minimum so the strip shows a value and what the
+      // player sees matches what gets submitted.
+      const min = config.value?.ratingScale.min ?? 1
+      const init: Record<string, number> = {}
+      for (const c of s.categories) init[c] = min
+      ratings.value = init
+    } else {
+      ratings.value = {}
+    }
   },
 )
 

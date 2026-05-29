@@ -17,6 +17,8 @@ const runtime = useRuntimeConfig()
 const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
 
+// The host stamps the active theme into the room meta so players inherit it.
+const themeId = useState<string>('doot-theme', () => 'doot')
 const roomCode = makeRoomCode()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host' })
@@ -27,7 +29,7 @@ const meta: RoomMeta = {
   pluginId: plugin.manifest.id,
   pluginVersion: plugin.manifest.version,
   title: plugin.manifest.name,
-  themeId: 'doot',
+  themeId: themeId.value,
 }
 room.host.loadGame({
   meta,

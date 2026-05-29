@@ -18,7 +18,7 @@ withDefaults(defineProps<{ results: VoteBoxResults; me?: string | null; compact?
     </header>
 
     <div class="rgrid" :class="{ compact }">
-      <section class="panel board">
+      <section v-if="results.leaderboard.length" class="panel board">
         <h3>Leaderboard</h3>
         <Leaderboard :entries="results.leaderboard" :highlight="me" :max="compact ? 6 : 8" />
       </section>

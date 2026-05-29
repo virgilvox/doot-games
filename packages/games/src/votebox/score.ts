@@ -107,14 +107,19 @@ export function voteBoxScore(ctx: ScoreContext<VoteBoxConfig, VoteBoxInput>): Vo
   })
 
   const guessRounds = slides.filter((s) => s.type === 'guess').length
+  const hasGuessRounds = guessRounds > 0
   const topScore = tallies[0]?.correct ?? 0
 
-  const leaderboard: LeaderboardEntry[] = tallies.map((t) => ({
-    id: t.id,
-    name: t.name,
-    score: t.correct,
-    detail: `${t.correct} / ${t.eligible}`,
-  }))
+  // A rate-only deck has no scored winner; omit the leaderboard rather than
+  // declaring one with all-zero scores.
+  const leaderboard: LeaderboardEntry[] = hasGuessRounds
+    ? tallies.map((t) => ({
+        id: t.id,
+        name: t.name,
+        score: t.correct,
+        detail: `${t.correct} / ${t.eligible}`,
+      }))
+    : []
 
   const stats: StatItem[] = [
     { label: 'Players', value: players.length },
@@ -124,7 +129,7 @@ export function voteBoxScore(ctx: ScoreContext<VoteBoxConfig, VoteBoxInput>): Vo
   ]
 
   return {
-    headline: leaderboard[0] ? `${leaderboard[0].name} wins` : 'The results are in',
+    headline: hasGuessRounds && leaderboard[0] ? `${leaderboard[0].name} wins` : 'The results are in',
     leaderboard,
     awards,
     stats,

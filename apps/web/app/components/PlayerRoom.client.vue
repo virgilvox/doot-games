@@ -8,7 +8,7 @@ import { createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
 import { getPlugin } from '@doot-games/games'
 import { Avatar, PhoneShell } from '@doot-games/ui'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 const props = defineProps<{ room: string; name: string }>()
 const runtime = useRuntimeConfig()
@@ -16,6 +16,16 @@ const runtime = useRuntimeConfig()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: `doot-player:${props.name}` })
 const room = useDootRoom({ relay, room: props.room, role: 'player', name: props.name })
 provideDootRoom(room)
+
+// Adopt the host's per-game theme once meta arrives; the app's global
+// ThemeProvider (driven by this state) then restyles the play surface.
+const activeTheme = useState<string>('doot-theme', () => 'doot')
+watch(
+  () => room.theme.value,
+  (t) => {
+    if (t) activeTheme.value = t
+  },
+)
 
 const code = props.room
 const plugin = computed(() => {

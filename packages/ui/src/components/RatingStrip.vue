@@ -41,15 +41,20 @@ function set(catId: string, value: number) {
         <span class="rlabel">{{ cat.label }}</span>
         <span class="rval">{{ modelValue[cat.id] ?? '—' }}</span>
       </div>
-      <div class="rdots" role="radiogroup" :aria-label="cat.label">
+      <!--
+        A cumulative rating bar (every dot up to the value fills), so radio
+        semantics would misrepresent it. Use a labelled group of toggle buttons:
+        each announces "<category>: <value> of <max>" and its pressed state.
+      -->
+      <div class="rdots" role="group" :aria-label="`Rate ${cat.label}`">
         <button
           v-for="v in steps"
           :key="v"
           type="button"
           class="rdot"
           :class="{ on: (modelValue[cat.id] ?? -1) >= v }"
-          role="radio"
-          :aria-checked="modelValue[cat.id] === v"
+          :aria-label="`${cat.label}: ${v} of ${scale.max}`"
+          :aria-pressed="modelValue[cat.id] === v"
           :disabled="disabled"
           @click="set(cat.id, v)"
         >
