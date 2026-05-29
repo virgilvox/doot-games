@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="doot">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doot, put a game on the big screen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DOOT game-show toybox. Chunky, tactile, warm, playful.
+   Theme packs swap the whole token set: doot / cutesie / cyber
+   / professional / playful.
+   ============================================================ */
+
+:root{
+  --font-display:"Baloo 2",system-ui,sans-serif;
+  --font-body:"Figtree",system-ui,sans-serif;
+  --font-mono:"DM Mono",ui-monospace,monospace;
+}
+
+/* ---- DOOT brand (default) ---- */
+[data-theme="doot"]{
+  --bg:#FBF1E4; --bg-2:#FFF8EF; --surface:#FFFFFF; --surface-2:#FFF3E6;
+  --ink:#241910; --ink-soft:#7A6957; --mute:#A4917C;
+  --line:#241910; --line-soft:#E7D8C5;
+  --primary:#FF5A33; --primary-ink:#FFFFFF;
+  --c1:#FFC53D; --c2:#16C8B5; --c3:#FF73B3; --c4:#5B79FF; --c5:#7DD957;
+  --radius:18px; --radius-lg:30px; --bd:2.5px;
+  --shadow:5px 5px 0 rgba(36,25,16,.92); --shadow-sm:3px 3px 0 rgba(36,25,16,.9);
+  --grain:.05; --glow:none;
+}
+/* ---- Cutesie ---- */
+[data-theme="cutesie"]{
+  --bg:#F4ECFF; --bg-2:#FBF6FF; --surface:#FFFFFF; --surface-2:#F6EFFF;
+  --ink:#4B3A66; --ink-soft:#8E7DAE; --mute:#B3A6CC;
+  --line:#E4D6F7; --line-soft:#EFE6FB;
+  --primary:#B98CFF; --primary-ink:#3A2960;
+  --c1:#9FE6D0; --c2:#FFC9A8; --c3:#FFA6D5; --c4:#A9D3FF; --c5:#D7B6FF;
+  --radius:22px; --radius-lg:34px; --bd:2.5px;
+  --shadow:5px 6px 0 #E4D6F7; --shadow-sm:3px 3px 0 #EBDFFA;
+  --grain:.03; --glow:none;
+}
+/* ---- Cyber ---- */
+[data-theme="cyber"]{
+  --bg:#0A0C16; --bg-2:#101325; --surface:#151A2E; --surface-2:#1B2138;
+  --ink:#E9EEFF; --ink-soft:#9AA4CC; --mute:#6E7AA6;
+  --line:#2B3257; --line-soft:#222845;
+  --primary:#2FE7CE; --primary-ink:#04201C;
+  --c1:#FF4D9D; --c2:#C6FF4D; --c3:#38D1FF; --c4:#8A6CFF; --c5:#FFD23D;
+  --radius:10px; --radius-lg:16px; --bd:1.5px;
+  --shadow:0 0 0 transparent; --shadow-sm:0 0 0 transparent;
+  --grain:.07; --glow:0 0 22px;
+}
+/* ---- Professional ---- */
+[data-theme="professional"]{
+  --bg:#F3F6FB; --bg-2:#FFFFFF; --surface:#FFFFFF; --surface-2:#F7F9FD;
+  --ink:#1B2536; --ink-soft:#5C6880; --mute:#94A0B6;
+  --line:#DEE5F0; --line-soft:#EBEFF6;
+  --primary:#2D5BFF; --primary-ink:#FFFFFF;
+  --c1:#1FA39C; --c2:#2D5BFF; --c3:#6B7A99; --c4:#0FB5A0; --c5:#3F6BFF;
+  --radius:12px; --radius-lg:18px; --bd:1.5px;
+  --shadow:0 8px 24px rgba(22,34,64,.09); --shadow-sm:0 3px 12px rgba(22,34,64,.07);
+  --grain:.015; --glow:none;
+}
+/* ---- Playful ---- */
+[data-theme="playful"]{
+  --bg:#FFF2CF; --bg-2:#FFF9E6; --surface:#FFFFFF; --surface-2:#FFF6DA;
+  --ink:#221E16; --ink-soft:#6B6048; --mute:#9C8F6E;
+  --line:#221E16; --line-soft:#F0E4BC;
+  --primary:#FF3E8F; --primary-ink:#FFFFFF;
+  --c1:#FFD028; --c2:#34C7FF; --c3:#6BE06B; --c4:#FF6B3D; --c5:#B36BFF;
+  --radius:20px; --radius-lg:32px; --bd:3px;
+  --shadow:6px 6px 0 #221E16; --shadow-sm:3px 3px 0 #221E16;
+  --grain:.05; --glow:none;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-body);
+  background:
+    radial-gradient(900px 500px at 88% -10%, color-mix(in srgb, var(--c1) 26%, transparent), transparent 60%),
+    radial-gradient(820px 520px at -8% 12%, color-mix(in srgb, var(--c4) 20%, transparent), transparent 60%),
+    radial-gradient(700px 600px at 50% 120%, color-mix(in srgb, var(--c2) 16%, transparent), transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+  transition:background .4s ease, color .4s ease;
+}
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:9000;
+  opacity:var(--grain); mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+h1,h2,h3,h4,.disp{font-family:var(--font-display);margin:0;line-height:1.02;letter-spacing:-.01em}
+.mono{font-family:var(--font-mono)}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+img{max-width:100%;display:block}
+.wrap{max-width:1240px;margin:0 auto;padding:0 26px}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:var(--bd) solid var(--line);
+  background:var(--surface);color:var(--ink);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;
+  box-shadow:var(--shadow-sm);transition:transform .09s ease, box-shadow .09s ease, filter .15s ease;white-space:nowrap}
+.btn:hover{transform:translate(-1px,-1px)}
+.btn:active{transform:translate(2px,2px);box-shadow:none}
+.btn-primary{background:var(--primary);color:var(--primary-ink);border-color:var(--line);box-shadow:var(--shadow), var(--glow) color-mix(in srgb,var(--primary) 55%, transparent)}
+.btn-ghost{background:transparent;box-shadow:none;border-color:var(--line-soft)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-lg{font-size:17px;padding:15px 26px}
+.btn-sm{font-size:13px;padding:8px 14px;border-width:2px}
+
+/* ---------- topbar ---------- */
+.topbar{position:sticky;top:0;z-index:500;backdrop-filter:blur(8px);
+  background:color-mix(in srgb, var(--bg) 78%, transparent);border-bottom:var(--bd) solid var(--line-soft)}
+.topbar .inner{max-width:1240px;margin:0 auto;padding:13px 26px;display:flex;align-items:center;gap:18px}
+.logo{display:flex;align-items:center;gap:11px;cursor:pointer}
+.logo .mark{width:42px;height:42px;border-radius:13px;background:var(--primary);border:var(--bd) solid var(--line);
+  box-shadow:var(--shadow-sm), var(--glow) color-mix(in srgb,var(--primary) 50%, transparent);display:grid;place-items:center;transform:rotate(-5deg)}
+.logo .word{font-family:var(--font-display);font-weight:800;font-size:30px;letter-spacing:-.03em;color:var(--ink)}
+.nav{display:flex;align-items:center;gap:4px;margin-left:8px}
+.navlink{padding:9px 15px;border-radius:999px;font-weight:600;font-size:15px;color:var(--ink-soft);transition:background .12s,color .12s}
+.navlink:hover{background:var(--surface-2);color:var(--ink)}
+.navlink.on{color:var(--ink);background:var(--surface);box-shadow:var(--shadow-sm);border:var(--bd) solid var(--line-soft)}
+.bar-spacer{flex:1}
+.joinmini{display:flex;align-items:center;border:var(--bd) solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-sm)}
+.joinmini input{border:none;outline:none;background:transparent;font-family:var(--font-mono);font-weight:500;font-size:14px;
+  padding:9px 6px 9px 15px;width:96px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink)}
+.joinmini input::placeholder{color:var(--mute);letter-spacing:.16em}
+.joinmini button{border:none;background:var(--ink);color:var(--bg);font-weight:700;padding:0 15px;align-self:stretch;font-size:13px}
+.themebar{display:flex;align-items:center;gap:7px}
+.themebar .lbl{font-family:var(--font-mono);font-size:11px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
+.swatch{width:22px;height:22px;border-radius:7px;border:2px solid var(--line);cursor:pointer;transition:transform .1s;padding:0}
+.swatch:hover{transform:scale(1.15)}
+.swatch.on{outline:3px solid var(--ink);outline-offset:1px}
+.sw-doot{background:linear-gradient(135deg,#FF5A33,#FFC53D)}
+.sw-cutesie{background:linear-gradient(135deg,#B98CFF,#FFA6D5)}
+.sw-cyber{background:linear-gradient(135deg,#2FE7CE,#FF4D9D)}
+.sw-professional{background:linear-gradient(135deg,#2D5BFF,#1FA39C)}
+.sw-playful{background:linear-gradient(135deg,#FF3E8F,#FFD028)}
+.avatar{width:40px;height:40px;border-radius:50%;border:var(--bd) solid var(--line);display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:800;font-size:17px;color:#fff;box-shadow:var(--shadow-sm);cursor:pointer}
+
+/* ---------- pages ---------- */
+.page{display:none;animation:fade .35s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.section{padding:46px 0}
+.kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--primary);font-weight:500}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+.section-head h2{font-size:34px;font-weight:800}
+.section-head .more{font-weight:700;color:var(--ink-soft);font-size:14px}
+.section-head .more:hover{color:var(--primary)}
+
+/* ---------- hero ---------- */
+.hero{padding:54px 0 30px;display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.hero .tag{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:var(--bd) solid var(--line);
+  border-radius:999px;padding:7px 15px;font-weight:700;font-size:13px;box-shadow:var(--shadow-sm);margin-bottom:20px}
+.hero .tag i{width:9px;height:9px;border-radius:50%;background:var(--c5);box-shadow:0 0 0 4px color-mix(in srgb,var(--c5) 35%,transparent)}
+.hero h1{font-size:clamp(44px,6vw,74px);font-weight:800;letter-spacing:-.025em}
+.hero h1 .hl{color:var(--primary)}
+.hero p.lead{font-size:19px;line-height:1.5;color:var(--ink-soft);margin:20px 0 28px;max-width:46ch}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.joinbig{display:flex;align-items:center;border:var(--bd) solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+.joinbig input{border:none;outline:none;background:transparent;font-family:var(--font-mono);font-weight:500;font-size:18px;
+  padding:14px 8px 14px 22px;width:140px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink)}
+.joinbig input::placeholder{color:var(--mute)}
+.joinbig button{border:none;background:var(--ink);color:var(--bg);font-weight:800;padding:0 24px;align-self:stretch;font-size:15px}
+.hero-foot{margin-top:20px;display:flex;align-items:center;gap:18px;color:var(--ink-soft);font-size:14px;font-weight:600}
+.facepile{display:flex}
+.facepile span{width:30px;height:30px;border-radius:50%;border:2.5px solid var(--bg);margin-left:-9px;display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:800;font-size:12px;color:#fff}
+.facepile span:first-child{margin-left:0}
+
+/* hero visual: a mock big screen + phone */
+.hero-vis{position:relative;min-height:380px}
+.screen{position:absolute;inset:6% 12% 18% 0;background:var(--surface);border:var(--bd) solid var(--line);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow), var(--glow) color-mix(in srgb,var(--c3) 30%, transparent);overflow:hidden;transform:rotate(-2deg)}
+.screen .scr-top{height:34px;background:var(--surface-2);border-bottom:var(--bd) solid var(--line-soft);display:flex;align-items:center;gap:6px;padding:0 14px}
+.scr-top i{width:9px;height:9px;border-radius:50%;background:var(--line-soft)}
+.scr-body{padding:18px 18px 0;display:flex;flex-direction:column;gap:11px}
+.scr-q{font-family:var(--font-display);font-weight:800;font-size:21px;line-height:1.05}
+.scr-img{height:84px;border-radius:12px;border:var(--bd) solid var(--line-soft);background:
+  linear-gradient(135deg,var(--c4),var(--c3));position:relative;overflow:hidden}
+.scr-img::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.5) 1.5px,transparent 1.6px);background-size:13px 13px;opacity:.5}
+.scr-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scr-opt{display:flex;align-items:center;gap:8px;border:var(--bd) solid var(--line-soft);border-radius:11px;padding:8px 10px;font-weight:700;font-size:13px;position:relative;overflow:hidden}
+.scr-opt b{width:22px;height:22px;border-radius:7px;background:var(--surface-2);display:grid;place-items:center;font-family:var(--font-display);font-size:13px;flex:none}
+.scr-opt .fill{position:absolute;inset:0 auto 0 0;background:color-mix(in srgb,var(--primary) 20%,transparent);z-index:-0}
+.scr-opt span{position:relative}
+.phone{position:absolute;right:-2%;bottom:0;width:118px;height:228px;background:var(--ink);border-radius:26px;padding:8px;
+  box-shadow:var(--shadow);transform:rotate(6deg)}
+.phone .pscr{width:100%;height:100%;background:var(--primary);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:14px;text-align:center}
+.phone .pscr .ttl{font-family:var(--font-display);font-weight:800;color:var(--primary-ink);font-size:15px;line-height:1.05}
+.phone .pscr .opt{width:100%;background:rgba(255,255,255,.92);border-radius:11px;padding:9px;font-weight:800;font-size:12px;color:#241910}
+.phone .pscr .opt.sel{background:var(--ink);color:#fff}
+.float-badge{position:absolute;background:var(--surface);border:var(--bd) solid var(--line);border-radius:14px;padding:8px 12px;
+  box-shadow:var(--shadow-sm);font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+.fb-1{top:2%;left:8%;transform:rotate(-6deg);color:var(--c2)}
+.fb-2{bottom:6%;left:2%;transform:rotate(5deg);color:var(--c3)}
+
+/* ---------- game cards ---------- */
+.rail{display:flex;gap:18px;overflow-x:auto;padding:6px 2px 16px;scroll-snap-type:x mandatory}
+.rail::-webkit-scrollbar{height:8px}
+.rail::-webkit-scrollbar-thumb{background:var(--line-soft);border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:20px}
+.card{background:var(--surface);border:var(--bd) solid var(--line);border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:var(--shadow-sm);transition:transform .12s ease, box-shadow .12s ease;cursor:pointer;min-width:248px;scroll-snap-align:start}
+.card:hover{transform:translate(-2px,-3px);box-shadow:var(--shadow), var(--glow) color-mix(in srgb,var(--primary) 30%,transparent)}
+.cover{height:150px;position:relative;overflow:hidden;border-bottom:var(--bd) solid var(--line)}
+.cover .ini{position:absolute;right:-6px;bottom:-22px;font-family:var(--font-display);font-weight:800;font-size:120px;color:rgba(255,255,255,.22);line-height:1}
+.cover .motif{position:absolute;inset:0}
+.cover .live{position:absolute;top:10px;left:10px;background:var(--ink);color:var(--bg);font-family:var(--font-mono);font-size:10px;font-weight:500;
+  letter-spacing:.08em;padding:4px 9px;border-radius:999px;display:flex;align-items:center;gap:6px}
+.cover .live i{width:7px;height:7px;border-radius:50%;background:var(--c5);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.3}}
+.card-body{padding:14px 15px 16px}
+.card-title{font-family:var(--font-display);font-weight:800;font-size:19px;line-height:1.05;margin-bottom:9px}
+.card-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.badge{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.04em;padding:4px 9px;border-radius:999px;border:2px solid var(--line-soft);color:var(--ink-soft)}
+.badge.type{background:var(--ink);color:var(--bg);border-color:var(--line)}
+.card-foot{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--ink-soft)}
+.card-foot .by{display:flex;align-items:center;gap:7px;font-weight:600}
+.card-foot .by .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:11px;color:#fff}
+.card-foot .plays{font-family:var(--font-mono);font-size:12px;font-weight:500}
+
+/* ---------- vibe tiles ---------- */
+.vibes{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.vibe{border:var(--bd) solid var(--line);border-radius:var(--radius);padding:18px;background:var(--surface);box-shadow:var(--shadow-sm);
+  cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden;min-height:118px;display:flex;flex-direction:column;justify-content:flex-end}
+.vibe:hover{transform:translate(-2px,-2px);box-shadow:var(--shadow)}
+.vibe .vi{position:absolute;top:14px;right:14px;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;border:var(--bd) solid var(--line)}
+.vibe h4{font-size:21px;font-weight:800}
+.vibe p{font-size:13px;color:var(--ink-soft);font-weight:600;margin:3px 0 0}
+
+/* ---------- steps ---------- */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.step{background:var(--surface);border:var(--bd) solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm)}
+.step .n{width:44px;height:44px;border-radius:12px;background:var(--primary);color:var(--primary-ink);border:var(--bd) solid var(--line);
+  display:grid;place-items:center;font-family:var(--font-display);font-weight:800;font-size:22px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.step h4{font-size:20px;font-weight:800;margin-bottom:7px}
+.step p{font-size:15px;color:var(--ink-soft);line-height:1.5}
+
+/* ---------- toolbar (explore) ---------- */
+.toolbar{display:flex;flex-direction:column;gap:16px;margin-bottom:26px}
+.searchrow{display:flex;gap:12px;flex-wrap:wrap}
+.search{flex:1;min-width:240px;display:flex;align-items:center;gap:10px;background:var(--surface);border:var(--bd) solid var(--line);
+  border-radius:999px;padding:13px 20px;box-shadow:var(--shadow-sm)}
+.search input{border:none;outline:none;background:transparent;font-size:16px;font-weight:600;width:100%;color:var(--ink)}
+.search input::placeholder{color:var(--mute)}
+.search svg{flex:none;color:var(--ink-soft)}
+.chips{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.chip{border:var(--bd) solid var(--line-soft);background:var(--surface);border-radius:999px;padding:8px 15px;font-weight:700;font-size:13px;color:var(--ink-soft);transition:all .12s}
+.chip:hover{border-color:var(--line);color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--line)}
+.chip-grp{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding-right:8px;border-right:2px solid var(--line-soft)}
+.chip-grp:last-child{border-right:none}
+.filter-lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);align-self:center;margin-right:2px}
+
+/* ---------- featured banner ---------- */
+.feature{border:var(--bd) solid var(--line);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);margin-bottom:30px;
+  display:grid;grid-template-columns:1.1fr 1fr;background:var(--surface);position:relative}
+.feature .fcontent{padding:34px}
+.feature .fkick{font-family:var(--font-mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--primary);font-weight:500}
+.feature h2{font-size:38px;font-weight:800;margin:10px 0 12px;letter-spacing:-.02em}
+.feature p{font-size:16px;color:var(--ink-soft);line-height:1.5;margin-bottom:20px;max-width:42ch}
+.feature .fart{position:relative;min-height:260px;overflow:hidden}
+
+/* ---------- detail ---------- */
+.detail-top{display:grid;grid-template-columns:1.15fr 1fr;gap:36px;padding:34px 0;align-items:start}
+.detail-cover{border:var(--bd) solid var(--line);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);height:320px;position:relative}
+.detail-info h1{font-size:46px;font-weight:800;letter-spacing:-.02em;line-height:1.0}
+.detail-by{display:flex;align-items:center;gap:10px;margin:16px 0;font-weight:700;color:var(--ink-soft);cursor:pointer}
+.detail-by .dot{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-display);font-weight:800;color:#fff;border:var(--bd) solid var(--line)}
+.detail-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.detail-desc{font-size:17px;line-height:1.55;color:var(--ink-soft);margin-bottom:24px}
+.detail-stats{display:flex;gap:26px;margin-bottom:26px}
+.detail-stats .st .v{font-family:var(--font-display);font-weight:800;font-size:28px}
+.detail-stats .st .l{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.detail-cta{display:flex;gap:12px;flex-wrap:wrap}
+.rounds-prev{display:flex;flex-direction:column;gap:10px}
+.rprev{display:flex;align-items:center;gap:14px;background:var(--surface);border:var(--bd) solid var(--line-soft);border-radius:var(--radius);padding:14px 16px}
+.rprev .rn{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-family:var(--font-display);font-weight:800;flex:none}
+.rprev .rt{font-weight:800;font-size:16px}
+.rprev .rd{font-size:13px;color:var(--ink-soft)}
+.rprev .rtype{margin-left:auto}
+
+/* ---------- profile ---------- */
+.pf-banner{height:170px;border-radius:var(--radius-lg);border:var(--bd) solid var(--line);overflow:hidden;position:relative;box-shadow:var(--shadow-sm);margin-top:24px}
+.pf-head{display:flex;align-items:flex-end;gap:22px;margin:-46px 0 0 26px;position:relative}
+.pf-ava{width:108px;height:108px;border-radius:28px;border:var(--bd) solid var(--line);display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:800;font-size:46px;color:#fff;box-shadow:var(--shadow);flex:none}
+.pf-id{padding-bottom:8px;flex:1}
+.pf-id h1{font-size:34px;font-weight:800}
+.pf-id .handle{font-family:var(--font-mono);color:var(--ink-soft);font-size:14px;margin-top:2px}
+.pf-bio{margin:18px 0 8px;font-size:16px;color:var(--ink-soft);line-height:1.5;max-width:62ch}
+.pf-stats{display:flex;gap:30px;margin:20px 0 26px}
+.pf-stats .st .v{font-family:var(--font-display);font-weight:800;font-size:26px}
+.pf-stats .st .l{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.tabs{display:flex;gap:8px;border-bottom:var(--bd) solid var(--line-soft);margin-bottom:24px}
+.tab{padding:11px 18px;font-weight:800;font-size:15px;color:var(--ink-soft);border-bottom:3px solid transparent;margin-bottom:-2.5px;cursor:pointer}
+.tab.on{color:var(--ink);border-bottom-color:var(--primary)}
+
+/* ---------- create ---------- */
+.create-head{text-align:center;padding:40px 0 8px}
+.create-head h1{font-size:46px;font-weight:800;letter-spacing:-.02em}
+.create-head p{font-size:18px;color:var(--ink-soft);margin-top:12px}
+.typegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;padding:14px 0 40px}
+.typecard{background:var(--surface);border:var(--bd) solid var(--line);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow-sm);
+  transition:transform .12s,box-shadow .12s;position:relative;overflow:hidden}
+.typecard:hover{transform:translate(-2px,-3px);box-shadow:var(--shadow)}
+.typecard .ti{width:54px;height:54px;border-radius:15px;display:grid;place-items:center;border:var(--bd) solid var(--line);margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.typecard h3{font-size:23px;font-weight:800;margin-bottom:7px}
+.typecard p{font-size:14px;color:var(--ink-soft);line-height:1.5;margin-bottom:18px;min-height:62px}
+.typecard .tfoot{display:flex;align-items:center;justify-content:space-between}
+.typecard .tfoot .cap{font-family:var(--font-mono);font-size:11px;color:var(--mute);letter-spacing:.06em}
+.external{grid-column:1/-1;border:var(--bd) dashed var(--line);border-radius:var(--radius-lg);padding:24px;display:flex;align-items:center;gap:22px;background:var(--surface-2);flex-wrap:wrap}
+.external .ex-i{width:50px;height:50px;border-radius:14px;border:var(--bd) solid var(--line);display:grid;place-items:center;background:var(--surface);flex:none}
+.external h3{font-size:21px;font-weight:800}
+.external p{font-size:14px;color:var(--ink-soft);margin-top:4px;max-width:52ch}
+.external .ex-form{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.external .ex-form input{border:var(--bd) solid var(--line);border-radius:999px;padding:11px 18px;font-family:var(--font-mono);font-size:13px;
+  background:var(--surface);color:var(--ink);outline:none;min-width:280px}
+
+/* ---------- footer ---------- */
+.footer{border-top:var(--bd) solid var(--line-soft);margin-top:30px;padding:36px 0}
+.footer .frow{display:flex;justify-content:space-between;gap:30px;flex-wrap:wrap;align-items:flex-start}
+.footer .fcol h5{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:0 0 12px}
+.footer .fcol a{display:block;color:var(--ink-soft);font-weight:600;font-size:14px;padding:4px 0}
+.footer .fcol a:hover{color:var(--primary)}
+.footer .fnote{margin-top:24px;font-size:13px;color:var(--mute);font-family:var(--font-mono)}
+
+/* svg icon stroke */
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.ic-lg{width:26px;height:26px}
+
+@media (max-width:980px){
+  .hero{grid-template-columns:1fr;gap:30px}
+  .hero-vis{min-height:330px}
+  .detail-top{grid-template-columns:1fr}
+  .feature{grid-template-columns:1fr}
+  .feature .fart{min-height:180px}
+  .steps{grid-template-columns:1fr}
+  .nav{display:none}
+}
+@media (max-width:620px){
+  .joinmini{display:none}
+  .section-head h2{font-size:26px}
+  .pf-head{margin-left:0;flex-direction:column;align-items:flex-start}
+}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ============ TOPBAR ============ -->
+<header class="topbar">
+  <div class="inner">
+    <div class="logo" onclick="go('home')">
+      <span class="mark">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="10" r="3.1" fill="#fff"/><circle cx="16" cy="10" r="3.1" fill="#fff"/><circle cx="8" cy="10" r="1.2" fill="#241910"/><circle cx="16" cy="10" r="1.2" fill="#241910"/><path d="M7 16c1.6 1.6 8.4 1.6 10 0" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="word">doot</span>
+    </div>
+    <nav class="nav">
+      <a class="navlink" data-nav="home" onclick="go('home')">Home</a>
+      <a class="navlink" data-nav="explore" onclick="go('explore')">Explore</a>
+      <a class="navlink" data-nav="create" onclick="go('create')">Create</a>
+    </nav>
+    <div class="bar-spacer"></div>
+    <div class="joinmini">
+      <input id="joincode-mini" placeholder="CODE" maxlength="4">
+      <button onclick="fakeJoin()">Join</button>
+    </div>
+    <div class="themebar">
+      <span class="lbl">theme</span>
+      <button class="swatch sw-doot on" data-theme-btn="doot" title="Doot" onclick="setTheme('doot')"></button>
+      <button class="swatch sw-cutesie" data-theme-btn="cutesie" title="Cutesie" onclick="setTheme('cutesie')"></button>
+      <button class="swatch sw-cyber" data-theme-btn="cyber" title="Cyber" onclick="setTheme('cyber')"></button>
+      <button class="swatch sw-professional" data-theme-btn="professional" title="Professional" onclick="setTheme('professional')"></button>
+      <button class="swatch sw-playful" data-theme-btn="playful" title="Playful" onclick="setTheme('playful')"></button>
+    </div>
+    <div id="auth-slot"></div>
+  </div>
+</header>
+
+<!-- ============ HOME ============ -->
+<main id="page-home" class="page active">
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-text">
+        <span class="tag"><i></i> Live now: 312 rooms playing</span>
+        <h1>Put a game on the <span class="hl">big screen.</span> Everyone joins from their phone.</h1>
+        <p class="lead">Doot runs party games for any room. Host trivia at the bar, guess characters at a con panel, run a live poll in class, or start something silly on the TV. No app to install, no account to play.</p>
+        <div class="hero-cta">
+          <div class="joinbig">
+            <input id="joincode-hero" placeholder="ENTER CODE" maxlength="4">
+            <button onclick="fakeJoin()">Join</button>
+          </div>
+          <button class="btn btn-primary btn-lg" onclick="go('explore')">Browse games</button>
+        </div>
+        <div class="hero-foot">
+          <div class="facepile">
+            <span style="background:#FF5A33">K</span><span style="background:#16C8B5">D</span><span style="background:#5B79FF">S</span><span style="background:#FF73B3">M</span>
+          </div>
+          <span>Hosted by panelists, bartenders, teachers, and friends</span>
+        </div>
+      </div>
+      <div class="hero-vis">
+        <div class="float-badge fb-1"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg> Correct! +1</div>
+        <div class="screen">
+          <div class="scr-top"><i></i><i></i><i></i></div>
+          <div class="scr-body">
+            <div class="scr-q">Who is this character?</div>
+            <div class="scr-img"></div>
+            <div class="scr-opts">
+              <div class="scr-opt"><span class="fill" style="width:64%"></span><b>A</b><span>Sailor</span></div>
+              <div class="scr-opt"><b>B</b><span>Knight</span></div>
+              <div class="scr-opt"><b>C</b><span>Witch</span></div>
+              <div class="scr-opt"><b>D</b><span>Pilot</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="pscr">
+            <div class="ttl">Tap your answer</div>
+            <div class="opt sel">A. Sailor</div>
+            <div class="opt">B. Knight</div>
+            <div class="opt">C. Witch</div>
+          </div>
+        </div>
+        <div class="float-badge fb-2"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg> 28 voted</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><span class="kicker">Hot right now</span><h2>Trending games</h2></div>
+        <a class="more" onclick="go('explore')">See all &rarr;</a>
+      </div>
+      <div class="rail" id="rail-trending"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><span class="kicker">Pick a lane</span><h2>Browse by vibe</h2></div>
+      </div>
+      <div class="vibes" id="vibe-grid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><span class="kicker">New this week</span><h2>Fresh from creators</h2></div>
+        <a class="more" onclick="go('explore')">See all &rarr;</a>
+      </div>
+      <div class="rail" id="rail-new"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><span class="kicker">Three steps</span><h2>How Doot works</h2></div></div>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h4>Pick or make a game</h4><p>Grab one from Explore or build your own with the editor. Choose a theme that styles the lobby and the whole game.</p></div>
+        <div class="step"><div class="n">2</div><h4>Put it on the big screen</h4><p>Open it on a TV, a projector, or a shared laptop. A join code and QR appear for the room.</p></div>
+        <div class="step"><div class="n">3</div><h4>Everyone plays along</h4><p>The crowd joins from their phones, answers each round, and the results pop on screen. No app, no sign-in to play.</p></div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="frow">
+        <div class="logo" style="cursor:default">
+          <span class="mark"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="10" r="3.1" fill="#fff"/><circle cx="16" cy="10" r="3.1" fill="#fff"/><circle cx="8" cy="10" r="1.2" fill="#241910"/><circle cx="16" cy="10" r="1.2" fill="#241910"/><path d="M7 16c1.6 1.6 8.4 1.6 10 0" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+          <span class="word">doot</span>
+        </div>
+        <div class="fcol"><h5>Play</h5><a onclick="go('explore')">Explore games</a><a onclick="go('explore')">Trending</a><a onclick="go('explore')">New releases</a></div>
+        <div class="fcol"><h5>Create</h5><a onclick="go('create')">Make a game</a><a onclick="go('create')">Game types</a><a onclick="go('create')">Link your plugin</a></div>
+        <div class="fcol"><h5>About</h5><a>Open source</a><a>Self-host</a><a>Built on CLASP</a></div>
+      </div>
+      <div class="fnote">doot.games, a home for collaborative party games. Host on a screen, play on a phone.</div>
+    </div>
+  </footer>
+</main>
+
+<!-- ============ EXPLORE ============ -->
+<main id="page-explore" class="page">
+  <div class="wrap">
+    <section class="section" style="padding-top:34px">
+      <div class="section-head" style="margin-bottom:18px">
+        <div><span class="kicker">Discover</span><h2>Explore games</h2></div>
+      </div>
+
+      <div class="toolbar">
+        <div class="searchrow">
+          <div class="search">
+            <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input placeholder="Search games, creators, or topics">
+          </div>
+          <button class="btn btn-ghost"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg> Sort: Trending</button>
+        </div>
+        <div class="chips">
+          <div class="chip-grp">
+            <span class="filter-lbl">Type</span>
+            <button class="chip on" onclick="toggleChip(this)">All</button>
+            <button class="chip" onclick="toggleChip(this)">Guess</button>
+            <button class="chip" onclick="toggleChip(this)">Rate</button>
+            <button class="chip" onclick="toggleChip(this)">Draw</button>
+            <button class="chip" onclick="toggleChip(this)">Quiz</button>
+            <button class="chip" onclick="toggleChip(this)">Poll</button>
+            <button class="chip" onclick="toggleChip(this)">Rank</button>
+          </div>
+          <div class="chip-grp">
+            <span class="filter-lbl">Theme</span>
+            <button class="chip" onclick="toggleChip(this)">Cutesie</button>
+            <button class="chip" onclick="toggleChip(this)">Cyber</button>
+            <button class="chip" onclick="toggleChip(this)">Professional</button>
+            <button class="chip" onclick="toggleChip(this)">Playful</button>
+          </div>
+          <div class="chip-grp">
+            <span class="filter-lbl">For</span>
+            <button class="chip" onclick="toggleChip(this)">Con panels</button>
+            <button class="chip" onclick="toggleChip(this)">Bar night</button>
+            <button class="chip" onclick="toggleChip(this)">Classroom</button>
+            <button class="chip" onclick="toggleChip(this)">Friends</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature" id="feature-banner"></div>
+
+      <div class="grid" id="explore-grid"></div>
+    </section>
+  </div>
+  <div style="height:30px"></div>
+</main>
+
+<!-- ============ GAME DETAIL ============ -->
+<main id="page-detail" class="page">
+  <div class="wrap">
+    <div style="padding-top:26px"><button class="btn btn-ghost btn-sm" onclick="go('explore')"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M15 18l-6-6 6-6"/></svg> Back to explore</button></div>
+    <section class="detail-top" id="detail-top"></section>
+    <section class="section" style="padding-top:10px">
+      <div class="section-head"><div><span class="kicker">What is inside</span><h2>Round preview</h2></div></div>
+      <div class="rounds-prev" id="detail-rounds"></div>
+    </section>
+    <section class="section">
+      <div class="section-head"><div><span class="kicker">Keep going</span><h2>More like this</h2></div></div>
+      <div class="rail" id="detail-similar"></div>
+    </section>
+  </div>
+  <div style="height:24px"></div>
+</main>
+
+<!-- ============ PROFILE ============ -->
+<main id="page-profile" class="page">
+  <div class="wrap">
+    <div class="pf-banner" id="pf-banner"></div>
+    <div class="pf-head" id="pf-head"></div>
+    <div class="pf-bio" id="pf-bio"></div>
+    <div class="pf-stats" id="pf-stats"></div>
+    <div class="tabs">
+      <div class="tab on">Games</div>
+      <div class="tab">Liked</div>
+      <div class="tab">About</div>
+    </div>
+    <div class="grid" id="pf-grid" style="margin-bottom:40px"></div>
+  </div>
+</main>
+
+<!-- ============ CREATE ============ -->
+<main id="page-create" class="page">
+  <div class="wrap">
+    <div class="create-head">
+      <span class="kicker">Build something</span>
+      <h1>Start a new game</h1>
+      <p>Pick a game type to open the editor. Add your content, choose a theme, and publish to Explore when you are ready.</p>
+    </div>
+    <div class="typegrid" id="type-grid"></div>
+  </div>
+  <div style="height:30px"></div>
+</main>
+
+<script>
+"use strict";
+
+/* ---------------- mock data ---------------- */
+var ACCENTS = ["var(--primary)","var(--c1)","var(--c2)","var(--c3)","var(--c4)","var(--c5)"];
+var HEX = { "var(--primary)":"#FF5A33","var(--c1)":"#FFC53D","var(--c2)":"#16C8B5","var(--c3)":"#FF73B3","var(--c4)":"#5B79FF","var(--c5)":"#7DD957" };
+
+var TYPES = {
+  guess:{label:"Guess",ink:"#5B79FF"}, rate:{label:"Rate",ink:"#FF73B3"}, draw:{label:"Draw",ink:"#16C8B5"},
+  quiz:{label:"Quiz",ink:"#FF5A33"}, poll:{label:"Poll",ink:"#7DD957"}, rank:{label:"Rank",ink:"#FFC53D"}, buzz:{label:"Buzz",ink:"#B36BFF"}
+};
+
+var PEOPLE = {
+  "kira.draws":{name:"Kira Tanaka", a:"#FF73B3", bio:"New media artist and convention panel host. I make guess-the-character and drawing games for anime cons. Come play at my panels.", made:9, plays:"48.2k", hosted:341, likes:"6.1k", banner:["#FF73B3","#5B79FF"]},
+  "barkeep.dan":{name:"Dan Okafor", a:"#FF5A33", bio:"Run trivia three nights a week at a bar in Oakland. Movie rounds, music rounds, and a little chaos.", made:14, plays:"31.7k", hosted:512, likes:"4.3k", banner:["#FF5A33","#FFC53D"]},
+  "prof.wong":{name:"Dr. Mei Wong", a:"#2D5BFF", bio:"Lecturer. I use live polls and quick quizzes to keep a 200-seat hall awake. Opinion questions work better than I expected.", made:6, plays:"12.9k", hosted:198, likes:"1.8k", banner:["#2D5BFF","#16C8B5"]},
+  "sketchy.sam":{name:"Sam Rivera", a:"#16C8B5", bio:"Illustrator. Drawing games where the whole room draws and we vote on the funniest one. Bring a stylus or just a finger.", made:11, plays:"60.4k", hosted:407, likes:"8.0k", banner:["#16C8B5","#7DD957"]}
+};
+
+var GAMES = [
+  {id:"g1", title:"Guess That Character", type:"guess", theme:"cutesie", by:"kira.draws", plays:"12.4k", live:7, acc:"var(--c4)", motif:"q", desc:"Four options, one mystery character, optional image clues. Built for anime and comic panels. Crank the timer for chaos or leave it off for a chill round.", rounds:[["Character round","4 options, image clue, 20s","guess"],["Lightning round","No timer, harder picks","guess"],["Final reveal","Who scored highest","rate"]]},
+  {id:"g2", title:"Cosplay Rate-Off", type:"rate", theme:"playful", by:"kira.draws", plays:"8.1k", live:3, acc:"var(--c3)", motif:"star", desc:"Rate each cosplay on craft, accuracy, and stage presence on a scale you choose. The room crowns a top pick per category at the end.", rounds:[["Rate the craft","1 to 10, three categories","rate"],["Rate the entrance","Pose and presence","rate"],["The awards","Top rated per category","rate"]]},
+  {id:"g3", title:"Draw the Prompt", type:"draw", theme:"playful", by:"sketchy.sam", plays:"21.0k", live:12, acc:"var(--c2)", motif:"squiggle", desc:"Everyone gets the same prompt and draws it on their phone. Drawings land on the big screen and the room votes for a favorite. Sketches are ephemeral and never stored.", rounds:[["The prompt","Draw it in 60s","draw"],["The gallery","All drawings on screen","draw"],["Crowd favorite","Vote for the best","poll"]]},
+  {id:"g4", title:"Pub Quiz: Cinema", type:"quiz", theme:"cyber", by:"barkeep.dan", plays:"5.6k", live:5, acc:"var(--primary)", motif:"grid", desc:"A six-round movie quiz tuned for a noisy bar. Teams buzz in, the leaderboard updates live, and the last round is worth double.", rounds:[["Opening shots","Easy warmup","quiz"],["Quote round","Who said it","guess"],["Double points","Final round","quiz"]]},
+  {id:"g5", title:"Hot Takes", type:"poll", theme:"professional", by:"prof.wong", plays:"3.2k", live:2, acc:"var(--c5)", motif:"bars", desc:"Opinion questions with no right answer. The live distribution appears on reveal, which makes a great discussion starter for a lecture or a meeting.", rounds:[["Warm up","Light opinion","poll"],["The debate","Split the room","poll"],["Where we landed","Final tally","poll"]]},
+  {id:"g6", title:"Rank the Snacks", type:"rank", theme:"cutesie", by:"sketchy.sam", plays:"9.9k", live:4, acc:"var(--c1)", motif:"rank", desc:"Drag a set of snacks into your personal order. Doot aggregates the room into one ranking and shows where you disagreed the most.", rounds:[["Your order","Drag to rank","rank"],["The consensus","Room ranking","rank"],["Biggest fight","Most divisive pick","poll"]]},
+  {id:"g7", title:"Who Said It: Villain Edition", type:"guess", theme:"cyber", by:"barkeep.dan", plays:"7.3k", live:6, acc:"var(--c4)", motif:"q", desc:"A quote appears. Guess which villain said it. Gets harder every round and the soundtrack on the host screen sets the mood.", rounds:[["Easy lines","Four suspects","guess"],["Deep cuts","Obscure quotes","guess"],["Boss round","No mercy","guess"]]},
+  {id:"g8", title:"Anatomy Pop Quiz", type:"quiz", theme:"professional", by:"prof.wong", plays:"1.8k", live:1, acc:"var(--primary)", motif:"grid", desc:"A labeled diagram quiz for a lecture hall. Clean theme, fast rounds, and a results page that shows which questions tripped the class up.", rounds:[["Label it","Diagram round","guess"],["Quick recall","Timed terms","quiz"],["Class results","What to review","poll"]]},
+  {id:"g9", title:"Lobby Karaoke Sketch", type:"draw", theme:"cutesie", by:"kira.draws", plays:"4.5k", live:2, acc:"var(--c2)", motif:"squiggle", desc:"Draw the song that is playing on the host screen while the lobby music sets the vibe. Soft theme, gentle chaos.", rounds:[["Name that tune","Draw the song","draw"],["Show and tell","Gallery","draw"],["Best sketch","Vote","poll"]]},
+  {id:"g10", title:"Speed Buzz Trivia", type:"buzz", theme:"playful", by:"barkeep.dan", plays:"11.2k", live:9, acc:"var(--c5)", motif:"burst", desc:"First correct answer takes the points. Fastest fingers win. A loud, quick format that works great between bigger rounds at the bar.", rounds:[["Round one","Fast buzz","buzz"],["Round two","Faster buzz","buzz"],["Sudden death","Winner takes it","buzz"]]},
+  {id:"g11", title:"Two Truths Showdown", type:"guess", theme:"playful", by:"sketchy.sam", plays:"6.7k", live:3, acc:"var(--c3)", motif:"q", desc:"Players submit statements and the room guesses which is the lie. Late joiners only vote on rounds from when they joined.", rounds:[["Submit yours","Two truths, one lie","guess"],["Vote the lie","Spot the fib","guess"],["Reveal","Who fooled the room","rate"]]},
+  {id:"g12", title:"Tier List Brawl", type:"rank", theme:"cyber", by:"prof.wong", plays:"2.4k", live:1, acc:"var(--c1)", motif:"rank", desc:"Build a tier list together. Everyone places items, the room argues, and the consensus tier list animates into place on reveal.", rounds:[["Place items","S to F tiers","rank"],["Defend a pick","Quick poll","poll"],["Final tiers","Room consensus","rank"]]}
+];
+
+var VIBES = [
+  {t:"guess", h:"Guess", p:"Characters, quotes, who said it", a:"var(--c4)"},
+  {t:"rate", h:"Rate", p:"Score cosplay, art, anything", a:"var(--c3)"},
+  {t:"draw", h:"Draw", p:"Everyone draws, the room votes", a:"var(--c2)"},
+  {t:"quiz", h:"Quiz", p:"Trivia for bars and classrooms", a:"var(--primary)"},
+  {t:"poll", h:"Poll", p:"Opinions and hot takes", a:"var(--c5)"},
+  {t:"rank", h:"Rank", p:"Order it, fight about it", a:"var(--c1)"}
+];
+
+var TYPECARDS = [
+  {t:"guess", h:"Guess", p:"Show a prompt or image, give multiple choices, one is correct. The classic guess-the-character or who-said-it round.", cap:"based on VoteBox"},
+  {t:"rate", h:"Rate", p:"Rate each subject on categories you define, on any scale from 1 to 5 or 1 to 100. Awards a top pick per category.", cap:"configurable scale"},
+  {t:"draw", h:"Draw", p:"Players draw on their phones, drawings appear on the big screen, the room votes. Sketches live on the relay and expire.", cap:"ephemeral, with TTL"},
+  {t:"poll", h:"Poll", p:"Ask opinion questions with no right answer. The live distribution appears on reveal. Great for class and meetings.", cap:"no wrong answers"},
+  {t:"rank", h:"Rank", p:"Players order a set of items. Doot aggregates one group ranking and highlights where the room disagreed.", cap:"group consensus"},
+  {t:"buzz", h:"Buzz", p:"First correct answer takes the points. A fast buzzer round for quick trivia bursts and tie-breakers.", cap:"fastest wins"}
+];
+
+/* ---------------- svg motif covers (no images, no emoji) ---------------- */
+function motifSVG(kind, accent){
+  var c = HEX[accent] || "#FF5A33";
+  var w='<svg class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">';
+  // gradient base
+  var c2 = HEX[ACCENTS[(ACCENTS.indexOf(accent)+2)%ACCENTS.length]] || "#5B79FF";
+  w += '<defs><linearGradient id="g'+kind+Math.random().toString(36).slice(2,6)+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+c+'"/><stop offset="1" stop-color="'+c2+'"/></linearGradient></defs>';
+  var gid = w.match(/id="(g[^"]+)"/)[1];
+  w += '<rect width="300" height="150" fill="url(#'+gid+')"/>';
+  var s = 'rgba(255,255,255,.85)', sf='rgba(255,255,255,.32)';
+  if(kind==="q"){
+    w+='<circle cx="150" cy="62" r="40" fill="none" stroke="'+sf+'" stroke-width="10"/>';
+    w+='<path d="M138 56c0-9 7-15 14-15s13 5 13 13c0 9-11 9-12 18" fill="none" stroke="'+s+'" stroke-width="8" stroke-linecap="round"/>';
+    w+='<circle cx="153" cy="92" r="5" fill="'+s+'"/>';
+  } else if(kind==="star"){
+    for(var i=0;i<3;i++){var x=70+i*80,y=55+(i%2)*22,r=18;w+='<path d="M'+x+' '+(y-r)+' l'+(r*0.35)+' '+(r*0.7)+' '+(r*0.78)+' '+(r*0.1)+' -'+(r*0.55)+' '+(r*0.55)+' '+(r*0.18)+' '+(r*0.78)+' -'+(r*0.64)+' -'+(r*0.4)+' -'+(r*0.64)+' '+(r*0.4)+' '+(r*0.18)+' -'+(r*0.78)+' -'+(r*0.55)+' -'+(r*0.55)+' '+(r*0.78)+' -'+(r*0.1)+'z" fill="'+(i===1?s:sf)+'"/>';}
+  } else if(kind==="squiggle"){
+    w+='<path d="M20 95 Q60 40 100 80 T180 80 T270 70" fill="none" stroke="'+s+'" stroke-width="9" stroke-linecap="round"/>';
+    w+='<circle cx="270" cy="70" r="9" fill="'+s+'"/><circle cx="40" cy="40" r="7" fill="'+sf+'"/>';
+  } else if(kind==="grid"){
+    for(var r2=0;r2<3;r2++)for(var c3=0;c3<5;c3++){var on=((r2+c3)%3===0);w+='<rect x="'+(46+c3*44)+'" y="'+(28+r2*36)+'" width="30" height="26" rx="6" fill="'+(on?s:sf)+'"/>';}
+  } else if(kind==="bars"){
+    var hs=[40,72,54,90,30];for(var b=0;b<5;b++){w+='<rect x="'+(48+b*44)+'" y="'+(122-hs[b])+'" width="30" height="'+hs[b]+'" rx="6" fill="'+(b===3?s:sf)+'"/>';}
+  } else if(kind==="rank"){
+    var rw=[210,170,130,90];for(var k=0;k<4;k++){w+='<rect x="45" y="'+(26+k*28)+'" width="'+rw[k]+'" height="20" rx="7" fill="'+(k===0?s:sf)+'"/>';}
+  } else if(kind==="burst"){
+    for(var a=0;a<10;a++){var ang=a*36*Math.PI/180,x1=150+Math.cos(ang)*16,y1=70+Math.sin(ang)*16,x2=150+Math.cos(ang)*40,y2=70+Math.sin(ang)*40;w+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+(a%2?s:sf)+'" stroke-width="7" stroke-linecap="round"/>';}
+    w+='<circle cx="150" cy="70" r="14" fill="'+s+'"/>';
+  }
+  // dotted texture overlay
+  w+='<rect width="300" height="150" fill="url(#dots)"/>';
+  w+='</svg>';
+  return w;
+}
+var DOTS = '<svg width="0" height="0"><defs><pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.3" fill="rgba(255,255,255,.18)"/></pattern></defs></svg>';
+
+/* ---------------- render: game card ---------------- */
+function cardHTML(g){
+  var t = TYPES[g.type];
+  var p = PEOPLE[g.by];
+  var live = g.live>0 ? '<span class="live"><i></i> '+g.live+' live</span>' : '';
+  return '<article class="card" onclick="openGame(\''+g.id+'\')">'
+    + '<div class="cover">'+motifSVG(g.motif,g.acc)+'<span class="ini">'+g.title[0]+'</span>'+live+'</div>'
+    + '<div class="card-body">'
+    +   '<div class="card-title">'+g.title+'</div>'
+    +   '<div class="card-meta"><span class="badge type">'+t.label+'</span><span class="badge">'+capit(g.theme)+'</span></div>'
+    +   '<div class="card-foot">'
+    +     '<span class="by" onclick="event.stopPropagation();openProfile(\''+g.by+'\')"><span class="dot" style="background:'+p.a+'">'+p.name[0]+'</span>@'+g.by+'</span>'
+    +     '<span class="plays">'+g.plays+'</span>'
+    +   '</div>'
+    + '</div></article>';
+}
+function capit(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+
+/* ---------------- render: home ---------------- */
+function renderHome(){
+  document.getElementById("rail-trending").innerHTML = GAMES.slice(0,6).map(cardHTML).join("");
+  document.getElementById("rail-new").innerHTML = GAMES.slice(6,12).map(cardHTML).join("");
+  document.getElementById("vibe-grid").innerHTML = VIBES.map(function(v){
+    return '<div class="vibe" onclick="go(\'explore\')"><div class="vi" style="background:'+v.a+'">'+typeIcon(v.t)+'</div><h4>'+v.h+'</h4><p>'+v.p+'</p></div>';
+  }).join("");
+}
+function typeIcon(t){
+  var m = {
+    guess:'<path d="M9 9a3 3 0 1 1 4 2.8c-1 .5-1 1-1 2.2"/><circle cx="12" cy="18" r=".6"/>',
+    rate:'<path d="M12 3l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 22l2.3-7.1-6-4.5h7.6z"/>',
+    draw:'<path d="M4 16 Q8 6 12 13 T20 11"/>',
+    quiz:'<rect x="4" y="5" width="6" height="6" rx="1.5"/><rect x="14" y="5" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>',
+    poll:'<path d="M6 20V12M12 20V6M18 20v-5"/>',
+    rank:'<path d="M4 6h16M4 12h11M4 18h6"/>',
+    buzz:'<path d="M12 4v3M5 7l2 2M19 7l-2 2"/><circle cx="12" cy="14" r="5"/>'
+  };
+  return '<svg class="ic ic-lg" viewBox="0 0 24 24" style="color:#fff">'+(m[t]||m.guess)+'</svg>';
+}
+
+/* ---------------- render: explore ---------------- */
+function renderExplore(){
+  document.getElementById("explore-grid").innerHTML = GAMES.map(cardHTML).join("");
+  var f = GAMES[2]; var p = PEOPLE[f.by];
+  document.getElementById("feature-banner").innerHTML =
+      '<div class="fcontent"><span class="fkick">Featured this week</span><h2>'+f.title+'</h2>'
+    + '<p>'+f.desc+'</p>'
+    + '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-primary" onclick="openGame(\''+f.id+'\')">View game</button>'
+    + '<button class="btn btn-ghost" onclick="openProfile(\''+f.by+'\')">@'+f.by+'</button></div></div>'
+    + '<div class="fart">'+motifSVG(f.motif,f.acc)+'<span class="ini" style="font-size:200px;right:10px;bottom:-40px;color:rgba(255,255,255,.2)">'+f.title[0]+'</span></div>';
+}
+
+/* ---------------- render: detail ---------------- */
+function openGame(id){
+  var g = GAMES.filter(function(x){return x.id===id;})[0]; if(!g) return;
+  var t = TYPES[g.type], p = PEOPLE[g.by];
+  document.getElementById("detail-top").innerHTML =
+      '<div class="detail-cover">'+motifSVG(g.motif,g.acc)+'<span class="ini" style="font-size:230px;right:6px;bottom:-50px">'+g.title[0]+'</span></div>'
+    + '<div class="detail-info">'
+    +   '<h1>'+g.title+'</h1>'
+    +   '<div class="detail-by" onclick="openProfile(\''+g.by+'\')"><span class="dot" style="background:'+p.a+'">'+p.name[0]+'</span>'+p.name+' &middot; @'+g.by+'</div>'
+    +   '<div class="detail-meta"><span class="badge type">'+t.label+'</span><span class="badge">'+capit(g.theme)+' theme</span><span class="badge">'+g.rounds.length+' rounds</span></div>'
+    +   '<p class="detail-desc">'+g.desc+'</p>'
+    +   '<div class="detail-stats">'
+    +     '<div class="st"><div class="v">'+g.plays+'</div><div class="l">total plays</div></div>'
+    +     '<div class="st"><div class="v">'+g.live+'</div><div class="l">rooms live</div></div>'
+    +     '<div class="st"><div class="v">'+(3+Math.floor(Math.random()*5))+'.'+Math.floor(Math.random()*9)+'k</div><div class="l">hosts</div></div>'
+    +   '</div>'
+    +   '<div class="detail-cta"><button class="btn btn-primary btn-lg" onclick="fakeHost()"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Host this game</button>'
+    +   '<button class="btn btn-ghost btn-lg" onclick="fakeHost()">Play preview</button>'
+    +   '<button class="btn btn-ghost btn-lg" title="Save"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.5-8.5C.8 9.7 2 6 5.2 6 7.2 6 9 7.4 12 10c3-2.6 4.8-4 6.8-4C22 6 23.2 9.7 21.5 12.5 19 16.4 12 21 12 21z"/></svg></button></div>'
+    + '</div>';
+  document.getElementById("detail-rounds").innerHTML = g.rounds.map(function(r,i){
+    return '<div class="rprev"><div class="rn">'+(i+1)+'</div><div><div class="rt">'+r[0]+'</div><div class="rd">'+r[1]+'</div></div><span class="badge type rtype">'+TYPES[r[2]].label+'</span></div>';
+  }).join("");
+  var sim = GAMES.filter(function(x){return x.type===g.type && x.id!==g.id;});
+  if(sim.length<4) sim = sim.concat(GAMES.filter(function(x){return x.id!==g.id && sim.indexOf(x)<0;}));
+  document.getElementById("detail-similar").innerHTML = sim.slice(0,6).map(cardHTML).join("");
+  go("detail");
+}
+
+/* ---------------- render: profile ---------------- */
+function openProfile(handle){
+  var p = PEOPLE[handle]; if(!p) return;
+  document.getElementById("pf-banner").innerHTML =
+    '<svg viewBox="0 0 1000 170" preserveAspectRatio="none" style="width:100%;height:100%"><defs><linearGradient id="pfb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+p.banner[0]+'"/><stop offset="1" stop-color="'+p.banner[1]+'"/></linearGradient></defs><rect width="1000" height="170" fill="url(#pfb)"/><rect width="1000" height="170" fill="url(#dots)"/></svg>';
+  document.getElementById("pf-head").innerHTML =
+      '<div class="pf-ava" style="background:'+p.a+'">'+p.name[0]+'</div>'
+    + '<div class="pf-id"><h1>'+p.name+'</h1><div class="handle">@'+handle+'</div></div>'
+    + '<button class="btn btn-primary" style="margin-bottom:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Follow</button>';
+  document.getElementById("pf-bio").textContent = p.bio;
+  document.getElementById("pf-stats").innerHTML =
+      '<div class="st"><div class="v">'+p.made+'</div><div class="l">games made</div></div>'
+    + '<div class="st"><div class="v">'+p.plays+'</div><div class="l">total plays</div></div>'
+    + '<div class="st"><div class="v">'+p.hosted+'</div><div class="l">rooms hosted</div></div>'
+    + '<div class="st"><div class="v">'+p.likes+'</div><div class="l">likes</div></div>';
+  var mine = GAMES.filter(function(x){return x.by===handle;});
+  if(mine.length<3) mine = mine.concat(GAMES.filter(function(x){return mine.indexOf(x)<0;}).slice(0,3));
+  document.getElementById("pf-grid").innerHTML = mine.map(cardHTML).join("");
+  go("profile");
+}
+
+/* ---------------- render: create ---------------- */
+function renderCreate(){
+  var grid = document.getElementById("type-grid");
+  grid.innerHTML = TYPECARDS.map(function(tc){
+    var acc = TYPES[tc.t].ink;
+    return '<div class="typecard" onclick="fakeEditor(\''+tc.h+'\')">'
+      + '<div class="ti" style="background:'+acc+'">'+typeIcon(tc.t)+'</div>'
+      + '<h3>'+tc.h+'</h3><p>'+tc.p+'</p>'
+      + '<div class="tfoot"><span class="cap">'+tc.cap+'</span><button class="btn btn-sm btn-primary">Use this</button></div></div>';
+  }).join("")
+  + '<div class="external"><div class="ex-i"><svg class="ic ic-lg" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-5.7-5.7L11 8"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2A4 4 0 0 0 11.7 17L13 16"/></svg></div>'
+  + '<div><h3>Link an external game</h3><p>Built your own game type in a repo? Paste its manifest URL. Doot loads it sandboxed, no need to add it to the main project.</p></div>'
+  + '<div class="ex-form"><input placeholder="https://your-repo/doot-plugin.json"><button class="btn btn-primary">Register</button></div></div>';
+}
+
+/* ---------------- router ---------------- */
+var PAGES = ["home","explore","detail","profile","create"];
+function go(name){
+  PAGES.forEach(function(pg){ document.getElementById("page-"+pg).classList.toggle("active", pg===name); });
+  document.querySelectorAll("[data-nav]").forEach(function(n){ n.classList.toggle("on", n.getAttribute("data-nav")===name); });
+  window.scrollTo({top:0,behavior:"instant"});
+  if(name==="home") renderHome();
+  if(name==="explore") renderExplore();
+  if(name==="create") renderCreate();
+}
+
+/* ---------------- theme switcher ---------------- */
+function setTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  document.querySelectorAll("[data-theme-btn]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-theme-btn")===t); });
+}
+
+/* ---------------- auth toggle (mock) ---------------- */
+var signedIn = false;
+function renderAuth(){
+  var slot = document.getElementById("auth-slot");
+  if(signedIn){
+    slot.innerHTML = '<div class="avatar" style="background:#FF5A33" onclick="openProfile(\'kira.draws\')" title="Your profile">M</div>';
+  } else {
+    slot.innerHTML = '<button class="btn btn-primary btn-sm" onclick="toggleAuth()">Sign in</button>';
+  }
+}
+function toggleAuth(){ signedIn = !signedIn; renderAuth();
+  if(signedIn){ toast("Signed in. Your game stats now save across sessions."); } }
+
+/* ---------------- little interactions ---------------- */
+function toggleChip(el){
+  var grp = el.parentNode;
+  if(el.textContent==="All"){ grp.querySelectorAll(".chip").forEach(function(c){c.classList.remove("on");}); el.classList.add("on"); return; }
+  grp.querySelectorAll(".chip").forEach(function(c){ if(c.textContent==="All") c.classList.remove("on"); });
+  el.classList.toggle("on");
+  if(!grp.querySelector(".chip.on")){ var all=grp.querySelector(".chip"); if(all && all.textContent==="All") all.classList.add("on"); }
+}
+function fakeJoin(){ toast("Joining a room. In the real app this drops you straight into the game, no sign-in needed."); }
+function fakeHost(){ toast("Hosting. The big-screen view opens with a join code and a QR for the room."); }
+function fakeEditor(name){ toast("Opening the "+name+" editor. Add content, pick a theme, upload images, then publish."); }
+
+var toastTimer=null;
+function toast(msg){
+  var t = document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast";
+    t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:9999;"
+      +"background:var(--ink);color:var(--bg);font-weight:700;font-size:14px;padding:13px 20px;border-radius:14px;"
+      +"box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:min(520px,86vw);text-align:center;opacity:0;transition:all .25s ease;font-family:var(--font-body)";
+    document.body.appendChild(t); }
+  t.textContent = msg;
+  requestAnimationFrame(function(){ t.style.opacity="1"; t.style.transform="translateX(-50%) translateY(0)"; });
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.style.opacity="0"; t.style.transform="translateX(-50%) translateY(20px)"; }, 3200);
+}
+
+/* ---------------- boot ---------------- */
+renderAuth();
+renderHome();
+</script>
+</body>
+</html>
