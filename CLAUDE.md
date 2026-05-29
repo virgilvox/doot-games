@@ -29,10 +29,12 @@ Monorepo: pnpm workspaces. **Published npm scope is `@doot-games`** (the org). N
 | Path | Package | Role |
 | --- | --- | --- |
 | `packages/engine` | `@doot-games/engine` | CLASP wrapper, room runtime, Vue composables (`useDootRoom`) |
-| `packages/sdk` | `@doot-games/sdk` | plugin contract, types, Zod schemas, round primitives, sandbox bridge |
+| `packages/sdk` | `@doot-games/sdk` | the block + composition contract (`defineBlock`/`defineGame`), Zod schemas, round primitives |
 | `packages/ui` | `@doot-games/ui` | shared theme-aware Vue components |
 | `packages/themes` | `@doot-games/themes` | theme token packs + registry |
-| `packages/games` | `@doot-games/games` | first-party plugins (VoteBox, Sketch, …) |
+| `packages/games` | `@doot-games/games` | blocks (guess/rate/poll), the generic renderer, and games as compositions |
+
+**Plugin model — blocks + compositions** (the authoring contract; see `docs/authoring-a-game.md`): a **block** is a standalone round kind (Guess, Rate, Poll) that declares a content schema + a Player view + a Host view + an `aggregate` + optional answer-withholding. A **game** is a manifest + an ordered list of `{ block, content }`; the generic `GameHost`/`GamePlayer`/`GameResults` renderer mounts the right block per round and merges results, so most games are ~20 lines and need no components. Guess/Rate/Poll are single-type games; VoteBox = `[guess, rate]`. No game imports another. Full-custom games override `components`. Rate's scale is flexible (numeric / letter grades / tiers).
 | `packages/plugin-template` | — | starter to copy for an external game |
 | `apps/web` | — | Nuxt shell: discovery, lobby, host, player, editor, auth, API routes, plugin loader |
 

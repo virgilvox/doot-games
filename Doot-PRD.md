@@ -312,6 +312,8 @@ A first-party game imports this composable directly. A sandboxed external game r
 
 A game type is a small package that satisfies one interface. The contract is the single most important design decision in Doot, because it is what lets new games appear without touching the platform.
 
+> **Implementation note (current):** the contract evolved into a **block + composition** model that realizes this section's "round primitives are the simple path" intent more directly. A *block* is a standalone round kind (Guess, Rate, Poll) declaring a content schema, a Player view, a Host view, an `aggregate`, and optional answer-withholding; a *game* is a manifest plus an ordered list of `{ block, content }` rendered by a generic engine. So a game is usually a few lines of composition and needs no components, while a full-custom game can still override the views. The single-type/composite/remix/full-custom tiers map onto this. See `docs/authoring-a-game.md` and `packages/sdk/src/block.ts`; the interface below is the conceptual ancestor.
+
 ### 8.1 The plugin interface
 
 ```ts
