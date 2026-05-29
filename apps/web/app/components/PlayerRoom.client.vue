@@ -6,7 +6,7 @@
  */
 import { createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
-import { getPlugin } from '@doot-games/games'
+import { GamePlayer, getPlugin } from '@doot-games/games'
 import { Avatar, PhoneShell } from '@doot-games/ui'
 import { computed, watch } from 'vue'
 
@@ -32,7 +32,7 @@ const plugin = computed(() => {
   const id = room.meta.value?.pluginId
   return id ? getPlugin(id) : undefined
 })
-const PlayerView = computed(() => plugin.value?.components.Player ?? null)
+const PlayerView = computed(() => plugin.value?.components?.Player ?? GamePlayer)
 </script>
 
 <template>
@@ -49,7 +49,7 @@ const PlayerView = computed(() => plugin.value?.components.Player ?? null)
         {{ room.connected.value ? 'live' : '…' }}
       </span>
     </template>
-    <component :is="PlayerView" v-if="PlayerView" />
+    <component :is="PlayerView" v-if="plugin" :plugin="plugin" />
     <div v-else class="loading">Joining room {{ code }}…</div>
   </PhoneShell>
 </template>

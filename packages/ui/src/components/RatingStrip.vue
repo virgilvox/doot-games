@@ -1,20 +1,24 @@
 <script setup lang="ts">
-/** Rate one or more categories on a configurable scale. Two-way via v-model. */
+/**
+ * Rate one or more categories on an ordered set of steps. The steps are a list
+ * of `{ label, value }` so this works for numeric scales (1–10, stars), letter
+ * grades (F→A), or tiers (D→S): the fill and selection use `value`; the label
+ * is what's shown. Two-way via v-model (a record of category id -> value).
+ */
 import { computed } from 'vue'
 
 interface Category {
   id: string
   label: string
 }
-interface Scale {
-  min: number
-  max: number
-  step: number
+interface Step {
+  label: string
+  value: number
 }
 const props = withDefaults(
   defineProps<{
     categories: Category[]
-    scale: Scale
+    steps: Step[]
     modelValue: Record<string, number>
     disabled?: boolean
   }>(),
@@ -22,10 +26,12 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, number>] }>()
 
-const steps = computed(() => {
-  const out: number[] = []
-  for (let v = props.scale.min; v <= props.scale.max; v += props.scale.step) out.push(v)
-  return out
+const labelFor = computed(() => {
+  const map = new Map(props.steps.map((s) => [s.value, s.label]))
+  return (catId: string) => {
+    const v = props.modelValue[catId]
+    return v == null ? '—' : (map.get(v) ?? String(v))
+  }
 })
 
 function set(catId: string, value: number) {
@@ -39,26 +45,21 @@ function set(catId: string, value: number) {
     <div v-for="cat in categories" :key="cat.id" class="rate-cat">
       <div class="rtop">
         <span class="rlabel">{{ cat.label }}</span>
-        <span class="rval">{{ modelValue[cat.id] ?? '—' }}</span>
+        <span class="rval">{{ labelFor(cat.id) }}</span>
       </div>
-      <!--
-        A cumulative rating bar (every dot up to the value fills), so radio
-        semantics would misrepresent it. Use a labelled group of toggle buttons:
-        each announces "<category>: <value> of <max>" and its pressed state.
-      -->
       <div class="rdots" role="group" :aria-label="`Rate ${cat.label}`">
         <button
-          v-for="v in steps"
-          :key="v"
+          v-for="s in steps"
+          :key="s.value"
           type="button"
           class="rdot"
-          :class="{ on: (modelValue[cat.id] ?? -1) >= v }"
-          :aria-label="`${cat.label}: ${v} of ${scale.max}`"
-          :aria-pressed="modelValue[cat.id] === v"
+          :class="{ on: (modelValue[cat.id] ?? Number.NEGATIVE_INFINITY) >= s.value }"
+          :aria-label="`${cat.label}: ${s.label}`"
+          :aria-pressed="modelValue[cat.id] === s.value"
           :disabled="disabled"
-          @click="set(cat.id, v)"
+          @click="set(cat.id, s.value)"
         >
-          {{ v }}
+          {{ s.label }}
         </button>
       </div>
     </div>
@@ -97,11 +98,11 @@ function set(catId: string, value: number) {
 }
 .rdots {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(28px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
   gap: 6px;
 }
 .rdot {
-  aspect-ratio: 1;
+  min-height: 38px;
   border-radius: 9px;
   background: var(--surface);
   border: var(--bd) solid var(--line-soft);
@@ -109,7 +110,7 @@ function set(catId: string, value: number) {
   font-weight: 700;
   font-size: 13px;
   color: var(--ink-soft);
-  padding: 0;
+  padding: 4px;
   transition: transform 0.06s, background 0.1s;
 }
 .rdot:not(:disabled):active {

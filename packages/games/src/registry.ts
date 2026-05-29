@@ -1,24 +1,14 @@
 /**
- * The first-party plugin registry. Built-in plugins live here, one per game,
- * and load in the main app context (fully trusted because they ship in the
- * repo). External, sandboxed plugins are registered separately (PRD section 9).
+ * The first-party plugin registry. Discrete game types lead; VoteBox is the
+ * composite. All are block compositions — no game depends on another.
  */
 import type { GamePlugin } from '@doot-games/sdk'
-import { guess } from './guess'
-import { rate } from './rate'
-import { voteBox } from './votebox'
+import { guess } from './games/guess'
+import { poll } from './games/poll'
+import { rate } from './games/rate'
+import { voteBox } from './games/votebox'
 
-/**
- * All built-in plugins, type-erased for registry storage. Discrete game types
- * (each built on one round primitive) lead; VoteBox is the composite that
- * combines Guess + Rate. More types (Draw, Poll, Rank, Buzz) map to existing
- * SDK primitives and are on the roadmap.
- */
-export const builtinPlugins: GamePlugin[] = [
-  guess as unknown as GamePlugin,
-  rate as unknown as GamePlugin,
-  voteBox as unknown as GamePlugin,
-]
+export const builtinPlugins: GamePlugin[] = [guess, rate, poll, voteBox]
 
 const byId = new Map<string, GamePlugin>(builtinPlugins.map((p) => [p.manifest.id, p]))
 

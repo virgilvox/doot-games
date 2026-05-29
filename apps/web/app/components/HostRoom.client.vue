@@ -1,13 +1,13 @@
 <script setup lang="ts">
 /**
  * Hosts a game on the big screen. Client-only (it opens a CLASP connection):
- * it creates a room, loads the plugin's default game (publishing a redacted
- * config), provides the room to the plugin's Host view, and renders it.
+ * it creates a room, loads the plugin's default composition (publishing a
+ * redacted config), provides the room, and renders the game's Host view — the
+ * generic block renderer, or the plugin's own override.
  */
 import { type RelayValue, type RoomMeta, createClaspRelay, makeRoomCode } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
-import { getPlugin } from '@doot-games/games'
-import { roundTimings } from '@doot-games/sdk'
+import { GameHost, gameAnswerKeys, gameRounds, getPlugin, redactGameConfig } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
 import { computed } from 'vue'
 
@@ -17,14 +17,13 @@ const runtime = useRuntimeConfig()
 const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
 
-// The host stamps the active theme into the room meta so players inherit it.
 const themeId = useState<string>('doot-theme', () => 'doot')
 const roomCode = makeRoomCode()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host' })
 provideDootRoom(room)
 
-const cfg = plugin.defaultConfig
+const config = plugin.defaultConfig
 const meta: RoomMeta = {
   pluginId: plugin.manifest.id,
   pluginVersion: plugin.manifest.version,
@@ -33,16 +32,13 @@ const meta: RoomMeta = {
 }
 room.host.loadGame({
   meta,
-  config: cfg as RelayValue,
-  publishConfig: (plugin.redactConfig ? plugin.redactConfig(cfg) : cfg) as RelayValue,
-  rounds: roundTimings(plugin.rounds(cfg)),
-  answerKeys: (plugin.answerKeys ? plugin.answerKeys(cfg) : {}) as unknown as Record<
-    number,
-    RelayValue
-  >,
+  config: config as unknown as RelayValue,
+  publishConfig: redactGameConfig(plugin, config) as unknown as RelayValue,
+  rounds: gameRounds(plugin, config),
+  answerKeys: gameAnswerKeys(plugin, config) as unknown as Record<number, RelayValue>,
 })
 
-const HostView = plugin.components.Host
+const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)
 </script>
 
@@ -58,7 +54,7 @@ const playerCount = computed(() => room.players.value.length)
         <span class="code mono">{{ roomCode }}</span>
       </div>
     </template>
-    <component :is="HostView" />
+    <component :is="HostView" :plugin="plugin" />
   </Stage>
 </template>
 

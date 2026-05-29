@@ -6,10 +6,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    ".": "./src/index.ts",
-    "./guess": "./src/guess/index.ts",
-    "./rate": "./src/rate/index.ts",
-    "./votebox": "./src/votebox/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "vue-tsc -p tsconfig.json",

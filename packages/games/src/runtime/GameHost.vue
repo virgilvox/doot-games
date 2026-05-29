@@ -1,29 +1,18 @@
 <script setup lang="ts">
-/** VoteBox host (big screen): lobby, the active round, and results. */
+/**
+ * Generic host surface for any block-composed game: the lobby, the active round
+ * (a common frame around the current block's HostDisplay), the control bar, and
+ * the results. No game writes this — it delegates per round to the block.
+ */
 import type { RelayValue } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import type { ScorePlayer } from '@doot-games/sdk'
-import {
-  ControlBar,
-  CountdownRing,
-  DButton,
-  OptionGrid,
-  RoomTicket,
-  RosterChips,
-  VoteBars,
-} from '@doot-games/ui'
+import type { GameComposition, GamePlugin, ScorePlayer } from '@doot-games/sdk'
+import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import {
-  type VoteBoxConfig,
-  type VoteBoxInput,
-  isGuessInput,
-  isRateInput,
-  voteBoxConfigSchema,
-} from './config'
-import { voteBoxAnswerKeys, voteBoxRounds } from './rounds'
-import { type VoteBoxResults, voteBoxScore } from './score'
-import Results from './Results.vue'
+import GameResults from './GameResults.vue'
+import { gameAnswerKeys, getBlock, scoreGame } from './derive'
 
+const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
 
 const now = ref(0)
@@ -38,74 +27,44 @@ onUnmounted(() => {
   if (ticker) clearInterval(ticker)
 })
 
-const config = computed<VoteBoxConfig | null>(() => {
-  const c = room.config.value
-  if (!c) return null
-  const parsed = voteBoxConfigSchema.safeParse(c)
-  return parsed.success ? parsed.data : null
-})
-const slides = computed(() => config.value?.slides ?? [])
+const config = computed<GameComposition | null>(
+  () => (room.config.value as unknown as GameComposition) ?? null,
+)
+const rounds = computed(() => config.value?.rounds ?? [])
 const index = computed(() => room.round.value.index)
 const state = computed(() => room.round.value.state)
-const slide = computed(() => slides.value[index.value] ?? null)
+const instance = computed(() => rounds.value[index.value] ?? null)
+const block = computed(() =>
+  instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
+)
+const content = computed<Record<string, unknown> | null>(
+  () => (instance.value?.content as Record<string, unknown>) ?? null,
+)
+const subject = computed(() => content.value?.subject as string | undefined)
+const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
+const image = computed(() => content.value?.image as string | undefined)
+const answer = computed(() =>
+  block.value?.answerOf && content.value ? block.value.answerOf(content.value) : undefined,
+)
 
 const joinUrl = computed(() => {
   const code = room.runtime.room
-  if (typeof window === 'undefined') return `/play/${code}`
-  return `${window.location.origin}/play/${code}`
+  return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
-
-// --- live tallies -----------------------------------------------------------
-const guessCounts = computed(() => {
-  const s = slide.value
-  if (!s || s.type !== 'guess') return []
-  const counts = s.options.map(() => 0)
-  for (const input of room.inputsFor(index.value).values()) {
-    if (isGuessInput(input) && input.choice != null && counts[input.choice] != null) {
-      counts[input.choice]++
-    }
-  }
-  return counts
-})
-const ratingBars = computed(() => {
-  const s = slide.value
-  const cfg = config.value
-  if (!s || s.type !== 'rate' || !cfg) return []
-  const inputs = [...room.inputsFor(index.value).values()]
-  return s.categories.map((cid) => {
-    const cat = cfg.categories.find((c) => c.id === cid)
-    let sum = 0
-    let n = 0
-    for (const input of inputs) {
-      if (isRateInput(input) && typeof input.ratings[cid] === 'number') {
-        sum += input.ratings[cid] as number
-        n++
-      }
-    }
-    return {
-      label: cat?.label ?? cid,
-      value: n ? sum / n : 0,
-      max: cfg.ratingScale.max,
-      note: n ? `${n} rating${n === 1 ? '' : 's'}` : 'waiting for ratings',
-    }
-  })
-})
-
 const countdown = computed(() => {
   const dl = room.round.value.deadline
-  const timer = slide.value?.timer
+  const timer = block.value?.timerOf && content.value ? block.value.timerOf(content.value) : null
   if (!dl || !timer) return null
   return { remaining: Math.max(0, dl - now.value), total: timer * 1000 }
 })
-
 const stateLabel = computed(
   () =>
     ({ ready: 'Ready', open: 'Voting open', locked: 'Voting closed', reveal: 'Results' })[
       state.value
     ] ?? state.value,
 )
+const isLast = computed(() => index.value >= rounds.value.length - 1)
 
-// --- host actions -----------------------------------------------------------
 function finish() {
   const cfg = config.value
   if (!cfg) return
@@ -114,21 +73,18 @@ function finish() {
     name: p.name,
     joinedAtIndex: p.joinedAtIndex,
   }))
-  const summary = voteBoxScore({
-    config: cfg,
-    rounds: voteBoxRounds(cfg),
+  const summary = scoreGame(props.plugin, cfg, {
+    inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>,
     players,
-    inputsFor: (i) => room.inputsFor(i) as unknown as Map<string, VoteBoxInput>,
-    answerKeys: voteBoxAnswerKeys(cfg),
+    answerKeys: gameAnswerKeys(props.plugin, cfg),
   })
   room.host.finish(summary as unknown as RelayValue)
 }
-const isLast = computed(() => index.value >= slides.value.length - 1)
 </script>
 
 <template>
   <!-- LOBBY -->
-  <div v-if="room.phase.value === 'lobby'" class="vb-lobby">
+  <div v-if="room.phase.value === 'lobby'" class="lobby">
     <section class="panel ticket-card">
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
@@ -144,42 +100,37 @@ const isLast = computed(() => index.value >= slides.value.length - 1)
         </DButton>
       </div>
       <p class="note">
-        Players who join after you start can only vote on rounds from when they joined.
+        Players who join after you start can only play rounds from when they joined.
       </p>
     </section>
   </div>
 
   <!-- RESULTS -->
-  <Results
+  <GameResults
     v-else-if="room.phase.value === 'results' && room.results.value"
-    :results="room.results.value as unknown as VoteBoxResults"
+    :results="room.results.value as any"
   />
 
   <!-- ACTIVE -->
-  <div v-else-if="slide" class="vb-stage">
+  <div v-else-if="instance && block" class="stage">
     <div class="stage-grid">
       <div class="left">
-        <span v-if="slide.subject" class="subject">{{ slide.subject }}</span>
-        <h1 class="prompt">{{ slide.prompt }}</h1>
-        <div class="imgbox">
-          <img v-if="slide.image" :src="slide.image" alt="" />
-          <div v-else class="ph">{{ (slide.subject || '?')[0] }}</div>
-        </div>
+        <span v-if="subject" class="subject">{{ subject }}</span>
+        <h1 class="prompt">{{ prompt }}</h1>
+        <div v-if="image" class="imgbox"><img :src="image" alt="" /></div>
       </div>
       <div class="right">
-        <OptionGrid
-          v-if="slide.type === 'guess'"
-          :options="slide.options"
-          :counts="state === 'ready' ? null : guessCounts"
-          :correct="slide.correct"
-          :revealed="state === 'reveal'"
-          disabled
+        <component
+          :is="block.HostDisplay"
+          :content="content"
+          :inputs="room.inputsFor(index)"
+          :state="state"
+          :answer="answer"
         />
-        <VoteBars v-else :bars="ratingBars" :unit="`/ ${config?.ratingScale.max}`" />
       </div>
     </div>
 
-    <ControlBar :round-index="index" :round-count="slides.length" :state-label="stateLabel">
+    <ControlBar :round-index="index" :round-count="rounds.length" :state-label="stateLabel">
       <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" />
       <DButton v-if="room.host.can('open')" variant="primary" size="lg" @click="room.host.openVoting()">
         Open voting
@@ -197,11 +148,11 @@ const isLast = computed(() => index.value >= slides.value.length - 1)
     </ControlBar>
   </div>
 
-  <div v-else class="vb-stage"><p>No slides in this game.</p></div>
+  <div v-else class="stage"><p>This game has no rounds yet.</p></div>
 </template>
 
 <style scoped>
-.vb-lobby {
+.lobby {
   flex: 1;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -232,7 +183,7 @@ const isLast = computed(() => index.value >= slides.value.length - 1)
   font-size: 13px;
   color: var(--ink-soft);
 }
-.vb-stage {
+.stage {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -243,6 +194,10 @@ const isLast = computed(() => index.value >= slides.value.length - 1)
   grid-template-columns: 1fr 1fr;
   gap: 22px;
   align-items: center;
+}
+.left {
+  display: flex;
+  flex-direction: column;
 }
 .subject {
   align-self: flex-start;
@@ -273,22 +228,8 @@ const isLast = computed(() => index.value >= slides.value.length - 1)
   height: 100%;
   object-fit: cover;
 }
-.imgbox .ph {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 120px;
-  color: var(--line-soft);
-}
-.left {
-  display: flex;
-  flex-direction: column;
-}
 @media (max-width: 900px) {
-  .vb-lobby,
+  .lobby,
   .stage-grid {
     grid-template-columns: 1fr;
   }
