@@ -5,12 +5,21 @@ interface Bar {
   value: number
   /** Upper bound for the fill (e.g. the rating scale max, or the vote total). */
   max: number
+  /** Lower bound for the fill, so a scale that starts above 0 fills from empty. */
+  min?: number
+  /** Override the shown value, e.g. a tier label "C" instead of the raw number. */
+  display?: string
   /** Optional caption under the value, e.g. "12 ratings". */
   note?: string
 }
 withDefaults(defineProps<{ bars: Bar[]; unit?: string }>(), { unit: '' })
-const pct = (v: number, max: number) => (max > 0 ? Math.min(100, (v / max) * 100) : 0)
+const pct = (b: Bar) => {
+  const min = b.min ?? 0
+  const span = b.max - min
+  return span > 0 ? Math.min(100, Math.max(0, ((b.value - min) / span) * 100)) : 0
+}
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
+const shown = (b: Bar) => b.display ?? fmt(b.value)
 </script>
 
 <template>
@@ -18,10 +27,10 @@ const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
     <div v-for="(b, i) in bars" :key="i" class="bar-row">
       <div class="btop">
         <span class="blabel">{{ b.label }}</span>
-        <span class="bval">{{ fmt(b.value) }}<small v-if="unit"> {{ unit }}</small></span>
+        <span class="bval">{{ shown(b) }}<small v-if="unit"> {{ unit }}</small></span>
       </div>
       <div class="track">
-        <span class="fill" :style="{ width: `${pct(b.value, b.max)}%` }" />
+        <span class="fill" :style="{ width: `${pct(b)}%` }" />
       </div>
       <span v-if="b.note" class="bnote mono">{{ b.note }}</span>
     </div>

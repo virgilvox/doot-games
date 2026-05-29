@@ -46,7 +46,7 @@ const hasAwards = props.results.awards && props.results.awards.length > 0
         </div>
       </section>
 
-      <section v-for="(d, i) in results.distributions" :key="`d${i}`" class="panel dist">
+      <section v-for="(d, i) in results.distributions ?? []" :key="`d${i}`" class="panel dist">
         <h3>{{ d.title }}</h3>
         <VoteBars :bars="bars(d)" />
       </section>

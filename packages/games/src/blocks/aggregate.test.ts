@@ -4,7 +4,7 @@ import { gameAnswerKeys, scoreGame } from '../runtime/derive'
 import { voteBox } from '../games/votebox'
 import { guessBlock } from './guess/block'
 import { pollBlock } from './poll/block'
-import { type RateScale, rateBlock } from './rate/block'
+import { type RateScale, formatScore, rateBlock, scaleMin } from './rate/block'
 
 describe('guess block aggregate', () => {
   it('counts correct guesses only for eligible rounds', () => {
@@ -61,6 +61,37 @@ describe('rate block aggregate (flexible scale)', () => {
       ],
     })
     expect(frag?.awards?.[0]).toEqual({ label: 'Top rated Overall', subject: 'Entry', value: 'A' })
+  })
+})
+
+describe('rate scale helpers', () => {
+  const tiers: RateScale = {
+    kind: 'levels',
+    levels: [
+      { label: 'D', value: 1 },
+      { label: 'C', value: 2 },
+      { label: 'B', value: 3 },
+      { label: 'A', value: 4 },
+      { label: 'S', value: 5 },
+    ],
+  }
+
+  it('rounds ties up to the higher tier, value-ordered', () => {
+    expect(formatScore(2.5, tiers)).toBe('B') // tie C/B -> higher
+    expect(formatScore(4.5, tiers)).toBe('S') // tie A/S -> higher
+    expect(formatScore(2.2, tiers)).toBe('C')
+    expect(scaleMin(tiers)).toBe(1)
+  })
+
+  it('requires every category before a rating can be submitted', () => {
+    const content = {
+      ...rateBlock.defaultContent(),
+      categories: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
+    }
+    expect(rateBlock.isComplete?.(content, { ratings: {} })).toBe(false)
+    expect(rateBlock.isComplete?.(content, { ratings: { a: 3 } })).toBe(false)
+    expect(rateBlock.isComplete?.(content, { ratings: { a: 3, b: 4 } })).toBe(true)
+    expect(rateBlock.emptyInput(content)).toEqual({ ratings: {} })
   })
 })
 

@@ -63,7 +63,8 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
   /** Aggregate this kind's rounds into a results fragment. Pure and testable. */
   aggregate?: (ctx: BlockResultsContext<Content, Input>) => ResultsFragment
 
-  /** Strip answers from content before it is published to the relay. */
+  /** Strip answers from content before it is published to the relay. Must
+   *  deep-copy anything it edits — the host keeps the original for scoring. */
   redactContent?: (content: Content) => Content
   /** The answer key for a round, revealed only at that round's reveal. */
   answerOf?: (content: Content) => unknown

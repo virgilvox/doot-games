@@ -2,7 +2,7 @@
 import type { RelayValue, RoundState } from '@doot-games/engine'
 import { VoteBars } from '@doot-games/ui'
 import { computed } from 'vue'
-import { type RateContent, type RateInput, scaleMax } from './block'
+import { type RateContent, type RateInput, formatScore, scaleMax, scaleMin } from './block'
 
 const props = defineProps<{
   content: RateContent
@@ -12,7 +12,9 @@ const props = defineProps<{
 }>()
 
 const bars = computed(() => {
-  const max = scaleMax(props.content.scale)
+  const { scale } = props.content
+  const min = scaleMin(scale)
+  const max = scaleMax(scale)
   return props.content.categories.map((cat) => {
     let sum = 0
     let n = 0
@@ -23,10 +25,14 @@ const bars = computed(() => {
         n++
       }
     }
+    const avg = n ? sum / n : min
     return {
       label: cat.label,
-      value: n ? sum / n : 0,
+      value: avg,
+      min,
       max,
+      // Show the tier/grade label (e.g. "B") rather than the raw average.
+      display: n ? formatScore(avg, scale) : '—',
       note: n ? `${n} rating${n === 1 ? '' : 's'}` : 'waiting for ratings',
     }
   })

@@ -43,20 +43,28 @@ export function stepsForScale(scale: RateScale): Array<{ label: string; value: n
   for (let v = scale.min; v <= scale.max; v += scale.step) out.push({ label: String(v), value: v })
   return out
 }
+export function scaleMin(scale: RateScale): number {
+  return stepsForScale(scale)[0]?.value ?? 0
+}
 export function scaleMax(scale: RateScale): number {
   const steps = stepsForScale(scale)
   return steps[steps.length - 1]?.value ?? 1
 }
-/** Format an average for display: a number for numeric, the nearest label for levels. */
+/**
+ * Format an average for display: a number for numeric, the nearest level label
+ * for levels. Iterates value-ordered steps and rounds ties up (the more
+ * generous award) so the result does not depend on author declaration order.
+ */
 export function formatScore(avg: number, scale: RateScale): string {
   if (scale.kind === 'numeric') return avg.toFixed(1)
-  let best = scale.levels[0]
+  const steps = stepsForScale(scale)
+  let best = steps[0]
   let bestDist = Number.POSITIVE_INFINITY
-  for (const level of scale.levels) {
-    const d = Math.abs(level.value - avg)
-    if (d < bestDist) {
+  for (const step of steps) {
+    const d = Math.abs(step.value - avg)
+    if (d <= bestDist) {
       bestDist = d
-      best = level
+      best = step
     }
   }
   return best?.label ?? avg.toFixed(1)
@@ -79,12 +87,10 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
   }),
   defaultTimer: null,
   timerOf: (c) => c.timer,
-  emptyInput: (c) => {
-    const lowest = stepsForScale(c.scale)[0]?.value ?? 0
-    const ratings: Record<string, number> = {}
-    for (const cat of c.categories) ratings[cat.id] = lowest
-    return { ratings }
-  },
+  // Start empty (the strip shows "—") and require every category to be rated, so
+  // an untouched submit does not silently cast the lowest score and skew averages.
+  emptyInput: () => ({ ratings: {} }),
+  isComplete: (c, input) => c.categories.every((cat) => typeof input.ratings[cat.id] === 'number'),
   PlayerInput: RatePlayer,
   HostDisplay: RateHost,
   aggregate: (ctx: BlockResultsContext<RateContent, RateInput>): ResultsFragment => {
