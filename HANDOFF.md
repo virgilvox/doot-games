@@ -6,7 +6,7 @@ _Last updated: 2026-05-29. Branch: `build/mvp-scaffold`._
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD. **51 tests pass, all library packages typecheck, and the Nuxt app builds (SSR).** A three-agent deep audit ran and its findings are fixed (see below).
+A pnpm monorepo built from the PRD. **54 tests pass, all library packages typecheck, and the Nuxt app builds (SSR).** Two rounds of deep multi-agent audit ran; all findings are fixed (see below).
 
 | Package | State |
 | --- | --- |
@@ -14,18 +14,18 @@ A pnpm monorepo built from the PRD. **51 tests pass, all library packages typech
 | `@doot-games/sdk` | Done. The **block** contract (`RoundBlock` + `defineBlock`) and the **composition** contract (`GamePlugin` + `defineGame`), Zod manifest, round primitives, results types. |
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
 | `@doot-games/ui` | Done. 18 theme-aware components + the ported design-system stylesheet. |
-| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll), the generic renderer (GameHost/GamePlayer/GameResults), and four games (Guess, Rate, Poll, VoteBox) as block compositions. |
+| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank), the generic renderer (GameHost/GamePlayer/GameResults), and five games (Guess, Rate, Poll, Rank, VoteBox) as block compositions. |
 | `apps/web` | Builds. Home/explore/create + client-only host/play; renders a game's block-driven views (or a custom override) over the live relay. |
 
 ## The architecture (read this first)
 
-Games are built from **blocks** — standalone round kinds (Guess, Rate, Poll), like Node-RED nodes. A **game** is a *composition*: a manifest + an ordered list of `{ block, content }`. The generic renderer mounts the right block per round and merges their results, so most games need no components. See [`docs/authoring-a-game.md`](./docs/authoring-a-game.md).
+Games are built from **blocks** — standalone round kinds (Guess, Rate, Poll, Rank), like Node-RED nodes. A **game** is a *composition*: a manifest + an ordered list of `{ block, content }`. The generic renderer mounts the right block per round and merges their results, so most games need no components. See [`docs/authoring-a-game.md`](./docs/authoring-a-game.md).
 
 ```
 packages/games/src/
-  blocks/{guess,rate,poll}/   block.ts (schema + aggregate + withholding) + Player.vue + Host.vue
+  blocks/{guess,rate,poll,rank}/   block.ts (schema + aggregate + withholding) + Player.vue + Host.vue
   runtime/                    GameHost/GamePlayer/GameResults (generic) + derive.ts (rounds/redact/answers/score)
-  games/                      votebox=[guess,rate]; guess=[guess]; rate=[rate]; poll=[poll]  (~20 lines each)
+  games/                      votebox=[guess,rate]; guess/rate/poll/rank = single-block  (~20 lines each)
 ```
 
 No game imports another. New game = compose blocks. New round kind = one block. Full-custom = override `components`. **Rate** has a flexible scale: numeric, letter grades, or tiers.
@@ -35,7 +35,7 @@ No game imports another. New game = compose blocks. New round kind = one block. 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000  (uses the public relay; no DB needed)
-pnpm test         # 51 tests
+pnpm test         # 54 tests
 pnpm -r typecheck
 pnpm --filter @doot-games/web build
 ```
@@ -58,7 +58,7 @@ A deep audit found and we fixed: a reconnect bug (couldn't restore `joinedAtInde
 
 ## Not built yet (PRD phase one and beyond)
 
-1. **More blocks**: Draw (Pixi canvas + ephemeral media), Rank, Buzz (reaction), Quip (free-text). Each is one block.
+1. **More blocks**: Draw (Pixi canvas + ephemeral media — would finally exercise vue3-pixi), Buzz (reaction/first-correct), Quip (free-text + a follow-on vote). Each is one block.
 2. **Persistence**: Postgres + Drizzle schema, the `/api/games` routes, saved games.
 3. **Auth**: `nuxt-auth-utils` email/password, optional and non-blocking.
 4. **The editor**: auto-generate a form from each block's `contentSchema` (image fields → upload + preview).
