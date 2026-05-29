@@ -24,6 +24,7 @@
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.5"
+    "@types/qrcode": "^1.5.5",
+    "zod": "^4.4.3"
   }
 }

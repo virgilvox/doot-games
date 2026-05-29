@@ -31,6 +31,17 @@ export { default as VoteBars } from './components/VoteBars.vue'
 export { default as RosterChips } from './components/RosterChips.vue'
 export { default as Avatar } from './components/Avatar.vue'
 
+// Editor (schema-driven authoring form)
+export { default as SchemaForm } from './schema-form/SchemaForm.vue'
+export {
+  type FieldNode,
+  type FieldEntry,
+  type UnionVariant,
+  blankValue,
+  describeSchema,
+  humanizeName,
+} from './schema-form/introspect'
+
 // Results
 export { default as Leaderboard } from './components/Leaderboard.vue'
 export { default as StatStrip } from './components/StatStrip.vue'

@@ -23,11 +23,15 @@ const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-
 const room = useDootRoom({ relay, room: roomCode, role: 'host' })
 provideDootRoom(room)
 
-const config = plugin.defaultConfig
+// Use the composition authored in the editor if it's for this game type;
+// otherwise fall back to the type's default deck (e.g. on a direct /host link).
+const draft = useGameDraft()
+const config =
+  draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value.config : plugin.defaultConfig
 const meta: RoomMeta = {
   pluginId: plugin.manifest.id,
   pluginVersion: plugin.manifest.version,
-  title: plugin.manifest.name,
+  title: config.title || plugin.manifest.name,
   themeId: themeId.value,
 }
 room.host.loadGame({

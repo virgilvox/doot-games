@@ -39,7 +39,8 @@ export const pollBlock = defineBlock<PollContent, PollInput>({
     const distributions = ctx.rounds.map(({ index, content }) => {
       const counts = content.options.map(() => 0)
       for (const input of ctx.inputsFor(index).values()) {
-        if (input?.choice != null && counts[input.choice] != null) counts[input.choice]++
+        const choice = input?.choice
+        if (choice != null && choice >= 0 && choice < counts.length) counts[choice] = (counts[choice] ?? 0) + 1
       }
       return {
         title: content.prompt,

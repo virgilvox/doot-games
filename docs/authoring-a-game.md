@@ -74,6 +74,38 @@ defineGame({
 
 Custom views reach the live room with `injectDootRoom()` from `@doot-games/engine/vue` (reactive reads, `room.submit`, `room.host.*`) — the engine still handles all the relay machinery.
 
+## The editor (auto-form from a block's schema)
+
+Every block is authorable in the UI with **no editor code**. The web app's
+editor (`/editor/<game-type>`) seeds from a game type's default composition,
+then lets a host edit the title and the ordered list of rounds. Each round is
+authored by a form generated from its block's `contentSchema`:
+`@doot-games/ui`'s `SchemaForm` walks the Zod schema (`describeSchema`) into a
+field tree and renders a control per field — objects nest, arrays get
+add/remove/reorder, and a discriminated union (like Rate's `scale`) becomes a
+variant selector. A live preview of the phone view sits beside the form, and
+each round is validated against its block schema before hosting.
+
+On top of the raw schema the editor applies a few **field-name conventions**:
+
+| Field name | Rendered as |
+| --- | --- |
+| `image` (string) | URL input + live preview (presigned upload swaps in later) |
+| `prompt` (string) | multi-line textarea |
+| `timer` / any nullable number | a number with an on/off toggle |
+| `correct` (number, with a sibling `options` array) | a "mark correct" option select |
+| `id` inside an array item | a compact slug, auto-seeded when you add an item |
+
+So naming a block's content fields with these conventions gets you good form
+ergonomics for free. When a block needs something the generic form can't
+express, set `Editor` on the block (the `RoundBlock.Editor?` slot) for a custom
+per-round editor; everything else still renders generically.
+
+"Host this game" stows the authored composition in an in-memory draft
+(`useGameDraft`) and opens `/host/<type>`, which publishes it (redacted) to the
+relay exactly as it does the default deck. Nothing is written to a database —
+saved games (Postgres) are a separate roadmap item.
+
 ## How it fits together
 
 - The engine owns rooms, roster, the round state machine, late joiners, reconnect, timers, and answer-withholding — none of it per-game.

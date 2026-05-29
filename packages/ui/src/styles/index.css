@@ -333,3 +333,142 @@
     display: none;
   }
 }
+
+/* ── Schema-form (auto-generated editor) ───────────────────────────── */
+.sf-form {
+  display: grid;
+  gap: 16px;
+  text-align: left;
+}
+.sf-field {
+  display: block;
+}
+.sf-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mute);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.sf-input,
+.sf-select,
+.sf-textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  color: var(--ink);
+  border-radius: 11px;
+  padding: 12px 13px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.sf-textarea {
+  resize: vertical;
+  min-height: 64px;
+  line-height: 1.4;
+}
+.sf-input:focus,
+.sf-select:focus,
+.sf-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.sf-input--id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.sf-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.sf-row > .sf-field {
+  flex: 1;
+}
+/* A bordered group for nested objects, array items, and union variants. */
+.sf-group {
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 13px;
+  padding: 14px;
+  display: grid;
+  gap: 13px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+.sf-array {
+  display: grid;
+  gap: 11px;
+}
+.sf-array-item {
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 13px;
+  padding: 12px;
+  display: grid;
+  gap: 11px;
+}
+.sf-array-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sf-array-index {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.sf-array-controls {
+  display: flex;
+  gap: 6px;
+}
+.sf-icon-btn {
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.sf-icon-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--ink);
+}
+.sf-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sf-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+}
+.sf-hint {
+  font-size: 12px;
+  color: var(--mute);
+  margin: 4px 0 0;
+}
+.sf-error {
+  font-size: 13px;
+  color: var(--primary);
+  margin: 4px 0 0;
+  font-weight: 600;
+}
