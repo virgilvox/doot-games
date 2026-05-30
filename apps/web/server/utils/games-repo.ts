@@ -122,6 +122,12 @@ export async function getGame(id: string, requesterId: string | null): Promise<S
   if (!row) return null
   const visibility = row.visibility as Visibility
   if (visibility === 'private' && row.ownerId !== requesterId) return null
+  let config: SavedGame['config']
+  try {
+    config = JSON.parse(row.config)
+  } catch {
+    return null // a corrupt row reads as not-found rather than throwing
+  }
   return {
     id: row.id,
     pluginId: row.pluginId,
@@ -129,7 +135,7 @@ export async function getGame(id: string, requesterId: string | null): Promise<S
     themeId: row.themeId,
     ownerId: row.ownerId,
     visibility,
-    config: JSON.parse(row.config),
+    config,
     createdAt: row.createdAt,
   }
 }

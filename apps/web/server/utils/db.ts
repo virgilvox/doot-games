@@ -54,9 +54,7 @@ function resolveUrl(): string {
   return raw
 }
 
-let client: Client | null = null
-let db: LibSQLDatabase | null = null
-let ready: Promise<void> | null = null
+let initPromise: Promise<LibSQLDatabase> | null = null
 
 async function ensureSchema(c: Client): Promise<void> {
   await c.execute(`
@@ -90,20 +88,29 @@ async function ensureSchema(c: Client): Promise<void> {
       /* column already exists */
     }
   }
+  // Indexes for the listing queries (owner's games, public games).
+  await c.execute('CREATE INDEX IF NOT EXISTS games_owner_idx ON games(owner_id)')
+  await c.execute('CREATE INDEX IF NOT EXISTS games_visibility_idx ON games(visibility)')
 }
 
-/** Get the Drizzle handle, creating the connection and table on first use. */
-export async function useDb(): Promise<LibSQLDatabase> {
-  if (!db || !client) {
-    const url = resolveUrl()
-    if (url.startsWith('file:')) {
-      // libSQL won't create missing parent directories for a file URL.
-      mkdirSync(dirname(url.slice('file:'.length)), { recursive: true })
-    }
-    client = createClient({ url })
-    db = drizzle(client)
+async function init(): Promise<LibSQLDatabase> {
+  const url = resolveUrl()
+  if (url.startsWith('file:')) {
+    // libSQL won't create missing parent directories for a file URL.
+    mkdirSync(dirname(url.slice('file:'.length)), { recursive: true })
   }
-  if (!ready) ready = ensureSchema(client)
-  await ready
+  const client = createClient({ url })
+  const db = drizzle(client)
+  await ensureSchema(client)
   return db
+}
+
+/**
+ * Get the Drizzle handle, creating the connection and schema on first use.
+ * A single shared init promise makes concurrent first-callers safe (no double
+ * connect, no duplicate schema runs).
+ */
+export function useDb(): Promise<LibSQLDatabase> {
+  if (!initPromise) initPromise = init()
+  return initPromise
 }
