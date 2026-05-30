@@ -23,7 +23,7 @@ async function logout() {
           <DootLogo :size="40" />
         </NuxtLink>
         <nav class="nav">
-          <NuxtLink to="/" class="navlink">Home</NuxtLink>
+          <NuxtLink to="/" class="navlink nav-home">Home</NuxtLink>
           <NuxtLink to="/explore" class="navlink">Explore</NuxtLink>
           <NuxtLink to="/create" class="navlink">Create</NuxtLink>
         </nav>
@@ -105,5 +105,39 @@ async function logout() {
 .swatch.on {
   outline: 3px solid var(--ink);
   outline-offset: 1px;
+}
+
+/* Mobile topbar: keep the nav reachable, drop the theme switcher + email, and
+   tighten padding so nothing overflows. (The global stylesheet hides .nav at
+   980px; this scoped rule wins and keeps it as a compact bar instead.) */
+@media (max-width: 980px) {
+  .nav {
+    display: flex;
+    gap: 2px;
+  }
+  .navlink {
+    padding: 8px 11px;
+    font-size: 14px;
+  }
+}
+@media (max-width: 720px) {
+  .themebar {
+    display: none;
+  }
+  .account-email {
+    display: none;
+  }
+  .topbar .inner {
+    padding-left: 14px;
+    padding-right: 14px;
+    gap: 8px;
+  }
+  .nav-home {
+    display: none;
+  }
+  .navlink {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
 }
 </style>

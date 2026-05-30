@@ -326,6 +326,25 @@ watch(
   display: flex;
   align-items: flex-end;
   gap: 10px;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .ed-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ed-actions {
+    width: 100%;
+  }
+  .ed-actions .btn {
+    flex: 1 1 auto;
+  }
+  .ed-theme {
+    flex: 1 1 120px;
+  }
+  .ed-title {
+    width: 100%;
+  }
 }
 .ed-theme .sf-select {
   width: auto;
