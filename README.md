@@ -7,14 +7,14 @@
 Put a game on the TV or projector. Everyone joins from their phone with a code or QR. Guess, rate, draw, vote, and crown a winner, together, in real time.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Status](https://img.shields.io/badge/status-planning-blue.svg)](./Doot-PRD.md)
+[![Status](https://img.shields.io/badge/status-live-brightgreen.svg)](https://doot.games)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
 </div>
 
 ---
 
-> **Project status: early build.** The monorepo foundation is in place and tested: the real-time **engine** (room runtime + state machine, 40 tests), the **plugin SDK**, the five-pack **theme system**, the theme-aware **UI library**, three first-party game types (**Guess**, **Rate**, and the **VoteBox** composite, with tested scoring), and a **Nuxt shell** that builds and wires host/play over the live relay, 56 passing tests across the workspace. Still ahead (PRD phase one): optional auth, saved games + the editor, persistent uploads, and the external-plugin sandbox. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec and [contributing](#contributing) to help.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick or compose a game in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **83 tests pass**, every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **seven games** (Guess, Rate, Poll, Rank, Draw, VoteBox, Custom) built from composable blocks, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -44,16 +44,16 @@ A deeper analysis of the landscape and user needs lives in [PRD §2](./Doot-PRD.
    │ Player 1 │ Player 2  │  Player N │  ← join by code / QR, no app install
    └──────────┴───────────┴──────────┘
 
-   Postgres ← durable only: accounts, game definitions, plugin registry, stats
+   SQLite/libSQL ← durable only: accounts, saved game definitions
    (never touched during live play)
 ```
 
-Two kinds of state, kept strictly apart: **ephemeral** live state lives on the relay; **durable** state lives in Postgres. The app server holds no session state, so it scales out without coordination.
+Two kinds of state, kept strictly apart: **ephemeral** live state lives on the relay; **durable** state (accounts, saved games) lives in a SQLite/libSQL store (Postgres is a documented follow-up for multi-instance scale). The app server holds no session state, so it scales out without coordination.
 
 ## Features
 
-- 🎮 **Built-in games**, VoteBox (guess + rate), Sketch (draw + vote), and more (Quip, Pulse, Rank, Buzz) on the roadmap.
-- 🧩 **Plugin system**, author a game type with a manifest, a Zod config schema, a `rounds()` mapping, a `score()` function, and Host/Player/Results views.
+- 🎮 **Seven built-in games**, Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
+- 🧩 **Blocks + compositions**, a *block* is a round kind (content schema + Player/Host views + aggregate + answer-withholding); a *game* composes blocks. Most games are ~20 lines and need no components. Import a whole game from a [markdown spec](./docs/markdown-games.md).
 - 🎨 **Theming**, cute, cyber, professional, and playful packs out of the box; per-game accent and title overrides.
 - ♻️ **Reconnect by name**, no login, no local-storage dependency.
 - 🕓 **Host pacing**, open, lock, reveal, advance; optional per-round timers with auto-lock.
@@ -68,8 +68,8 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 | Framework | **Nuxt** (Nuxt 4 line) + **Vue 3**, TypeScript strict |
 | Real-time | **CLASP** (`@clasp-to/core`) pub/sub relay |
 | Canvas / heavy animation | **Pixi 8** via **[`vue3-pixi`](https://github.com/hairyf/vue3-pixi)**, *CSS first, Pixi only where it earns its place* |
-| Database | **PostgreSQL** + **Drizzle ORM** (SQLite for minimal mode) |
-| Auth | **nuxt-auth-utils** + argon2id (optional, non-blocking) |
+| Database | **Drizzle ORM** over **libSQL/SQLite** (zero-config; Postgres is a follow-up for scale) |
+| Auth | **better-auth** + argon2id (optional, non-blocking) |
 | Validation | **Zod** (API, manifests, game configs) |
 | Object storage | **DigitalOcean Spaces** / **MinIO** (S3) via `aws4fetch` presigning |
 | Infra | **Docker Compose** + **Caddy** (automatic HTTPS) |
@@ -101,7 +101,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 
 # 3. Verify the workspace
-pnpm test                   # 56 tests across engine, themes, and VoteBox scoring
+pnpm test                   # 83 tests (engine, scoring, themes, markdown, schema-form)
 pnpm -r typecheck
 
 #, or, bring up the full local stack (app + Postgres + MinIO)
@@ -128,33 +128,20 @@ Open the app, pick a game type to **host**, put it on the big screen, and share 
 ### Creating / editing a game
 Signed-in users can create and save games. The editor either uses a plugin's custom editor or auto-generates a form from its Zod config schema (option lists, rating scales, category management, image uploads with preview). Games can be **private**, **unlisted**, or **public**.
 
-## Authoring a game type (plugin)
+## Authoring a game (blocks + compositions)
 
-A game type is a small package that satisfies one interface, see [PRD §8](./Doot-PRD.md) for the full contract. The short version:
+Games are built from **blocks**. A *block* is a standalone round kind (Guess, Rate, Poll, Rank, Draw) that declares a Zod content schema, a Player view, a Host view, an `aggregate` (pure, testable scoring), and optional answer-withholding. A *game* is a **composition**: a manifest plus an ordered list of `{ block, content }`. The generic renderer mounts the right block per round and merges their results, so most games are ~20 lines and need no components.
 
 ```ts
-interface GamePlugin {
-  manifest: GameManifest          // id, name, version, capabilities, player range
-  configSchema: ZodSchema         // shape of the game definition the editor produces
-  defaultConfig: GameConfig       // seed content for a new game of this type
-  rounds: (config) => RoundSpec[] // derive the round sequence (usually maps to primitives)
-  score: (ctx) => Results         // pure aggregation → results payload
-  components: { Host, Player, Results, Editor?, Lobby? }
-  themeDefaults?: Partial<ThemeTokens>
-}
+// Compose existing blocks into a new game (no per-game code):
+export const myGame = defineGame({
+  manifest: { id: 'my-game', name: 'My Game', version: '0.1.0', author: 'you', capabilities: ['timer'] },
+  blocks: [guessBlock, rateBlock],
+  defaultConfig: { title: 'My Game', rounds: [ /* { block, content } … */ ] },
+})
 ```
 
-To build one:
-
-1. Copy `packages/plugin-template`.
-2. Write the **manifest** and the **Zod config schema**.
-3. Provide a **default config** (the seed a creator starts from).
-4. Implement **`rounds(config)`**, usually a short mapping to built-in primitives (`multiple-choice`, `rating`, `free-text`, `draw`, `poll`, `reaction`, `rank`).
-5. Implement **`score(ctx)`**, pure and unit-testable.
-6. Build **Host**, **Player**, and **Results** views from `@doot-games/ui` and the `useDootRoom()` runtime. Optionally add an Editor and a Lobby.
-7. Set theme defaults if the game looks best with a particular palette.
-
-The engine handles rooms, roster, phases, the round state machine, late joiners, reconnects, timers, and ephemeral media, you don't reimplement any of it. **VoteBox is the worked reference example.** First-party plugins live in `packages/games`; external plugins are hosted anywhere and registered by manifest URL (they run sandboxed). Full guide: `docs/authoring-a-game.md`.
+Four ways to author, easy → powerful: **(1)** compose existing blocks; **(2)** write a new block (a new round kind); **(3)** ship a curated composition; **(4)** override `components` for a fully custom game. The engine handles rooms, roster, phases, the round state machine, late joiners, reconnects, timers, answer-withholding, and ephemeral media, you don't reimplement any of it. **VoteBox = `[guess, rate]`** is the worked reference, and `Custom` allows any block mix. First-party games live in `packages/games`. Full guide: [`docs/authoring-a-game.md`](./docs/authoring-a-game.md); to generate a game with an LLM, see [`docs/markdown-games.md`](./docs/markdown-games.md).
 
 ## Developing
 
@@ -177,8 +164,7 @@ doot-games/
     sdk/                     # @doot-games/sdk   , plugin contract, schemas, round primitives, bridge
     ui/                      # @doot-games/ui    , shared theme-aware Vue components
     themes/                  # @doot-games/themes, token packs + registry
-    games/                   # @doot-games/games , first-party plugins (VoteBox, Sketch, …)
-    plugin-template/         # starter to copy for an external game
+    games/                   # @doot-games/games , blocks + games (Guess/Rate/Poll/Rank/Draw/VoteBox/Custom)
   docker/                    # Dockerfile + compose (local & prod) + Caddyfile
   docs/                      # architecture · authoring-a-game · clasp-primer · deploy
   Doot-PRD.md                # the build spec (source of truth)
@@ -227,7 +213,7 @@ All configuration is environment-driven; the same image runs anywhere. Copy `.en
 
 ## Roadmap
 
-- **Phase 1 (MVP):** engine + room runtime, plugin contract + primitives, first-party registry, VoteBox + Sketch, optional auth, UI library + four themes, animated results, uploads + ephemeral media, local & single-droplet deploy.
+- **Phase 1 (MVP, shipped):** engine + room runtime, the block contract, the first-party games, the schema-driven editor + markdown import, optional auth + saved games, five theme packs, animated results, presigned uploads, and git-push deploy to a single droplet.
 - **Phase 2:** external plugins (sandboxed iframe + bridge + publishing), more games (Quip, Pulse, Rank, Buzz), richer results.
 - **Phase 3:** managed Postgres + multiple instances, optional self-hosted relay, accessibility & phone polish.
 
@@ -245,7 +231,7 @@ Contributions are very welcome, especially new game-type plugins, theme packs, a
 6. **Commit messages are plain** and contain **no AI attribution** (no "generated with" lines, no co-author trailers, no tool credits).
 7. **Open a PR** describing the change and how you verified it.
 
-New game type? Copy `packages/plugin-template` and follow [authoring a game type](#authoring-a-game-type-plugin). Adding a built-in? Put it in `packages/games`.
+New game? Compose blocks (see [authoring a game](#authoring-a-game-blocks--compositions)) in `packages/games`. New round kind? Write one block.
 
 ## License
 

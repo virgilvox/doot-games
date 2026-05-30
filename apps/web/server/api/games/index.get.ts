@@ -6,8 +6,10 @@
 export default defineEventHandler(async (event) => {
   const scope = getQuery(event).scope
   if (scope === 'mine') {
-    const user = await requireUser(event)
-    return { games: await listMyGames(user.id) }
+    // Anonymous callers simply have no games (don't 401 — the explore page
+    // fetches this on every visit, including for logged-out users).
+    const user = await optionalUser(event)
+    return { games: user ? await listMyGames(user.id) : [] }
   }
   return { games: await listPublicGames() }
 })

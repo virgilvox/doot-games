@@ -20,11 +20,20 @@ if (!envSecret && process.env.NODE_ENV === 'production') {
 }
 const secret = envSecret || 'doot-dev-session-password-change-me-32'
 
+const baseURL = process.env.PUBLIC_BASE_URL || undefined
+// Pin the origins better-auth's CSRF check trusts. Without this, an unset
+// baseURL would let it fall back to the request host, weakening the guard.
+const trustedOrigins = [
+  baseURL,
+  'http://localhost:3000',
+].filter((o): o is string => !!o)
+
 export const authOptions: BetterAuthOptions = {
   appName: 'Doot',
   database: { dialect: new LibsqlDialect({ url: databaseUrl() }), type: 'sqlite' },
   secret,
-  baseURL: process.env.PUBLIC_BASE_URL || undefined,
+  baseURL,
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
     // Use argon2id rather than better-auth's default scrypt.

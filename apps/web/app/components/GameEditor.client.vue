@@ -10,30 +10,63 @@
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin, parseMarkdownGame } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
-import { IMAGE_UPLOAD, SchemaForm } from '@doot-games/ui'
-import { computed, provide, reactive, ref, toRaw, watch } from 'vue'
+import { IMAGE_UPLOAD, ImageField, SchemaForm } from '@doot-games/ui'
+import { computed, onMounted, provide, reactive, ref, toRaw, watch } from 'vue'
 
-const props = defineProps<{ pluginId: string }>()
+/** A saved game loaded into the editor (to edit in place or fork). */
+interface EditableGame {
+  id: string
+  pluginId: string
+  themeId: string
+  visibility: 'private' | 'unlisted' | 'public'
+  description: string | null
+  tags: string[]
+  coverImage: string | null
+  forkable: boolean
+  config: GameComposition
+}
+
+const props = defineProps<{ pluginId?: string; initialGame?: EditableGame; canEdit?: boolean }>()
 const router = useRouter()
+const route = useRoute()
 const draft = useGameDraft()
 const themeState = useState<string>('doot-theme', () => 'doot')
 
-const plugin = getPlugin(props.pluginId)
-if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
+const source = props.initialGame
+const pluginId = source?.pluginId ?? props.pluginId ?? ''
+const plugin = getPlugin(pluginId)
+if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${pluginId}` })
 
-// Seed from the type's default composition (deep-cloned so edits stay local).
-const config = reactive<GameComposition>(structuredClone(toRaw(plugin.defaultConfig)))
-const themeId = ref(themeState.value)
+// Edit in place (PUT) only when the viewer owns the loaded game; a loaded game
+// the viewer doesn't own is a fork (saves as a new game, POST).
+const editId = computed(() => (source && props.canEdit ? source.id : null))
+const isFork = computed(() => !!source && !props.canEdit)
+
+// Seed from the loaded game, or the type's default composition (deep-cloned).
+const config = reactive<GameComposition>(structuredClone(toRaw(source?.config ?? plugin.defaultConfig)))
+const themeId = ref(source?.themeId ?? themeState.value)
 const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
 const session = authClient.useSession()
 const loggedIn = computed(() => !!session.value?.data?.user)
-const visibility = ref<'private' | 'unlisted' | 'public'>('private')
+const visibility = ref<'private' | 'unlisted' | 'public'>(source?.visibility ?? 'private')
+const description = ref(source?.description ?? '')
+const tagsText = ref((source?.tags ?? []).join(', '))
+const coverImage = ref(source?.coverImage ?? '')
+const forkable = ref(source?.forkable ?? false)
+const showDetails = ref(false)
+const headerLabel = computed(() => (isFork.value ? 'Forking' : editId.value ? 'Editing' : 'New'))
 
-// Offer image uploads in the editor's image fields when storage is configured
-// and the user is signed in; otherwise fields stay URL-only.
+// Offer image uploads whenever object storage is configured (the upload itself
+// is session-gated; a logged-out click surfaces a "sign in" error).
 const uploadsEnabled = ref(false)
-const { data: uploadCfg } = useFetch('/api/uploads/config', { default: () => ({ enabled: false }) })
-watch(uploadCfg, (v) => { uploadsEnabled.value = !!v?.enabled }, { immediate: true })
+onMounted(async () => {
+  try {
+    const c = await $fetch<{ enabled: boolean }>('/api/uploads/config')
+    uploadsEnabled.value = !!c.enabled
+  } catch {
+    /* leave disabled */
+  }
+})
 provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload() })
 
 const blockChoices = computed(() => plugin.blocks)
@@ -135,34 +168,43 @@ function importMarkdown() {
 function hostGame() {
   if (!valid.value) return
   themeState.value = themeId.value
-  draft.value = { pluginId: props.pluginId, config: structuredClone(toRaw(config)), themeId: themeId.value }
-  router.push(`/host/${props.pluginId}`)
+  draft.value = { pluginId, config: structuredClone(toRaw(config)), themeId: themeId.value }
+  router.push(`/host/${pluginId}`)
 }
 
-// Save the composition to the durable store and surface a shareable link.
+// Save the composition to the durable store, then surface a shareable link.
 const saving = ref(false)
 const saveError = ref('')
 const savedId = ref<string | null>(null)
+function buildBody() {
+  return {
+    pluginId,
+    themeId: themeId.value,
+    visibility: visibility.value,
+    description: description.value.trim() || undefined,
+    tags: tagsText.value.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 8),
+    coverImage: coverImage.value.trim() || undefined,
+    forkable: forkable.value,
+    config: toRaw(config),
+  }
+}
 async function saveGame() {
   if (!valid.value || saving.value) return
   // Saving requires an account; hosting/playing never do.
   if (!loggedIn.value) {
-    router.push(`/login?redirect=/editor/${props.pluginId}`)
+    router.push(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
   }
   saving.value = true
   saveError.value = ''
   try {
-    const res = await $fetch<{ id: string }>('/api/games', {
-      method: 'POST',
-      body: {
-        pluginId: props.pluginId,
-        themeId: themeId.value,
-        visibility: visibility.value,
-        config: toRaw(config),
-      },
-    })
-    savedId.value = res.id
+    if (editId.value) {
+      await $fetch(`/api/games/${editId.value}`, { method: 'PUT', body: buildBody() })
+      savedId.value = editId.value
+    } else {
+      const res = await $fetch<{ id: string }>('/api/games', { method: 'POST', body: buildBody() })
+      savedId.value = res.id
+    }
   } catch (e) {
     saveError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not save the game.'
   } finally {
@@ -172,7 +214,7 @@ async function saveGame() {
 const shareUrl = computed(() => (savedId.value ? `/g/${savedId.value}` : ''))
 // Editing again invalidates the saved snapshot's "saved" indicator.
 watch(
-  () => JSON.stringify(config),
+  () => `${JSON.stringify(config)}|${description.value}|${tagsText.value}|${coverImage.value}|${visibility.value}|${forkable.value}|${themeId.value}`,
   () => {
     savedId.value = null
   },
@@ -184,7 +226,7 @@ watch(
     <div class="wrap editor">
       <header class="ed-head">
         <div>
-          <span class="kicker">Editing · {{ plugin.manifest.name }}</span>
+          <span class="kicker">{{ headerLabel }} · {{ plugin.manifest.name }}</span>
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
         </div>
         <div class="ed-actions">
@@ -202,13 +244,30 @@ watch(
               <option value="public">Public (listed)</option>
             </select>
           </label>
+          <button class="btn btn-ghost" :class="{ 'btn-on': showDetails }" @click="showDetails = !showDetails">Details</button>
           <button class="btn btn-ghost" @click="showImport = !showImport">Import from Markdown</button>
           <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
-            {{ saving ? 'Saving…' : loggedIn ? 'Save' : 'Log in to save' }}
+            {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
           </button>
           <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
         </div>
       </header>
+
+      <div v-if="showDetails" class="ed-details">
+        <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
+        <label class="sf-field">
+          <span class="sf-label">Description</span>
+          <textarea v-model="description" class="sf-textarea" rows="2" maxlength="300" placeholder="One line about your game (shown on cards)." />
+        </label>
+        <label class="sf-field">
+          <span class="sf-label">Tags (comma-separated)</span>
+          <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
+        </label>
+        <label class="sf-toggle">
+          <input type="checkbox" v-model="forkable" />
+          <span>Let others fork (copy) this game</span>
+        </label>
+      </div>
 
       <div v-if="showImport" class="ed-import">
         <div class="ed-import-head">
@@ -354,6 +413,19 @@ watch(
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 16px;
+}
+.ed-details {
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 15px;
+  background: var(--surface);
+  padding: 16px;
+  margin: 0 0 18px;
+  display: grid;
+  gap: 14px;
+}
+.btn-on {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .ed-import {
   border: var(--bd) solid var(--line-soft);

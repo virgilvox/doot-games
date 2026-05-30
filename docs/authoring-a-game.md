@@ -108,7 +108,7 @@ is hosted by id at `/host/g/<id>` (HostRoom loads the stored composition);
 either way the host publishes the **redacted** config to the relay exactly as
 it does the default deck. The durable store holds game *definitions* only, never live room state, which stays on the relay.
 
-Saving requires an account (optional, argon2id via `nuxt-auth-utils`); hosting
+Saving requires an account (optional, argon2id via `better-auth`); hosting
 and playing never do. Each saved game has a **visibility**, `private` (owner
 only), `unlisted` (anyone with the link), or `public` (also listed on
 `/explore`), enforced server-side in `getGame`/the list routes.

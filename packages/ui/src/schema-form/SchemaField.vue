@@ -11,7 +11,7 @@
  * Anything it doesn't recognise falls back to a plain input for its kind.
  */
 import { computed } from 'vue'
-import ImageField from './ImageField.vue'
+import ImageField from '../components/ImageField.vue'
 import { type FieldNode, blankValue, humanizeName } from './introspect'
 
 const props = defineProps<{

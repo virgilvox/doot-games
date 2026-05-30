@@ -1,5 +1,5 @@
-/** Whether the editor should offer file uploads (storage configured + signed in). */
-export default defineEventHandler(async (event) => {
-  const user = await optionalUser(event)
-  return { enabled: isStorageConfigured() && !!user }
+/** Whether the editor should offer file uploads (object storage configured).
+ *  The upload itself still requires a session (presign is gated). */
+export default defineEventHandler(() => {
+  return { enabled: isStorageConfigured() }
 })

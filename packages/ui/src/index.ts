@@ -41,6 +41,7 @@ export { type DrawStroke, type DrawValue, emptyDrawing, strokePath } from './dra
 
 // Editor (schema-driven authoring form)
 export { default as SchemaForm } from './schema-form/SchemaForm.vue'
+export { default as ImageField } from './components/ImageField.vue'
 export {
   type FieldNode,
   type FieldEntry,

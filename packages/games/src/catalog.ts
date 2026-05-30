@@ -26,3 +26,14 @@ const ids = new Set(gameCatalog.map((g) => g.id))
 export function isKnownPlugin(id: string): boolean {
   return ids.has(id)
 }
+
+/**
+ * Per-block-kind answer fields to overwrite when serving a saved config to a
+ * non-owner, so the answer-withholding invariant holds at the API boundary too
+ * (mirrors each block's `redactContent`). Server-safe (data only). A test
+ * (`catalog.test.ts`) asserts every block with an `answerOf` is listed here, so
+ * a new answer-bearing block can't silently leak through the API.
+ */
+export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
+  guess: { correct: -1 },
+}

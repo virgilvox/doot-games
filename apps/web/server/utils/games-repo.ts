@@ -5,9 +5,11 @@
  * host derives answer keys from it at play time, never the server.
  *
  * Games are owned and have a visibility: `private` (owner only), `unlisted`
- * (anyone with the link), or `public` (also listed for discovery).
+ * (anyone with the link), or `public` (also listed for discovery). They also
+ * carry display metadata (description, tags, cover image) and a `forkable` flag
+ * letting others copy a game into their own editor.
  */
-import { isKnownPlugin } from '@doot-games/games/catalog'
+import { REDACTION_RULES, isKnownPlugin } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
 import { and, desc, eq } from 'drizzle-orm'
 import { type Visibility, games, useDb } from './db'
@@ -21,6 +23,10 @@ export const gameInputSchema = z.object({
   pluginId: z.string().min(1),
   themeId: z.string().min(1).max(40).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).optional(),
+  description: z.string().trim().max(300).optional(),
+  tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
+  coverImage: z.string().trim().max(2000).optional(),
+  forkable: z.boolean().optional(),
   config: z.object({
     title: z.string().trim().min(1).max(120),
     rounds: z.array(roundSchema).min(1).max(50),
@@ -29,7 +35,14 @@ export const gameInputSchema = z.object({
 
 export type GameInput = z.infer<typeof gameInputSchema>
 
-export interface SavedGame {
+export interface GameMeta {
+  description: string | null
+  tags: string[]
+  coverImage: string | null
+  forkable: boolean
+}
+
+export interface SavedGame extends GameMeta {
   id: string
   pluginId: string
   title: string
@@ -40,7 +53,7 @@ export interface SavedGame {
   createdAt: number
 }
 
-export interface SavedGameSummary {
+export interface SavedGameSummary extends GameMeta {
   id: string
   pluginId: string
   title: string
@@ -53,19 +66,82 @@ function newId(): string {
   return `g_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
 }
 
+/** Map a validated input to the metadata columns (shared by create + update). */
+function metaColumns(input: GameInput) {
+  return {
+    themeId: input.themeId ?? 'doot',
+    visibility: input.visibility ?? 'private',
+    description: input.description?.length ? input.description : null,
+    tags: input.tags?.length ? JSON.stringify(input.tags) : null,
+    coverImage: input.coverImage?.length ? input.coverImage : null,
+    forkable: input.forkable ?? false,
+  }
+}
+
+function parseTags(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const t = JSON.parse(raw)
+    return Array.isArray(t) ? t.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+const SUMMARY_COLUMNS = {
+  id: games.id,
+  pluginId: games.pluginId,
+  title: games.title,
+  themeId: games.themeId,
+  visibility: games.visibility,
+  description: games.description,
+  tags: games.tags,
+  coverImage: games.coverImage,
+  forkable: games.forkable,
+  createdAt: games.createdAt,
+}
+
+interface SummaryRow {
+  id: string
+  pluginId: string
+  title: string
+  themeId: string
+  visibility: string
+  description: string | null
+  tags: string | null
+  coverImage: string | null
+  forkable: boolean
+  createdAt: number
+}
+
+function toSummary(r: SummaryRow): SavedGameSummary {
+  return {
+    id: r.id,
+    pluginId: r.pluginId,
+    title: r.title,
+    themeId: r.themeId,
+    visibility: r.visibility as Visibility,
+    description: r.description,
+    tags: parseTags(r.tags),
+    coverImage: r.coverImage,
+    forkable: r.forkable,
+    createdAt: r.createdAt,
+  }
+}
+
 /**
  * Strip answer keys from a saved config before serving it to anyone who isn't
- * the owner, so the answer-withholding invariant holds for the API too, not
- * just the live relay. Mirrors each answer-bearing block's `redactContent`;
- * today only `guess` (and VoteBox's guess rounds) carries an answer (`correct`).
- * NOTE: a new answer-bearing block must add its rule here.
+ * the owner, so the answer-withholding invariant holds for the API too, not just
+ * the live relay. Driven by REDACTION_RULES (the server-safe block→answer-field
+ * map), which a catalog test keeps in sync with every block's `answerOf`.
  */
 export function redactConfigForViewer(config: SavedGame['config']): SavedGame['config'] {
   return {
     ...config,
-    rounds: config.rounds.map((r) =>
-      r.block === 'guess' ? { ...r, content: { ...r.content, correct: -1 } } : r,
-    ),
+    rounds: config.rounds.map((r) => {
+      const rule = REDACTION_RULES[r.block]
+      return rule ? { ...r, content: { ...r.content, ...rule } } : r
+    }),
   }
 }
 
@@ -80,63 +156,41 @@ export async function createGame(input: GameInput, ownerId: string): Promise<{ i
     id,
     pluginId: input.pluginId,
     title: input.config.title,
-    themeId: input.themeId ?? 'doot',
-    ownerId,
-    visibility: input.visibility ?? 'private',
     config: JSON.stringify(input.config),
+    ownerId,
+    ...metaColumns(input),
     createdAt: now,
     updatedAt: now,
   })
   return { id }
 }
 
-/** The current user's games (any visibility), most recent first. */
-export async function listMyGames(ownerId: string, limit = 100): Promise<SavedGameSummary[]> {
-  const db = await useDb()
-  return db
-    .select({
-      id: games.id,
-      pluginId: games.pluginId,
-      title: games.title,
-      themeId: games.themeId,
-      visibility: games.visibility,
-      createdAt: games.createdAt,
-    })
-    .from(games)
-    .where(eq(games.ownerId, ownerId))
-    .orderBy(desc(games.createdAt))
-    .limit(limit) as Promise<SavedGameSummary[]>
-}
-
-/** Publicly listed games (visibility = public), most recent first. */
-export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> {
-  const db = await useDb()
-  return db
-    .select({
-      id: games.id,
-      pluginId: games.pluginId,
-      title: games.title,
-      themeId: games.themeId,
-      visibility: games.visibility,
-      createdAt: games.createdAt,
-    })
-    .from(games)
-    .where(eq(games.visibility, 'public'))
-    .orderBy(desc(games.createdAt))
-    .limit(limit) as Promise<SavedGameSummary[]>
-}
-
-/** Change a game's visibility, owner only. Returns true if a row was updated. */
-export async function updateGameVisibility(
-  id: string,
-  ownerId: string,
-  visibility: Visibility,
-): Promise<boolean> {
+/** Full update of a saved game, owner only. Returns true if a row was updated. */
+export async function updateGame(id: string, ownerId: string, input: GameInput): Promise<boolean> {
   const db = await useDb()
   const res = await db
     .update(games)
-    .set({ visibility, updatedAt: Date.now() })
+    .set({
+      title: input.config.title,
+      config: JSON.stringify(input.config),
+      ...metaColumns(input),
+      updatedAt: Date.now(),
+    })
     .where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
+  return (res.rowsAffected ?? 0) > 0
+}
+
+/** Quick metadata toggles (visibility / forkable), owner only. */
+export async function patchGameMeta(
+  id: string,
+  ownerId: string,
+  fields: { visibility?: Visibility; forkable?: boolean },
+): Promise<boolean> {
+  const set: Record<string, unknown> = { updatedAt: Date.now() }
+  if (fields.visibility) set.visibility = fields.visibility
+  if (typeof fields.forkable === 'boolean') set.forkable = fields.forkable
+  const db = await useDb()
+  const res = await db.update(games).set(set).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
   return (res.rowsAffected ?? 0) > 0
 }
 
@@ -145,6 +199,30 @@ export async function deleteGame(id: string, ownerId: string): Promise<boolean> 
   const db = await useDb()
   const res = await db.delete(games).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
   return (res.rowsAffected ?? 0) > 0
+}
+
+/** The current user's games (any visibility), most recent first. */
+export async function listMyGames(ownerId: string, limit = 100): Promise<SavedGameSummary[]> {
+  const db = await useDb()
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(games)
+    .where(eq(games.ownerId, ownerId))
+    .orderBy(desc(games.createdAt))
+    .limit(limit)
+  return (rows as SummaryRow[]).map(toSummary)
+}
+
+/** Publicly listed games (visibility = public), most recent first. */
+export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> {
+  const db = await useDb()
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(games)
+    .where(eq(games.visibility, 'public'))
+    .orderBy(desc(games.createdAt))
+    .limit(limit)
+  return (rows as SummaryRow[]).map(toSummary)
 }
 
 /**
@@ -172,6 +250,10 @@ export async function getGame(id: string, requesterId: string | null): Promise<S
     themeId: row.themeId,
     ownerId: row.ownerId,
     visibility,
+    description: row.description,
+    tags: parseTags(row.tags),
+    coverImage: row.coverImage,
+    forkable: row.forkable,
     config,
     createdAt: row.createdAt,
   }

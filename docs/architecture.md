@@ -9,8 +9,8 @@ packages/engine   @doot-games/engine  CLASP wrapper, room runtime, state machine
 packages/sdk      @doot-games/sdk     plugin contract, round primitives, Zod schemas, scoring types
 packages/themes   @doot-games/themes  five theme token packs + CSS generation (the design system)
 packages/ui       @doot-games/ui      theme-aware Vue components + design-system stylesheet
-packages/games    @doot-games/games   first-party plugins: Guess, Rate, VoteBox (+ registry)
-apps/web          @doot-games/web     Nuxt shell: home, explore, create, host, play
+packages/games    @doot-games/games   blocks + games (Guess/Rate/Poll/Rank/Draw/VoteBox/Custom) + renderer + markdown import
+apps/web          @doot-games/web     Nuxt shell: home, explore, create, editor, host, play, auth, /api
 ```
 
 **Dependency direction (one-way):** `games → sdk, ui`; `sdk → engine, themes`; `ui → themes, engine`; `apps/web → everything`. The engine never imports a game; the sdk never imports the shell.
@@ -34,7 +34,7 @@ The runtime is framework-agnostic and is exercised by an in-memory fake relay in
 
 ## Game types and plugins
 
-Round primitives in the SDK **are** the game types (Guess = `multiple-choice`, Rate = `rating`, Draw, Poll, Rank, Buzz = `reaction`, Quip = `free-text`). A plugin is single-type or a composite. The built-ins: **Guess** and **Rate** (single-type) and **VoteBox** (the Guess + Rate composite). They share one deck engine and one set of Host/Player/Results views. See [authoring-a-game.md](./authoring-a-game.md).
+Games are built from **blocks** + **compositions** (see [authoring-a-game.md](./authoring-a-game.md)). A *block* is a standalone round kind (Guess, Rate, Poll, Rank, Draw) declaring a content schema, Player/Host views, a pure `aggregate`, and optional answer-withholding. A *game* is a manifest plus an ordered `{ block, content }` list; the generic `GameHost`/`GamePlayer`/`GameResults` renderer mounts the right block per round and merges results. The seven built-ins: Guess, Rate, Poll, Rank, Draw (single-block), **VoteBox** (`[guess, rate]`), and **Custom** (all blocks). No game imports another.
 
 ## Tests
 

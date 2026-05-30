@@ -8,7 +8,6 @@
  */
 export { z } from 'zod'
 export * from './manifest'
-export * from './rounds'
 export * from './results'
 export * from './plugin'
 export * from './block'

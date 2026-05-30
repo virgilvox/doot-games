@@ -35,7 +35,7 @@ async function logout() {
           </template>
           <NuxtLink v-else to="/login" class="navlink">Log in</NuxtLink>
         </div>
-        <div class="themebar">
+        <div class="themebar" role="group" aria-label="Theme">
           <span class="lbl mono">theme</span>
           <button
             v-for="t in themeList"
@@ -44,6 +44,7 @@ async function logout() {
             :class="{ on: theme === t.id }"
             :title="t.name"
             :aria-label="`Theme: ${t.name}`"
+            :aria-pressed="theme === t.id"
             :style="{ background: `linear-gradient(135deg, ${t.tokens.primary}, ${t.tokens.c1})` }"
             @click="theme = t.id"
           />

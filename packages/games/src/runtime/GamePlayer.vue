@@ -50,7 +50,7 @@ function submit() {
 </script>
 
 <template>
-  <div class="player">
+  <div class="player" aria-live="polite">
     <div v-if="!room.ready.value" class="big">Joining…</div>
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">

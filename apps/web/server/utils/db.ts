@@ -29,6 +29,14 @@ export const games = sqliteTable('games', {
   ownerId: text('owner_id'),
   /** 'private' (owner only), 'unlisted' (anyone with the link), or 'public' (listed). */
   visibility: text('visibility').notNull().default('private'),
+  /** Optional one-line description shown on cards and the detail page. */
+  description: text('description'),
+  /** JSON array of short tags, or null. */
+  tags: text('tags'),
+  /** Optional cover image URL. */
+  coverImage: text('cover_image'),
+  /** Whether others may fork (copy) this game into their own editor. */
+  forkable: integer('forkable', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
@@ -69,6 +77,10 @@ async function ensureSchema(c: Client): Promise<void> {
   for (const ddl of [
     'ALTER TABLE games ADD COLUMN owner_id TEXT',
     "ALTER TABLE games ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
+    'ALTER TABLE games ADD COLUMN description TEXT',
+    'ALTER TABLE games ADD COLUMN tags TEXT',
+    'ALTER TABLE games ADD COLUMN cover_image TEXT',
+    'ALTER TABLE games ADD COLUMN forkable INTEGER NOT NULL DEFAULT 0',
   ]) {
     try {
       await c.execute(ddl)
