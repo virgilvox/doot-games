@@ -8,7 +8,7 @@
  * the host screen. Client-only: it mounts block player views and uses the draft.
  */
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
-import { getBlock, getPlugin } from '@doot-games/games'
+import { getBlock, getPlugin, parseMarkdownGame } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
 import { IMAGE_UPLOAD, SchemaForm } from '@doot-games/ui'
 import { computed, provide, reactive, ref, toRaw, watch } from 'vue'
@@ -105,6 +105,33 @@ function toggle(i: number) {
   expanded.value = expanded.value === i ? null : i
 }
 
+// Import a whole game from a markdown spec (see docs/markdown-games.md). Rounds
+// using blocks this game type doesn't support are dropped with a note (the
+// Custom type supports every block).
+const showImport = ref(false)
+const markdownText = ref('')
+const importWarnings = ref<string[]>([])
+function importMarkdown() {
+  const parsed = parseMarkdownGame(markdownText.value)
+  const supported = new Set(plugin!.blocks.map((b) => b.kind))
+  const kept = parsed.rounds.filter((r) => supported.has(r.block))
+  const dropped = parsed.rounds.length - kept.length
+  config.title = parsed.title
+  if (parsed.themeId && themes.some((t) => t.id === parsed.themeId)) themeId.value = parsed.themeId
+  if (kept.length) {
+    config.rounds.splice(0, config.rounds.length, ...kept)
+    for (const k of Object.keys(previewInputs)) delete previewInputs[Number(k)]
+    expanded.value = 0
+  }
+  importWarnings.value = [
+    ...parsed.warnings,
+    dropped > 0
+      ? `${dropped} round(s) use blocks not in ${plugin!.manifest.name}. Open the Custom game type to use any block.`
+      : '',
+  ].filter(Boolean)
+  if (kept.length) showImport.value = false
+}
+
 function hostGame() {
   if (!valid.value) return
   themeState.value = themeId.value
@@ -175,12 +202,33 @@ watch(
               <option value="public">Public (listed)</option>
             </select>
           </label>
+          <button class="btn btn-ghost" @click="showImport = !showImport">Import from Markdown</button>
           <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
             {{ saving ? 'Saving…' : loggedIn ? 'Save' : 'Log in to save' }}
           </button>
           <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
         </div>
       </header>
+
+      <div v-if="showImport" class="ed-import">
+        <div class="ed-import-head">
+          <span>Paste a markdown game spec, then Import. It replaces the rounds below.</span>
+          <a href="https://github.com/virgilvox/doot-games/blob/main/docs/markdown-games.md" target="_blank" rel="noopener" class="ed-import-doc">Format guide ↗</a>
+        </div>
+        <textarea
+          v-model="markdownText"
+          class="sf-textarea ed-import-text"
+          rows="10"
+          placeholder="# My Game&#10;theme: cyber&#10;&#10;## guess&#10;prompt: Who is this?&#10;- Option A (correct)&#10;- Option B"
+        />
+        <div class="ed-import-actions">
+          <button class="btn btn-primary btn-sm" :disabled="!markdownText.trim()" @click="importMarkdown">Import</button>
+          <button class="btn btn-ghost btn-sm" @click="showImport = false">Cancel</button>
+        </div>
+        <ul v-if="importWarnings.length" class="ed-import-warn">
+          <li v-for="(w, i) in importWarnings" :key="i">{{ w }}</li>
+        </ul>
+      </div>
 
       <p v-if="!valid" class="ed-note">
         Fix the highlighted rounds and give the game a title to start hosting.
@@ -287,6 +335,44 @@ watch(
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 16px;
+}
+.ed-import {
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 15px;
+  background: var(--surface);
+  padding: 16px;
+  margin: 0 0 18px;
+}
+.ed-import-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.ed-import-doc {
+  color: var(--primary);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ed-import-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  min-height: 200px;
+}
+.ed-import-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ed-import-warn {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--primary);
+  font-size: 13px;
 }
 .ed-note--err {
   color: var(--primary);

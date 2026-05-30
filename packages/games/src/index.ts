@@ -4,6 +4,7 @@
  */
 export * from './registry'
 export * from './runtime'
+export { type ParsedGame, parseMarkdownGame } from './markdown'
 
 // Blocks (the reusable round kinds)
 export { guessBlock } from './blocks/guess/block'
@@ -19,3 +20,4 @@ export { poll } from './games/poll'
 export { rank } from './games/rank'
 export { draw } from './games/draw'
 export { voteBox } from './games/votebox'
+export { custom } from './games/custom'
