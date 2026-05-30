@@ -46,12 +46,12 @@ automatically.
 
 `packages/ui/src/visuals.ts` is the single source of truth: `gameVisual(type) →
 { color, icon }` keyed by game-type id and block kind. It feeds:
-- **`GameCover`** (gradient cover + per-type line motif + faded initial) — used on
+- **`GameCover`** (gradient cover + per-type line motif + faded initial) - used on
   every game card.
-- **`GameTypeIcon`** (colored rounded-square icon) — Create typecards + **editor
+- **`GameTypeIcon`** (colored rounded-square icon) - Create typecards + **editor
   round headers**, where rounds are now **color-coded by block type** (a Guess
   round reads blue, a Rate round pink) with a colored left border, so a multi-block
-  game is legible at a glance. (Editor settings — Theme/Visibility/Details/Import —
+  game is legible at a glance. (Editor settings - Theme/Visibility/Details/Import -
   are also grouped into one boxed cluster, separate from Save/Host, so they're no
   longer easy to miss.)
 
@@ -59,7 +59,7 @@ automatically.
 
 - **Shipped:** `manifest.version` (already required, was dead metadata) is now
   surfaced on cards and Create ("v0.2.0"). For an in-repo flagship, "latest" is
-  simply "what's deployed" — bump the version when you expand a pool.
+  simply "what's deployed" - bump the version when you expand a pool.
 - **Roadmap (when official games can ship without a code deploy):**
   - Stamp `pluginVersion` onto saved-game rows at create/host time (a nullable
     `games` column via the additive-migration pattern in `server/utils/db.ts`) for
@@ -69,7 +69,7 @@ automatically.
     flagships, a version bump + a one-line "what's new" is enough; full release
     history is deferred until there's demand.
 
-## Official-games pipeline & admin/staff (roadmap — needs a decision)
+## Official-games pipeline & admin/staff (roadmap - needs a decision)
 
 The data model has **no** `official`/`category`/`role` fields today (confirmed by
 audit). Two paths, in order of cost:

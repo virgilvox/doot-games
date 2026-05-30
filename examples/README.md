@@ -26,7 +26,7 @@ games are ~20 lines and need no components.
 | 3 | **Remix / template with a content pool** | A curated, replayable game that draws fresh content each play | [`03-template-with-pool.ts`](./03-template-with-pool.ts) |
 | 4 | **Full custom** (override the views) | The block model doesn't fit; you want bespoke Host/Player/Results | [`04-full-custom/`](./04-full-custom/) |
 
-Plus: [`05-two-phase.ts`](./05-two-phase.ts) — the **make → judge** pattern (collect
+Plus: [`05-two-phase.ts`](./05-two-phase.ts) - the **make → judge** pattern (collect
 free-text, then vote on the anonymized, shuffled answers). This is how Quip Clash,
 Mad Libs, and Split the Room work.
 

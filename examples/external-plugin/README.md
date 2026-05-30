@@ -36,9 +36,9 @@ npx vite           # serves this folder with TS + HMR
 The harness loads your plugin in the **same sandboxed iframe** production uses, then
 lets you:
 
-- **Start round** — sends redacted content (no answer).
-- **Simulate other players** — fakes inputs so you can exercise scoring/aggregate.
-- **Reveal** — sends the answer key (proving your plugin behaves when it's absent before reveal).
+- **Start round** - sends redacted content (no answer).
+- **Simulate other players** - fakes inputs so you can exercise scoring/aggregate.
+- **Reveal** - sends the answer key (proving your plugin behaves when it's absent before reveal).
 - watch the **bridge inspector** flag any message that fails the protocol, and warn
   if your plugin tries to message the window off-channel.
 

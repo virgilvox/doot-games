@@ -186,9 +186,16 @@ export interface GamePlugin {
    * Build a fresh composition for one play by sampling from a large content pool
    * (replayability: no two rooms get the same prompts). `seed` is the room code,
    * so a room is internally consistent across reconnects but differs from other
-   * rooms. The host prefers this over `defaultConfig` when present.
+   * rooms. The host prefers this over `defaultConfig` when present. `opts.rounds`
+   * (when set) is the host-chosen number of rounds/items to draw.
    */
-  buildConfig?: (seed: string) => GameComposition
+  buildConfig?: (seed: string, opts?: { rounds?: number }) => GameComposition
+  /**
+   * If set (and `buildConfig` exists), the host can pick how many rounds/items to
+   * play from the lobby (a differentiator over fixed-length party games). `label`
+   * names the unit (e.g. "Prompts", "Stories", "Dilemmas").
+   */
+  roundOptions?: { min: number; max: number; default: number; label: string }
 }
 
 export function defineBlock<Content, Input>(

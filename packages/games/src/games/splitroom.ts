@@ -67,8 +67,9 @@ export const splitRoom = defineGame({
   },
   blocks: [fillBlock, splitBlock],
   defaultConfig: { title: 'Split the Room', rounds: deckFrom(FRAME_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string) => ({
-    title: 'Split the Room',
-    rounds: deckFrom(seededShuffle(`split:${seed}`)(FRAME_POOL).slice(0, ROUNDS_PER_GAME)),
-  }),
+  buildConfig: (seed: string, opts?: { rounds?: number }) => {
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, FRAME_POOL.length))
+    return { title: 'Split the Room', rounds: deckFrom(seededShuffle(`split:${seed}`)(FRAME_POOL).slice(0, n)) }
+  },
+  roundOptions: { min: 1, max: 5, default: ROUNDS_PER_GAME, label: 'Dilemmas' },
 })

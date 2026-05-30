@@ -6,14 +6,30 @@
  */
 import type { RelayValue } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import type { GameComposition, GamePlugin, ScorePlayer } from '@doot-games/sdk'
+import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, scoreGame } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
+
+// Optional host round-count picker (provided by HostRoom for pooled flagships).
+interface RoundConfig {
+  min: number
+  max: number
+  default: number
+  label: string
+  value: number
+}
+const roundConfig = inject<RoundConfig | null>('dootRoundConfig', null)
+const roundChoices = computed(() => {
+  if (!roundConfig) return []
+  const out: number[] = []
+  for (let n = roundConfig.min; n <= roundConfig.max; n++) out.push(n)
+  return out
+})
 
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
@@ -115,6 +131,23 @@ function finish() {
 function playAgain() {
   if (typeof window !== 'undefined') window.location.reload()
 }
+
+// A "make" round is one a LATER round derives from (e.g. the quip/fill round
+// before a vote/split). Its reveal step shows nothing meaningful, which reads as
+// "reveal did nothing"; so on a make round we collapse lock -> reveal -> next into
+// one "Start the vote" action and use clearer labels.
+const isMakeRound = computed(() => {
+  const next = rounds.value[index.value + 1] as RoundInstance | undefined
+  if (!next) return false
+  const nextBlock = getBlock(props.plugin, next.block)
+  if (!nextBlock?.derive) return false
+  const from = next.from ?? [index.value]
+  return from.includes(index.value)
+})
+function startVote() {
+  room.host.reveal()
+  room.host.next()
+}
 </script>
 
 <style scoped>
@@ -144,6 +177,22 @@ function playAgain() {
         <span class="count mono">{{ room.players.value.length }} joined</span>
       </div>
       <RosterChips :players="room.players.value" />
+      <div v-if="roundConfig" class="round-pick">
+        <span class="kicker">{{ roundConfig.label }}</span>
+        <div class="round-opts" role="group" :aria-label="roundConfig.label">
+          <button
+            v-for="n in roundChoices"
+            :key="n"
+            type="button"
+            class="round-opt"
+            :class="{ on: roundConfig.value === n }"
+            :aria-pressed="roundConfig.value === n"
+            @click="roundConfig.value = n"
+          >
+            {{ n }}
+          </button>
+        </div>
+      </div>
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="!config" @click="room.host.start()">
           Start game
@@ -189,9 +238,15 @@ function playAgain() {
     <ControlBar :round-index="index" :round-count="rounds.length" :state-label="stateLabel">
       <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" />
       <DButton v-if="room.host.can('open')" variant="primary" size="lg" @click="room.host.openVoting()">
-        Open voting
+        {{ isMakeRound ? 'Collect answers' : 'Open voting' }}
       </DButton>
-      <DButton v-else-if="room.host.can('lock')" @click="room.host.lock()">Lock voting</DButton>
+      <DButton v-else-if="room.host.can('lock')" @click="room.host.lock()">
+        {{ isMakeRound ? 'Lock answers' : 'Lock voting' }}
+      </DButton>
+      <!-- Make round: skip the empty reveal, go straight to the vote. -->
+      <DButton v-else-if="room.host.can('reveal') && isMakeRound" variant="primary" size="lg" @click="startVote()">
+        Start the vote →
+      </DButton>
       <DButton v-else-if="room.host.can('reveal')" variant="primary" @click="room.host.reveal()">
         Reveal
       </DButton>
@@ -230,6 +285,36 @@ function playAgain() {
 .count {
   color: var(--c5);
   font-weight: 700;
+}
+.round-pick {
+  margin-top: 16px;
+}
+.round-opts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.round-opt {
+  min-width: 44px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  cursor: pointer;
+  transition: transform 0.08s, background 0.12s;
+}
+.round-opt:hover {
+  border-color: var(--line);
+}
+.round-opt.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--line);
 }
 .lobby-actions {
   margin-top: 18px;

@@ -159,8 +159,9 @@ export const madLibs = defineGame({
   },
   blocks: [fillBlock, voteBlock],
   defaultConfig: { title: 'Mad Libs', rounds: deckFrom(STORY_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string) => ({
-    title: 'Mad Libs',
-    rounds: deckFrom(seededShuffle(`madlibs:${seed}`)(STORY_POOL).slice(0, ROUNDS_PER_GAME)),
-  }),
+  buildConfig: (seed: string, opts?: { rounds?: number }) => {
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, STORY_POOL.length))
+    return { title: 'Mad Libs', rounds: deckFrom(seededShuffle(`madlibs:${seed}`)(STORY_POOL).slice(0, n)) }
+  },
+  roundOptions: { min: 1, max: 6, default: ROUNDS_PER_GAME, label: 'Stories' },
 })

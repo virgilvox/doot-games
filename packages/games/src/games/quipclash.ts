@@ -71,9 +71,11 @@ export const quipClash = defineGame({
   blocks: [quipBlock, voteBlock],
   // A small fixed deck for the editor preview / fallback.
   defaultConfig: { title: 'Quip Clash', rounds: deckFrom(PROMPT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  // Each play: shuffle the pool by the room code and take a fresh set.
-  buildConfig: (seed: string) => ({
-    title: 'Quip Clash',
-    rounds: deckFrom(seededShuffle(`quip:${seed}`)(PROMPT_POOL).slice(0, ROUNDS_PER_GAME)),
-  }),
+  // Each play: shuffle the pool by the room code and take a fresh set. The host
+  // can pick how many prompts to play (opts.rounds), clamped to the pool.
+  buildConfig: (seed: string, opts?: { rounds?: number }) => {
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PROMPT_POOL.length))
+    return { title: 'Quip Clash', rounds: deckFrom(seededShuffle(`quip:${seed}`)(PROMPT_POOL).slice(0, n)) }
+  },
+  roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Prompts' },
 })

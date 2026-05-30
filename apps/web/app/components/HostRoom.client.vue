@@ -17,7 +17,7 @@ import {
   redactGameConfig,
 } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
-import { computed } from 'vue'
+import { computed, provide, reactive, watch } from 'vue'
 
 import type { GameComposition, ScorePlayer } from '@doot-games/sdk'
 
@@ -32,6 +32,9 @@ const runtime = useRuntimeConfig()
 
 const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
+// A definitely-defined alias so the load()/resolveConfig() closures keep the
+// narrowing (control-flow narrowing of `plugin` doesn't extend into closures).
+const game = plugin
 
 const themeState = useState<string>('doot-theme', () => 'doot')
 const roomCode = makeRoomCode()
@@ -43,18 +46,11 @@ provideDootRoom(room)
 // this game type) > a fresh pool sample (replayable flagships) > the default deck.
 const draft = useGameDraft()
 const fromDraft = draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value : null
-const config = props.config ?? fromDraft?.config ?? plugin.buildConfig?.(roomCode) ?? plugin.defaultConfig
-// Theme precedence mirrors config: a saved game's theme > the draft's theme
-// (survives a host-tab reload via the persisted draft) > the global selection.
+// Theme precedence: a saved game's theme > the draft's theme (survives a host-tab
+// reload via the persisted draft) > the global selection.
 const themeId = props.themeId ?? fromDraft?.themeId ?? themeState.value
-// Adopt it for the whole host shell (the global ThemeProvider reads this).
-themeState.value = themeId
-const meta: RoomMeta = {
-  pluginId: plugin.manifest.id,
-  pluginVersion: plugin.manifest.version,
-  title: config.title || plugin.manifest.name,
-  themeId,
-}
+themeState.value = themeId // adopt it for the whole host shell
+
 // The roster, read lazily at derive/reveal time (it changes as players join).
 // Read the runtime's authoritative roster directly rather than the reactive
 // snapshot: derive/reveal run synchronously inside host actions, and the Vue
@@ -62,23 +58,50 @@ const meta: RoomMeta = {
 const getPlayers = (): ScorePlayer[] =>
   room.runtime.recentPlayers().map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex }))
 
-room.host.loadGame({
-  meta,
-  config: config as unknown as RelayValue,
-  publishConfig: redactGameConfig(plugin, config) as unknown as RelayValue,
-  rounds: gameRounds(plugin, config),
-  answerKeys: gameAnswerKeys(plugin, config) as unknown as Record<number, RelayValue>,
-  // Two-phase wiring: derive a round's content from earlier inputs at runtime,
-  // and publish a public reveal summary so phones can show personal feedback.
-  deriveContent: buildDeriveContent(plugin, config, roomCode, getPlayers) as never,
-  revealSummary: buildRevealSummary(
-    plugin,
-    config,
-    getPlayers,
-    (i) => room.runtimeContentFor(i),
-    (i) => room.answerKeyFor(i),
-  ) as never,
-})
+// For a pooled flagship hosted fresh (not a saved/draft game), let the host pick
+// the round count from the lobby. Provided to the GameHost lobby; changing it
+// re-samples the deck (lobby only). Null for saved/draft/non-pooled games.
+const usesPool = !props.config && !fromDraft && !!game.buildConfig
+const roundConfig =
+  usesPool && game.roundOptions ? reactive({ ...game.roundOptions, value: game.roundOptions.default }) : null
+provide('dootRoundConfig', roundConfig)
+
+function resolveConfig(): GameComposition {
+  if (props.config) return props.config
+  if (fromDraft?.config) return fromDraft.config
+  if (game.buildConfig) return game.buildConfig(roomCode, roundConfig ? { rounds: roundConfig.value } : undefined)
+  return game.defaultConfig
+}
+
+function load() {
+  const config = resolveConfig()
+  const meta: RoomMeta = {
+    pluginId: game.manifest.id,
+    pluginVersion: game.manifest.version,
+    title: config.title || game.manifest.name,
+    themeId,
+  }
+  room.host.loadGame({
+    meta,
+    config: config as unknown as RelayValue,
+    publishConfig: redactGameConfig(game, config) as unknown as RelayValue,
+    rounds: gameRounds(game, config),
+    answerKeys: gameAnswerKeys(game, config) as unknown as Record<number, RelayValue>,
+    // Two-phase wiring: derive a round's content from earlier inputs at runtime,
+    // and publish a public reveal summary so phones can show personal feedback.
+    deriveContent: buildDeriveContent(game, config, roomCode, getPlayers) as never,
+    revealSummary: buildRevealSummary(
+      game,
+      config,
+      getPlayers,
+      (i) => room.runtimeContentFor(i),
+      (i) => room.answerKeyFor(i),
+    ) as never,
+  })
+}
+load()
+// Re-sample when the host changes the round count in the lobby (before start only).
+if (roundConfig) watch(() => roundConfig.value, () => { if (room.phase.value === 'lobby') load() })
 
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)

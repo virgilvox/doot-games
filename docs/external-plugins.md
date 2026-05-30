@@ -28,7 +28,7 @@ review produces false negatives (Figma's own conclusion after a sandbox-escape b
   ```
   default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
   img-src 'self' data: https://media.doot.games;
-  connect-src 'none';                      # no fetch/XHR/WebSocket — no exfiltration, no mining payloads
+  connect-src 'none';                      # no fetch/XHR/WebSocket - no exfiltration, no mining payloads
   frame-ancestors https://doot.games;      # only Doot may embed it
   base-uri 'none'; form-action 'none';
   ```
@@ -130,7 +130,7 @@ contained, zero core bloat) and graduate to real packages when Phase 1 lands.
    redacted-content/submit-only contract to exist and be tested first. ← lowest risk.
 1. **Sandboxed iframe, first-party only.** Move games into the `allow-scripts`-only
    iframe on `plugins.doot.games` with the production CSP. Proves the boundary with
-   trusted code. (Needs the second origin/subdomain — an infra decision.)
+   trusted code. (Needs the second origin/subdomain - an infra decision.)
 2. **Unlisted external plugins.** Manifest-by-URL registration + SHA pinning +
    `connect-src 'none'`, per-room and opt-in.
 3. **Open pinned registry** + the dev harness GA.

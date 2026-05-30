@@ -45,7 +45,7 @@ blocks. New round kind = one block.
 
 Pick the lowest-effort one that fits. Each links a complete example.
 
-### Way 1 — Compose existing blocks (no code)
+### Way 1 - Compose existing blocks (no code)
 
 A new game is just a manifest and a list of rounds.
 → [`examples/01-compose-blocks.ts`](../examples/01-compose-blocks.ts)
@@ -61,7 +61,7 @@ export const myGame = defineGame({
 })
 ```
 
-### Way 2 — Write a new block (a new round kind)
+### Way 2 - Write a new block (a new round kind)
 
 When no existing block covers your interaction. Build it with `defineBlock`: a Zod
 content schema (the editor auto-forms from it), an `emptyInput`, a Player view, a
@@ -72,13 +72,13 @@ The Player view is a **controlled input** (`v-model` of the input value); the
 generic renderer owns the "Lock it in" button and gates it on `isComplete`. The
 Host view shows the live tally. `aggregate` is pure and unit-testable.
 
-### Way 3 — Remix / template with a content pool
+### Way 3 - Remix / template with a content pool
 
 A curated composition of existing blocks. Add a `buildConfig(seed)` to draw a fresh
 random subset from a large pool each play, so no two rooms get the same game.
 → [`examples/03-template-with-pool.ts`](../examples/03-template-with-pool.ts)
 
-### Way 4 — Full custom (override the views)
+### Way 4 - Full custom (override the views)
 
 For a game the block model doesn't fit. Override the rendered components; the
 engine still handles the relay, room, and state machine.
