@@ -26,9 +26,6 @@ const plugin = getPlugin(props.pluginId)
 if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game type: ${props.pluginId}` })
 
 const themeState = useState<string>('doot-theme', () => 'doot')
-// A saved game carries its own theme; adopt it for the whole host shell.
-if (props.themeId) themeState.value = props.themeId
-const themeId = props.themeId ?? themeState.value
 const roomCode = makeRoomCode()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host' })
@@ -37,9 +34,13 @@ provideDootRoom(room)
 // Precedence: an explicit config (a saved game) > the editor draft (if it's for
 // this game type) > the game type's default deck (a direct /host link).
 const draft = useGameDraft()
-const config =
-  props.config ??
-  (draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value.config : plugin.defaultConfig)
+const fromDraft = draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value : null
+const config = props.config ?? fromDraft?.config ?? plugin.defaultConfig
+// Theme precedence mirrors config: a saved game's theme > the draft's theme
+// (survives a host-tab reload via the persisted draft) > the global selection.
+const themeId = props.themeId ?? fromDraft?.themeId ?? themeState.value
+// Adopt it for the whole host shell (the global ThemeProvider reads this).
+themeState.value = themeId
 const meta: RoomMeta = {
   pluginId: plugin.manifest.id,
   pluginVersion: plugin.manifest.version,

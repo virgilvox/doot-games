@@ -45,6 +45,10 @@ const isFork = computed(() => !!source && !props.canEdit)
 // Seed from the loaded game, or the type's default composition (deep-cloned).
 const config = reactive<GameComposition>(structuredClone(toRaw(source?.config ?? plugin.defaultConfig)))
 const themeId = ref(source?.themeId ?? themeState.value)
+// Apply the game's theme to the editor live, so picking a theme restyles the
+// editor (and its preview) exactly as it will look when hosted. This drives the
+// global ThemeProvider; "Host now"/Save carry the same `themeId`.
+watch(themeId, (t) => { themeState.value = t }, { immediate: true })
 const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
 const session = authClient.useSession()
 const loggedIn = computed(() => !!session.value?.data?.user)
@@ -347,6 +351,12 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <div class="ed-phone panel">
                 <div class="kicker">{{ blockFor(round)?.name }}</div>
                 <h3 class="ed-phone-prompt">{{ promptOf(round) }}</h3>
+                <img
+                  v-if="contentOf(round).image"
+                  :src="contentOf(round).image as string"
+                  alt=""
+                  class="ed-phone-img"
+                />
                 <component
                   :is="blockFor(round)!.PlayerInput"
                   v-if="blockFor(round) && !errors[i]"
@@ -592,6 +602,13 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 .ed-phone-prompt {
   font-size: 20px;
   font-weight: 800;
+}
+.ed-phone-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
 }
 .ed-preview-hint {
   text-transform: none;

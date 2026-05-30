@@ -25,6 +25,14 @@ const block = computed(() =>
 )
 const content = computed(() => instance.value?.content ?? null)
 const prompt = computed(() => (content.value as { prompt?: string } | null)?.prompt ?? '')
+// Show the prompt image on the phone too (not only the host screen), so players
+// who can't see the big screen still get the question. Hide it if it 404s.
+const image = computed(() => (content.value as { image?: string } | null)?.image ?? '')
+const failedImage = ref(false)
+watch(image, () => {
+  failedImage.value = false
+})
+const showImage = computed(() => !!image.value && !failedImage.value)
 const submitted = computed(() => room.inputFor(index.value) !== undefined)
 const eligible = computed(() => index.value >= room.joinedAtIndex.value)
 
@@ -80,6 +88,7 @@ function submit() {
     <template v-else-if="state === 'open' && !submitted && value != null">
       <div class="kicker">{{ block.name }}</div>
       <h2 class="prompt">{{ prompt }}</h2>
+      <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
       <component :is="block.PlayerInput" :content="content" v-model="value" />
       <button class="btn btn-primary btn-block btn-lg" :disabled="!canSubmit" @click="submit">
         Lock it in
@@ -129,5 +138,13 @@ function submit() {
 .prompt {
   font-size: clamp(22px, 6vw, 32px);
   font-weight: 800;
+}
+.player-img {
+  width: 100%;
+  max-height: 38vh;
+  object-fit: contain;
+  border-radius: 14px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
 }
 </style>
