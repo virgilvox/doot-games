@@ -99,6 +99,12 @@ async function init(): Promise<LibSQLDatabase> {
  * connect, no duplicate schema runs).
  */
 export function useDb(): Promise<LibSQLDatabase> {
-  if (!initPromise) initPromise = init()
+  if (!initPromise) {
+    // Don't cache a rejected init — a transient failure should be retryable.
+    initPromise = init().catch((err) => {
+      initPromise = null
+      throw err
+    })
+  }
   return initPromise
 }

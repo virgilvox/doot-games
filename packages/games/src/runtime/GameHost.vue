@@ -43,8 +43,12 @@ const content = computed<Record<string, unknown> | null>(
 const subject = computed(() => content.value?.subject as string | undefined)
 const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
 const image = computed(() => content.value?.image as string | undefined)
+// Only expose the answer at reveal — even on the host's own screen — so a
+// block's HostDisplay can never surface it early to the room watching the big screen.
 const answer = computed(() =>
-  block.value?.answerOf && content.value ? block.value.answerOf(content.value) : undefined,
+  state.value === 'reveal' && block.value?.answerOf && content.value
+    ? block.value.answerOf(content.value)
+    : undefined,
 )
 
 const joinUrl = computed(() => {

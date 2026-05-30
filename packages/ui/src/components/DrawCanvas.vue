@@ -27,6 +27,10 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [value: DrawValue] }>()
 
 const BASE_WIDTH = 1000
+// Bound the payload so a drawing always stays small enough to publish over the
+// relay (and cheap to re-render in the host gallery).
+const MAX_STROKES = 400
+const MAX_POINTS = 600 // per stroke (each point is an x,y pair)
 const hostEl = ref<HTMLDivElement>()
 // biome-ignore lint/suspicious/noExplicitAny: Pixi types are loaded lazily at runtime
 let app: any = null
@@ -36,6 +40,7 @@ let drawing = false
 let current: DrawStroke | null = null
 
 function point(e: PointerEvent): [number, number] {
+  if (!app) return [0, 0]
   const rect = (app.canvas as HTMLCanvasElement).getBoundingClientRect()
   const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
   const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
@@ -61,14 +66,17 @@ function redraw() {
 }
 
 function onDown(e: PointerEvent) {
-  if (props.disabled) return
+  if (props.disabled || !app) return
+  // Ignore new strokes past the cap (the drawing is already as large as we send).
+  if (props.modelValue.strokes.length >= MAX_STROKES) return
   drawing = true
   const [x, y] = point(e)
   current = { color: props.color, size: props.size, points: [x, y] }
   redraw()
 }
 function onMove(e: PointerEvent) {
-  if (!drawing || !current) return
+  if (!drawing || !current || !app) return
+  if (current.points.length >= MAX_POINTS * 2) return // stroke is full
   const [x, y] = point(e)
   const n = current.points.length
   // Skip near-duplicate points to keep strokes compact for the relay.
@@ -123,8 +131,10 @@ onBeforeUnmount(() => {
   }
 })
 
-// External changes (undo / clear from the toolbar) re-render the committed strokes.
-watch(() => props.modelValue.strokes, redraw, { deep: true })
+// External changes (undo / clear from the toolbar) only ever append or truncate
+// the array wholesale, so watching its length is enough — and avoids a deep
+// walk of every point on each change.
+watch(() => props.modelValue.strokes.length, redraw)
 </script>
 
 <template>

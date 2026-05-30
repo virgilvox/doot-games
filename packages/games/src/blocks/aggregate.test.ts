@@ -181,13 +181,27 @@ describe('scoreGame merges block fragments', () => {
   it('produces a leaderboard (guess) and awards (rate) for the VoteBox composition', () => {
     const cfg = voteBox.defaultConfig
     const players: ScorePlayer[] = [{ id: 'a', name: 'Ann', joinedAtIndex: 0 }]
+    const answerKeys = gameAnswerKeys(voteBox, cfg)
+    const correct0 = (answerKeys[0] as { correct: number }).correct
     const result = scoreGame(voteBox, cfg, {
-      inputsFor: () => new Map(),
+      // Ann answers the guess round correctly, so she actually scores (and wins).
+      inputsFor: (i) => (i === 0 ? new Map([['a', { choice: correct0 }]]) : new Map()),
       players,
-      answerKeys: gameAnswerKeys(voteBox, cfg),
+      answerKeys,
     })
     expect(result.leaderboard?.length).toBe(1) // guess block contributed
     expect(result.headline).toBe('Ann wins')
     expect(result.stats?.[0]).toEqual({ label: 'Players', value: 1 })
+  })
+
+  it('does not crown a winner when nobody scored', () => {
+    const cfg = voteBox.defaultConfig
+    const players: ScorePlayer[] = [{ id: 'a', name: 'Ann', joinedAtIndex: 0 }]
+    const result = scoreGame(voteBox, cfg, {
+      inputsFor: () => new Map(), // no correct guesses → top score 0
+      players,
+      answerKeys: gameAnswerKeys(voteBox, cfg),
+    })
+    expect(result.headline).not.toContain('wins')
   })
 })

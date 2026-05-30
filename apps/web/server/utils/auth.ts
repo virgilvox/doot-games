@@ -13,10 +13,12 @@ import { hash, verify } from '@node-rs/argon2'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { databaseUrl } from './db'
 
-const secret =
-  process.env.SESSION_PASSWORD ||
-  process.env.NUXT_SESSION_PASSWORD ||
-  'doot-dev-session-password-change-me-32'
+const envSecret = process.env.SESSION_PASSWORD || process.env.NUXT_SESSION_PASSWORD
+// Fail closed in production: a known dev secret would make sessions forgeable.
+if (!envSecret && process.env.NODE_ENV === 'production') {
+  throw new Error('SESSION_PASSWORD (32+ chars) must be set in production to seal sessions.')
+}
+const secret = envSecret || 'doot-dev-session-password-change-me-32'
 
 export const authOptions: BetterAuthOptions = {
   appName: 'Doot',

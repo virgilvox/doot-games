@@ -53,6 +53,22 @@ function newId(): string {
   return `g_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
 }
 
+/**
+ * Strip answer keys from a saved config before serving it to anyone who isn't
+ * the owner — so the answer-withholding invariant holds for the API too, not
+ * just the live relay. Mirrors each answer-bearing block's `redactContent`;
+ * today only `guess` (and VoteBox's guess rounds) carries an answer (`correct`).
+ * NOTE: a new answer-bearing block must add its rule here.
+ */
+export function redactConfigForViewer(config: SavedGame['config']): SavedGame['config'] {
+  return {
+    ...config,
+    rounds: config.rounds.map((r) =>
+      r.block === 'guess' ? { ...r, content: { ...r.content, correct: -1 } } : r,
+    ),
+  }
+}
+
 export async function createGame(input: GameInput, ownerId: string): Promise<{ id: string }> {
   if (!isKnownPlugin(input.pluginId)) {
     throw createError({ statusCode: 422, statusMessage: `Unknown game type: ${input.pluginId}` })

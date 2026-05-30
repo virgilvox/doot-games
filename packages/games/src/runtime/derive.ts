@@ -122,9 +122,13 @@ export function scoreGame(
     { label: 'Players', value: ctx.players.length },
     ...fragments.flatMap((f) => f.stats ?? []),
   ]
-  const headline = leaderboard?.[0]
-    ? `${leaderboard[0].name} wins`
-    : (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
+  // Only crown a winner when the top score is actually above zero — otherwise
+  // "Nobody wins at 0" reads oddly; fall back to a block headline.
+  const top = leaderboard?.[0]
+  const headline =
+    top && typeof top.score === 'number' && top.score > 0
+      ? `${top.name} wins`
+      : (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
 
   return { headline, leaderboard, awards, distributions, stats }
 }

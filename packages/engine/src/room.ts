@@ -10,7 +10,7 @@
  * binding (`@doot-games/engine/vue`) mirrors this into refs.
  */
 import { addr, parseInputAddress, patterns, pidFromPlayerAddress } from './addresses'
-import { computeJoinedAtIndex } from './eligibility'
+import { computeJoinedAtIndex, isEligible } from './eligibility'
 import { playerId } from './identity'
 import { DEFAULT_TTL_US, type RelayClient, type RelayValue, type Unsubscribe } from './relay'
 import {
@@ -330,6 +330,9 @@ export class RoomRuntime {
   submit(input: RelayValue): void {
     if (this.me.role !== 'player') throw new Error('Only players submit inputs.')
     const i = this.state.round.index
+    // A player can only act on rounds from when they joined — don't publish an
+    // input for a round they joined after (every block's scoring assumes this).
+    if (!isEligible(this.myJoinedAtIndex, i)) return
     this.inputs.set(`${i}:${this.me.id}`, input)
     this.publish(addr.input(this.room, i, this.me.id), input)
     this.emit()
