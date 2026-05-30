@@ -43,8 +43,8 @@ Monorepo: pnpm workspaces. **Published npm scope is `@doot-games`** (the org). N
 - **TypeScript everywhere, strict mode. No implicit `any`.**
 - **Nuxt (Nuxt 4 line) + Vue 3.** Nitro server routes for auth, DB, presigned uploads, games/plugins API. SSR for public discovery/game pages.
 - **Real-time: `@clasp-to/core`** (core build, not the higher-level SDK — Doot only needs publish/subscribe with persistence + TTL). The prototype pins `4.3.2`. Relay: `wss://relay.clasp.to`.
-- **Database: PostgreSQL + Drizzle ORM** (SQLite is the minimal-mode option; same query code). Migrations run on startup.
-- **Auth: `nuxt-auth-utils` + argon2id**, sealed httpOnly cookies, no session store. Optional and non-blocking — only gates create/publish/stats. Magic-link is an optional SMTP upgrade.
+- **Database: Drizzle ORM over libSQL/SQLite** today (zero-config local file; `DATABASE_URL` for a libSQL/Turso URL). PostgreSQL is the documented prod follow-up behind the same `useDb()`/repo seam. Schema is created on startup (`apps/web/server/utils/db.ts`); better-auth manages its own tables.
+- **Auth: `better-auth` + argon2id** (sealed httpOnly cookie sessions, built-in rate-limiting + Origin/CSRF checks). better-auth owns its own tables via its Kysely adapter over the same libSQL DB and runs its migrations at startup (`apps/web/server/plugins/auth-migrate.ts`); passwords use argon2id (via `@node-rs/argon2`) rather than the default scrypt. Optional and non-blocking — only gates saving games; hosting and playing never need an account. OAuth / email-verification / magic-link are future better-auth config. (The earlier scaffold used `nuxt-auth-utils`; replaced during the auth audit.)
 - **Validation: Zod** for every external input (API bodies, plugin manifests, game configs). The editor auto-generates a form from a plugin's Zod config schema when no custom editor ships.
 - **Object storage: `aws4fetch` presigning** to DigitalOcean Spaces (MinIO locally). Browser uploads direct via presigned PUT.
 - **Containers: Docker + compose** (local: app+Postgres+MinIO; prod: app+Postgres-on-volume+Caddy). **Proxy/TLS: Caddy.**

@@ -6,10 +6,11 @@ const theme = useState('doot-theme', () => 'doot')
 const route = useRoute()
 const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.startsWith('/play/'))
 
-const { loggedIn, user, clear: clearSession } = useUserSession()
+const session = authClient.useSession()
+const user = computed(() => session.value?.data?.user ?? null)
+const loggedIn = computed(() => !!user.value)
 async function logout() {
-  await $fetch('/api/auth/logout', { method: 'POST' })
-  await clearSession()
+  await authClient.signOut()
   await navigateTo('/')
 }
 </script>

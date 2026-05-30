@@ -4,11 +4,11 @@
 import { computed, ref } from 'vue'
 
 const route = useRoute()
-const { loggedIn, fetch: refreshSession } = useUserSession()
+const session = authClient.useSession()
 const redirectTo = computed(() => (typeof route.query.redirect === 'string' ? route.query.redirect : '/explore'))
 
 // Already signed in? Move along.
-if (import.meta.client && loggedIn.value) navigateTo(redirectTo.value)
+if (import.meta.client && session.value?.data?.user) navigateTo(redirectTo.value)
 
 const mode = ref<'login' | 'register'>('login')
 const email = ref('')
@@ -20,18 +20,16 @@ async function submit() {
   if (busy.value) return
   busy.value = true
   error.value = ''
-  try {
-    await $fetch(`/api/auth/${mode.value}`, {
-      method: 'POST',
-      body: { email: email.value, password: password.value },
-    })
-    await refreshSession()
-    await navigateTo(redirectTo.value)
-  } catch (e) {
-    error.value = (e as { statusMessage?: string })?.statusMessage ?? 'Something went wrong.'
-  } finally {
-    busy.value = false
+  const res =
+    mode.value === 'register'
+      ? await authClient.signUp.email({ email: email.value, password: password.value, name: email.value.split('@')[0] || 'Player' })
+      : await authClient.signIn.email({ email: email.value, password: password.value })
+  busy.value = false
+  if (res.error) {
+    error.value = res.error.message ?? 'Something went wrong.'
+    return
   }
+  await navigateTo(redirectTo.value)
 }
 </script>
 

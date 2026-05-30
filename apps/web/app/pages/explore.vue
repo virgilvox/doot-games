@@ -9,15 +9,17 @@ interface SavedGameSummary {
   visibility: 'private' | 'unlisted' | 'public'
   createdAt: number
 }
-const { loggedIn } = useUserSession()
+const session = authClient.useSession()
+const loggedIn = computed(() => !!session.value?.data?.user)
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games')
+// The server authorizes via the session cookie (forwarded on SSR), so this
+// returns the caller's games when signed in and 401 → [] otherwise.
 const { data: mineData } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
   query: { scope: 'mine' },
-  immediate: loggedIn.value,
   default: () => ({ games: [] }),
 })
 const publicGames = computed(() => pub.value?.games ?? [])
-const myGames = computed(() => (loggedIn.value ? (mineData.value?.games ?? []) : []))
+const myGames = computed(() => mineData.value?.games ?? [])
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 const visLabel = { private: 'Private', unlisted: 'Unlisted', public: 'Public' } as const
 </script>

@@ -6,8 +6,8 @@
 export default defineEventHandler(async (event) => {
   const scope = getQuery(event).scope
   if (scope === 'mine') {
-    const { user } = await requireUserSession(event)
-    return { games: await listMyGames((user as { id: string }).id) }
+    const user = await requireUser(event)
+    return { games: await listMyGames(user.id) }
   }
   return { games: await listPublicGames() }
 })

@@ -14,13 +14,8 @@ import { type Client, createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
-/** A registered account. Auth is optional; it only gates saving games. */
-export const users = sqliteTable('users', {
-  id: text('id').primaryKey(),
-  email: text('email').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
-  createdAt: integer('created_at').notNull(),
-})
+// Accounts/sessions are owned by better-auth (its own tables); this store holds
+// only game definitions. See server/utils/auth.ts.
 
 /** A saved game definition (a composition authored in the editor). */
 export const games = sqliteTable('games', {
@@ -44,7 +39,8 @@ export const VISIBILITIES: Visibility[] = ['private', 'unlisted', 'public']
 
 const DEFAULT_URL = 'file:./.data/doot.sqlite'
 
-function resolveUrl(): string {
+/** The resolved libSQL URL — shared by the games store and better-auth. */
+export function databaseUrl(): string {
   const raw = process.env.DATABASE_URL?.trim()
   if (!raw) return DEFAULT_URL
   if (raw.startsWith('postgres')) {
@@ -68,14 +64,6 @@ async function ensureSchema(c: Client): Promise<void> {
       updated_at INTEGER NOT NULL
     )
   `)
-  await c.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )
-  `)
   // Additive migrations for databases created before auth/visibility (SQLite
   // errors on a duplicate column — ignore that).
   for (const ddl of [
@@ -94,7 +82,7 @@ async function ensureSchema(c: Client): Promise<void> {
 }
 
 async function init(): Promise<LibSQLDatabase> {
-  const url = resolveUrl()
+  const url = databaseUrl()
   if (url.startsWith('file:')) {
     // libSQL won't create missing parent directories for a file URL.
     mkdirSync(dirname(url.slice('file:'.length)), { recursive: true })

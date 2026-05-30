@@ -25,7 +25,8 @@ if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game t
 const config = reactive<GameComposition>(structuredClone(toRaw(plugin.defaultConfig)))
 const themeId = ref(themeState.value)
 const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
-const { loggedIn } = useUserSession()
+const session = authClient.useSession()
+const loggedIn = computed(() => !!session.value?.data?.user)
 const visibility = ref<'private' | 'unlisted' | 'public'>('private')
 
 // Offer image uploads in the editor's image fields when storage is configured

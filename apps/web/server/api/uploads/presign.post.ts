@@ -6,7 +6,7 @@ const presignSchema = z.object({
 
 /** Presign a direct browser upload. Requires a session (uploads are durable). */
 export default defineEventHandler(async (event) => {
-  const { user } = await requireUserSession(event)
+  const user = await requireUser(event)
   if (!isStorageConfigured()) {
     throw createError({ statusCode: 501, statusMessage: 'Uploads are not configured.' })
   }
@@ -16,6 +16,6 @@ export default defineEventHandler(async (event) => {
   }
   const ext = extensionFor(parsed.data.contentType)
   if (!ext) throw createError({ statusCode: 400, statusMessage: 'Unsupported image type.' })
-  const key = `uploads/${(user as { id: string }).id}/${crypto.randomUUID()}.${ext}`
+  const key = `uploads/${user.id}/${crypto.randomUUID()}.${ext}`
   return presignUpload(key, parsed.data.contentType)
 })

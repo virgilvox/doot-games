@@ -3,9 +3,8 @@
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Missing id' })
-  const session = await getUserSession(event)
-  const requesterId = (session.user as { id?: string } | undefined)?.id ?? null
-  const game = await getGame(id, requesterId)
+  const user = await optionalUser(event)
+  const game = await getGame(id, user?.id ?? null)
   if (!game) throw createError({ statusCode: 404, statusMessage: 'Game not found' })
   return game
 })
