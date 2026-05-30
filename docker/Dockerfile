@@ -22,5 +22,9 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 COPY --from=build /app/apps/web/.output ./.output
+# Nitro bundles libSQL's JS wrapper but not its native addon; install the exact
+# matching version next to the bundled server so it resolves at runtime (the
+# musl variant is selected automatically on Alpine).
+RUN cd .output/server && npm install --no-save --no-package-lock --omit=dev libsql@0.3.19
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
