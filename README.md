@@ -182,16 +182,10 @@ doot-games/
 docker compose -f docker/docker-compose.yml up
 ```
 
-### Single droplet (production)
-`docker/docker-compose.prod.yml` runs the app, Postgres with its data directory on an attached block-storage volume (e.g. `/mnt/doot-data/pg`), and Caddy for automatic HTTPS. Object storage is DigitalOcean Spaces; the relay is the public `wss://relay.clasp.to`. The same image runs locally and in prod, only environment variables differ.
+### Single droplet (production) — git-push deploy
+The live site deploys by **pushing to `main`**: `.github/workflows/deploy.yml` runs tests + typecheck, builds `docker/Dockerfile`, pushes the image to GHCR, then SSHes to the droplet and runs `docker compose -f docker/docker-compose.deploy.yml pull && up -d`. The droplet runs the prebuilt image behind **Caddy** (automatic HTTPS); durable state is a **SQLite file** on a host bind-mount (`./data`) that persists across deploys, and startup migrations are idempotent. Object storage is DigitalOcean Spaces (served via its CDN edge); the relay is the public `wss://relay.clasp.to`. Secrets live in `/opt/doot/.env`, never in git. Full guide: `docs/deploy.md`.
 
-```bash
-# on the droplet
-cp .env.example .env        # production values
-docker compose -f docker/docker-compose.prod.yml up -d
-```
-
-Point your domain at the droplet; Caddy provisions TLS automatically. A scheduled `pg_dump` to a Spaces bucket keeps backups (the DB holds only small durable state). Full guide: `docs/deploy.md`.
+> `docker/docker-compose.prod.yml` (Postgres, build-on-host) is an aspirational variant, not the path CI uses. Postgres isn't wired in code yet (a `postgres://` URL falls back to SQLite); don't schedule `pg_dump` against the SQLite deploy.
 
 ### Scaling later
 Front-loaded by the architecture: swap `DATABASE_URL` to managed Postgres; run several stateless app containers behind a load balancer (no session affinity needed, live state is on the relay); Spaces scales on its own; stand up a self-hosted relay with longer room codes if the public relay becomes a limit.

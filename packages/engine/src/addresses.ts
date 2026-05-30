@@ -18,6 +18,8 @@ export const addr = {
   roundIndex: (room: string) => `${roomBase(room)}/round/index`,
   roundState: (room: string) => `${roomBase(room)}/round/state`,
   roundDeadline: (room: string) => `${roomBase(room)}/round/deadline`,
+  /** Host liveness heartbeat; players watch it to detect a vanished host. */
+  hostPing: (room: string) => `${roomBase(room)}/host/ping`,
   /** Answer key for round `i`, published only at reveal. */
   roundAnswer: (room: string, i: number) => `${roomBase(room)}/round/${i}/answer`,
   resultsSummary: (room: string) => `${roomBase(room)}/results/summary`,

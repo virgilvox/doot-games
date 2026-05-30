@@ -24,6 +24,10 @@ import type { Identity, Phase, Player, RoomMeta, RoomState, RoundState } from '.
 
 const PRESENCE_WINDOW_MS = 20_000
 const HEARTBEAT_INTERVAL_MS = 5_000
+// The host republishes a liveness ping on this cadence; players treat the host
+// as gone once its last ping is older than the window (a few missed beats).
+const HOST_HEARTBEAT_INTERVAL_MS = 5_000
+const HOST_PRESENCE_WINDOW_MS = 16_000
 
 /** Minimal per-round timing the runtime needs (the plugin derives the rest). */
 export interface RoundTiming {
@@ -72,6 +76,9 @@ export interface RoomSnapshot {
   ready: boolean
   /** First round index this client may act on (player only; 0 otherwise). */
   joinedAtIndex: number
+  /** Whether the host's heartbeat is current (true for the host itself, and
+   *  true before any ping is seen so the join screen doesn't flash "gone"). */
+  hostPresent: boolean
 }
 
 type Listener = () => void
@@ -97,10 +104,13 @@ export class RoomRuntime {
   private ready = false
   private profilePublished = false
   private myJoinedAtIndex = 0
+  /** Last host-ping timestamp seen (player/viewer only). */
+  private lastHostPing: number | null = null
 
   private game: LoadedGame | null = null
   private unsubs: Unsubscribe[] = []
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private hostHeartbeatTimer: ReturnType<typeof setInterval> | null = null
   private listeners = new Set<Listener>()
 
   constructor(opts: RoomRuntimeOptions) {
@@ -153,8 +163,18 @@ export class RoomRuntime {
       // which game/theme is running and can render the waiting screen, without
       // it, a player can't resolve the plugin until start().
       this.publishMetaIfLoaded()
+      // Start broadcasting host liveness so players can tell a live room from a
+      // dead one and notice if the host's screen goes away mid-game.
+      this.startHostHeartbeat()
     }
     this.emit()
+  }
+
+  private startHostHeartbeat(): void {
+    if (this.me.role !== 'host' || this.hostHeartbeatTimer) return
+    const beat = () => this.publish(addr.hostPing(this.room), this.now())
+    beat()
+    this.hostHeartbeatTimer = setInterval(beat, HOST_HEARTBEAT_INTERVAL_MS)
   }
 
   /** Publish room meta (game id, title, theme) so players can render the lobby. */
@@ -176,6 +196,8 @@ export class RoomRuntime {
     this.unsubs = []
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer)
     this.heartbeatTimer = null
+    if (this.hostHeartbeatTimer) clearInterval(this.hostHeartbeatTimer)
+    this.hostHeartbeatTimer = null
     this.listeners.clear()
   }
 
@@ -221,6 +243,10 @@ export class RoomRuntime {
       })
       on(addr.resultsSummary(r), (v) => {
         this.results = v
+        this.emit()
+      })
+      on(addr.hostPing(r), (v) => {
+        this.lastHostPing = Number(v)
         this.emit()
       })
     }
@@ -289,7 +315,21 @@ export class RoomRuntime {
       error: this.error,
       ready: this.ready,
       joinedAtIndex: this.myJoinedAtIndex,
+      hostPresent: this.hostIsPresent(),
     }
+  }
+
+  /**
+   * Whether the host is currently live. The host is always "present" to itself.
+   * Before any ping arrives we assume present, so the join screen doesn't flash
+   * a false "host gone" (a truly dead room is caught by the join timeout). Once
+   * a ping has been seen, presence is whether the latest one is within the
+   * window, so a host that closed its tab is detected within a few seconds.
+   */
+  private hostIsPresent(): boolean {
+    if (this.me.role === 'host') return true
+    if (this.lastHostPing == null) return true
+    return this.now() - this.lastHostPing < HOST_PRESENCE_WINDOW_MS
   }
 
   onChange(listener: Listener): Unsubscribe {
@@ -352,21 +392,35 @@ export class RoomRuntime {
   private async ensureProfilePublished(): Promise<void> {
     if (this.me.role !== 'player' || this.profilePublished) return
     this.profilePublished = true // guard re-entry while the read is in flight
-    // A player does not subscribe to its own profile, so `cached()` is empty;
-    // round-trip with `get()` to detect a reconnect and keep the original join
-    // index. Falling back to the current state is correct for a first join.
-    let existing: { joinedAtIndex?: number } | undefined
-    try {
-      existing = (await this.relay.get(addr.playerProfile(this.room, this.me.id))) as
-        | { joinedAtIndex?: number }
-        | undefined
-    } catch {
-      existing = undefined
+    // Read our profile (to detect a reconnect) and the round pointer together,
+    // authoritatively. phase/index/state are published to separate addresses and
+    // arrive in any order, so the local snapshot may hold only `phase` so far,
+    // computing the join index from that partial view would mis-set eligibility
+    // for a mid-game joiner. `allSettled` so one failed read can't sink the rest.
+    const [profR, phaseR, indexR, stateR] = await Promise.allSettled([
+      this.relay.get(addr.playerProfile(this.room, this.me.id)),
+      this.relay.get(addr.phase(this.room)),
+      this.relay.get(addr.roundIndex(this.room)),
+      this.relay.get(addr.roundState(this.room)),
+    ])
+    const settled = (r: PromiseSettledResult<RelayValue>): RelayValue | undefined =>
+      r.status === 'fulfilled' ? r.value : undefined
+    const existing = settled(profR) as { joinedAtIndex?: number } | undefined
+    let joinedAtIndex: number
+    if (existing && typeof existing.joinedAtIndex === 'number') {
+      joinedAtIndex = existing.joinedAtIndex // reconnect: keep original join point
+    } else {
+      const phaseV = settled(phaseR)
+      const indexV = settled(indexR)
+      const stateV = settled(stateR)
+      const phase = (phaseV as Phase | undefined) ?? this.state.phase
+      const round = {
+        index: indexV != null ? Number(indexV) | 0 : this.state.round.index,
+        state: (stateV as RoundState | undefined) ?? this.state.round.state,
+        deadline: this.state.round.deadline,
+      }
+      joinedAtIndex = computeJoinedAtIndex(phase, round)
     }
-    const joinedAtIndex =
-      existing && typeof existing.joinedAtIndex === 'number'
-        ? existing.joinedAtIndex // reconnect: keep original join point
-        : computeJoinedAtIndex(this.state.phase, this.state.round)
     this.myJoinedAtIndex = joinedAtIndex
     this.publish(addr.playerProfile(this.room, this.me.id), {
       name: this.me.name,

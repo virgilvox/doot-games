@@ -58,6 +58,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
     error: computed(() => snapshot.value.error),
     ready: computed(() => snapshot.value.ready),
     isHost: computed(() => snapshot.value.me.role === 'host'),
+    hostPresent: computed(() => snapshot.value.hostPresent),
     joinedAtIndex: computed(() => snapshot.value.joinedAtIndex),
 
     // player actions

@@ -33,4 +33,8 @@ COPY --from=build /app/apps/web/.output ./.output
 # Drop in libSQL's native addon where the bundled server resolves it.
 COPY --from=build /tmp/libsql-native ./.output/server/node_modules/@libsql/linux-x64-musl
 EXPOSE 3000
+# Liveness for `docker ps` health + Caddy startup gating. Uses Node's global
+# fetch (no extra tooling); start-period covers boot + startup migrations.
+HEALTHCHECK --interval=15s --timeout=4s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", ".output/server/index.mjs"]

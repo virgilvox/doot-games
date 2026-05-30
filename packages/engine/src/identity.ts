@@ -46,9 +46,13 @@ export function fnv1a(str: string): string {
   return (h >>> 0).toString(36)
 }
 
-/** Derive a stable player id from room + name. */
+/** Derive a stable player id from room + name. Two independent FNV-1a passes
+ *  (the second over a sentinel-prefixed key) widen the digest to ~64 bits so
+ *  two different names in one room can't collide onto the same identity and
+ *  reclaim each other's inputs. Still deterministic, so reconnect-by-name holds. */
 export function playerId(room: string, name: string): string {
-  return `p_${fnv1a(`${room}|${name.trim().toLowerCase()}`)}`
+  const key = `${room}|${name.trim().toLowerCase()}`
+  return `p_${fnv1a(key)}${fnv1a(`\u0001${key}`)}`
 }
 
 export const AVATAR_COLORS = [

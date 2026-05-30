@@ -49,6 +49,8 @@ watch(
 )
 const canSubmit = computed(() => {
   if (!block.value || !content.value) return false
+  // Don't accept a submission while the host is gone, it can't be tallied.
+  if (!room.hostPresent.value) return false
   return block.value.isComplete ? block.value.isComplete(content.value, value.value) : true
 })
 function submit() {

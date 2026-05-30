@@ -33,6 +33,9 @@ const plugin = computed(() => {
   return id ? getPlugin(id) : undefined
 })
 const PlayerView = computed(() => plugin.value?.components?.Player ?? GamePlayer)
+// Once we've seen the room (ready) but the host's heartbeat has lapsed, the big
+// screen has gone away; tell the player rather than leaving them stuck.
+const hostGone = computed(() => room.ready.value && !room.hostPresent.value)
 
 // A live host publishes meta (persisted on the relay with a TTL) within a beat
 // of subscribing, so if none has arrived after a grace window the code is wrong
@@ -58,6 +61,9 @@ onScopeDispose(() => clearTimeout(timer))
     <template #banner>
       <div v-if="room.reconnecting.value" class="banner recon">
         Reconnecting… your answers are safe.
+      </div>
+      <div v-else-if="hostGone" class="banner recon">
+        The host's screen went away. Waiting for them to come back…
       </div>
       <div v-else-if="room.error.value" class="banner err">{{ room.error.value }}</div>
     </template>

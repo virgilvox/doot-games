@@ -162,6 +162,32 @@ describe('RoomRuntime host actions', () => {
   })
 })
 
+describe('RoomRuntime host presence', () => {
+  it('publishes host liveness and players detect a vanished host', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    // The host broadcasts a liveness ping (the latest value is its timestamp).
+    expect(hub.store.get(addr.hostPing('ABCD'))).toBe(1_000)
+
+    const player = makePlayer(hub, 'Robin', () => t)
+    await player.connect()
+    await flush()
+    // Fresh in a live room: the host reads as present.
+    expect(player.getSnapshot().hostPresent).toBe(true)
+
+    // Time advances past the presence window with no new ping (host tab gone).
+    t = 1_000 + 17_000
+    expect(player.getSnapshot().hostPresent).toBe(false)
+
+    // The host always sees itself as present.
+    expect(host.getSnapshot().hostPresent).toBe(true)
+  })
+})
+
 describe('RoomRuntime host + player over a shared relay', () => {
   it('registers a late joiner, restores eligibility, and routes inputs', async () => {
     const hub = new FakeHub()
