@@ -118,7 +118,18 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 - **Broken-image fallback** on the host stage and game page (hide rather than show a broken glyph); **optimistic manage toggles roll back** on a failed PATCH.
 - **Docs reconciled**: PRD now says better-auth (not nuxt-auth-utils); CLAUDE.md status/dep-direction corrected; architecture.md "not yet built" parenthetical removed; em dashes purged from `docs/markdown-games.md`; test counts say "82 pass + 1 opt-in".
 
-Deferred (documented, lower priority): the late-joiner `joinedAtIndex` race on out-of-order relay snapshots; host-gone detection so a timed round can't hang if the host tab closes; the dead per-round answer publish (write-only channel); a 32-bit identity hash's birthday-collision risk; presigned-POST size policy + per-route rate limiting; CI hardening (non-root deploy user, pin Actions to SHAs, container `USER`); reconciling the README/`docs/deploy.md` Postgres compose path with the SQLite reality; a `/api/health` + healthcheck.
+**Round 3 (the deferred items, 2026-05-30, done + deployed).**
+- **Players now see the prompt image on their phone** (not only the host screen), with a broken-image fallback; the editor's "as players see it" preview shows it too.
+- **Per-game theme actually applies in the editor.** The editor's theme dropdown set the saved/hosted `themeId` but never restyled the editor; now it live-applies (verified: editor/host/player all adopt the chosen theme). HostRoom also falls back to the persisted draft's theme so a host-tab reload keeps it.
+- **Uploads serve via the Spaces CDN edge** (`SPACES_PUBLIC_URL=https://doot.sfo3.cdn.digitaloceanspaces.com` on the droplet) instead of the raw origin.
+- **Host-gone detection.** The host broadcasts a liveness heartbeat (`/host/ping`); players show "the host's screen went away" and stop submitting un-tallyable inputs once it lapses (`room.hostPresent`). A dead/typo'd room still resolves via the join timeout.
+- **Late-joiner race fixed.** `joinedAtIndex` is computed from an authoritative `relay.get` of phase/index/state (via `allSettled`), not a possibly half-arrived local snapshot.
+- **Identity hash widened** to ~64 bits (two FNV-1a passes) so different names in one room can't collide onto one identity.
+- **Per-IP rate limiting** on mutating `/api/games` + `/api/uploads` (in-memory fixed window; auth routes already had better-auth's limiter).
+- **`/api/health` + Docker `HEALTHCHECK`**; Caddy waits for app health before starting.
+- **CI/CD hardened.** Every GitHub Action pinned to a commit SHA; deploy SSHes as a non-root `deploy` user (docker group); the container runs the server as the unprivileged `node` user via a `su-exec` entrypoint (verified on prod: server runs as uid 1000, data dir node-owned, healthy). Deploy docs reconciled to the real SQLite+GHCR path.
+
+Still deferred (low value): the dead per-round answer publish (a write-only relay channel, harmless); a presigned-POST upload size policy (only a client-side 5 MB check today); rate-limiting moving to a shared store if the app ever runs multi-instance; pinning the Docker base image to a digest.
 
 **Open design note (Rank):** `emptyInput` seeds the authored order, so a player who submits without reordering casts the authored order as a real ballot, consensus drifts toward the authored order proportional to non-engagement. It's a deliberate trade (a ranking has no natural "empty" state); revisit with a per-player shuffle or a "must reorder" gate if it matters.
 
@@ -135,14 +146,14 @@ Deferred (documented, lower priority): the late-joiner `joinedAtIndex` race on o
 - `apps/web` typecheck via `nuxi typecheck` is heavier than the library `tsc` checks (it applies `noUncheckedIndexedAccess` to imported package source). It is **green now**, a latent guarded-index hole in `poll/block.ts` it surfaced was fixed, so keep `pnpm -r typecheck` clean. The production build remains the fast signal that everything integrates.
 - **DB driver**: only the libSQL/SQLite path is implemented; a `postgres://` `DATABASE_URL` silently falls back to the local file (with a console warning). Don't assume Postgres works in prod yet.
 - **Set `SESSION_PASSWORD`** (32+ chars) in production, it's better-auth's `secret`. The code now fails closed unless `NODE_ENV=development`, so a prod image without it won't boot (intended). Also set `PUBLIC_BASE_URL` so better-auth's Origin/CSRF check trusts your domain.
-- Auth rate-limiting is on (better-auth, 20 req/60s/IP), tune for your instance. The games/uploads routes are **not** rate-limited yet.
+- Rate-limiting: better-auth limits `/api/auth/*` (20 req/60s/IP); a separate in-memory limiter (`server/middleware/rate-limit.ts`, 40 writes/60s/IP) covers mutating `/api/games` + `/api/uploads`. It's per-instance, move to a shared store if you run more than one app container.
 - **Uploads**: the signed `content-type` isn't enforced and there's no server-side object-size cap (a client 5 MB check only); objects are stored `public-read`. The saved-game *config* now has a 512 KB server cap. Fine for a party app; tighten uploads with a presigned-POST policy before a high-trust deployment.
 - Per-package READMEs exist (`packages/*/README.md` + `apps/web/README.md`).
 - PRD §8 still describes the pre-block plugin contract; the block model is in `docs/authoring-a-game.md` and `packages/sdk/src/block.ts`. Reconcile when convenient.
 
 ## Suggested next step
 
-**Doot is live at https://doot.games** with git-push CI/CD, working uploads, seven games, markdown import, full game editing/cloning/forking with cover/description/tags, account management, and a responsive UI. Highest-leverage next: a **two-phone test on real devices** (the last unverified surface, touch + QR join); **OAuth / magic-link** via better-auth config; **CI/deploy hardening** (non-root deploy user, pin Actions to SHAs, container `USER`, a `/api/health` healthcheck); **engine robustness** (host-gone detection + the late-joiner snapshot-ordering race); **Postgres** for multi-instance scale; and **upload hardening** (presigned-POST with a size policy) + rate-limiting the games/uploads routes.
+**Doot is live at https://doot.games** with git-push CI/CD (SHA-pinned, non-root deploy user + non-root container), working CDN-served uploads, seven games, markdown import, full game editing/cloning/forking with cover/description/tags, per-game themes, host-gone detection, rate-limiting, account management, and a responsive UI. Highest-leverage next: a **two-phone test on real devices** (the last unverified surface, touch + QR join); **OAuth / magic-link** via better-auth config; **Postgres** for multi-instance scale; and **upload hardening** (presigned-POST with a size policy). See the round-3 "still deferred" note above for the small remaining items.
 
 ---
 
