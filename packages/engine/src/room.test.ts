@@ -98,6 +98,20 @@ const GAME = {
 }
 
 describe('RoomRuntime host actions', () => {
+  it('publishes meta and holds config during the lobby (before start)', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.loadGame(GAME)
+    // A lobby joiner must be able to learn which game is running, and the host's
+    // own config must be present so the UI can enable "Start" — both before start().
+    expect(hub.store.get(addr.meta('ABCD'))).toEqual(GAME.meta)
+    expect(host.getSnapshot().config).toEqual(GAME.config)
+    // The config is NOT published to the relay yet (only meta + phase lobby).
+    expect(hub.store.get(addr.config('ABCD'))).toBeUndefined()
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('lobby')
+  })
+
   it('publishes the start state and walks the round cycle', async () => {
     const hub = new FakeHub()
     let t = 1_000

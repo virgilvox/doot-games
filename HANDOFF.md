@@ -6,7 +6,7 @@ _Last updated: 2026-05-29. Branch: `main` (the scaffold was merged to `main`; wo
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD. **73 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (see below), and authored games now **persist** and are shareable. Multiple rounds of deep multi-agent audit ran; all findings are fixed.
+A pnpm monorepo built from the PRD. **75 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed.
 
 **The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. Hosting and playing never need an account; **saving** uses an optional account (email/password, argon2id) and each saved game has a **visibility**: private (owner only), unlisted (anyone with the link), or public (also listed on `/explore`). Zero DB setup — accounts and games live in a local SQLite file.
 
@@ -37,12 +37,16 @@ No game imports another. New game = compose blocks. New round kind = one block. 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000  (uses the public relay; no DB needed)
-pnpm test         # 73 tests (+1 live test, skipped unless DOOT_LIVE=1)
+pnpm test         # 75 tests (+1 live test, skipped unless DOOT_LIVE=1)
 pnpm -r typecheck # all packages, incl. nuxi typecheck of apps/web
 pnpm --filter @doot-games/web build
 
 # Verify the core loop against the real relay (network; ~7s):
 DOOT_LIVE=1 pnpm vitest run packages/games/src/relay.live.test.ts
+
+# Real-browser playtest (needs a running dev server + Chromium):
+npx playwright install chromium   # once
+node scripts/playtest.mjs          # host+player loop, Draw canvas, auth→save
 ```
 
 Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds, then **Host now** or **Save** (→ shareable `/g/<id>`). Or exercise a default deck directly: host a type (e.g. `/host/votebox`) on one screen, open `/play/<CODE>` on another.
@@ -66,6 +70,7 @@ Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds
 - **Draw is the first Pixi block.** Drawings are normalized vector **strokes** sent over the relay (small, replayable) — not rasterized — so no uploads are needed to play. `DrawCanvas` is an imperative Pixi 8 `Application` (the sanctioned fallback for a pointer-driven widget) that **lazy-imports `pixi.js`** in `onMounted`, so Pixi stays out of SSR and ships as a ~500KB on-demand client chunk. The host gallery renders many drawings as lightweight **SVG** (`DrawThumb`) to avoid a WebGL context per tile.
 - **Image uploads are presigned + direct-to-storage.** `/api/uploads/presign` (session-gated) signs a PUT with `aws4fetch`; the browser uploads straight to S3/Spaces (MinIO locally), and the editor stores the resulting public URL. `ImageField` shows an Upload button only when the app injects an uploader (`IMAGE_UPLOAD` provide/inject) and `/api/uploads/config` reports enabled (storage configured + signed in); otherwise it's URL-paste, so dev with no storage still works. Verified end-to-end against MinIO (presign → PUT → public GET). Caveats for the audit: the signed `content-type` isn't enforced (only `host`+`x-amz-acl` are signed), there's no server-side size cap, the S3 endpoint must be reachable under the *same* hostname by both app and browser, and the bucket needs CORS for browser PUTs.
 - **The core loop is verified live.** A `DOOT_LIVE=1` test drives a host + player headlessly through the engine against `wss://relay.clasp.to` and asserts redacted-config delivery, the answer-withholding invariant over the wire, input round-trip, and play-to-results. It is skipped by default so the suite stays offline.
+- **And in a real browser.** `scripts/playtest.mjs` (Playwright) drives the actual Vue UI: host + player through a full VoteBox game to results, the Pixi Draw canvas (sketch → host SVG gallery), and auth→editor→save. It caught two UI-only bugs the headless test couldn't — the host published `meta` only at `start()` (so lobby joiners were stuck on "Joining…") and the "Start" button was gated on a config that didn't exist until `start()`. Both fixed: the host now publishes `meta` and holds its config from `loadGame`/connect time (see `room.test.ts` lobby test).
 - **The design system** is `doot-mockup.html`, ported to `@doot-games/themes` + `@doot-games/ui`, with an accessibility baseline.
 - Commit messages contain **no AI attribution** (project rule).
 
@@ -81,7 +86,7 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 3. **More blocks**: Buzz (reaction/first-correct), Quip (free-text + a follow-on vote), or a "vote for the best drawing" follow-on to Draw. Each is one block — and each becomes authorable in the editor and savable for free the moment it ships. (**Draw** shipped — see the Pixi decision above.)
 4. **Account niceties**: editing/deleting saved games, changing visibility after save, and magic-link (SMTP) sign-in are not built. Today a save creates a new immutable record; there is no update/delete route yet.
 5. **External plugins**: sandboxed iframe + postMessage bridge + publishing (PRD §9).
-6. **A real-browser playtest** (two phones) has not been run; the headless engine loop is verified live and all routes/flows are HTTP-smoke-tested (incl. the full auth + visibility matrix), but interactive form/preview behavior wants a manual pass.
+6. **A two-phone playtest on real devices** (not just a headless browser) hasn't been run — `scripts/playtest.mjs` drives two Chromium contexts through the full UI, but touch/QR-join on actual phones is unverified.
 
 ## Known gaps / things to check first
 
@@ -95,7 +100,7 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 
 ## Suggested next step
 
-The end-to-end loop (author → save/share → host → play → results) works across six games (incl. the Pixi-backed **Draw**), with **better-auth** accounts, per-game visibility, and presigned image **uploads**. The auth + DB audit is done (migrated to better-auth; DB-side hardening landed). Highest-leverage next: a **real-browser two-phone playtest** (the one thing not yet exercised by hand — incl. the Pixi canvas and the auth/upload UI), then **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth config), and **Postgres** for multi-instance prod. Also remaining: the upload caveats (content-type/size enforcement, CORS) and versioned migrations.
+The end-to-end loop (author → save/share → host → play → results) works across six games (incl. the Pixi-backed **Draw**), with **better-auth** accounts, per-game visibility, and presigned image **uploads** — and is now **verified in a real browser** (`scripts/playtest.mjs`) plus an independent security/correctness audit (findings fixed). Highest-leverage next: **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth config), **Postgres** for multi-instance prod, and the remaining upload hardening (server-side size/content-type enforcement, CORS). A two-phone test on real devices is the last unverified surface (touch + QR join).
 
 ---
 
@@ -112,8 +117,8 @@ Paste this into a new session to onboard the next agent:
 > - **Games are blocks + compositions.** A *block* is a standalone round kind (guess/rate/poll/rank) declaring a content schema + Player view + Host view + `aggregate` + optional answer-withholding; a *game* is a manifest + an ordered `{ block, content }` list rendered by the generic `GameHost`/`GamePlayer`/`GameResults`. New game = compose blocks; new round kind = one block; full-custom = override `components`. Never reintroduce per-game components or make one game import another.
 > - Architecture invariants (see `CLAUDE.md`): ephemeral state lives on the relay, durable on Postgres, nothing about a live room is written to the DB during play; the engine never imports a game; answer keys are withheld until reveal; identity is reconnect-by-name.
 > - **CSS-first animation**; use `vue3-pixi` (installed) only for canvas-heavy work (the Draw block, mini-games).
-> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 73 tests pass (+1 opt-in live test), all typecheck, the app builds.
+> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 75 tests pass (+1 opt-in live test), all typecheck, the app builds.
 >
 > **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. `pnpm install && pnpm dev` → http://localhost:3000 (uses the public relay `wss://relay.clasp.to`; saved games use a zero-config local SQLite file — no DB setup needed). Author at `/editor/<type>`, **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw), play at `/play/<CODE>`.
 >
-> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely a **real-browser playtest** (host + a player phone, incl. the Pixi draw canvas and the auth/upload UI), **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth), or **Postgres**. Auth is `better-auth` (`server/utils/auth.ts`). Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
+> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth), **Postgres** (behind the `useDb()` seam), or **upload hardening** (server-side size/content-type, CORS). Auth is `better-auth` (`server/utils/auth.ts`); the browser playtest is `scripts/playtest.mjs`. Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.

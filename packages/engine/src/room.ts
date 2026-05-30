@@ -149,8 +149,19 @@ export class RoomRuntime {
       // receive it on subscribe, and mark ourselves ready immediately.
       this.publish(addr.phase(this.room), 'lobby')
       this.ready = true
+      // Publish meta now (if the game is already loaded) so lobby joiners learn
+      // which game/theme is running and can render the waiting screen — without
+      // it, a player can't resolve the plugin until start().
+      this.publishMetaIfLoaded()
     }
     this.emit()
+  }
+
+  /** Publish room meta (game id, title, theme) so players can render the lobby. */
+  private publishMetaIfLoaded(): void {
+    if (this.me.role !== 'host' || !this.game) return
+    this.meta = this.game.meta
+    this.publish(addr.meta(this.room), this.game.meta as unknown as RelayValue)
   }
 
   /** Tear down subscriptions and timers. Does not close the shared relay. */
@@ -383,6 +394,14 @@ export class RoomRuntime {
   loadGame(game: LoadedGame): void {
     this.assertHost()
     this.game = game
+    // Hold the full config locally from load time (kept off the relay) so the
+    // host UI can enable "Start" during the lobby. start() publishes the
+    // redacted config; this local copy is also what scoring reads.
+    this.config = game.config
+    // If we're already connected, publish meta immediately so lobby joiners see
+    // it; otherwise connect() will publish it once the socket is up.
+    if (this.connected) this.publishMetaIfLoaded()
+    this.emit()
   }
 
   start(): void {
