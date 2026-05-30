@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * Image field for the editor: paste a URL, or — when the app injects an
- * uploader (see `upload.ts`) — pick a file to upload. Always shows a live
+ * Image field for the editor: paste a URL, or, when the app injects an
+ * uploader (see `upload.ts`), pick a file to upload. Always shows a live
  * preview. With no uploader configured it's URL-only, so the library and dev
  * both work without object storage.
  */

@@ -68,7 +68,7 @@ async function remove() {
           <span v-if="game.visibility !== 'public'" class="badge">{{ game.visibility }}</span>
         </div>
         <p class="detail-note">
-          Host this on a big screen — players join from their phones with the room code that appears.
+          Host this on a big screen, players join from their phones with the room code that appears.
         </p>
         <div class="detail-actions">
           <NuxtLink :to="`/host/g/${game.id}`" class="btn btn-primary btn-lg">Host this game</NuxtLink>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A theme-colored confetti celebration. Implemented in CSS — light, accessible,
+ * A theme-colored confetti celebration. Implemented in CSS, light, accessible,
  * and identical on every phone (the CSS-first default; see PRD section 6). The
  * heavier, scene-graph celebrations are where Pixi via vue3-pixi would take
  * over. Hidden entirely under prefers-reduced-motion.

@@ -5,7 +5,7 @@
  * sections 8.3 and 12.
  */
 
-/** Open payload — plugins may add their own keys beyond the standard ones. */
+/** Open payload, plugins may add their own keys beyond the standard ones. */
 export interface Results {
   [key: string]: unknown
 }

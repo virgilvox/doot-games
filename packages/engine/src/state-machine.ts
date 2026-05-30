@@ -53,7 +53,7 @@ export function canTransition(state: RoomState, action: HostAction): boolean {
 }
 
 /**
- * Compute the next state. Throws `RangeError` on an illegal transition — callers
+ * Compute the next state. Throws `RangeError` on an illegal transition, callers
  * should gate with {@link canTransition}. Returns a new object; never mutates.
  */
 export function reduce(state: RoomState, action: HostAction): RoomState {

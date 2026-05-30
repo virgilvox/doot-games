@@ -32,7 +32,7 @@ const bars = computed(() => {
       min,
       max,
       // Show the tier/grade label (e.g. "B") rather than the raw average.
-      display: n ? formatScore(avg, scale) : '—',
+      display: n ? formatScore(avg, scale) : '-',
       note: n ? `${n} rating${n === 1 ? '' : 's'}` : 'waiting for ratings',
     }
   })

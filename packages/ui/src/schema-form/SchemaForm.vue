@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * An editor form generated from a Zod schema — no per-block code. Pass a
+ * An editor form generated from a Zod schema, no per-block code. Pass a
  * block's `contentSchema` and v-model its content; the form renders a field per
  * key, handling nested objects, arrays (add/remove/reorder), and discriminated
  * unions. The schema is the source of truth, so a new block becomes authorable

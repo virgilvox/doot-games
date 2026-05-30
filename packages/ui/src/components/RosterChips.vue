@@ -7,7 +7,7 @@ interface RosterPlayer {
   name: string
 }
 withDefaults(defineProps<{ players: RosterPlayer[]; emptyText?: string }>(), {
-  emptyText: 'No one has joined yet — share the code!',
+  emptyText: 'No one has joined yet, share the code!',
 })
 </script>
 

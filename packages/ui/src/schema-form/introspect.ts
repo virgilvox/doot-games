@@ -3,7 +3,7 @@
  *
  * A block declares its round content as a Zod schema; the editor renders a form
  * from it with no per-block code. This module walks a schema and produces a
- * plain `FieldNode` tree the form components render from — so the Vue layer
+ * plain `FieldNode` tree the form components render from, so the Vue layer
  * never touches Zod internals, and the walk is pure and unit-testable.
  *
  * It reads Zod 4 internals (`schema._def`): `def.type` is the discriminant
@@ -62,7 +62,7 @@ interface ZodDef {
 }
 
 /**
- * A sensible empty value for a field — the schema default if present, else the
+ * A sensible empty value for a field, the schema default if present, else the
  * zero value for its kind. Used to seed new array items and to switch a
  * discriminated-union variant without leaving stale keys behind.
  */

@@ -1,4 +1,4 @@
-/** Rank — order items and see the room's consensus, composing the rank block. */
+/** Rank, order items and see the room's consensus, composing the rank block. */
 import { type RoundInstance, defineGame } from '@doot-games/sdk'
 import { rankBlock } from '../blocks/rank/block'
 

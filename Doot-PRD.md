@@ -41,9 +41,9 @@ The "host screen plus crowd phones" shape is well established, and the leaders e
 - **Kahoot** owns classroom quizzing with PIN-code browser join and open authoring, but its **free tier caps participants at 10**, so a normal class or a party of a dozen hits the wall immediately, and paid tiers climb steeply with per-seat team licensing.
 - **Mentimeter, Slido, and AhaSlides** are live-polling tools (word clouds, polls, quiz slides) with code-based browser join. They front-load small free caps (AhaSlides 50, Slido 100 with only a few polls, Mentimeter limited questions) and price per presenter.
 - **Crowdpurr** targets large live trivia and events, scaling to 5,000, but its free tier is only 20 participants.
-- **Gartic Phone (up to ~30)** and **Skribbl.io (~12 public, ~20 in custom rooms)** are free, browser-based, user-content drawing games; their weak point is unmoderated public rooms with open chat. **Among Us** is the social-deduction reference: 4–10 players, private 6-character codes, and dead players become ghost spectators — a clean built-in spectator model.
+- **Gartic Phone (up to ~30)** and **Skribbl.io (~12 public, ~20 in custom rooms)** are free, browser-based, user-content drawing games; their weak point is unmoderated public rooms with open chat. **Among Us** is the social-deduction reference: 4–10 players, private 6-character codes, and dead players become ghost spectators, a clean built-in spectator model.
 - **Houseparty** (video party games) is a cautionary tale: Epic shut it down in October 2021 after pandemic-era demand collapsed (installs had fallen roughly 83% year over year). Remote-only social is fragile; in-person and hybrid is the durable wedge.
-- **Open-source attempts** — Mulberry, Hackbox, Free-Radish, Johnbox, BoxOpener — confirm latent demand for a self-hostable Jackbox-style platform, but most are hobby-scale, incomplete, and unpolished. A maintained, plugin-extensible platform is an open lane.
+- **Open-source attempts**, Mulberry, Hackbox, Free-Radish, Johnbox, BoxOpener, confirm latent demand for a self-hostable Jackbox-style platform, but most are hobby-scale, incomplete, and unpolished. A maintained, plugin-extensible platform is an open lane.
 
 ### 2.2 Recurring pain points
 
@@ -52,11 +52,11 @@ These complaints recur across reviews, forums, and support docs, not in isolatio
 - **Player-count ceilings are the biggest open wound.** The Jackbox 8-player cap and the free-tier caps everywhere (Kahoot 10, Crowdpurr 20, AhaSlides 50) repeatedly frustrate real groups.
 - **Cost and the per-pack / per-seat model.** Re-buying Jackbox content each release, and Kahoot's expensive annual, per-seat plans, generate steady gripes.
 - **Room-code entry friction.** A single mistyped character yields "invalid room code"; codes expire when the host restarts, and rooms can be full or locked after start.
-- **Remote-play latency.** When a host screen-shares over Zoom or Discord, the phone and the shared video run on different timelines — the TV shows time left while a player's input already closed. This second-screen desync is the top remote-play complaint, and the architecture, not a feature, is what fixes it.
+- **Remote-play latency.** When a host screen-shares over Zoom or Discord, the phone and the shared video run on different timelines, the TV shows time left while a player's input already closed. This second-screen desync is the top remote-play complaint, and the architecture, not a feature, is what fixes it.
 - **Reconnection when a phone drops.** Players on weak Wi-Fi must re-enter the code and name to rejoin. The friction was real enough that Jackbox added easy host reconnect in Party Pack 9.
 - **Moderation in public rooms.** Open drawing and social games with public lobbies and unfiltered chat invite trolling, and vote-kick fails when players are idle.
 - **Repetitiveness.** Fixed content gets stale; both Kahoot and individual Jackbox games draw "played out" complaints once the novelty fades.
-- **Accessibility gaps.** Timed pressure excludes slower readers and raises anxiety; color-only answers fail colorblind and low-vision players. Kahoot only later added shapes-not-just-color answers, high-contrast mode, read-aloud, 200% zoom, and an accuracy (de-timed) mode — effectively a list of what users had demanded.
+- **Accessibility gaps.** Timed pressure excludes slower readers and raises anxiety; color-only answers fail colorblind and low-vision players. Kahoot only later added shapes-not-just-color answers, high-contrast mode, read-aloud, 200% zoom, and an accuracy (de-timed) mode, effectively a list of what users had demanded.
 
 ### 2.3 What people actually want
 
@@ -73,7 +73,7 @@ The gripes invert cleanly into requirements, and they line up with Doot's thesis
 
 ### 2.4 Lessons per audience
 
-- **Convention panels:** big, often dimly and unevenly lit rooms; high-contrast UI and large type are mandatory at projector distances. Audiences run to the hundreds, so the active-player versus large-spectator split is essential. Convention Wi-Fi and cellular are congested — design for lossy links, fast reconnection, and low per-client bandwidth.
+- **Convention panels:** big, often dimly and unevenly lit rooms; high-contrast UI and large type are mandatory at projector distances. Audiences run to the hundreds, so the active-player versus large-spectator split is essential. Convention Wi-Fi and cellular are congested, design for lossy links, fast reconnection, and low per-client bandwidth.
 - **Bars and trivia nights:** reliable shared Wi-Fi or cellular is the one hard requirement; QR join 15–20 minutes early lets teams settle; design for noise with a mic'd host, music, and clear reveal reactions. Timed answer windows double as anti-cheat against phone Googling. A 65-inch screen reads for about 40 people at ~20 feet; larger rooms need a projector or multiple displays.
 - **House parties:** small, variable groups (4–20); casual and forgiving. Easy onboarding and tolerant reconnection matter most because people pick phones up and put them down.
 - **Classrooms and lecture halls:** free-tier caps are a dealbreaker for a full class; offer an untimed accuracy mode so speed is not the only path; large text and high contrast for long sightlines and front glare; authoring, reuse, and pacing (pause to explain after a wrong answer) are core teacher needs.
@@ -82,11 +82,11 @@ The gripes invert cleanly into requirements, and they line up with Doot's thesis
 
 These are launch requirements, not later polish, and they directly widen the classroom and convention markets:
 
-- Never encode meaning in color alone — pair color with shapes, icons, or labels (the Kahoot shapes-not-ABCD fix), and offer colorblind-safe palettes.
+- Never encode meaning in color alone, pair color with shapes, icons, or labels (the Kahoot shapes-not-ABCD fix), and offer colorblind-safe palettes.
 - High-contrast mode and scalable text (browser zoom to at least 200%) on both the big screen and the phone.
 - Semantic HTML and ARIA so the phone client works with VoiceOver, TalkBack, NVDA, and JAWS; read-aloud for prompts and answers.
 - Honor `prefers-reduced-motion` and offer a reduce-motion toggle; avoid flashing and harsh flicker (a photosensitivity safety issue as well as comfort).
-- Pair audio cues with visual cues and vice versa, so neither sense is required alone — important in loud bars and conventions.
+- Pair audio cues with visual cues and vice versa, so neither sense is required alone, important in loud bars and conventions.
 - Offer an untimed or accuracy-weighted mode so timed play is never the only way to participate.
 
 These needs shape the engine (second-screen state, reconnect by name, generous spectator handling, host pacing), the theming system (contrast, color-plus-shape, reduced motion), the round primitives (an untimed option), and the plugin contract (community game types). The remainder of this document is the build that follows from them.
@@ -179,7 +179,7 @@ TypeScript everywhere, strict mode on.
 
 **Framework: Nuxt (Vue 3).** Chosen over SvelteKit and plain Vue for three reasons. It matches the existing Vue and Pixi direction already in play, which lowers the cost of building and reading the code. Its Nitro server gives server routes, auth, database access, and presigned uploads in the same project, so there is no separate backend service to run, which suits a single droplet. And Vue components are the natural unit for plugin views, so the plugin contract and the shell speak the same component model. Nuxt also gives server-side rendering for the public discovery and game pages, which helps those pages get found. Build against the current Nuxt 4 line (Vue 3.5+); pin the exact versions in the lockfile and confirm them at install time rather than from this document.
 
-**Animation strategy: CSS first, Pixi 8 (via `vue3-pixi`) where it earns its place.** The default tool for motion is plain CSS — transitions, keyframe animations, transforms, and the Web Animations API. The VoteBox prototype already proves the bar fills, countdown rings, "locked in" stamps, lobby pops, and waiting dots are all clean, cheap, and theme-aware in pure CSS, and most of the lobby, gameplay, and results motion across the platform should stay there. CSS animation is lighter, accessible by default (it honors `prefers-reduced-motion` with one media query), needs no canvas teardown, and renders identically on every phone. Reach for Pixi only where CSS genuinely cannot do the job well: the drawing surface (`DrawCanvas`), any pixel-level mini-games a plugin ships, and the heavy, particle-driven moments of the results experience (confetti bursts, bar races with hundreds of moving elements, podium celebrations). The rule of thumb: if a `<div>` and a stylesheet get you a good result, use them; bring in Pixi when you need a real scene graph, many sprites, custom shaders, or per-frame control over a canvas.
+**Animation strategy: CSS first, Pixi 8 (via `vue3-pixi`) where it earns its place.** The default tool for motion is plain CSS, transitions, keyframe animations, transforms, and the Web Animations API. The VoteBox prototype already proves the bar fills, countdown rings, "locked in" stamps, lobby pops, and waiting dots are all clean, cheap, and theme-aware in pure CSS, and most of the lobby, gameplay, and results motion across the platform should stay there. CSS animation is lighter, accessible by default (it honors `prefers-reduced-motion` with one media query), needs no canvas teardown, and renders identically on every phone. Reach for Pixi only where CSS genuinely cannot do the job well: the drawing surface (`DrawCanvas`), any pixel-level mini-games a plugin ships, and the heavy, particle-driven moments of the results experience (confetti bursts, bar races with hundreds of moving elements, podium celebrations). The rule of thumb: if a `<div>` and a stylesheet get you a good result, use them; bring in Pixi when you need a real scene graph, many sprites, custom shaders, or per-frame control over a canvas.
 
 Pixi is available throughout but is a dependency a view opts into, not a baseline cost every screen pays. When a view does need it, integrate through **`vue3-pixi`** (the `vue3-pixi` npm package, maintained by hairyf), which is the chosen Pixi binding. It is a Vue 3 renderer for Pixi: a plugin author writes Pixi scenes as Vue components (`<Container>`, `<Sprite>`, `<Graphics>`, `<Text>`, filters, and so on) with normal Vue reactivity and events, instead of imperatively mounting and tearing down a Pixi `Application` by hand. This keeps Pixi scenes in the same component model as the rest of the UI, so the plugin contract and the shell speak one language. `vue3-pixi` tracks Pixi 8 (its current `1.x` release declares a peer dependency on `pixi.js@8`); install `vue3-pixi`, `pixi.js`, and `pixi-filters` together and confirm the resolved versions at build time, since both move. Pixi scenes read the same theme CSS custom properties as the DOM (the engine exposes resolved tokens to the canvas), so a confetti burst or bar race matches a cute game or a cyber game without extra work.
 
@@ -459,7 +459,7 @@ A creator picks a theme per game. They can override the room title (the label sh
 
 ## 12. Results experience
 
-Results are a first-class, animated, theme-aware part of the product, not a static table. The goal is a payoff the room reacts to. Most of the motion is CSS — counts that tick up, bars that fill, cards that flip and slide, standings that settle — because CSS does these well, cheaply, and accessibly. The widgets that are genuinely particle- or scene-heavy (`ConfettiBurst`, `BarRace` with many moving elements, podium celebrations, `DrawingGallery` playback of stroke lists) are the place Pixi 8 earns its keep, mounted through `vue3-pixi`. A widget should default to CSS and graduate to a Pixi scene only when the effect demands a real scene graph or hundreds of sprites.
+Results are a first-class, animated, theme-aware part of the product, not a static table. The goal is a payoff the room reacts to. Most of the motion is CSS, counts that tick up, bars that fill, cards that flip and slide, standings that settle, because CSS does these well, cheaply, and accessibly. The widgets that are genuinely particle- or scene-heavy (`ConfettiBurst`, `BarRace` with many moving elements, podium celebrations, `DrawingGallery` playback of stroke lists) are the place Pixi 8 earns its keep, mounted through `vue3-pixi`. A widget should default to CSS and graduate to a Pixi scene only when the effect demands a real scene graph or hundreds of sprites.
 
 The results page composes reusable result widgets based on what the game produced:
 
@@ -636,13 +636,13 @@ The scale path is deliberately undramatic, because the architecture front-loaded
 
 A small set that proves the engine and the round primitives across the target audiences.
 
-**Game types are the round primitives.** The discrete types a creator picks from — Guess, Rate, Draw, Poll, Rank, Buzz, Quip — each map to one round primitive (`multiple-choice`, `rating`, `draw`, `poll`, `rank`, `reaction`, `free-text`). A first-party plugin is usually *single-type* (built on one primitive); a few are *composites* that combine types. This is how discovery and the create flow present games, and it keeps each plugin thin. The mockup's Explore and Create screens are organized around exactly these types.
+**Game types are the round primitives.** The discrete types a creator picks from, Guess, Rate, Draw, Poll, Rank, Buzz, Quip, each map to one round primitive (`multiple-choice`, `rating`, `draw`, `poll`, `rank`, `reaction`, `free-text`). A first-party plugin is usually *single-type* (built on one primitive); a few are *composites* that combine types. This is how discovery and the create flow present games, and it keeps each plugin thin. The mockup's Explore and Create screens are organized around exactly these types.
 
 Guess (single-type, `multiple-choice`): show a prompt or image, give options, one is correct. The classic guess-the-character or who-said-it round.
 
 Rate (single-type, `rating`): rate each subject on creator-defined categories on any scale; the room crowns a top pick per category.
 
-VoteBox (composite of Guess + Rate): alternating guess and rate rounds — the upgraded version of the prototype, and the case where combining two types into one game earns its place. Results show a leaderboard, a top-rated award per category, and a crowd favorite. Guess, Rate, and VoteBox share one deck engine and one set of Host/Player/Results views, so the single-type plugins and the composite stay in sync. VoteBox remains the worked example in the authoring guide.
+VoteBox (composite of Guess + Rate): alternating guess and rate rounds, the upgraded version of the prototype, and the case where combining two types into one game earns its place. Results show a leaderboard, a top-rated award per category, and a crowd favorite. Guess, Rate, and VoteBox share one deck engine and one set of Host/Player/Results views, so the single-type plugins and the composite stay in sync. VoteBox remains the worked example in the authoring guide.
 
 Sketch (drawing game): players are given a prompt and draw it on the phone; drawings appear on the big screen and the room votes on a favorite. Uses the `draw` primitive and the ephemeral media store with TTL, and the `DrawingGallery` result widget. This exercises the live-media path end to end.
 

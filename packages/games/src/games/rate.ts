@@ -1,5 +1,5 @@
 /**
- * Rate — a single-type game composing only the rate block. Its default deck
+ * Rate, a single-type game composing only the rate block. Its default deck
  * uses a tier scale (D→S) to show off non-numeric scales.
  */
 import { type RoundInstance, defineGame } from '@doot-games/sdk'
@@ -33,7 +33,7 @@ export const rate = defineGame({
     id: 'rate',
     name: 'Rate',
     version: '0.2.0',
-    description: 'Rate each subject on a scale you define — numbers, letter grades, or tiers.',
+    description: 'Rate each subject on a scale you define, numbers, letter grades, or tiers.',
     author: 'Doot',
     capabilities: ['images'],
     minPlayers: 1,

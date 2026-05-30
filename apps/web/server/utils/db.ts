@@ -1,5 +1,5 @@
 /**
- * The durable store — game definitions only. Per Doot's architecture, nothing
+ * The durable store, game definitions only. Per Doot's architecture, nothing
  * about an in-progress room is ever written here; live state lives on the relay.
  *
  * Drizzle over libSQL keeps the app zero-config in development: with no
@@ -39,7 +39,7 @@ export const VISIBILITIES: Visibility[] = ['private', 'unlisted', 'public']
 
 const DEFAULT_URL = 'file:./.data/doot.sqlite'
 
-/** The resolved libSQL URL — shared by the games store and better-auth. */
+/** The resolved libSQL URL, shared by the games store and better-auth. */
 export function databaseUrl(): string {
   const raw = process.env.DATABASE_URL?.trim()
   if (!raw) return DEFAULT_URL
@@ -65,7 +65,7 @@ async function ensureSchema(c: Client): Promise<void> {
     )
   `)
   // Additive migrations for databases created before auth/visibility (SQLite
-  // errors on a duplicate column — ignore that).
+  // errors on a duplicate column, ignore that).
   for (const ddl of [
     'ALTER TABLE games ADD COLUMN owner_id TEXT',
     "ALTER TABLE games ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
@@ -100,7 +100,7 @@ async function init(): Promise<LibSQLDatabase> {
  */
 export function useDb(): Promise<LibSQLDatabase> {
   if (!initPromise) {
-    // Don't cache a rejected init — a transient failure should be retryable.
+    // Don't cache a rejected init, a transient failure should be retryable.
     initPromise = init().catch((err) => {
       initPromise = null
       throw err

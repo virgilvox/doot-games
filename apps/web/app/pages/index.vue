@@ -20,12 +20,13 @@ const types = builtinPlugins.map((p) => ({
   <main>
     <div class="wrap">
       <section class="hero">
-        <div>
-          <span class="tag"><i /> No app to install · no account to play</span>
+        <div class="hero-text">
+          <span class="tag"><i /> Host on a screen, play on your phone</span>
           <h1>Put a game on the <span class="hl">big screen.</span> Everyone joins from their phone.</h1>
           <p class="lead">
             Doot runs party games for any room. Host trivia at the bar, guess characters at a con
-            panel, run a live poll in class, or start something silly on the TV.
+            panel, run a live poll in class, or start something silly on the TV. No app to install,
+            no account to play.
           </p>
           <div class="hero-cta">
             <div class="joinbig">
@@ -41,16 +42,48 @@ const types = builtinPlugins.map((p) => ({
             </div>
             <NuxtLink to="/explore" class="btn btn-primary btn-lg">Browse games</NuxtLink>
           </div>
-        </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="screen-mock">
-            <div class="q">Who is this character?</div>
-            <div class="opts">
-              <span class="o"><b>A</b> Sailor</span>
-              <span class="o on"><b>B</b> Knight</span>
-              <span class="o"><b>C</b> Witch</span>
-              <span class="o"><b>D</b> Pilot</span>
+          <div class="hero-foot">
+            <div class="facepile">
+              <span style="background: #ff5a33">K</span>
+              <span style="background: #16c8b5">D</span>
+              <span style="background: #5b79ff">S</span>
+              <span style="background: #ff73b3">M</span>
             </div>
+            <span>Hosted by panelists, bartenders, teachers, and friends</span>
+          </div>
+        </div>
+
+        <div class="hero-vis" aria-hidden="true">
+          <div class="float-badge fb-1">
+            <svg class="ic" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 6" /></svg>
+            Correct! +1
+          </div>
+          <div class="screen">
+            <div class="scr-top"><i /><i /><i /></div>
+            <div class="scr-body">
+              <div class="scr-q">Who is this character?</div>
+              <div class="scr-img" />
+              <div class="scr-opts">
+                <div class="scr-opt"><span class="fill" style="width: 64%" /><b>A</b><span>Sailor</span></div>
+                <div class="scr-opt"><b>B</b><span>Knight</span></div>
+                <div class="scr-opt"><b>C</b><span>Witch</span></div>
+                <div class="scr-opt"><b>D</b><span>Pilot</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="phone">
+            <div class="pscr">
+              <div class="ttl">Tap your answer</div>
+              <div class="opt sel">A. Sailor</div>
+              <div class="opt">B. Knight</div>
+              <div class="opt">C. Witch</div>
+            </div>
+          </div>
+          <div class="float-badge fb-2">
+            <svg class="ic" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z" />
+            </svg>
+            28 voted
           </div>
         </div>
       </section>
@@ -95,6 +128,9 @@ const types = builtinPlugins.map((p) => ({
 </template>
 
 <style scoped>
+.hero-text {
+  min-width: 0;
+}
 .joinbig {
   display: flex;
   align-items: center;
@@ -111,7 +147,7 @@ const types = builtinPlugins.map((p) => ({
   font-family: var(--font-mono);
   font-size: 18px;
   padding: 14px 8px 14px 22px;
-  width: 150px;
+  width: 140px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink);
@@ -123,43 +159,113 @@ const types = builtinPlugins.map((p) => ({
   font-weight: 800;
   padding: 0 24px;
   align-self: stretch;
+  cursor: pointer;
 }
-.hero-art {
+.hero-foot {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+.facepile {
+  display: flex;
+}
+.facepile span {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid var(--bg);
+  margin-left: -9px;
   display: grid;
   place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  color: #fff;
 }
-.screen-mock {
-  width: 100%;
-  max-width: 360px;
+.facepile span:first-child {
+  margin-left: 0;
+}
+
+/* Hero visual: a mock big screen + an overlapping phone + floating badges. */
+.hero-vis {
+  position: relative;
+  min-height: 380px;
+}
+.screen {
+  position: absolute;
+  inset: 6% 12% 18% 0;
   background: var(--surface);
   border: var(--bd) solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 20px;
+  overflow: hidden;
   transform: rotate(-2deg);
 }
-.screen-mock .q {
+.scr-top {
+  height: 34px;
+  background: var(--surface-2);
+  border-bottom: var(--bd) solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+}
+.scr-top i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line-soft);
+}
+.scr-body {
+  padding: 18px 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.scr-q {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 22px;
-  margin-bottom: 14px;
+  font-size: 21px;
+  line-height: 1.05;
 }
-.screen-mock .opts {
+.scr-img {
+  height: 84px;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
+  background: linear-gradient(135deg, var(--c4), var(--c3));
+  position: relative;
+  overflow: hidden;
+}
+.scr-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1.5px, transparent 1.6px);
+  background-size: 13px 13px;
+  opacity: 0.5;
+}
+.scr-opts {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9px;
+  gap: 8px;
 }
-.screen-mock .o {
+.scr-opt {
   display: flex;
   align-items: center;
   gap: 8px;
   border: var(--bd) solid var(--line-soft);
   border-radius: 11px;
-  padding: 9px 11px;
+  padding: 8px 10px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
+  position: relative;
+  overflow: hidden;
 }
-.screen-mock .o b {
+.scr-opt b {
   width: 22px;
   height: 22px;
   border-radius: 7px;
@@ -167,11 +273,95 @@ const types = builtinPlugins.map((p) => ({
   display: grid;
   place-items: center;
   font-family: var(--font-display);
+  font-size: 13px;
+  flex: none;
 }
-.screen-mock .o.on {
+.scr-opt .fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.scr-opt span {
+  position: relative;
+}
+.phone {
+  position: absolute;
+  right: -2%;
+  bottom: 0;
+  width: 118px;
+  height: 228px;
+  background: var(--ink);
+  border-radius: 26px;
+  padding: 8px;
+  box-shadow: var(--shadow);
+  transform: rotate(6deg);
+}
+.phone .pscr {
+  width: 100%;
+  height: 100%;
   background: var(--primary);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 14px;
+  text-align: center;
+}
+.phone .pscr .ttl {
+  font-family: var(--font-display);
+  font-weight: 800;
   color: var(--primary-ink);
-  border-color: var(--line);
+  font-size: 15px;
+  line-height: 1.05;
+}
+.phone .pscr .opt {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 11px;
+  padding: 9px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #241910;
+}
+.phone .pscr .opt.sel {
+  background: var(--ink);
+  color: #fff;
+}
+.float-badge {
+  position: absolute;
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: 14px;
+  padding: 8px 12px;
+  box-shadow: var(--shadow);
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 2;
+}
+.float-badge .ic {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fb-1 {
+  top: 2%;
+  left: 8%;
+  transform: rotate(-6deg);
+  color: var(--c2);
+}
+.fb-2 {
+  bottom: 6%;
+  left: 2%;
+  transform: rotate(5deg);
+  color: var(--c3);
 }
 .type-card {
   cursor: pointer;
@@ -182,5 +372,10 @@ const types = builtinPlugins.map((p) => ({
   line-height: 1.5;
   margin: 0 0 14px;
   min-height: 60px;
+}
+@media (max-width: 860px) {
+  .hero-vis {
+    min-height: 320px;
+  }
 }
 </style>

@@ -1,4 +1,4 @@
-/** Guess — a single-type game composing only the guess block. */
+/** Guess, a single-type game composing only the guess block. */
 import { type RoundInstance, defineGame } from '@doot-games/sdk'
 import { guessBlock } from '../blocks/guess/block'
 

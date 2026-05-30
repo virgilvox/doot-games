@@ -4,7 +4,7 @@
  * token rules take effect, and injects the generated theme stylesheet once.
  * The TS token objects in @doot-games/themes are the single source of truth.
  * Use one provider per app and change its `themeId` to switch themes (it does
- * not scope a subtree — it drives the document root). See PRD section 9.
+ * not scope a subtree, it drives the document root). See PRD section 9.
  */
 import { allThemesCss, getTheme } from '@doot-games/themes'
 import { computed, onMounted, watchEffect } from 'vue'

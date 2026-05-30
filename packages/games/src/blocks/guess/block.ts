@@ -1,5 +1,5 @@
 /**
- * Guess block — `multiple-choice`. Show a prompt/image, give options, one is
+ * Guess block, `multiple-choice`. Show a prompt/image, give options, one is
  * correct (withheld until reveal). Contributes a leaderboard of correct guesses.
  */
 import { isEligible } from '@doot-games/engine'

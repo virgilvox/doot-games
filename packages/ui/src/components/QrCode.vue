@@ -26,7 +26,7 @@ watchEffect(async () => {
     :width="size"
     :height="size"
     class="qr"
-    alt="QR code — scan to join the room"
+    alt="QR code, scan to join the room"
   />
 </template>
 

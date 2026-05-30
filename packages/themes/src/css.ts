@@ -6,7 +6,7 @@
 import { themeList } from './registry'
 import { FONT_TOKENS, TOKEN_TO_CSS_VAR, type Theme, type ThemeTokens } from './tokens'
 
-/** `{ '--bg': '#FBF1E4', ... }` — suitable for an inline `style` binding. */
+/** `{ '--bg': '#FBF1E4', ... }`, suitable for an inline `style` binding. */
 export function themeToCssVars(tokens: ThemeTokens): Record<string, string> {
   const out: Record<string, string> = {}
   for (const key of Object.keys(TOKEN_TO_CSS_VAR) as Array<keyof ThemeTokens>) {

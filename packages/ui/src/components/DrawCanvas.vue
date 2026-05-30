@@ -2,7 +2,7 @@
 /**
  * A freehand drawing surface backed by Pixi 8. Strokes are stored normalized
  * (0..1 in both axes; brush size as a fraction of width) so they render at any
- * size — the same data drives this canvas and the SVG thumbnails on the host.
+ * size, the same data drives this canvas and the SVG thumbnails on the host.
  *
  * This is the documented Pixi fallback (CLAUDE.md): an imperative `Application`
  * mounted into a ref, used here because freehand drawing is pointer-driven and
@@ -132,7 +132,7 @@ onBeforeUnmount(() => {
 })
 
 // External changes (undo / clear from the toolbar) only ever append or truncate
-// the array wholesale, so watching its length is enough — and avoids a deep
+// the array wholesale, so watching its length is enough, and avoids a deep
 // walk of every point on each change.
 watch(() => props.modelValue.strokes.length, redraw)
 </script>

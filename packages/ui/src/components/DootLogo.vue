@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** The Doot mark — two eyes and a smile — plus the wordmark. */
+/** The Doot mark, two eyes and a smile, plus the wordmark. */
 withDefaults(defineProps<{ size?: number; word?: boolean }>(), { size: 42, word: true })
 </script>
 

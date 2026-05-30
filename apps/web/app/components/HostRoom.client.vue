@@ -2,7 +2,7 @@
 /**
  * Hosts a game on the big screen. Client-only (it opens a CLASP connection):
  * it creates a room, loads the plugin's default composition (publishing a
- * redacted config), provides the room, and renders the game's Host view — the
+ * redacted config), provides the room, and renders the game's Host view, the
  * generic block renderer, or the plugin's own override.
  */
 import { type RelayValue, type RoomMeta, createClaspRelay, makeRoomCode } from '@doot-games/engine'

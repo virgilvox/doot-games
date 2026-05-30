@@ -1,5 +1,5 @@
 /**
- * Rank block — players order a set of items; the room's choices aggregate into
+ * Rank block, players order a set of items; the room's choices aggregate into
  * one consensus ranking, shown as an ordered chart. A no-winner, opinion-style
  * mechanic (debates, tier lists, "rank these from best to worst").
  */

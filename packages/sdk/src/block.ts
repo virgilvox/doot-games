@@ -1,16 +1,16 @@
 /**
- * Blocks and compositions — the easy path for authoring games.
+ * Blocks and compositions, the easy path for authoring games.
  *
  * A **block** is a standalone round kind (Guess, Rate, Poll, …): the unit you
  * register, like a node in Node-RED. It declares only what is unique to that
- * kind — a content schema, a phone input view, a big-screen display view, a
+ * kind, a content schema, a phone input view, a big-screen display view, a
  * results contribution, and optional answer-withholding. It knows nothing about
  * any game.
  *
  * A **game** is a composition: a manifest plus an ordered list of round
  * instances `{ block, content }`. The generic renderer mounts the right block
  * per round and merges their results. So Guess = [guess], VoteBox = [guess,
- * rate]. The composite is built from blocks — never the other way around.
+ * rate]. The composite is built from blocks, never the other way around.
  *
  * A game may also override the rendered components for a fully custom
  * experience; that escape hatch keeps the powerful path open.
@@ -64,7 +64,7 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
   aggregate?: (ctx: BlockResultsContext<Content, Input>) => ResultsFragment
 
   /** Strip answers from content before it is published to the relay. Must
-   *  deep-copy anything it edits — the host keeps the original for scoring. */
+   *  deep-copy anything it edits, the host keeps the original for scoring. */
   redactContent?: (content: Content) => Content
   /** The answer key for a round, revealed only at that round's reveal. */
   answerOf?: (content: Content) => unknown

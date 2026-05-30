@@ -1,5 +1,5 @@
 /**
- * @doot-games/ui — the shared, theme-aware component library.
+ * @doot-games/ui, the shared, theme-aware component library.
  *
  * Every component reads its colors, fonts, radii, and shadows from the CSS
  * custom properties the active theme sets, so the same component looks correct

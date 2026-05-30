@@ -1,6 +1,6 @@
 # Authoring a game
 
-Doot games are built from **blocks**. A block is a standalone round kind (Guess, Rate, Poll, …) — think of it like a node in Node-RED. A game is a **composition**: a manifest plus an ordered list of `{ block, content }`. The engine's generic renderer mounts the right block per round and merges their results, so most games need *no components at all*.
+Doot games are built from **blocks**. A block is a standalone round kind (Guess, Rate, Poll, …), think of it like a node in Node-RED. A game is a **composition**: a manifest plus an ordered list of `{ block, content }`. The engine's generic renderer mounts the right block per round and merges their results, so most games need *no components at all*.
 
 There are four ways to author, easy → powerful.
 
@@ -27,7 +27,7 @@ export const myGame = defineGame({
 })
 ```
 
-That's it — Host, Player, and Results are rendered for you. **VoteBox is exactly this**: `[guess, rate]` alternating (`packages/games/src/games/votebox.ts`).
+That's it, Host, Player, and Results are rendered for you. **VoteBox is exactly this**: `[guess, rate]` alternating (`packages/games/src/games/votebox.ts`).
 
 ## 2. Write a new block (a new round kind)
 
@@ -54,11 +54,11 @@ export const myBlock = defineBlock<MyContent, MyInput>({
 })
 ```
 
-The player view is a controlled input (`v-model` of the input value); the generic renderer owns the "Lock it in" button and gates it on `isComplete`. The host view shows the live tally. `aggregate` is pure and unit-testable (see `packages/games/src/blocks/aggregate.test.ts`). The standard blocks — `guess`, `rate`, `poll` in `packages/games/src/blocks/` — are the worked examples. **Rate** shows a flexible scale: numeric, letter grades, or tiers (any ordered `{ label, value }` steps).
+The player view is a controlled input (`v-model` of the input value); the generic renderer owns the "Lock it in" button and gates it on `isComplete`. The host view shows the live tally. `aggregate` is pure and unit-testable (see `packages/games/src/blocks/aggregate.test.ts`). The standard blocks, `guess`, `rate`, `poll` in `packages/games/src/blocks/`, are the worked examples. **Rate** shows a flexible scale: numeric, letter grades, or tiers (any ordered `{ label, value }` steps).
 
 ## 3. Remix / template
 
-Ship a preconfigured composition of existing blocks — same as (1), with curated default content.
+Ship a preconfigured composition of existing blocks, same as (1), with curated default content.
 
 ## 4. Full custom
 
@@ -72,7 +72,7 @@ defineGame({
 })
 ```
 
-Custom views reach the live room with `injectDootRoom()` from `@doot-games/engine/vue` (reactive reads, `room.submit`, `room.host.*`) — the engine still handles all the relay machinery.
+Custom views reach the live room with `injectDootRoom()` from `@doot-games/engine/vue` (reactive reads, `room.submit`, `room.host.*`), the engine still handles all the relay machinery.
 
 ## The editor (auto-form from a block's schema)
 
@@ -81,7 +81,7 @@ editor (`/editor/<game-type>`) seeds from a game type's default composition,
 then lets a host edit the title and the ordered list of rounds. Each round is
 authored by a form generated from its block's `contentSchema`:
 `@doot-games/ui`'s `SchemaForm` walks the Zod schema (`describeSchema`) into a
-field tree and renders a control per field — objects nest, arrays get
+field tree and renders a control per field, objects nest, arrays get
 add/remove/reorder, and a discriminated union (like Rate's `scale`) becomes a
 variant selector. A live preview of the phone view sits beside the form, and
 each round is validated against its block schema before hosting.
@@ -101,22 +101,21 @@ ergonomics for free. When a block needs something the generic form can't
 express, set `Editor` on the block (the `RoundBlock.Editor?` slot) for a custom
 per-round editor; everything else still renders generically.
 
-From the editor you can either **Host now** — which stows the composition in an
-in-memory draft (`useGameDraft`) and opens `/host/<type>` — or **Save**, which
+From the editor you can either **Host now**, which stows the composition in an
+in-memory draft (`useGameDraft`) and opens `/host/<type>`, or **Save**, which
 `POST`s it to `/api/games` and returns a shareable `/g/<id>` link. A saved game
 is hosted by id at `/host/g/<id>` (HostRoom loads the stored composition);
 either way the host publishes the **redacted** config to the relay exactly as
-it does the default deck. The durable store holds game *definitions* only —
-never live room state, which stays on the relay.
+it does the default deck. The durable store holds game *definitions* only, never live room state, which stays on the relay.
 
 Saving requires an account (optional, argon2id via `nuxt-auth-utils`); hosting
-and playing never do. Each saved game has a **visibility** — `private` (owner
+and playing never do. Each saved game has a **visibility**, `private` (owner
 only), `unlisted` (anyone with the link), or `public` (also listed on
-`/explore`) — enforced server-side in `getGame`/the list routes.
+`/explore`), enforced server-side in `getGame`/the list routes.
 
 ## How it fits together
 
-- The engine owns rooms, roster, the round state machine, late joiners, reconnect, timers, and answer-withholding — none of it per-game.
+- The engine owns rooms, roster, the round state machine, late joiners, reconnect, timers, and answer-withholding, none of it per-game.
 - `gameRounds`, `redactGameConfig`, `gameAnswerKeys`, and `scoreGame` (in `@doot-games/games/runtime`) derive everything the engine and results need from the blocks.
 - `GameHost`, `GamePlayer`, `GameResults` are the generic renderer; a plugin overrides them only for the full-custom path.
 

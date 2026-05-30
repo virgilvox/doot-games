@@ -1,5 +1,5 @@
 /**
- * VoteBox — the composite, now genuinely built from blocks: alternating Guess
+ * VoteBox, the composite, now genuinely built from blocks: alternating Guess
  * and Rate rounds. It composes the guess and rate blocks; it does not own any
  * views or scoring of its own.
  */
@@ -48,7 +48,7 @@ export const voteBox = defineGame({
     id: 'votebox',
     name: 'VoteBox',
     version: '0.2.0',
-    description: 'Guess characters and rate them — the party classic, composed from Guess + Rate.',
+    description: 'Guess characters and rate them, the party classic, composed from Guess + Rate.',
     author: 'Doot',
     capabilities: ['timer', 'images'],
     minPlayers: 1,

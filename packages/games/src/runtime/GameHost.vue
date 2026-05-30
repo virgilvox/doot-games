@@ -2,7 +2,7 @@
 /**
  * Generic host surface for any block-composed game: the lobby, the active round
  * (a common frame around the current block's HostDisplay), the control bar, and
- * the results. No game writes this — it delegates per round to the block.
+ * the results. No game writes this, it delegates per round to the block.
  */
 import type { RelayValue } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
@@ -43,7 +43,7 @@ const content = computed<Record<string, unknown> | null>(
 const subject = computed(() => content.value?.subject as string | undefined)
 const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
 const image = computed(() => content.value?.image as string | undefined)
-// Only expose the answer at reveal — even on the host's own screen — so a
+// Only expose the answer at reveal, even on the host's own screen, so a
 // block's HostDisplay can never surface it early to the room watching the big screen.
 const answer = computed(() =>
   state.value === 'reveal' && block.value?.answerOf && content.value

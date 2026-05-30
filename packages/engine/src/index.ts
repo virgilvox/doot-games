@@ -1,5 +1,5 @@
 /**
- * @doot-games/engine — the CLASP wrapper and room runtime.
+ * @doot-games/engine, the CLASP wrapper and room runtime.
  *
  * This entry exports the framework-agnostic core: types, the address scheme,
  * identity helpers, the room state machine, eligibility rules, the relay client

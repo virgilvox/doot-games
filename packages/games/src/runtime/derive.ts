@@ -1,6 +1,6 @@
 /**
  * The bridge from a block composition to what the engine and results need.
- * Everything here is derived generically from a game's blocks — no game writes
+ * Everything here is derived generically from a game's blocks, no game writes
  * this by hand.
  */
 import type {
@@ -122,7 +122,7 @@ export function scoreGame(
     { label: 'Players', value: ctx.players.length },
     ...fragments.flatMap((f) => f.stats ?? []),
   ]
-  // Only crown a winner when the top score is actually above zero — otherwise
+  // Only crown a winner when the top score is actually above zero, otherwise
   // "Nobody wins at 0" reads oddly; fall back to a block headline.
   const top = leaderboard?.[0]
   const headline =

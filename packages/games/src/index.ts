@@ -1,5 +1,5 @@
 /**
- * @doot-games/games — first-party blocks, games, the generic renderer, and the
+ * @doot-games/games, first-party blocks, games, the generic renderer, and the
  * registry. Games are compositions of blocks; the renderer is shared.
  */
 export * from './registry'

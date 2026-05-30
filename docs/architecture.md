@@ -22,13 +22,13 @@ apps/web          @doot-games/web     Nuxt shell: home, explore, create, host, p
 
 ## The engine (the heart)
 
-- `state-machine.ts` — the pure phase/round reducer (`lobby → active → (ready→open→locked→reveal)* → results`). Fully unit-tested.
-- `identity.ts` — room codes (unambiguous alphabet) and `playerId = p_<hash(room+name)>` for reconnect-by-name.
-- `eligibility.ts` — late-joiner `joinedAtIndex`.
-- `addresses.ts` — the relay address scheme.
-- `relay.ts` — the `RelayClient` interface + `createClaspRelay` (wraps `@clasp-to/core`).
-- `room.ts` — `RoomRuntime`: subscriptions, host actions, roster/presence, heartbeat, host auto-lock, **answer withholding** (publishes a redacted config; reveals each answer only at that round's reveal).
-- `vue/index.ts` — `useDootRoom` (reactive surface) + `provideDootRoom`/`injectDootRoom`.
+- `state-machine.ts`, the pure phase/round reducer (`lobby → active → (ready→open→locked→reveal)* → results`). Fully unit-tested.
+- `identity.ts`, room codes (unambiguous alphabet) and `playerId = p_<hash(room+name)>` for reconnect-by-name.
+- `eligibility.ts`, late-joiner `joinedAtIndex`.
+- `addresses.ts`, the relay address scheme.
+- `relay.ts`, the `RelayClient` interface + `createClaspRelay` (wraps `@clasp-to/core`).
+- `room.ts`, `RoomRuntime`: subscriptions, host actions, roster/presence, heartbeat, host auto-lock, **answer withholding** (publishes a redacted config; reveals each answer only at that round's reveal).
+- `vue/index.ts`, `useDootRoom` (reactive surface) + `provideDootRoom`/`injectDootRoom`.
 
 The runtime is framework-agnostic and is exercised by an in-memory fake relay in `room.test.ts` (host + player end to end).
 
@@ -38,4 +38,4 @@ Round primitives in the SDK **are** the game types (Guess = `multiple-choice`, R
 
 ## Tests
 
-`pnpm test` runs Vitest across the workspace — the engine state machine, identity, eligibility, addresses, the room runtime (fake relay), the theme registry, and VoteBox scoring.
+`pnpm test` runs Vitest across the workspace, the engine state machine, identity, eligibility, addresses, the room runtime (fake relay), the theme registry, and VoteBox scoring.

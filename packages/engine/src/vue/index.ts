@@ -2,7 +2,7 @@
  * Vue bindings for the engine. `useDootRoom` mounts a {@link RoomRuntime},
  * mirrors its state into reactive refs, drives the host countdown loop, and
  * tears everything down on scope dispose. This is the single surface a game's
- * views consume — they never touch CLASP. See PRD section 7.6.
+ * views consume, they never touch CLASP. See PRD section 7.6.
  */
 import { computed, inject, onScopeDispose, type InjectionKey, provide, shallowRef } from 'vue'
 import { RoomRuntime, type RoomRuntimeOptions } from '../room'

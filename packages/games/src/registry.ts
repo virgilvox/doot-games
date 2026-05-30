@@ -1,6 +1,6 @@
 /**
  * The first-party plugin registry. Discrete game types lead; VoteBox is the
- * composite. All are block compositions — no game depends on another.
+ * composite. All are block compositions, no game depends on another.
  */
 import type { GamePlugin } from '@doot-games/sdk'
 import { draw } from './games/draw'

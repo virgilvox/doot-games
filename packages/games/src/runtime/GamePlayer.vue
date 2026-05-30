@@ -30,7 +30,7 @@ const eligible = computed(() => index.value >= room.joinedAtIndex.value)
 
 const value = ref<unknown>(null)
 // Re-initialize when the round changes AND when the block/content first become
-// available — relay messages arrive in separate emits and any order, so content
+// available, relay messages arrive in separate emits and any order, so content
 // can land after the round is already 'open' without changing index/state.
 watch(
   () => `${index.value}:${state.value}:${block.value?.kind ?? ''}:${content.value ? 1 : 0}`,
@@ -74,7 +74,7 @@ function submit() {
 
     <div v-else-if="state === 'ready'" class="big">
       <h2>{{ prompt || block.name }}</h2>
-      <p>Get ready — voting opens in a moment.</p>
+      <p>Get ready, voting opens in a moment.</p>
     </div>
 
     <template v-else-if="state === 'open' && !submitted && value != null">

@@ -68,7 +68,7 @@ const visLabel = { private: 'Private', unlisted: 'Unlisted', public: 'Public' } 
           <div><span class="kicker">Build</span><h2>Start a new game</h2></div>
         </div>
         <p v-if="!loggedIn" class="explore-note">
-          <NuxtLink to="/login" class="explore-link">Log in</NuxtLink> to save your games and find them here later — hosting and playing never need an account.
+          <NuxtLink to="/login" class="explore-link">Log in</NuxtLink> to save your games and find them here later, hosting and playing never need an account.
         </p>
         <div class="grid">
           <NuxtLink v-for="c in gameCatalog" :key="c.id" :to="`/editor/${c.id}`" class="card">

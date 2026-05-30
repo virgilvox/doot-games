@@ -1,4 +1,4 @@
-/** Poll (Pulse) — opinion questions with no right answer, composing the poll block. */
+/** Poll (Pulse), opinion questions with no right answer, composing the poll block. */
 import { type RoundInstance, defineGame } from '@doot-games/sdk'
 import { pollBlock } from '../blocks/poll/block'
 

@@ -1,8 +1,7 @@
 /**
  * The relay client. The engine talks to CLASP through this small interface so
  * that the room runtime never imports the relay SDK directly and tests can
- * inject a fake. `createClaspRelay` wraps `@clasp-to/core` (the core build —
- * Doot only needs publish/subscribe with persistence and TTL).
+ * inject a fake. `createClaspRelay` wraps `@clasp-to/core` (the core build,  * Doot only needs publish/subscribe with persistence and TTL).
  */
 import { Clasp, type ConnectOptions, type Unsubscribe, type Value } from '@clasp-to/core'
 
@@ -12,8 +11,7 @@ export type { Unsubscribe }
 export const DEFAULT_RELAY_URL = 'wss://relay.clasp.to'
 
 /**
- * Default absolute TTL on every published value (8 hours), in microseconds —
- * the relay's TTL unit — so the public relay does not accumulate dead rooms.
+ * Default absolute TTL on every published value (8 hours), in microseconds,  * the relay's TTL unit, so the public relay does not accumulate dead rooms.
  */
 export const DEFAULT_TTL_US = 8 * 3600 * 1000 * 1000
 

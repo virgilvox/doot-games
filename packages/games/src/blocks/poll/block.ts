@@ -1,5 +1,5 @@
 /**
- * Poll block — an opinion question with no right answer. Players pick one
+ * Poll block, an opinion question with no right answer. Players pick one
  * option; reveal shows the live distribution. Distinct from Rate: Poll is a
  * single choice across options, Rate scores subjects on a scale.
  */

@@ -104,7 +104,7 @@ describe('RoomRuntime host actions', () => {
     await host.connect()
     host.loadGame(GAME)
     // A lobby joiner must be able to learn which game is running, and the host's
-    // own config must be present so the UI can enable "Start" — both before start().
+    // own config must be present so the UI can enable "Start", both before start().
     expect(hub.store.get(addr.meta('ABCD'))).toEqual(GAME.meta)
     expect(host.getSnapshot().config).toEqual(GAME.config)
     // The config is NOT published to the relay yet (only meta + phase lobby).

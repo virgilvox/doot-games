@@ -22,7 +22,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Doot — put a game on the big screen',
+      title: 'Doot, put a game on the big screen',
       htmlAttrs: { 'data-theme': 'doot' },
       meta: [
         { charset: 'utf-8' },

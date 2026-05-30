@@ -2,7 +2,7 @@
  * Room codes and player identity. A player's id is derived from the room code
  * plus their chosen name, so re-entering the same name in the same room
  * reclaims the same identity and restores their inputs from the relay snapshot
- * — no login and no local storage required. See PRD section 7.4.
+ *, no login and no local storage required. See PRD section 7.4.
  */
 
 /** Unambiguous alphabet: no I, O, 0, or 1. */

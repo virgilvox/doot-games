@@ -38,5 +38,5 @@ Schedule a `pg_dump` to a Spaces bucket on a timer. The database holds only smal
 ## Scaling later
 
 - Swap `DATABASE_URL` to DigitalOcean Managed Postgres.
-- Run several app containers behind a load balancer — no session affinity needed.
+- Run several app containers behind a load balancer, no session affinity needed.
 - If the public relay becomes a limit, stand up a self-hosted relay and point `CLASP_RELAY_URL` at it (and widen the room-code length).

@@ -2,7 +2,7 @@
 /**
  * The schema-driven game editor. It seeds from a game type's default
  * composition, then lets the host edit the title and the ordered list of
- * rounds — each round authored by a form auto-generated from its block's
+ * rounds, each round authored by a form auto-generated from its block's
  * `contentSchema` (via @doot-games/ui's SchemaForm), with a live preview of the
  * phone view. "Host this game" stashes the composition in the draft and opens
  * the host screen. Client-only: it mounts block player views and uses the draft.
@@ -49,7 +49,7 @@ function promptOf(inst: RoundInstance): string {
 }
 function summaryOf(inst: RoundInstance): string {
   const c = inst.content as { subject?: string; prompt?: string }
-  return c.subject || c.prompt || '—'
+  return c.subject || c.prompt || '-'
 }
 function onContentUpdate(i: number, value: Record<string, unknown>) {
   config.rounds[i]!.content = value
@@ -69,7 +69,7 @@ function roundError(inst: RoundInstance): string {
 const errors = computed(() => config.rounds.map(roundError))
 const valid = computed(() => config.title.trim().length > 0 && config.rounds.length > 0 && errors.value.every((e) => !e))
 
-// Live preview of the phone view per round — a local input value, no relay.
+// Live preview of the phone view per round, a local input value, no relay.
 // Read without mutating (so it's safe during render); writes happen on
 // interaction and when a round's content changes.
 const previewInputs = reactive<Record<number, unknown>>({})

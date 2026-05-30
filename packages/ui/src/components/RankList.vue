@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Order a set of items. Accessible reordering with up/down buttons (no drag
- * dependency). Two-way via v-model — an array of item ids in the chosen order.
+ * dependency). Two-way via v-model, an array of item ids in the chosen order.
  */
 import { computed } from 'vue'
 

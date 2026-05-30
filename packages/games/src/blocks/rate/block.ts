@@ -1,5 +1,5 @@
 /**
- * Rate block — score subjects on categories. The scale is flexible: a numeric
+ * Rate block, score subjects on categories. The scale is flexible: a numeric
  * range (1–10, stars), or an ordered set of labelled levels (letter grades
  * F→A, tiers D→S, anything). Averaging uses each step's `value`; display uses
  * its `label`. Distinct from Poll (which is a single choice with no scale).
@@ -36,7 +36,7 @@ export interface RateInput {
   ratings: Record<string, number>
 }
 
-/** The ordered `{label, value}` steps for a scale — numeric or labelled levels. */
+/** The ordered `{label, value}` steps for a scale, numeric or labelled levels. */
 export function stepsForScale(scale: RateScale): Array<{ label: string; value: number }> {
   if (scale.kind === 'levels') return [...scale.levels].sort((a, b) => a.value - b.value)
   const out: Array<{ label: string; value: number }> = []
@@ -87,7 +87,7 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
   }),
   defaultTimer: null,
   timerOf: (c) => c.timer,
-  // Start empty (the strip shows "—") and require every category to be rated, so
+  // Start empty (the strip shows "-") and require every category to be rated, so
   // an untouched submit does not silently cast the lowest score and skew averages.
   emptyInput: () => ({ ratings: {} }),
   isComplete: (c, input) => c.categories.every((cat) => typeof input.ratings[cat.id] === 'number'),

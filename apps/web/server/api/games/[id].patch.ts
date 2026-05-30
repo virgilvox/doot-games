@@ -2,7 +2,7 @@ import { z } from '@doot-games/sdk'
 
 const patchSchema = z.object({ visibility: z.enum(['private', 'unlisted', 'public']) })
 
-/** Update a saved game's visibility — owner only. */
+/** Update a saved game's visibility, owner only. */
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')

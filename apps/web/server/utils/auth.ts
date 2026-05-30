@@ -1,12 +1,12 @@
 /**
- * Authentication via better-auth. Optional and non-blocking — it only gates
+ * Authentication via better-auth. Optional and non-blocking, it only gates
  * saving games; hosting and playing never need an account.
  *
  * better-auth owns its own tables (user/session/account/verification) through
  * its Kysely adapter over the same libSQL database as the games store; the
  * tables are created at startup by `server/plugins/auth-migrate.ts`. Passwords
  * are hashed with argon2id (the project's chosen algorithm) rather than the
- * default scrypt. Sessions are sealed cookies — there is no server session store.
+ * default scrypt. Sessions are sealed cookies, there is no server session store.
  */
 import { LibsqlDialect } from '@libsql/kysely-libsql'
 import { hash, verify } from '@node-rs/argon2'

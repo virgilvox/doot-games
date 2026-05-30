@@ -1,7 +1,7 @@
 /**
  * Saved-game persistence: validate at the boundary, then read/write the durable
  * store. Validation is shape + known-plugin only (deep per-round content is
- * validated client-side in the editor); a saved config carries no secrets — the
+ * validated client-side in the editor); a saved config carries no secrets, the
  * host derives answer keys from it at play time, never the server.
  *
  * Games are owned and have a visibility: `private` (owner only), `unlisted`
@@ -55,7 +55,7 @@ function newId(): string {
 
 /**
  * Strip answer keys from a saved config before serving it to anyone who isn't
- * the owner — so the answer-withholding invariant holds for the API too, not
+ * the owner, so the answer-withholding invariant holds for the API too, not
  * just the live relay. Mirrors each answer-bearing block's `redactContent`;
  * today only `guess` (and VoteBox's guess rounds) carries an answer (`correct`).
  * NOTE: a new answer-bearing block must add its rule here.
@@ -126,7 +126,7 @@ export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> 
     .limit(limit) as Promise<SavedGameSummary[]>
 }
 
-/** Change a game's visibility — owner only. Returns true if a row was updated. */
+/** Change a game's visibility, owner only. Returns true if a row was updated. */
 export async function updateGameVisibility(
   id: string,
   ownerId: string,
@@ -140,7 +140,7 @@ export async function updateGameVisibility(
   return (res.rowsAffected ?? 0) > 0
 }
 
-/** Delete a saved game — owner only. Returns true if a row was deleted. */
+/** Delete a saved game, owner only. Returns true if a row was deleted. */
 export async function deleteGame(id: string, ownerId: string): Promise<boolean> {
   const db = await useDb()
   const res = await db.delete(games).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))

@@ -1,4 +1,4 @@
-/** Draw — sketch the prompt; everyone's drawings fill the screen. Single-block. */
+/** Draw, sketch the prompt; everyone's drawings fill the screen. Single-block. */
 import { type RoundInstance, defineGame } from '@doot-games/sdk'
 import { drawBlock } from '../blocks/draw/block'
 

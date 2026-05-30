@@ -30,7 +30,7 @@ const labelFor = computed(() => {
   const map = new Map(props.steps.map((s) => [s.value, s.label]))
   return (catId: string) => {
     const v = props.modelValue[catId]
-    return v == null ? '—' : (map.get(v) ?? String(v))
+    return v == null ? '-' : (map.get(v) ?? String(v))
   }
 })
 

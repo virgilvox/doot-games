@@ -1,7 +1,7 @@
 /**
  * The starter theme packs, transcribed faithfully from `doot-mockup.html`.
  * To add a theme, define a {@link Theme} here (or in your own module) and
- * register it — see `registry.ts`.
+ * register it, see `registry.ts`.
  */
 import type { Theme } from './tokens'
 
@@ -9,7 +9,7 @@ import type { Theme } from './tokens'
 export const doot: Theme = {
   id: 'doot',
   name: 'Doot',
-  description: 'The warm, chunky house style — cream paper, coral accents, hard ink shadows.',
+  description: 'The warm, chunky house style, cream paper, coral accents, hard ink shadows.',
   dark: false,
   tokens: {
     bg: '#FBF1E4',

@@ -12,7 +12,7 @@ const types = builtinPlugins.map((p) => p.manifest)
           Start a new game
         </h1>
         <p style="font-size: 18px; color: var(--ink-soft); margin-top: 12px">
-          Pick a game type to open the editor — set up your rounds, then host it.
+          Pick a game type to open the editor, set up your rounds, then host it.
         </p>
       </div>
       <div class="grid" style="padding: 14px 0 40px">

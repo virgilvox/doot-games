@@ -1,6 +1,6 @@
 # CLASP primer
 
-Doot's live state runs on [CLASP](https://github.com/lumencanvas/clasp), a real-time pub/sub relay. The relay knows nothing about games — it is plain publish/subscribe under whatever addresses Doot chooses, with value persistence (late joiners get a snapshot on subscribe) and TTL (values auto-expire).
+Doot's live state runs on [CLASP](https://github.com/lumencanvas/clasp), a real-time pub/sub relay. The relay knows nothing about games, it is plain publish/subscribe under whatever addresses Doot chooses, with value persistence (late joiners get a snapshot on subscribe) and TTL (values auto-expire).
 
 The engine wraps it so **no game ever touches the relay directly**.
 

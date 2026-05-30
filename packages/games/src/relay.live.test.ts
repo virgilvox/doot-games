@@ -1,7 +1,7 @@
 /**
  * Live end-to-end smoke test against the real CLASP relay (wss://relay.clasp.to).
  *
- * It drives a host and a player headlessly through the engine — no browser — and
+ * It drives a host and a player headlessly through the engine, no browser, and
  * asserts the core architecture claims actually hold over the wire:
  *   - a player joins by name and receives the published (redacted) config;
  *   - answer keys are WITHHELD until reveal (the security invariant);
@@ -62,7 +62,7 @@ describe.skipIf(!LIVE)('live relay end-to-end (VoteBox)', () => {
       await viewer.connect()
 
       // Subscribe an unprivileged viewer to round 0's answer address up front.
-      // It must stay silent until reveal — that is the withholding invariant.
+      // It must stay silent until reveal, that is the withholding invariant.
       let round0Answer: RelayValue = null
       viewer.on(addr.roundAnswer(room, 0), (v) => {
         round0Answer = v
@@ -86,7 +86,7 @@ describe.skipIf(!LIVE)('live relay end-to-end (VoteBox)', () => {
       expect((host.inputsFor(0).get(player.me.id) as { choice: number }).choice).toBe(0)
 
       // After a full round-trip of other traffic, the answer still must not have
-      // reached the viewer — it is only published at reveal.
+      // reached the viewer, it is only published at reveal.
       expect(round0Answer).toBe(null)
       host.lock()
       host.reveal()

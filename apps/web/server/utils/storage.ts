@@ -1,5 +1,5 @@
 /**
- * Object storage for uploaded images — presigned PUT to an S3-compatible store
+ * Object storage for uploaded images, presigned PUT to an S3-compatible store
  * (DigitalOcean Spaces in prod, MinIO locally). Browsers upload directly to the
  * store via the presigned URL; the app only signs. Configured by env:
  *   SPACES_ENDPOINT, SPACES_REGION, SPACES_BUCKET, SPACES_KEY, SPACES_SECRET,

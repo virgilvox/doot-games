@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Sign in or create an account. Auth only gates saving games — you never need
+/** Sign in or create an account. Auth only gates saving games, you never need
  *  it to host or play. */
 import { computed, ref } from 'vue'
 
@@ -39,7 +39,7 @@ async function submit() {
       <div class="panel auth-card">
         <span class="kicker">{{ mode === 'login' ? 'Welcome back' : 'Join Doot' }}</span>
         <h1>{{ mode === 'login' ? 'Sign in' : 'Create an account' }}</h1>
-        <p class="auth-note">You only need an account to <strong>save</strong> games — hosting and playing are always open.</p>
+        <p class="auth-note">You only need an account to <strong>save</strong> games, hosting and playing are always open.</p>
         <form class="auth-form" @submit.prevent="submit">
           <label class="sf-field">
             <span class="sf-label">Email</span>

@@ -1,5 +1,5 @@
 /**
- * @doot-games/sdk — the game authoring contract.
+ * @doot-games/sdk, the game authoring contract.
  *
  * The easy path: compose **blocks** (round kinds) into a game (`block.ts`).
  * The powerful path: override the rendered components for a fully custom game.

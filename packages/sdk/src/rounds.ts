@@ -1,5 +1,5 @@
 /**
- * Round primitives. Most games do not need custom round components — they
+ * Round primitives. Most games do not need custom round components, they
  * assemble a sequence from these specs declaratively (the simple path); custom
  * components are the powerful path, and the two coexist. A plugin's
  * `rounds(config)` returns a list of these. See PRD section 8.2.

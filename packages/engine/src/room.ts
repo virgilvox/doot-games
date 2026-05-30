@@ -150,7 +150,7 @@ export class RoomRuntime {
       this.publish(addr.phase(this.room), 'lobby')
       this.ready = true
       // Publish meta now (if the game is already loaded) so lobby joiners learn
-      // which game/theme is running and can render the waiting screen — without
+      // which game/theme is running and can render the waiting screen, without
       // it, a player can't resolve the plugin until start().
       this.publishMetaIfLoaded()
     }
@@ -341,7 +341,7 @@ export class RoomRuntime {
   submit(input: RelayValue): void {
     if (this.me.role !== 'player') throw new Error('Only players submit inputs.')
     const i = this.state.round.index
-    // A player can only act on rounds from when they joined — don't publish an
+    // A player can only act on rounds from when they joined, don't publish an
     // input for a round they joined after (every block's scoring assumes this).
     if (!isEligible(this.myJoinedAtIndex, i)) return
     this.inputs.set(`${i}:${this.me.id}`, input)

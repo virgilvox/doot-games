@@ -1,4 +1,4 @@
-/** Delete a saved game — owner only. */
+/** Delete a saved game, owner only. */
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
   const id = getRouterParam(event, 'id')

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A lightweight SVG rendering of a drawing — used for the host gallery, where
+ * A lightweight SVG rendering of a drawing, used for the host gallery, where
  * many drawings show at once. SVG (not Pixi) avoids spinning up a WebGL context
  * per tile, so it scales to a roomful of submissions.
  */

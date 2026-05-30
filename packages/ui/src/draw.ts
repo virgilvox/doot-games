@@ -2,7 +2,7 @@
  * The drawing data format shared by the Pixi `DrawCanvas` (authoring) and the
  * SVG `DrawThumb` (display). Coordinates are normalized to 0..1 in both axes and
  * brush `size` is a fraction of width, so a stroke renders identically at any
- * pixel size and travels small over the relay. Pure types/helpers — no Pixi.
+ * pixel size and travels small over the relay. Pure types/helpers, no Pixi.
  */
 export interface DrawStroke {
   /** CSS color string. */
