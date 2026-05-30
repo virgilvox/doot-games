@@ -70,12 +70,10 @@ function submit() {
       <p>Waiting for the host to start. Keep this page open.</p>
     </div>
 
-    <GameResults
-      v-else-if="room.phase.value === 'results' && room.results.value"
-      :results="room.results.value as any"
-      :me="room.me.value.name"
-      compact
-    />
+    <template v-else-if="room.phase.value === 'results' && room.results.value">
+      <GameResults :results="room.results.value as any" :me="room.me.value.name" compact />
+      <a class="btn btn-ghost btn-block" href="/">Back to start</a>
+    </template>
 
     <div v-else-if="!instance || !block" class="big">Get ready…</div>
 

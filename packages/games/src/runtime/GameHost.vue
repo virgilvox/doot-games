@@ -109,7 +109,28 @@ function finish() {
   })
   room.host.finish(summary as unknown as RelayValue)
 }
+
+// Reload to host a fresh room of the same game (HostRoom re-resolves the config,
+// so a pooled flagship re-samples and a saved game re-loads its stored config).
+function playAgain() {
+  if (typeof window !== 'undefined') window.location.reload()
+}
 </script>
+
+<style scoped>
+.results-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.results-next {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 24px;
+}
+</style>
 
 <template>
   <!-- LOBBY -->
@@ -135,10 +156,16 @@ function finish() {
   </div>
 
   <!-- RESULTS -->
-  <GameResults
-    v-else-if="room.phase.value === 'results' && room.results.value"
-    :results="room.results.value as any"
-  />
+  <div v-else-if="room.phase.value === 'results' && room.results.value" class="results-wrap">
+    <GameResults :results="room.results.value as any" />
+    <!-- What next (host controls). Plain links/reload so the engine package stays
+         router-free; "Play again" reloads to spin up a fresh room of this game. -->
+    <div class="results-next">
+      <button type="button" class="btn btn-primary btn-lg" @click="playAgain">Play again</button>
+      <a class="btn btn-ghost btn-lg" href="/explore">Pick another game</a>
+      <a class="btn btn-ghost btn-lg" href="/">Home</a>
+    </div>
+  </div>
 
   <!-- ACTIVE -->
   <div v-else-if="instance && block" class="stage">
