@@ -296,7 +296,11 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
    Verified: 97 unit tests, full typecheck + web build, and a 3-player real-browser
    playtest (`scripts/playtest.mjs`) through the write → derived-vote → reveal loop
    to results. The mechanic is sound.
-4. ⏳ **`fill` block** → Anonymous Mad Libs. **`split` block** → Split the Room.
+4. ✅ **`fill` block** → **Anonymous Mad Libs** (shipped): players fill labelled
+   blanks blind, the completed stories are derived into a vote round (a new block
+   `toVoteText` hook + `DeriveSource.render` let the vote block render any "make"
+   submission to votable text), and the room votes the funniest. 10-story pool
+   sampled per play. ⏳ **`split` block** → Split the Room is next.
 5. ⏳ **Audio layer** + **Robot Rap Battle** (TTS performance + head-to-head vote
    mode). **Content pools** are in place (`buildConfig` + `seededShuffle`); Quip
    Clash already samples a 24-prompt pool per play.
@@ -351,6 +355,11 @@ All re-confirmed over the **real CLASP relay** by a new two-phase live test.
 - Own-answer hiding on the vote screen is by text match, so identical submissions
   hide each other and a reconnecting player's own answer is briefly shown until
   their prior input loads - scoring still rejects the self-vote, so it's cosmetic.
+  For Mad Libs the source input has no `.text` field, so own-story hiding does not
+  fire at all (the player can see their own story in the vote list); scoring still
+  excludes the self-vote. A clean fix is per-player delivery of "your option id"
+  (the reserved `assignment`/`promptFor` path) or a `/player/<pid>/myoption` relay
+  key; deferred.
 - The relay is semi-open: a raw snooper with the room code can read inputs (true of
   all games today). The integrity-critical secret - the author map - is properly
   withheld until reveal.

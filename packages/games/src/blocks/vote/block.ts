@@ -83,13 +83,15 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   PlayerReveal: VoteReveal,
 
   // Build the anonymized, shuffled vote options from the prior round's answers.
-  derive: (ctx: DeriveContext<VoteContent, VoteInput>) => {
+  derive: (ctx: DeriveContext<VoteContent>) => {
     const source = ctx.sources[0]
     const sourcePrompt = (source?.content as { prompt?: string } | undefined)?.prompt
     const entries: Array<{ pid: string; text: string }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {
-        const text = (input as { text?: string } | undefined)?.text?.trim()
+        // `render` turns the source submission into votable text (a Quip's text,
+        // a Mad Lib's filled story, ...) via the source block's toVoteText.
+        const text = source.render(input).trim()
         if (text) entries.push({ pid, text })
       }
     }

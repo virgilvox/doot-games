@@ -189,11 +189,21 @@ export function buildDeriveContent(
     const from = inst.from ?? (index > 0 ? [index - 1] : [])
     const sources = from
       .filter((i) => i >= 0 && config.rounds[i])
-      .map((i) => ({
-        index: i,
-        content: (config.rounds[i] as GameComposition['rounds'][number]).content,
-        inputs: inputsFor(i),
-      }))
+      .map((i) => {
+        const srcInst = config.rounds[i] as GameComposition['rounds'][number]
+        const srcBlock = getBlock(plugin, srcInst.block)
+        return {
+          index: i,
+          content: srcInst.content,
+          inputs: inputsFor(i),
+          // Render a source submission to votable text via its block's toVoteText
+          // (e.g. Mad Libs fills its template), else fall back to a `.text` field.
+          render: (input: unknown) =>
+            srcBlock?.toVoteText?.(srcInst.content, input) ??
+            (input as { text?: string } | undefined)?.text ??
+            '',
+        }
+      })
     const result = block.derive({
       content: inst.content,
       sources,

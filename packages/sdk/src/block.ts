@@ -31,15 +31,26 @@ export interface BlockResultsContext<Content = unknown, Input = unknown> {
   players: ScorePlayer[]
 }
 
+/** One source ("make") round a derived block consumes. `inputs` is cross-block
+ *  (the source block's input type), so it is `unknown`; `render` turns one of
+ *  those submissions into a votable string via the source block's `toVoteText`
+ *  (e.g. a Quip's text, or a Mad Lib's filled-in story). */
+export interface DeriveSource {
+  index: number
+  content: unknown
+  inputs: Map<string, unknown>
+  render: (input: unknown) => string
+}
+
 /**
  * What a derived block's `derive` receives: the source rounds it consumes (their
- * authored content and every player's input), the roster, and a seeded shuffle so
- * anonymized options are ordered deterministically for the room (reconnect-safe).
+ * authored content, every player's input, and a renderer), the roster, and a
+ * seeded shuffle so anonymized options are ordered deterministically (reconnect-safe).
  */
-export interface DeriveContext<Content = unknown, Input = unknown> {
+export interface DeriveContext<Content = unknown> {
   /** This round's own authored content (mode, timer, default prompt). */
   content: Content
-  sources: Array<{ index: number; content: unknown; inputs: Map<string, Input> }>
+  sources: DeriveSource[]
   players: ScorePlayer[]
   /** Deterministic shuffle (seeded by the room) so all clients agree on order. */
   shuffle: <T>(items: T[]) => T[]
@@ -113,7 +124,12 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
    * plus the withheld answer key. The source rounds are wired by the composition
    * (`RoundInstance.from`, default: the previous round). Absent for static rounds.
    */
-  derive?: (ctx: DeriveContext<Content, Input>) => DerivedContent<Content>
+  derive?: (ctx: DeriveContext<Content>) => DerivedContent<Content>
+
+  /** How this block's submission renders to a votable string when a later
+   *  derived round consumes it (e.g. a Mad Lib fills its template). Defaults to
+   *  the input's `text` field. Pure. */
+  toVoteText?: (content: Content, input: Input) => string
 
   /**
    * A public per-round reveal payload (vote tallies, the round winner) the host

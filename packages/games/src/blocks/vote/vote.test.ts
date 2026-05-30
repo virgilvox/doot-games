@@ -17,21 +17,25 @@ const players: ScorePlayer[] = [
 // Identity shuffle so option order is deterministic in the test.
 const identityShuffle = <T>(items: T[]): T[] => items
 
+// A render that reads a `.text` field, mirroring buildDeriveContent's default.
+const textRender = (input: unknown) => (input as { text?: string } | undefined)?.text ?? ''
+
 function derive() {
-  const sources = [
+  const sources: DeriveContext<VoteContent>['sources'] = [
     {
       index: 0,
       content: { prompt: 'Best snack?' },
-      inputs: new Map<string, VoteInput | { text: string }>([
+      inputs: new Map<string, unknown>([
         ['A', { text: 'apple' }],
         ['B', { text: 'banana' }],
         ['C', { text: 'cherry' }],
       ]),
+      render: textRender,
     },
   ]
   return voteBlock.derive!({
     content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30 },
-    sources: sources as unknown as DeriveContext<VoteContent, VoteInput>['sources'],
+    sources,
     players,
     shuffle: identityShuffle,
   })
@@ -158,12 +162,9 @@ describe('vote block keeps a departed author scored', () => {
 })
 
 describe('vote block derive edge cases', () => {
-  const baseCtx = (inputs: Map<string, { text: string }>) => ({
-    content: { prompt: 'Which wins?', options: [], mode: 'field' as const, timer: 30 },
-    sources: [{ index: 0, content: { prompt: 'Q' }, inputs }] as unknown as DeriveContext<
-      VoteContent,
-      VoteInput
-    >['sources'],
+  const baseCtx = (inputs: Map<string, unknown>): DeriveContext<VoteContent> => ({
+    content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30 },
+    sources: [{ index: 0, content: { prompt: 'Q' }, inputs, render: textRender }],
     players,
     shuffle: identityShuffle,
   })

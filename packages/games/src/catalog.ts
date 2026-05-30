@@ -24,6 +24,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'draw', name: 'Draw', version: '0.1.0', flagship: false, description: "Sketch the prompt on your phone; everyone's drawings fill the screen." },
   { id: 'votebox', name: 'VoteBox', version: '0.2.0', flagship: false, description: 'Guess then Rate, the original Doot party game.' },
   { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer. The room writes the jokes.' },
+  { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill in a story's blanks, then vote for the funniest tale. Nobody sees the sentence until the reveal." },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
