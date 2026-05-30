@@ -32,6 +32,10 @@ export const gameManifestSchema = z.object({
   capabilities: z.array(capabilitySchema).default([]),
   minPlayers: z.number().int().positive().optional(),
   maxPlayers: z.number().int().positive().optional(),
+  /** A first-party, ready-to-play "Game From Doot": a curated, deeply replayable
+   *  game (it ships a content pool via `buildConfig`) surfaced as Host-now on
+   *  Explore/Home, distinct from an editor template. Omitted = not a flagship. */
+  flagship: z.boolean().optional(),
 })
 
 export type GameManifest = z.infer<typeof gameManifestSchema>

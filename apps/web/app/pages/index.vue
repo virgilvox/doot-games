@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { builtinPlugins } from '@doot-games/games'
-import { ref } from 'vue'
+import { flagshipGames, gameCatalog } from '@doot-games/games/catalog'
+import { GameCover, GameTypeIcon } from '@doot-games/ui'
+import { computed, ref } from 'vue'
 
 const code = ref('')
 function join() {
@@ -8,12 +9,26 @@ function join() {
   if (c.length === 4) navigateTo(`/play/${c}`)
 }
 
-// The discrete game types players can host, drawn from the plugin registry.
-const types = builtinPlugins.map((p) => ({
-  id: p.manifest.id,
-  name: p.manifest.name,
-  description: p.manifest.description,
-}))
+interface SavedGameSummary {
+  id: string
+  pluginId: string
+  title: string
+  themeId: string
+  createdAt: number
+}
+const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
+  default: () => ({ games: [] }),
+})
+const publicGames = computed(() => pub.value?.games ?? [])
+// Rails only appear once there's a real shelf to browse (no thin/empty rows).
+const MIN_RAIL = 5
+const enoughCommunity = computed(() => publicGames.value.length >= MIN_RAIL)
+const trending = computed(() => publicGames.value.slice(0, 8))
+const fresh = computed(() => [...publicGames.value].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8))
+const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
+
+// "Browse by vibe": the game types (building blocks) to start authoring.
+const vibes = gameCatalog.filter((c) => c.id !== 'custom')
 </script>
 
 <template>
@@ -30,33 +45,22 @@ const types = builtinPlugins.map((p) => ({
           </p>
           <div class="hero-cta">
             <div class="joinbig">
-              <input
-                v-model="code"
-                placeholder="ENTER CODE"
-                maxlength="4"
-                aria-label="Room code"
-                @keyup.enter="join"
-                @input="code = code.toUpperCase()"
-              />
+              <input v-model="code" placeholder="ENTER CODE" maxlength="4" aria-label="Room code" @keyup.enter="join" @input="code = code.toUpperCase()" />
               <button @click="join">Join</button>
             </div>
             <NuxtLink to="/explore" class="btn btn-primary btn-lg">Browse games</NuxtLink>
           </div>
           <div class="hero-foot">
             <div class="facepile">
-              <span style="background: #ff5a33">K</span>
-              <span style="background: #16c8b5">D</span>
-              <span style="background: #5b79ff">S</span>
-              <span style="background: #ff73b3">M</span>
+              <span style="background: #ff5a33">K</span><span style="background: #16c8b5">D</span>
+              <span style="background: #5b79ff">S</span><span style="background: #ff73b3">M</span>
             </div>
             <span>Hosted by panelists, bartenders, teachers, and friends</span>
           </div>
         </div>
-
         <div class="hero-vis" aria-hidden="true">
           <div class="float-badge fb-1">
-            <svg class="ic" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 6" /></svg>
-            Correct! +1
+            <svg class="ic" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 6" /></svg> Correct! +1
           </div>
           <div class="screen">
             <div class="scr-top"><i /><i /><i /></div>
@@ -80,24 +84,70 @@ const types = builtinPlugins.map((p) => ({
             </div>
           </div>
           <div class="float-badge fb-2">
-            <svg class="ic" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-              <path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z" />
-            </svg>
-            28 voted
+            <svg class="ic" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z" /></svg> 28 voted
           </div>
         </div>
       </section>
 
+      <!-- Games From Doot: ready to play -->
       <section class="section">
         <div class="section-head">
-          <div><span class="kicker">Pick a type</span><h2>Host a game</h2></div>
+          <div><span class="kicker">Ready to play</span><h2>Games From Doot</h2></div>
+          <NuxtLink class="more" to="/explore">See all &rarr;</NuxtLink>
         </div>
-        <div class="grid">
-          <NuxtLink v-for="t in types" :key="t.id" :to="`/host/${t.id}`" class="card type-card">
+        <div class="rail">
+          <NuxtLink v-for="g in flagshipGames" :key="g.id" :to="`/host/${g.id}`" class="card rail-card">
+            <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
-              <div class="card-title">{{ t.name }}</div>
-              <p class="type-desc">{{ t.description }}</p>
-              <span class="btn btn-primary btn-sm">Host this</span>
+              <div class="card-title">{{ g.name }}</div>
+              <p class="rail-desc">{{ g.description }}</p>
+              <span class="card-cta">Host now &rarr;</span>
+            </div>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- Trending (only once there's a real shelf) -->
+      <section v-if="enoughCommunity" class="section">
+        <div class="section-head">
+          <div><span class="kicker">Hot right now</span><h2>Trending games</h2></div>
+          <NuxtLink class="more" to="/explore">See all &rarr;</NuxtLink>
+        </div>
+        <div class="rail">
+          <NuxtLink v-for="g in trending" :key="g.id" :to="`/g/${g.id}`" class="card rail-card">
+            <GameCover :title="g.title" :type="g.pluginId" />
+            <div class="card-body">
+              <div class="card-title">{{ g.title }}</div>
+              <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
+            </div>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- Browse by vibe: pick a type to build -->
+      <section class="section">
+        <div class="section-head"><div><span class="kicker">Pick a lane</span><h2>Browse by vibe</h2></div></div>
+        <div class="vibes">
+          <NuxtLink v-for="v in vibes" :key="v.id" :to="`/editor/${v.id}`" class="vibe">
+            <GameTypeIcon :type="v.id" :size="44" />
+            <h4>{{ v.name }}</h4>
+            <p>{{ v.description }}</p>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- Fresh from creators (only once there's a real shelf) -->
+      <section v-if="enoughCommunity" class="section">
+        <div class="section-head">
+          <div><span class="kicker">New this week</span><h2>Fresh from creators</h2></div>
+          <NuxtLink class="more" to="/explore">See all &rarr;</NuxtLink>
+        </div>
+        <div class="rail">
+          <NuxtLink v-for="g in fresh" :key="g.id" :to="`/g/${g.id}`" class="card rail-card">
+            <GameCover :title="g.title" :type="g.pluginId" />
+            <div class="card-body">
+              <div class="card-title">{{ g.title }}</div>
+              <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
             </div>
           </NuxtLink>
         </div>
@@ -106,21 +156,9 @@ const types = builtinPlugins.map((p) => ({
       <section class="section">
         <div class="section-head"><div><span class="kicker">Three steps</span><h2>How Doot works</h2></div></div>
         <div class="steps">
-          <div class="step">
-            <div class="n">1</div>
-            <h4>Pick or make a game</h4>
-            <p>Grab one here or build your own. Choose a theme that styles the lobby and the whole game.</p>
-          </div>
-          <div class="step">
-            <div class="n">2</div>
-            <h4>Put it on the big screen</h4>
-            <p>Open it on a TV, a projector, or a shared laptop. A join code and QR appear for the room.</p>
-          </div>
-          <div class="step">
-            <div class="n">3</div>
-            <h4>Everyone plays along</h4>
-            <p>The crowd joins from their phones, answers each round, and the results pop on screen.</p>
-          </div>
+          <div class="step"><div class="n">1</div><h4>Pick or make a game</h4><p>Grab a Game From Doot or build your own. Choose a theme that styles the lobby and the whole game.</p></div>
+          <div class="step"><div class="n">2</div><h4>Put it on the big screen</h4><p>Open it on a TV, a projector, or a shared laptop. A join code and QR appear for the room.</p></div>
+          <div class="step"><div class="n">3</div><h4>Everyone plays along</h4><p>The crowd joins from their phones, answers each round, and the results pop on screen.</p></div>
         </div>
       </section>
     </div>
@@ -189,8 +227,6 @@ const types = builtinPlugins.map((p) => ({
 .facepile span:first-child {
   margin-left: 0;
 }
-
-/* Hero visual: a mock big screen + an overlapping phone + floating badges. */
 .hero-vis {
   position: relative;
   min-height: 380px;
@@ -363,15 +399,64 @@ const types = builtinPlugins.map((p) => ({
   transform: rotate(5deg);
   color: var(--c3);
 }
-.type-card {
-  cursor: pointer;
+.more {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
 }
-.type-desc {
+.rail {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 6px 2px 14px;
+  scroll-snap-type: x mandatory;
+}
+.rail-card {
+  min-width: 248px;
+  scroll-snap-align: start;
+}
+.rail-desc {
   font-size: 14px;
   color: var(--ink-soft);
   line-height: 1.5;
-  margin: 0 0 14px;
-  min-height: 60px;
+  margin: 0 0 12px;
+  min-height: 42px;
+}
+.card-cta {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 14px;
+}
+.vibes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+.vibe {
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s, box-shadow 0.12s;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.vibe:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow);
+}
+.vibe h4 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 12px 0 3px;
+}
+.vibe p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
 }
 @media (max-width: 860px) {
   .hero-vis {

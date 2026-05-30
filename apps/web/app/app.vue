@@ -26,6 +26,7 @@ async function logout() {
           <NuxtLink to="/" class="navlink nav-home">Home</NuxtLink>
           <NuxtLink to="/explore" class="navlink">Explore</NuxtLink>
           <NuxtLink to="/create" class="navlink">Create</NuxtLink>
+          <NuxtLink v-if="loggedIn" to="/mine" class="navlink">Your Games</NuxtLink>
         </nav>
         <div class="bar-spacer" />
         <div class="account">

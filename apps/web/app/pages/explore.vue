@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { gameCatalog } from '@doot-games/games/catalog'
+import { flagshipGames, gameCatalog } from '@doot-games/games/catalog'
 import { themeList } from '@doot-games/themes'
 import { GameCover } from '@doot-games/ui'
 import { computed, ref } from 'vue'
@@ -12,48 +12,9 @@ interface SavedGameSummary {
   visibility: 'private' | 'unlisted' | 'public'
   createdAt: number
 }
-const session = authClient.useSession()
-const loggedIn = computed(() => !!session.value?.data?.user)
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games')
-const { data: mineData } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
-  query: { scope: 'mine' },
-  default: () => ({ games: [] }),
-})
 const publicGames = computed(() => pub.value?.games ?? [])
-const myGames = computed(() => mineData.value?.games ?? [])
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
-
-/** A unified card model: saved games (link to /g/<id>) and built-in game types
- *  (templates, link to the editor) both render as cover cards. */
-interface Card {
-  key: string
-  title: string
-  type: string
-  typeLabel: string
-  theme: string | null
-  to: string
-  kind: 'game' | 'type'
-}
-const gameCard = (g: SavedGameSummary): Card => ({
-  key: g.id,
-  title: g.title,
-  type: g.pluginId,
-  typeLabel: typeName(g.pluginId),
-  theme: g.themeId,
-  to: `/g/${g.id}`,
-  kind: 'game',
-})
-const templateCards = computed<Card[]>(() =>
-  gameCatalog.map((c) => ({
-    key: `t-${c.id}`,
-    title: c.name,
-    type: c.id,
-    typeLabel: c.name,
-    theme: null,
-    to: `/editor/${c.id}`,
-    kind: 'type',
-  })),
-)
 
 // ---- filters -------------------------------------------------------------
 const search = ref('')
@@ -61,42 +22,27 @@ const typeFilter = ref<string>('all')
 const themeFilter = ref<string>('all')
 const types = computed(() => gameCatalog.map((c) => ({ id: c.id, name: c.name })))
 
-function matches(card: Card): boolean {
-  if (typeFilter.value !== 'all' && card.type !== typeFilter.value) return false
-  // Templates are theme-agnostic; hide them when a specific theme is selected.
-  if (themeFilter.value !== 'all' && card.theme !== themeFilter.value) return false
-  const q = search.value.trim().toLowerCase()
-  if (q && !card.title.toLowerCase().includes(q) && !card.typeLabel.toLowerCase().includes(q)) return false
-  return true
+const q = computed(() => search.value.trim().toLowerCase())
+function textMatch(title: string, type: string) {
+  return !q.value || title.toLowerCase().includes(q.value) || typeName(type).toLowerCase().includes(q.value)
 }
-const myCards = computed(() => myGames.value.map(gameCard).filter(matches))
-const discoverCards = computed(() =>
-  [...publicGames.value.map(gameCard), ...templateCards.value].filter(matches),
+
+// "Games From Doot": ready-to-play flagships, hosted directly.
+const doot = computed(() =>
+  flagshipGames
+    .filter((g) => typeFilter.value === 'all' || g.id === typeFilter.value)
+    .filter((g) => themeFilter.value === 'all') // flagships are theme-agnostic
+    .filter((g) => textMatch(g.name, g.id)),
+)
+// Community: public games published by others.
+const community = computed(() =>
+  publicGames.value
+    .filter((g) => typeFilter.value === 'all' || g.pluginId === typeFilter.value)
+    .filter((g) => themeFilter.value === 'all' || g.themeId === themeFilter.value)
+    .filter((g) => textMatch(g.title, g.pluginId)),
 )
 
-// ---- featured ------------------------------------------------------------
-// Showcase the newest public game if there is one, else the Quip Clash flagship.
-const featured = computed(() => {
-  const g = publicGames.value[0]
-  if (g)
-    return {
-      title: g.title,
-      type: g.pluginId,
-      typeLabel: typeName(g.pluginId),
-      blurb: 'Featured by the community. Put it on the big screen and pull a crowd in from their phones.',
-      to: `/g/${g.id}`,
-      cta: 'View & host',
-    }
-  return {
-    title: 'Quip Clash',
-    type: 'quip-clash',
-    typeLabel: 'Quip Clash',
-    blurb:
-      'Answer a prompt, then vote for the funniest answer. The room writes the jokes, and a fresh set of prompts drops every game. A Game From Doot.',
-    to: '/editor/quip-clash',
-    cta: 'Open in editor',
-  }
-})
+const featured = computed(() => flagshipGames[0] ?? null)
 </script>
 
 <template>
@@ -107,82 +53,74 @@ const featured = computed(() => {
           <div><span class="kicker">Discover</span><h2>Explore games</h2></div>
         </div>
 
-        <!-- toolbar: search + filter chips -->
         <div class="toolbar">
-          <div class="searchrow">
-            <div class="search">
-              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-              <input v-model="search" type="search" placeholder="Search games or topics" aria-label="Search games" />
-            </div>
+          <div class="search">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            <input v-model="search" type="search" placeholder="Search games or topics" aria-label="Search games" />
           </div>
           <div class="chips">
             <div class="chip-grp">
               <span class="filter-lbl">Type</span>
               <button class="chip" :class="{ on: typeFilter === 'all' }" @click="typeFilter = 'all'">All</button>
-              <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" @click="typeFilter = t.id">
-                {{ t.name }}
-              </button>
+              <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" @click="typeFilter = t.id">{{ t.name }}</button>
             </div>
             <div class="chip-grp">
               <span class="filter-lbl">Theme</span>
               <button class="chip" :class="{ on: themeFilter === 'all' }" @click="themeFilter = 'all'">All</button>
-              <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" @click="themeFilter = t.id">
-                {{ t.name }}
-              </button>
+              <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" @click="themeFilter = t.id">{{ t.name }}</button>
             </div>
           </div>
         </div>
 
-        <!-- featured hero -->
-        <NuxtLink :to="featured.to" class="feature">
+        <!-- featured Game From Doot -->
+        <NuxtLink v-if="featured" :to="`/host/${featured.id}`" class="feature">
           <div class="fcontent">
-            <span class="fkick">Featured this week</span>
-            <h2>{{ featured.title }}</h2>
-            <p>{{ featured.blurb }}</p>
-            <span class="btn btn-primary">{{ featured.cta }}</span>
+            <span class="fkick">Featured · Game From Doot</span>
+            <h2>{{ featured.name }}</h2>
+            <p>{{ featured.description }}</p>
+            <span class="btn btn-primary">Host now</span>
           </div>
-          <div class="fart">
-            <GameCover :title="featured.title" :type="featured.type" :height="280" />
-          </div>
+          <div class="fart"><GameCover :title="featured.name" :type="featured.id" :height="280" /></div>
         </NuxtLink>
+      </section>
 
-        <!-- your games -->
-        <template v-if="myCards.length">
-          <div class="section-head sub"><div><span class="kicker">Yours</span><h3>Your games</h3></div></div>
-          <div class="grid">
-            <NuxtLink v-for="c in myCards" :key="c.key" :to="c.to" class="card">
-              <GameCover :title="c.title" :type="c.type" />
-              <div class="card-body">
-                <div class="card-title">{{ c.title }}</div>
-                <div class="card-meta">
-                  <span class="badge type">{{ c.typeLabel }}</span>
-                  <span v-if="c.theme" class="badge">{{ c.theme }}</span>
-                </div>
-              </div>
-            </NuxtLink>
-          </div>
-        </template>
-
-        <!-- discovery grid (public games + game-type templates) -->
-        <div class="section-head sub"><div><span class="kicker">Browse</span><h3>Games &amp; templates</h3></div></div>
-        <p v-if="!loggedIn" class="explore-note">
-          <NuxtLink to="/login" class="explore-link">Log in</NuxtLink> to save games and find them here later. Hosting and playing never need an account.
-        </p>
+      <!-- Games From Doot: ready to play -->
+      <section v-if="doot.length" class="section">
+        <div class="section-head"><div><span class="kicker">Ready to play</span><h2>Games From Doot</h2></div></div>
         <div class="grid">
-          <NuxtLink v-for="c in discoverCards" :key="c.key" :to="c.to" class="card">
-            <GameCover :title="c.title" :type="c.type" />
+          <NuxtLink v-for="g in doot" :key="g.id" :to="`/host/${g.id}`" class="card">
+            <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
-              <div class="card-title">{{ c.title }}</div>
+              <div class="card-title">{{ g.name }}</div>
               <div class="card-meta">
-                <span class="badge type">{{ c.typeLabel }}</span>
-                <span v-if="c.kind === 'type'" class="badge">Template</span>
-                <span v-else-if="c.theme" class="badge">{{ c.theme }}</span>
+                <span class="badge type">{{ g.name }}</span>
+                <span class="badge mono">v{{ g.version }}</span>
               </div>
-              <span class="card-cta">{{ c.kind === 'type' ? 'Open editor' : 'View & host' }} &rarr;</span>
+              <span class="card-cta">Host now &rarr;</span>
             </div>
           </NuxtLink>
         </div>
-        <p v-if="!discoverCards.length" class="empty">No games match those filters yet.</p>
+      </section>
+
+      <!-- Community: public games -->
+      <section class="section">
+        <div class="section-head"><div><span class="kicker">From the community</span><h2>Public games</h2></div></div>
+        <div v-if="community.length" class="grid">
+          <NuxtLink v-for="g in community" :key="g.id" :to="`/g/${g.id}`" class="card">
+            <GameCover :title="g.title" :type="g.pluginId" />
+            <div class="card-body">
+              <div class="card-title">{{ g.title }}</div>
+              <div class="card-meta">
+                <span class="badge type">{{ typeName(g.pluginId) }}</span>
+                <span class="badge">{{ g.themeId }}</span>
+              </div>
+              <span class="card-cta">View &amp; host &rarr;</span>
+            </div>
+          </NuxtLink>
+        </div>
+        <p v-else class="empty">
+          No public games yet. <NuxtLink to="/create" class="explore-link">Build one</NuxtLink> and set it public to see it here.
+        </p>
       </section>
     </div>
   </main>
@@ -195,14 +133,7 @@ const featured = computed(() => {
   gap: 16px;
   margin-bottom: 26px;
 }
-.searchrow {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 .search {
-  flex: 1;
-  min-width: 240px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -289,7 +220,6 @@ const featured = computed(() => {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow);
-  margin-bottom: 30px;
   text-decoration: none;
   color: inherit;
   transition: transform 0.12s, box-shadow 0.12s;
@@ -334,13 +264,6 @@ const featured = computed(() => {
   border-bottom: none;
   border-left: var(--bd) solid var(--line);
 }
-.section-head.sub {
-  margin: 8px 0 16px;
-}
-.section-head.sub h3 {
-  font-size: 22px;
-  font-weight: 800;
-}
 .card-cta {
   display: inline-block;
   margin-top: 4px;
@@ -348,18 +271,13 @@ const featured = computed(() => {
   font-weight: 800;
   font-size: 14px;
 }
-.explore-note {
-  color: var(--ink-soft);
-  font-size: 14px;
-  margin: -6px 0 16px;
-}
 .explore-link {
   color: var(--primary);
   font-weight: 700;
 }
 .empty {
   color: var(--ink-soft);
-  padding: 20px 0;
+  padding: 16px 0 28px;
 }
 @media (max-width: 860px) {
   .feature {

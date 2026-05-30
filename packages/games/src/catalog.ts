@@ -9,18 +9,28 @@ export interface GameCatalogEntry {
   id: string
   name: string
   description: string
+  /** Semver from the plugin manifest (surfaced on cards as "vX.Y.Z"). */
+  version: string
+  /** A first-party, ready-to-play "Game From Doot" (deeply replayable, host-now)
+   *  vs an editor template/building-block type. */
+  flagship: boolean
 }
 
 export const gameCatalog: GameCatalogEntry[] = [
-  { id: 'guess', name: 'Guess', description: 'Multiple-choice rounds with a right answer, scored on a leaderboard.' },
-  { id: 'rate', name: 'Rate', description: 'Score subjects on flexible scales, numbers, letter grades, or tiers.' },
-  { id: 'poll', name: 'Poll', description: 'Opinion questions with no right answer; reveal the live distribution.' },
-  { id: 'rank', name: 'Rank', description: 'Players order a set of items into one room-consensus ranking.' },
-  { id: 'draw', name: 'Draw', description: "Sketch the prompt on your phone; everyone's drawings fill the screen." },
-  { id: 'votebox', name: 'VoteBox', description: 'Guess then Rate, the original Doot party game.' },
-  { id: 'quip-clash', name: 'Quip Clash', description: 'Answer a prompt, then vote for the funniest answer. The room writes the jokes.' },
-  { id: 'custom', name: 'Custom', description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
+  { id: 'guess', name: 'Guess', version: '0.2.0', flagship: false, description: 'Multiple-choice rounds with a right answer, scored on a leaderboard.' },
+  { id: 'rate', name: 'Rate', version: '0.2.0', flagship: false, description: 'Score subjects on flexible scales, numbers, letter grades, or tiers.' },
+  { id: 'poll', name: 'Poll', version: '0.1.0', flagship: false, description: 'Opinion questions with no right answer; reveal the live distribution.' },
+  { id: 'rank', name: 'Rank', version: '0.1.0', flagship: false, description: 'Players order a set of items into one room-consensus ranking.' },
+  { id: 'draw', name: 'Draw', version: '0.1.0', flagship: false, description: "Sketch the prompt on your phone; everyone's drawings fill the screen." },
+  { id: 'votebox', name: 'VoteBox', version: '0.2.0', flagship: false, description: 'Guess then Rate, the original Doot party game.' },
+  { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer. The room writes the jokes.' },
+  { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
+
+/** The first-party ready-to-play games ("Games From Doot"). */
+export const flagshipGames = gameCatalog.filter((g) => g.flagship)
+/** The editor templates / building-block types (everything else). */
+export const templateGames = gameCatalog.filter((g) => !g.flagship)
 
 const ids = new Set(gameCatalog.map((g) => g.id))
 

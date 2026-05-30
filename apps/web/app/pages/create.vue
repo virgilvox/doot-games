@@ -1,31 +1,95 @@
 <script setup lang="ts">
-import { builtinPlugins } from '@doot-games/games'
-const types = builtinPlugins.map((p) => p.manifest)
+import { gameCatalog } from '@doot-games/games/catalog'
+import { GameTypeIcon } from '@doot-games/ui'
+
+// Every game type is an authorable template here; "Games From Doot" (ready to
+// play) live on Explore instead.
+const types = gameCatalog
 </script>
 
 <template>
   <main>
     <div class="wrap">
-      <div style="text-align: center; padding: 40px 0 8px">
+      <div class="create-head">
         <span class="kicker">Build something</span>
-        <h1 style="font-size: clamp(32px, 6vw, 46px); font-weight: 800; margin-top: 8px">
-          Start a new game
-        </h1>
-        <p style="font-size: 18px; color: var(--ink-soft); margin-top: 12px">
-          Pick a game type to open the editor, set up your rounds, then host it.
-        </p>
+        <h1>Start a new game</h1>
+        <p>Pick a type to open the editor. Add your content, choose a theme, and publish to Explore when you are ready.</p>
       </div>
-      <div class="grid" style="padding: 14px 0 40px">
-        <NuxtLink v-for="t in types" :key="t.id" :to="`/editor/${t.id}`" class="card">
-          <div class="card-body">
-            <div class="card-title">{{ t.name }}</div>
-            <p style="color: var(--ink-soft); font-size: 14px; line-height: 1.5; min-height: 56px">
-              {{ t.description }}
-            </p>
-            <span class="btn btn-primary btn-sm">Set up &amp; host</span>
+      <div class="typegrid">
+        <NuxtLink v-for="t in types" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
+          <GameTypeIcon :type="t.id" :size="54" />
+          <h3>{{ t.name }}</h3>
+          <p>{{ t.description }}</p>
+          <div class="tfoot">
+            <span class="cap mono">v{{ t.version }}<span v-if="t.flagship"> · Game From Doot</span></span>
+            <span class="btn btn-primary btn-sm">Use this</span>
           </div>
         </NuxtLink>
       </div>
     </div>
   </main>
 </template>
+
+<style scoped>
+.create-head {
+  text-align: center;
+  padding: 40px 0 8px;
+}
+.create-head h1 {
+  font-size: clamp(32px, 6vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 8px;
+}
+.create-head p {
+  font-size: 18px;
+  color: var(--ink-soft);
+  margin-top: 12px;
+  max-width: 60ch;
+  margin-inline: auto;
+}
+.typegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 24px 0 48px;
+}
+.typecard {
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s, box-shadow 0.12s;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.typecard:hover {
+  transform: translate(-2px, -3px);
+  box-shadow: var(--shadow);
+}
+.typecard h3 {
+  font-size: 23px;
+  font-weight: 800;
+  margin: 16px 0 7px;
+}
+.typecard p {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 18px;
+  min-height: 62px;
+}
+.tfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tfoot .cap {
+  font-size: 11px;
+  color: var(--mute);
+  letter-spacing: 0.04em;
+}
+</style>

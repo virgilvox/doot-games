@@ -66,6 +66,7 @@ export const quipClash = defineGame({
     author: 'Doot',
     capabilities: ['timer'],
     minPlayers: 3,
+    flagship: true,
   },
   blocks: [quipBlock, voteBlock],
   // A small fixed deck for the editor preview / fallback.

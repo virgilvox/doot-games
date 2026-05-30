@@ -10,7 +10,7 @@
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin, parseMarkdownGame } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
-import { IMAGE_UPLOAD, ImageField, SchemaForm } from '@doot-games/ui'
+import { GameTypeIcon, IMAGE_UPLOAD, ImageField, SchemaForm, gameVisual } from '@doot-games/ui'
 import { computed, onMounted, onScopeDispose, provide, reactive, ref, toRaw, watch } from 'vue'
 
 /** A saved game loaded into the editor (to edit in place or fork). */
@@ -87,6 +87,10 @@ function promptOf(inst: RoundInstance): string {
 function summaryOf(inst: RoundInstance): string {
   const c = inst.content as { subject?: string; prompt?: string }
   return c.subject || c.prompt || '-'
+}
+/** Per-block accent color, so each round card is visually distinct by kind. */
+function blockColor(inst: RoundInstance): string {
+  return gameVisual(inst.block).color
 }
 function onContentUpdate(i: number, value: Record<string, unknown>) {
   config.rounds[i]!.content = value
@@ -253,26 +257,36 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
         </div>
         <div class="ed-actions">
-          <label class="ed-theme">
-            <span class="sf-label">Theme</span>
-            <select v-model="themeId" class="sf-select" aria-label="Theme">
-              <option v-for="t in themes" :key="t.id" :value="t.id">{{ t.name }}</option>
-            </select>
-          </label>
-          <label class="ed-theme">
-            <span class="sf-label">Visibility</span>
-            <select v-model="visibility" class="sf-select" aria-label="Visibility">
-              <option value="private">Private</option>
-              <option value="unlisted">Unlisted (link only)</option>
-              <option value="public">Public (listed)</option>
-            </select>
-          </label>
-          <button class="btn btn-ghost" :class="{ 'btn-on': showDetails }" @click="showDetails = !showDetails">Details</button>
-          <button class="btn btn-ghost" @click="showImport = !showImport">Import from Markdown</button>
-          <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
-            {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
-          </button>
-          <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
+          <div class="ed-settings" role="group" aria-label="Game settings">
+            <label class="ed-field">
+              <span class="sf-label">Theme</span>
+              <select v-model="themeId" class="sf-select" aria-label="Theme">
+                <option v-for="t in themes" :key="t.id" :value="t.id">{{ t.name }}</option>
+              </select>
+            </label>
+            <label class="ed-field">
+              <span class="sf-label">Visibility</span>
+              <select v-model="visibility" class="sf-select" aria-label="Visibility">
+                <option value="private">Private</option>
+                <option value="unlisted">Unlisted (link only)</option>
+                <option value="public">Public (listed)</option>
+              </select>
+            </label>
+            <button type="button" class="ed-toggle" :class="{ on: showDetails }" :aria-pressed="showDetails" @click="showDetails = !showDetails">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h5l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z" /></svg>
+              Details
+            </button>
+            <button type="button" class="ed-toggle" :class="{ on: showImport }" :aria-pressed="showImport" @click="showImport = !showImport">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+              Import
+            </button>
+          </div>
+          <div class="ed-primary">
+            <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
+              {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
+            </button>
+            <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
+          </div>
         </div>
       </header>
 
@@ -323,8 +337,15 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </div>
 
       <ol class="ed-rounds">
-        <li v-for="(round, i) in config.rounds" :key="i" class="ed-round" :class="{ open: expanded === i, bad: errors[i] }">
+        <li
+          v-for="(round, i) in config.rounds"
+          :key="i"
+          class="ed-round"
+          :class="{ open: expanded === i, bad: errors[i] }"
+          :style="{ '--round-accent': blockColor(round) }"
+        >
           <button type="button" class="ed-round-head" @click="toggle(i)">
+            <GameTypeIcon :type="round.block" :size="34" />
             <span class="ed-round-n">Round {{ i + 1 }}</span>
             <span class="ed-round-kind">{{ blockFor(round)?.name ?? round.block }}</span>
             <span class="ed-round-subject">{{ summaryOf(round) }}</span>
@@ -413,10 +434,71 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 .ed-actions {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 14px;
   flex-wrap: wrap;
 }
-@media (max-width: 640px) {
+/* Group the game settings (theme, visibility, details, import) into one boxed
+   cluster so they read as settings, not lost among the action buttons. */
+.ed-settings {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 14px;
+}
+.ed-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ed-field .sf-select {
+  width: auto;
+  min-width: 130px;
+}
+.ed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-end;
+  height: 42px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ed-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ed-toggle:hover {
+  border-color: var(--line);
+}
+.ed-toggle.on {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--line);
+}
+.ed-primary {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-left: auto;
+}
+@media (max-width: 760px) {
   .ed-head {
     flex-direction: column;
     align-items: stretch;
@@ -424,19 +506,19 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   .ed-actions {
     width: 100%;
   }
-  .ed-actions .btn {
-    flex: 1 1 auto;
+  .ed-settings {
+    flex: 1 1 100%;
   }
-  .ed-theme {
-    flex: 1 1 120px;
+  .ed-primary {
+    margin-left: 0;
+    width: 100%;
+  }
+  .ed-primary .btn {
+    flex: 1 1 auto;
   }
   .ed-title {
     width: 100%;
   }
-}
-.ed-theme .sf-select {
-  width: auto;
-  min-width: 130px;
 }
 .ed-note {
   color: var(--ink-soft);
@@ -524,12 +606,14 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 }
 .ed-round {
   border: var(--bd) solid var(--line-soft);
+  border-left: 5px solid var(--round-accent, var(--line-soft));
   border-radius: 15px;
   background: var(--surface);
   overflow: hidden;
 }
 .ed-round.bad {
   border-color: color-mix(in srgb, var(--primary) 55%, var(--line-soft));
+  border-left-color: var(--primary);
 }
 .ed-round-head {
   width: 100%;
@@ -553,8 +637,8 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--round-accent, var(--primary)) 22%, transparent);
   padding: 3px 9px;
   border-radius: 999px;
 }

@@ -192,6 +192,15 @@ typecheck + web build, real-relay two-phase live test, 3-player real-browser pla
   motif), a site-wide `SiteFooter`, and a new **explore page** (DISCOVER header, search,
   Type/Theme filter chips, featured hero, cover-card grid). See doc §6 (audit + research
   roadmap: timeout safety net, untimed mode, content filters, audience bloc) and §7 (UI).
+- **Catalog IA + Games From Doot** (see [`docs/games-from-doot.md`](./docs/games-from-doot.md)):
+  Explore now shows **public games + ready-to-play "Games From Doot"** (no templates);
+  templates moved to **Create** (typecards with colored per-type icons via `GameTypeIcon`);
+  **Your Games** is its own nav-gated page (`/mine`) with a visibility filter; **Home** has
+  a Games-From-Doot rail, Browse-by-vibe, and Trending/Fresh rails gated to ≥5 public games.
+  A `flagship` manifest flag (+ catalog `version`/`flagship`, sync-tested) marks first-party
+  replayable games; the editor color-codes rounds by block type and groups its settings.
+  `manifest.version` is now surfaced. Official-games-via-admin + DB-backed versioning are a
+  documented future path (`docs/games-from-doot.md`), deliberately not built yet.
 
 **Next (build order in the doc §4):** `fill`→Mad Libs, `split`→Split the Room,
 audio layer + Robot Rap Battle (TTS + head-to-head vote mode), then the "Games

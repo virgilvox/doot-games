@@ -9,10 +9,15 @@ describe('game catalog', () => {
     expect(catalogIds).toEqual(registryIds)
   })
 
-  it('names match the registry manifests', () => {
+  it('names, versions, and flagship flags match the registry manifests', () => {
     for (const entry of gameCatalog) {
       const plugin = builtinPlugins.find((p) => p.manifest.id === entry.id)
       expect(plugin?.manifest.name).toBe(entry.name)
+      expect(plugin?.manifest.version).toBe(entry.version)
+      // A flagship is a manifest opt-in AND must ship a content pool (buildConfig),
+      // so a "Game From Doot" is always a real, replayable, host-now game.
+      expect(entry.flagship).toBe(!!plugin?.manifest.flagship)
+      if (entry.flagship) expect(typeof plugin?.buildConfig).toBe('function')
     }
   })
 
