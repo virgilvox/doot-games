@@ -1,0 +1,32 @@
+# Production stack pulled by CI/CD onto a single droplet. The app runs the
+# prebuilt GHCR image (GitHub Actions builds + pushes it); Caddy terminates TLS
+# for doot.games and reverse-proxies the app. State is a SQLite file on the host
+# (./data), which persists across deploys — the cheapest single-droplet setup.
+# Secrets come from /opt/doot/.env (written at provision time, never in git).
+
+services:
+  app:
+    image: ghcr.io/virgilvox/doot-games:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/.data
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
+  caddy-config:
