@@ -10,7 +10,7 @@ import type { GameComposition, GamePlugin, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameResults from './GameResults.vue'
-import { gameAnswerKeys, getBlock, scoreGame } from './derive'
+import { getBlock, scoreGame } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -37,8 +37,14 @@ const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
+// A two-phase round's content is derived at runtime (the vote options built from
+// the prior round's submissions); overlay it on the authored content when present.
 const content = computed<Record<string, unknown> | null>(
-  () => (instance.value?.content as Record<string, unknown>) ?? null,
+  () =>
+    ((room.runtimeContentFor(index.value) ?? instance.value?.content) as Record<
+      string,
+      unknown
+    >) ?? null,
 )
 const subject = computed(() => content.value?.subject as string | undefined)
 const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
@@ -47,12 +53,12 @@ const image = computed(() => content.value?.image as string | undefined)
 // screen. Tracked per URL so a later round's valid image still renders.
 const failedImages = reactive(new Set<string>())
 const showImage = computed(() => !!image.value && !failedImages.has(image.value))
-// Only expose the answer at reveal, even on the host's own screen, so a
-// block's HostDisplay can never surface it early to the room watching the big screen.
+// Only expose the answer at reveal, even on the host's own screen, so a block's
+// HostDisplay can never surface it early to the room watching the big screen. The
+// runtime key covers both static blocks (their authored answer) and derived
+// rounds (the runtime author map).
 const answer = computed(() =>
-  state.value === 'reveal' && block.value?.answerOf && content.value
-    ? block.value.answerOf(content.value)
-    : undefined,
+  state.value === 'reveal' ? room.answerKeyFor(index.value) : undefined,
 )
 
 const joinUrl = computed(() => {
@@ -81,10 +87,25 @@ function finish() {
     name: p.name,
     joinedAtIndex: p.joinedAtIndex,
   }))
-  const summary = scoreGame(props.plugin, cfg, {
+  // Score against the *effective* config: a two-phase round is scored on its
+  // runtime-derived content (the vote options) and runtime answer key (the author
+  // map), not the authored placeholder. `answerKeyFor` merges runtime + static.
+  const effectiveCfg = {
+    ...cfg,
+    rounds: cfg.rounds.map((inst, i) => ({
+      ...inst,
+      content: room.runtimeContentFor(i) ?? inst.content,
+    })),
+  }
+  const answerKeys: Record<number, unknown> = {}
+  cfg.rounds.forEach((_, i) => {
+    const a = room.answerKeyFor(i)
+    if (a !== undefined) answerKeys[i] = a
+  })
+  const summary = scoreGame(props.plugin, effectiveCfg, {
     inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>,
     players,
-    answerKeys: gameAnswerKeys(props.plugin, cfg),
+    answerKeys,
   })
   room.host.finish(summary as unknown as RelayValue)
 }

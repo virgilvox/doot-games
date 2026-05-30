@@ -23,7 +23,9 @@ const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
-const content = computed(() => instance.value?.content ?? null)
+// A two-phase round's content (the vote options) arrives at runtime via the
+// relay; overlay it on the authored content when present.
+const content = computed(() => room.runtimeContentFor(index.value) ?? instance.value?.content ?? null)
 const prompt = computed(() => (content.value as { prompt?: string } | null)?.prompt ?? '')
 // Show the prompt image on the phone too (not only the host screen), so players
 // who can't see the big screen still get the question. Hide it if it 404s.
@@ -105,6 +107,13 @@ function submit() {
       <h2>Time!</h2>
       <p>Voting is closed. Results coming up on the big screen.</p>
     </div>
+    <component
+      :is="block.PlayerReveal"
+      v-else-if="state === 'reveal' && block.PlayerReveal && content"
+      :content="content"
+      :my-input="room.inputFor(index)"
+      :reveal="room.roundRevealFor(index)"
+    />
     <div v-else class="big">
       <h2>Answers are up!</h2>
       <p>Check the big screen.</p>

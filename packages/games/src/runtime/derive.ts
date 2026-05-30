@@ -13,6 +13,39 @@ import type {
   StandardResults,
 } from '@doot-games/sdk'
 
+/** A 32-bit hash of a string seed (xfnv1a), to seed the PRNG below. */
+function hashSeed(seed: string): number {
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 16777619)
+  }
+  return h >>> 0
+}
+
+/** mulberry32: a tiny deterministic PRNG so every client shuffles identically. */
+function mulberry32(a: number): () => number {
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** A deterministic Fisher-Yates shuffle seeded by a string (room-stable order). */
+export function seededShuffle(seed: string): <T>(items: T[]) => T[] {
+  return <T>(items: T[]): T[] => {
+    const rng = mulberry32(hashSeed(seed))
+    const out = [...items]
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      ;[out[i], out[j]] = [out[j] as T, out[i] as T]
+    }
+    return out
+  }
+}
+
 /** VoteBars-ready bar (label/value/max/display/note). */
 export interface RenderBar {
   label: string
@@ -131,4 +164,69 @@ export function scoreGame(
       : (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
 
   return { headline, leaderboard, awards, distributions, stats }
+}
+
+/**
+ * Build the engine's `deriveContent` callback from the blocks: for a round whose
+ * block declares `derive`, gather its source rounds' inputs (`RoundInstance.from`,
+ * default the previous round) and run the block's pure derivation. The engine
+ * publishes the anonymized `publish` and withholds the `answer`.
+ */
+export function buildDeriveContent(
+  plugin: GamePlugin,
+  config: GameComposition,
+  seed: string,
+  getPlayers: () => ScorePlayer[],
+): (
+  index: number,
+  inputsFor: (i: number) => Map<string, unknown>,
+) => { publish: unknown; answer?: unknown } | undefined {
+  return (index, inputsFor) => {
+    const inst = config.rounds[index]
+    if (!inst) return undefined
+    const block = getBlock(plugin, inst.block)
+    if (!block?.derive) return undefined
+    const from = inst.from ?? (index > 0 ? [index - 1] : [])
+    const sources = from
+      .filter((i) => i >= 0 && config.rounds[i])
+      .map((i) => ({
+        index: i,
+        content: (config.rounds[i] as GameComposition['rounds'][number]).content,
+        inputs: inputsFor(i),
+      }))
+    const result = block.derive({
+      content: inst.content,
+      sources,
+      players: getPlayers(),
+      shuffle: seededShuffle(`${seed}:${index}`),
+    })
+    return { publish: result.publish, answer: result.answer }
+  }
+}
+
+/**
+ * Build the engine's `revealSummary` callback: for a round whose block declares
+ * `revealSummary`, compute the public per-round payload from the effective
+ * content (runtime-derived if present), this round's inputs, and its answer key.
+ */
+export function buildRevealSummary(
+  plugin: GamePlugin,
+  config: GameComposition,
+  getPlayers: () => ScorePlayer[],
+  runtimeContentFor: (index: number) => unknown | undefined,
+  answerFor: (index: number) => unknown,
+): (index: number, inputsFor: (i: number) => Map<string, unknown>) => unknown | undefined {
+  return (index, inputsFor) => {
+    const inst = config.rounds[index]
+    if (!inst) return undefined
+    const block = getBlock(plugin, inst.block)
+    if (!block?.revealSummary) return undefined
+    const content = runtimeContentFor(index) ?? inst.content
+    return block.revealSummary({
+      content,
+      inputs: inputsFor(index),
+      answer: answerFor(index),
+      players: getPlayers(),
+    })
+  }
 }

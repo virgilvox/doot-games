@@ -31,6 +31,38 @@ export interface BlockResultsContext<Content = unknown, Input = unknown> {
   players: ScorePlayer[]
 }
 
+/**
+ * What a derived block's `derive` receives: the source rounds it consumes (their
+ * authored content and every player's input), the roster, and a seeded shuffle so
+ * anonymized options are ordered deterministically for the room (reconnect-safe).
+ */
+export interface DeriveContext<Content = unknown, Input = unknown> {
+  /** This round's own authored content (mode, timer, default prompt). */
+  content: Content
+  sources: Array<{ index: number; content: unknown; inputs: Map<string, Input> }>
+  players: ScorePlayer[]
+  /** Deterministic shuffle (seeded by the room) so all clients agree on order. */
+  shuffle: <T>(items: T[]) => T[]
+}
+
+/**
+ * What a derived block's `derive` returns: the anonymized content to publish to
+ * the relay, and the withheld answer key (e.g. the option→author map) revealed
+ * only at reveal. Mirrors the static `redactContent`/`answerOf` split.
+ */
+export interface DerivedContent<Content = unknown> {
+  publish: Content
+  answer?: unknown
+}
+
+/** What a block's `revealSummary` receives to build a public per-round payload. */
+export interface RevealContext<Content = unknown, Input = unknown> {
+  content: Content
+  inputs: Map<string, Input>
+  answer: unknown
+  players: ScorePlayer[]
+}
+
 /** A block's contribution to the results page; fragments are merged across blocks. */
 export interface ResultsFragment {
   headline?: string
@@ -71,6 +103,38 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
 
   /** Optional custom editor for one round; auto-generated from the schema otherwise. */
   Editor?: Component
+
+  // ---- two-phase (make -> judge) -------------------------------------------
+
+  /**
+   * Build this round's content at runtime from earlier rounds' inputs (the
+   * two-phase pattern: collect submissions, then vote on the anonymized,
+   * shuffled set). Pure and host-only. Returns the anonymized content to publish
+   * plus the withheld answer key. The source rounds are wired by the composition
+   * (`RoundInstance.from`, default: the previous round). Absent for static rounds.
+   */
+  derive?: (ctx: DeriveContext<Content, Input>) => DerivedContent<Content>
+
+  /**
+   * A public per-round reveal payload (vote tallies, the round winner) the host
+   * publishes at reveal so phones can show personal feedback rather than only the
+   * big screen. Pure. The shape is the block's own; its `PlayerReveal` reads it.
+   */
+  revealSummary?: (ctx: RevealContext<Content, Input>) => unknown
+
+  /** Phone view at reveal. Props: `{ content, myInput, reveal }` (reveal = the
+   *  block's `revealSummary` payload). Falls back to a generic notice if absent. */
+  PlayerReveal?: Component
+
+  /** RESERVED (declared, not yet wired by the renderer; see docs/flagship-games.md
+   *  §3.2). Per-player prompt assignment: 'shared' (default, everyone sees the
+   *  same content) or 'per-player' (each player gets a deterministic slice via
+   *  `promptFor`, reconnect-safe because it is keyed by player id). The first
+   *  game that needs Quiplash-style per-player prompts will wire this. */
+  assignment?: 'shared' | 'per-player'
+  /** RESERVED (see `assignment`). Derive one player's view of the content;
+   *  `seed` is stable for the room. Pure. */
+  promptFor?: (content: Content, pid: string, seed: string) => Content
 }
 
 /** A block with its generics erased, for storage in a game's block list. */
@@ -81,6 +145,10 @@ export type AnyBlock = RoundBlock<any, any>
 export interface RoundInstance {
   block: string
   content: unknown
+  /** For a derived (two-phase) round: the source round indices whose inputs feed
+   *  this round's `derive`. Defaults to `[index - 1]` (the immediately prior
+   *  round). Ignored by static rounds. */
+  from?: number[]
 }
 
 /** The durable game definition a composition produces. */
@@ -98,6 +166,13 @@ export interface GamePlugin {
   themeDefaults?: Partial<ThemeTokens>
   /** Optional full-custom override of the rendered views. */
   components?: Partial<GameComponents>
+  /**
+   * Build a fresh composition for one play by sampling from a large content pool
+   * (replayability: no two rooms get the same prompts). `seed` is the room code,
+   * so a room is internally consistent across reconnects but differs from other
+   * rooms. The host prefers this over `defaultConfig` when present.
+   */
+  buildConfig?: (seed: string) => GameComposition
 }
 
 export function defineBlock<Content, Input>(

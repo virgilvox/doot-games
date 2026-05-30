@@ -1,0 +1,48 @@
+/**
+ * Quip block, a free-text submission ("write something"). The atomic "make" half
+ * of the two-phase loop: players type an answer to a prompt; the answers are
+ * collected privately (the engine only delivers a player their own input, the
+ * host sees all) and become the options a `vote` block judges in the next round.
+ *
+ * This block scores nothing on its own and reveals nothing on the big screen
+ * (showing the texts here would spoil the anonymized vote). It is meant to be
+ * composed before a `vote` round; see the Quip Clash game.
+ */
+import { type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import QuipHost from './QuipHost.vue'
+import QuipPlayer from './QuipPlayer.vue'
+
+export const quipContentSchema = z.object({
+  prompt: z.string().default('Finish the sentence...'),
+  /** Optional flavor shown under the input on the phone. */
+  placeholder: z.string().default(''),
+  maxLength: z.number().int().positive().max(280).default(80),
+  timer: z.number().int().nonnegative().nullable().default(60),
+})
+export type QuipContent = z.infer<typeof quipContentSchema>
+export interface QuipInput {
+  text: string
+}
+
+export const quipBlock = defineBlock<QuipContent, QuipInput>({
+  kind: 'quip',
+  name: 'Quip',
+  contentSchema: quipContentSchema,
+  defaultContent: () => ({
+    prompt: 'The worst thing to say on a first date is ___',
+    placeholder: '',
+    maxLength: 80,
+    timer: 60,
+  }),
+  defaultTimer: 60,
+  timerOf: (c) => c.timer,
+  emptyInput: () => ({ text: '' }),
+  isComplete: (_c, input) => input.text.trim().length > 0,
+  PlayerInput: QuipPlayer,
+  HostDisplay: QuipHost,
+  // No aggregate: the make round itself awards nothing; the vote round scores the
+  // authors. A small stat keeps it from being invisible if hosted standalone.
+  aggregate: (ctx): ResultsFragment => ({
+    stats: [{ label: 'Answers written', value: ctx.rounds.reduce((n, r) => n + ctx.inputsFor(r.index).size, 0) }],
+  }),
+})
