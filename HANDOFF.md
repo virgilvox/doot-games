@@ -6,7 +6,7 @@ _Last updated: 2026-05-29. Branch: `main` (the scaffold was merged to `main`; wo
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD. **75 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed.
+A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **82 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable, and a markdown importer builds whole games from an LLM-written spec. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed. The UI is mobile-responsive (verified no overflow at 360/390px) and free of em dashes.
 
 **The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. Hosting and playing never need an account; **saving** uses an optional account (email/password, argon2id) and each saved game has a **visibility**: private (owner only), unlisted (anyone with the link), or public (also listed on `/explore`). Zero DB setup, accounts and games live in a local SQLite file.
 
@@ -16,8 +16,8 @@ A pnpm monorepo built from the PRD. **75 tests pass (+1 live test, opt-in), ever
 | `@doot-games/sdk` | Done. The **block** contract (`RoundBlock` + `defineBlock`) and the **composition** contract (`GamePlugin` + `defineGame`), Zod manifest, round primitives, results types. |
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
 | `@doot-games/ui` | Done. Theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm`) + the **Pixi drawing surface** (`DrawCanvas`) and SVG gallery thumbnail (`DrawThumb`). |
-| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank/**draw**), the generic renderer (GameHost/GamePlayer/GameResults), and six games (Guess, Rate, Poll, Rank, **Draw**, VoteBox) as block compositions. |
-| `apps/web` | Builds. Home/explore/create + client-only host/play + the **editor** (`/editor/<type>`) + **persistence** (`/api/games` over Drizzle+libSQL, save → shareable `/g/<id>`, host-by-id at `/host/g/<id>`) + **optional auth** (`better-auth` + argon2id, `/login`, owner-scoped saves with private/unlisted/public visibility) + presigned image **uploads**; renders a game's block-driven views (or a custom override) over the live relay. |
+| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank/**draw**), the generic renderer, seven games (Guess, Rate, Poll, Rank, Draw, VoteBox, **Custom** = all blocks), and a **markdown game parser** (`parseMarkdownGame`). |
+| `apps/web` | Builds + **deployed**. Home/explore/create + client-only host/play + the **editor** (`/editor/<type>`, with **Import from Markdown**) + **persistence** (`/api/games`, save → `/g/<id>`, host-by-id, owner edit/delete + change-visibility) + **auth** (`better-auth` + argon2id) + presigned image **uploads** (live, to the `doot` Space). Mobile-responsive. |
 
 ## The architecture (read this first)
 
@@ -37,7 +37,7 @@ No game imports another. New game = compose blocks. New round kind = one block. 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000  (uses the public relay; no DB needed)
-pnpm test         # 75 tests (+1 live test, skipped unless DOOT_LIVE=1)
+pnpm test         # 82 tests (+1 live test, skipped unless DOOT_LIVE=1)
 pnpm -r typecheck # all packages, incl. nuxi typecheck of apps/web
 pnpm --filter @doot-games/web build
 
@@ -56,6 +56,34 @@ Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds
 **Auth** is optional, needed only to save games. Set `SESSION_PASSWORD` (32+ chars) to seal session cookies in production; dev uses a stable fallback. Sign up / in at `/login`.
 
 **Uploads** are optional too: with no `SPACES_*` env, image fields are URL-paste only. Set `SPACES_ENDPOINT`/`SPACES_REGION`/`SPACES_BUCKET`/`SPACES_KEY`/`SPACES_SECRET` (+ optional `SPACES_PUBLIC_URL`) to enable presigned uploads. To try it locally: run MinIO, make a public-read bucket, and start dev with those vars pointed at it.
+
+## Deployment (live at https://doot.games)
+
+**Git push deploys.** Pushing to `main` runs `.github/workflows/deploy.yml`: a
+`check` job (`pnpm test` + `pnpm -r typecheck`) gates a `build` job that builds
+the Docker image (`docker/Dockerfile`) and pushes it to GHCR
+(`ghcr.io/virgilvox/doot-games`), then a `deploy` job SSHes to the droplet,
+copies the compose + Caddyfile, and runs `docker compose pull && up`. Migrations
+are idempotent and run at container startup, so every deploy migrates.
+
+- **Droplet**: `doot-prod`, DigitalOcean `s-1vcpu-1gb` ($6/mo) in `sfo3` (same
+  region as the Space), Docker + a 2G swapfile, in the `doot` project. State is
+  a SQLite file at `/opt/doot/data` (host volume); secrets live in `/opt/doot/.env`
+  (never in git). The compose runs the app behind **Caddy** (automatic HTTPS).
+- **DNS**: `doot.games` apex A record → the droplet (DO-managed DNS).
+- **Repo secrets**: `DROPLET_HOST`, `DEPLOY_SSH_KEY` (a dedicated keypair; the
+  public half is in the droplet's `authorized_keys`). GHCR auth uses the
+  workflow's ephemeral `GITHUB_TOKEN`.
+- **Env on the droplet**: `SESSION_PASSWORD` (generated), `PUBLIC_BASE_URL=https://doot.games`,
+  `DATABASE_URL=file:/app/.data/doot.sqlite`, and the `SPACES_*` (the `doot`
+  Space in sfo3; the upload key is scoped to that bucket, readwrite, and the
+  bucket has CORS allowing PUT from `doot.games`).
+- **Native libSQL note**: Nitro bundles libSQL's JS but not its native addon, so
+  `docker/Dockerfile` copies `@libsql/linux-x64-musl` into the server output.
+  A pnpm override pins one `@libsql/client` version so the bundle has a single
+  native binary (better-auth's Kysely dialect and the games store agree).
+- **To SSH**: `ssh -i ~/.ssh/id_ed25519 root@<droplet-ip>` (the `quirc-deploy`
+  key is authorized). Find the IP with `doctl compute droplet list`.
 
 ## Key decisions
 
@@ -84,7 +112,7 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 
 1. **Postgres**: the durable store is libSQL/SQLite today (zero-config). For multi-instance prod, wire `drizzle-orm/node-postgres` behind the same `useDb()`/repo seam and select the driver by `DATABASE_URL`. The docker prod compose still names Postgres, reconcile when this lands.
 3. **More blocks**: Buzz (reaction/first-correct), Quip (free-text + a follow-on vote), or a "vote for the best drawing" follow-on to Draw. Each is one block, and each becomes authorable in the editor and savable for free the moment it ships. (**Draw** shipped, see the Pixi decision above.)
-4. **Account niceties**: editing/deleting saved games, changing visibility after save, and magic-link (SMTP) sign-in are not built. Today a save creates a new immutable record; there is no update/delete route yet.
+4. **Account niceties**: edit/delete a saved game and change-visibility-after-save are built (owner-only, on `/g/<id>`). Still open: editing a saved game's *rounds* (re-open in the editor), OAuth / magic-link sign-in.
 5. **External plugins**: sandboxed iframe + postMessage bridge + publishing (PRD §9).
 6. **A two-phone playtest on real devices** (not just a headless browser) hasn't been run, `scripts/playtest.mjs` drives two Chromium contexts through the full UI, but touch/QR-join on actual phones is unverified.
 
@@ -93,14 +121,15 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 - `apps/web` typecheck via `nuxi typecheck` is heavier than the library `tsc` checks (it applies `noUncheckedIndexedAccess` to imported package source). It is **green now**, a latent guarded-index hole in `poll/block.ts` it surfaced was fixed, so keep `pnpm -r typecheck` clean. The production build remains the fast signal that everything integrates.
 - **DB driver**: only the libSQL/SQLite path is implemented; a `postgres://` `DATABASE_URL` silently falls back to the local file (with a console warning). Don't assume Postgres works in prod yet.
 - **Set `SESSION_PASSWORD`** (32+ chars) in production, it's better-auth's `secret`; the dev fallback in `server/utils/auth.ts` must not ship. Also set `PUBLIC_BASE_URL` so better-auth's Origin/CSRF check trusts your domain.
-- Auth rate-limiting is on (better-auth, 20 req/60s/IP), tune for your instance. There is still **no update/delete** for saved games.
+- Auth rate-limiting is on (better-auth, 20 req/60s/IP), tune for your instance.
+- **Uploads**: the signed `content-type` isn't enforced and there's no server-side size cap (a client 5 MB check only); objects are stored `public-read`. Fine for a party app; tighten with a presigned-POST policy before a high-trust deployment.
 - A pre-auth saved game (legacy/anonymous, `owner_id` null) can still be fetched by anyone if its visibility is `private`, since "no owner" matches "no requester". New games always have an owner, so this only affects rows created before auth.
 - Per-package READMEs are not written yet (PRD §22 asks for them).
 - PRD §8 still describes the pre-block plugin contract; the block model is in `docs/authoring-a-game.md` and `packages/sdk/src/block.ts`. Reconcile when convenient.
 
 ## Suggested next step
 
-The end-to-end loop (author → save/share → host → play → results) works across six games (incl. the Pixi-backed **Draw**), with **better-auth** accounts, per-game visibility, and presigned image **uploads**, and is now **verified in a real browser** (`scripts/playtest.mjs`) plus an independent security/correctness audit (findings fixed). Highest-leverage next: **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth config), **Postgres** for multi-instance prod, and the remaining upload hardening (server-side size/content-type enforcement, CORS). A two-phone test on real devices is the last unverified surface (touch + QR join).
+**Doot is live at https://doot.games** with git-push CI/CD, working uploads, seven games, markdown import, account management, and a responsive UI. Highest-leverage next: a **two-phone test on real devices** (the last unverified surface, touch + QR join); **re-open a saved game in the editor** to edit its rounds (today you re-author); **OAuth / magic-link** via better-auth config; **Postgres** for multi-instance scale; and **upload hardening** (presigned-POST with a size policy). Per-package READMEs (PRD §22) are still unwritten.
 
 ---
 
@@ -117,8 +146,8 @@ Paste this into a new session to onboard the next agent:
 > - **Games are blocks + compositions.** A *block* is a standalone round kind (guess/rate/poll/rank) declaring a content schema + Player view + Host view + `aggregate` + optional answer-withholding; a *game* is a manifest + an ordered `{ block, content }` list rendered by the generic `GameHost`/`GamePlayer`/`GameResults`. New game = compose blocks; new round kind = one block; full-custom = override `components`. Never reintroduce per-game components or make one game import another.
 > - Architecture invariants (see `CLAUDE.md`): ephemeral state lives on the relay, durable on Postgres, nothing about a live room is written to the DB during play; the engine never imports a game; answer keys are withheld until reveal; identity is reconnect-by-name.
 > - **CSS-first animation**; use `vue3-pixi` (installed) only for canvas-heavy work (the Draw block, mini-games).
-> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 75 tests pass (+1 opt-in live test), all typecheck, the app builds.
+> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 82 tests pass (+1 opt-in live test), all typecheck, the app builds.
 >
-> **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. `pnpm install && pnpm dev` → http://localhost:3000 (uses the public relay `wss://relay.clasp.to`; saved games use a zero-config local SQLite file, no DB setup needed). Author at `/editor/<type>`, **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw), play at `/play/<CODE>`.
+> **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. **Live at https://doot.games** (git push to `main` deploys, see the Deployment section). `pnpm install && pnpm dev` → http://localhost:3000 (public relay, zero-config SQLite). Author at `/editor/<type>` (e.g. `custom` for any mix, with Import from Markdown), **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw, custom), play at `/play/<CODE>`.
 >
-> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one, likely **account niceties** (edit/delete saved games, change visibility, OAuth/magic-link via better-auth), **Postgres** (behind the `useDb()` seam), or **upload hardening** (server-side size/content-type, CORS). Auth is `better-auth` (`server/utils/auth.ts`); the browser playtest is `scripts/playtest.mjs`. Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
+> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one, likely a **real-device two-phone playtest**, **re-open a saved game in the editor** to edit its rounds, **OAuth/magic-link** (better-auth config), or **Postgres**. Auth is `better-auth` (`server/utils/auth.ts`); markdown import is `packages/games/src/markdown.ts` + `docs/markdown-games.md`; the browser playtest is `scripts/playtest.mjs`. Every push to `main` deploys, so keep `main` green. Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
