@@ -185,7 +185,7 @@ Pixi is available throughout but is a dependency a view opts into, not a baselin
 
 **Database: PostgreSQL with Drizzle ORM.** Postgres is the standard, operates well on a block-storage volume, and scales by swapping to managed Postgres later. Drizzle is the access layer: it is light, SQL-first, fully typed, and far less magic than the heavier ORMs, which keeps day-to-day use simple. Drizzle also supports SQLite, so a minimal personal deploy can run on a single SQLite file on the volume with the same query code. Postgres is the default; SQLite is the minimal-mode option.
 
-**Auth: nuxt-auth-utils with argon2id.** Sealed, httpOnly session cookies with no server session store needed, plus argon2id password hashing. This is small, current, and avoids pulling in a heavy auth platform. Email and password is the baseline because it needs no external services. Magic-link sign-in is an optional upgrade when SMTP is configured. Auth is optional for playing, hosting, and joining; it only gates create, publish, and stats.
+**Auth: better-auth with argon2id.** Sealed, httpOnly session cookies with no server session store needed, plus argon2id password hashing (via `@node-rs/argon2`) and built-in per-IP rate limiting and Origin/CSRF checks. better-auth owns its own tables through a Kysely adapter over the same libSQL database. Email and password is the baseline because it needs no external services. OAuth / magic-link sign-in are optional better-auth upgrades. Auth is optional for playing, hosting, and joining; it only gates create, publish, and stats. (An earlier scaffold used `nuxt-auth-utils`; it was replaced during the auth audit.)
 
 **Validation and schemas: Zod.** One schema language for API validation and for game config. Because a plugin declares its config as a Zod schema, the editor can auto-generate a form when a plugin ships no custom editor. `drizzle-zod` bridges database rows and Zod where useful.
 
@@ -502,7 +502,7 @@ Auth is optional and light, and it never blocks play.
 
 Anonymous by default: opening a public or unlisted game from discovery and hosting it requires no account, and joining a room requires no account. The play path runs on CLASP plus the game config fetched from the public games API.
 
-Signing in unlocks creating, saving, and publishing games, and tracking your stats across sessions. The baseline is email and password, using `nuxt-auth-utils` for sealed httpOnly session cookies and argon2id for password hashing, which needs no external services. Magic-link sign-in is an optional upgrade once SMTP is configured, which removes password handling entirely for instances that prefer it.
+Signing in unlocks creating, saving, and publishing games, and tracking your stats across sessions. The baseline is email and password, using `better-auth` for sealed httpOnly session cookies and argon2id for password hashing, which needs no external services. OAuth / magic-link sign-in are optional better-auth upgrades once configured, removing password handling entirely for instances that prefer it.
 
 Stats are recorded only when a player or host is signed in. A signed-in player accumulates games played, scores, placements, and per-game-type history. Anonymous players are counted in a room's results for that session but are not persisted to an account.
 

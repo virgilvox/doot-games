@@ -40,18 +40,45 @@ const loggedIn = computed(() => !!session.value?.data?.user)
 const isOwner = computed(() => !!game.value?.isOwner)
 const canFork = computed(() => !isOwner.value && !!game.value?.forkable)
 
-// Owner management: visibility, forking, delete.
+// Copy this game into a new one I own (your own game, or a forkable one), then
+// open the copy in the editor. The server copies the full config (answers
+// intact), so this never lands you in an editor full of redacted answers.
+const cloning = ref(false)
+const cloneError = ref('')
+async function fork() {
+  if (!game.value || cloning.value) return
+  if (!loggedIn.value) {
+    await navigateTo(`/login?redirect=${encodeURIComponent(`/g/${game.value.id}`)}`)
+    return
+  }
+  cloning.value = true
+  cloneError.value = ''
+  try {
+    const res = await $fetch<{ id: string }>(`/api/games/${game.value.id}/clone`, { method: 'POST' })
+    await navigateTo(`/editor/g/${res.id}`)
+  } catch (e) {
+    cloneError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not copy this game.'
+    cloning.value = false
+  }
+}
+
+// Owner management: visibility, forking, delete. Toggles are optimistic; on a
+// failed PATCH we roll the control back to its last-saved value so the UI never
+// lies about server state.
 const visibility = ref(game.value?.visibility ?? 'private')
 const forkable = ref(!!game.value?.forkable)
 const saving = ref(false)
 const manageError = ref('')
-async function patch(body: Record<string, unknown>) {
+async function patch(body: { visibility?: typeof visibility.value; forkable?: boolean }) {
   if (!game.value) return
+  const prev = { visibility: visibility.value, forkable: forkable.value }
   saving.value = true
   manageError.value = ''
   try {
     await $fetch(`/api/games/${game.value.id}`, { method: 'PATCH', body })
   } catch (e) {
+    visibility.value = prev.visibility
+    forkable.value = prev.forkable
     manageError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not update.'
   } finally {
     saving.value = false
@@ -72,7 +99,7 @@ async function remove() {
   <main>
     <div class="wrap" style="max-width: 720px">
       <div v-if="game" class="detail">
-        <img v-if="game.coverImage" :src="game.coverImage" alt="" class="detail-cover" />
+        <img v-if="game.coverImage" :src="game.coverImage" alt="" class="detail-cover" @error="game.coverImage = null" />
         <span class="kicker">Saved game</span>
         <h1 class="detail-title">{{ game.title }}</h1>
         <div class="detail-meta">
@@ -89,10 +116,15 @@ async function remove() {
         <div class="detail-actions">
           <NuxtLink :to="`/host/g/${game.id}`" class="btn btn-primary btn-lg">Host this game</NuxtLink>
           <NuxtLink v-if="isOwner" :to="`/editor/g/${game.id}`" class="btn btn-ghost btn-lg">Edit this game</NuxtLink>
-          <NuxtLink v-else-if="canFork && loggedIn" :to="`/editor/g/${game.id}`" class="btn btn-ghost btn-lg">Fork this game</NuxtLink>
-          <NuxtLink v-else-if="canFork" :to="`/login?redirect=/editor/g/${game.id}`" class="btn btn-ghost btn-lg">Log in to fork</NuxtLink>
+          <button v-if="isOwner" class="btn btn-ghost btn-lg" :disabled="cloning" @click="fork">
+            {{ cloning ? 'Copying…' : 'Duplicate' }}
+          </button>
+          <button v-else-if="canFork" class="btn btn-ghost btn-lg" :disabled="cloning" @click="fork">
+            {{ cloning ? 'Copying…' : loggedIn ? 'Fork this game' : 'Log in to fork' }}
+          </button>
           <NuxtLink v-else :to="`/editor/${game.pluginId}`" class="btn btn-ghost btn-lg">Build your own</NuxtLink>
         </div>
+        <p v-if="cloneError" class="sf-error" role="alert">{{ cloneError }}</p>
 
         <div v-if="isOwner" class="manage">
           <span class="manage-label">Manage your game</span>

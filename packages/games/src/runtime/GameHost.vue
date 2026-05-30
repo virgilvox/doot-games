@@ -8,7 +8,7 @@ import type { RelayValue } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameResults from './GameResults.vue'
 import { gameAnswerKeys, getBlock, scoreGame } from './derive'
 
@@ -43,6 +43,10 @@ const content = computed<Record<string, unknown> | null>(
 const subject = computed(() => content.value?.subject as string | undefined)
 const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
 const image = computed(() => content.value?.image as string | undefined)
+// Hide an image that fails to load rather than show a broken glyph on the big
+// screen. Tracked per URL so a later round's valid image still renders.
+const failedImages = reactive(new Set<string>())
+const showImage = computed(() => !!image.value && !failedImages.has(image.value))
 // Only expose the answer at reveal, even on the host's own screen, so a
 // block's HostDisplay can never surface it early to the room watching the big screen.
 const answer = computed(() =>
@@ -121,7 +125,7 @@ function finish() {
       <div class="left">
         <span v-if="subject" class="subject">{{ subject }}</span>
         <h1 class="prompt">{{ prompt }}</h1>
-        <div v-if="image" class="imgbox"><img :src="image" alt="" /></div>
+        <div v-if="showImage" class="imgbox"><img :src="image" alt="" @error="failedImages.add(image!)" /></div>
       </div>
       <div class="right">
         <component

@@ -8,7 +8,7 @@ Doot is a self-hostable platform for live, collaborative party games. One host p
 
 **The full spec is `Doot-PRD.md`.** Read it before implementing anything; it is the source of truth. This file is the short version plus the rules that are easy to get wrong. When the two disagree, the PRD wins, and fix this file.
 
-Status: planning. Most packages described below do not exist yet; the repository currently holds the PRD, the `votebox (1).html` prototype (the single-file game this platform generalizes), and these docs.
+Status: built and deployed (live at https://doot.games). All five packages (`engine`, `sdk`, `themes`, `ui`, `games`) and the `apps/web` Nuxt shell exist and ship; the original `votebox (1).html` prototype is the single-file game this platform generalizes. Phase two (external-plugin sandbox, publishing) and richer scale/polish remain. Keep this file in sync as the code moves.
 
 ## Architecture invariants, do not violate these
 
@@ -18,7 +18,7 @@ Status: planning. Most packages described below do not exist yet; the repository
    - **Nothing about an in-progress room is written to the database during play.** The app tier holds no session state, that is what makes it scale horizontally.
 2. **Second-screen, never shared-video.** Phones receive game state directly from the relay. Latency is an architecture decision: never route gameplay through the host's screen share.
 3. **Withhold answers.** The host publishes the game config with `correct` fields stripped, then publishes each round's answer key to `/round/<i>/answer` only at the reveal step. A spectator reading the relay must not be able to see answers early. This is a hard requirement; the engine enforces it so a plugin cannot leak answers.
-4. **Dependency direction is one-way:** games → (sdk, ui); sdk → engine; ui → themes; `apps/web` → everything. **The engine never imports a game. The sdk never imports the shell.** This keeps platform and games independent.
+4. **Dependency direction is one-way:** games → (engine, sdk, themes, ui); sdk → (engine, themes); ui → (engine, themes); `apps/web` → everything. **The engine never imports a game. The sdk never imports the shell.** No cycles. This keeps platform and games independent.
 5. **Identity is derived, reconnect is free.** A player id is `p_<hash(room + name)>`. Re-entering the same name in the same room reclaims inputs and score from the relay snapshot, no login, no dependence on local storage (the play surface must work where storage is blocked, e.g. embedded frames).
 6. **Untrusted code is sandboxed.** First-party plugins run in-process. External (URL-registered) plugins run in a sandboxed iframe behind a typed postMessage bridge; they never see cookies, DB routes, or the raw relay. Keep that bridge surface small.
 

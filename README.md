@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick or compose a game in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **83 tests pass**, every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **seven games** (Guess, Rate, Poll, Rank, Draw, VoteBox, Custom) built from composable blocks, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick or compose a game in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **82 tests pass** (plus one opt-in live relay test), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **seven games** (Guess, Rate, Poll, Rank, Draw, VoteBox, Custom) built from composable blocks, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -101,7 +101,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 
 # 3. Verify the workspace
-pnpm test                   # 83 tests (engine, scoring, themes, markdown, schema-form)
+pnpm test                   # 82 tests (engine, scoring, themes, markdown, schema-form); +1 opt-in live relay test
 pnpm -r typecheck
 
 #, or, bring up the full local stack (app + Postgres + MinIO)

@@ -40,7 +40,7 @@ Rules:
 
 ## Blocks
 
-### `guess` — multiple choice with a right answer
+### `guess`: multiple choice with a right answer
 Fields: `subject` (optional label), `prompt`, `image`, `timer` (default 20).
 List the choices as `- ` items; mark the right one with `(correct)`.
 
@@ -54,7 +54,7 @@ timer: 15
 - Earth
 ```
 
-### `poll` — opinion question, no right answer
+### `poll`: opinion question, no right answer
 Fields: `prompt`, `image`, `timer` (default none). Choices as `- ` items.
 
 ```markdown
@@ -65,7 +65,7 @@ prompt: Best pizza topping?
 - Pineapple
 ```
 
-### `rank` — order items into a room-consensus ranking
+### `rank`: order items into a room-consensus ranking
 Fields: `prompt`, `image`, `timer` (default none). The items to order as `- `.
 
 ```markdown
@@ -76,7 +76,7 @@ prompt: Rank these from best to worst
 - Sushi
 ```
 
-### `rate` — score subjects on a scale
+### `rate`: score subjects on a scale
 Fields: `subject`, `prompt`, `image`, `timer` (default none),
 `categories:` (comma-separated), and `scale:`. The scale is either a numeric
 range like `1-10`, or comma-separated labels (a letter-grade / tier scale).
@@ -93,7 +93,7 @@ categories: Overall
 scale: F, D, C, B, A
 ```
 
-### `draw` — players sketch the prompt
+### `draw`: players sketch the prompt
 Fields: `prompt`, `image`, `timer` (default 60), `aspect` (height/width, default 0.7).
 
 ```markdown

@@ -14,9 +14,11 @@ import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { databaseUrl } from './db'
 
 const envSecret = process.env.SESSION_PASSWORD || process.env.NUXT_SESSION_PASSWORD
-// Fail closed in production: a known dev secret would make sessions forgeable.
-if (!envSecret && process.env.NODE_ENV === 'production') {
-  throw new Error('SESSION_PASSWORD (32+ chars) must be set in production to seal sessions.')
+// Fail closed unless explicitly in development: the committed dev secret would
+// make session cookies forgeable, so only `NODE_ENV=development` may use it (an
+// unset NODE_ENV in a built/prod image must not silently fall back).
+if (!envSecret && process.env.NODE_ENV !== 'development') {
+  throw new Error('SESSION_PASSWORD (32+ chars) must be set outside development to seal sessions.')
 }
 const secret = envSecret || 'doot-dev-session-password-change-me-32'
 

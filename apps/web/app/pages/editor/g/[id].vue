@@ -22,8 +22,10 @@ const { data: game, error } = await useFetch<SavedGame>(() => `/api/games/${id.v
 if (error.value || !game.value) {
   throw createError({ statusCode: 404, statusMessage: 'Game not found' })
 }
-// Non-owners can only open the editor to fork, and only if forking is allowed.
-if (!game.value.isOwner && !game.value.forkable) {
+// Only the owner edits in place. Forking is a server-side copy (POST
+// /api/games/:id/clone) that lands the forker in the editor as owner of the new
+// copy, so a non-owner never opens this editor against someone else's game.
+if (!game.value.isOwner) {
   await navigateTo(`/g/${id.value}`)
 }
 </script>

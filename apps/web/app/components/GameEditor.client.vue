@@ -11,7 +11,7 @@ import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin, parseMarkdownGame } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
 import { IMAGE_UPLOAD, ImageField, SchemaForm } from '@doot-games/ui'
-import { computed, onMounted, provide, reactive, ref, toRaw, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, provide, reactive, ref, toRaw, watch } from 'vue'
 
 /** A saved game loaded into the editor (to edit in place or fork). */
 interface EditableGame {
@@ -169,6 +169,7 @@ function hostGame() {
   if (!valid.value) return
   themeState.value = themeId.value
   draft.value = { pluginId, config: structuredClone(toRaw(config)), themeId: themeId.value }
+  dirty.value = false // the work is preserved in the (now persisted) draft
   router.push(`/host/${pluginId}`)
 }
 
@@ -181,9 +182,11 @@ function buildBody() {
     pluginId,
     themeId: themeId.value,
     visibility: visibility.value,
-    description: description.value.trim() || undefined,
+    // Send explicit (possibly empty) strings so an edit that clears a field
+    // clears it server-side, the PUT only leaves *omitted* fields untouched.
+    description: description.value.trim(),
     tags: tagsText.value.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 8),
-    coverImage: coverImage.value.trim() || undefined,
+    coverImage: coverImage.value.trim(),
     forkable: forkable.value,
     config: toRaw(config),
   }
@@ -205,6 +208,7 @@ async function saveGame() {
       const res = await $fetch<{ id: string }>('/api/games', { method: 'POST', body: buildBody() })
       savedId.value = res.id
     }
+    dirty.value = false
   } catch (e) {
     saveError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not save the game.'
   } finally {
@@ -212,13 +216,28 @@ async function saveGame() {
   }
 }
 const shareUrl = computed(() => (savedId.value ? `/g/${savedId.value}` : ''))
-// Editing again invalidates the saved snapshot's "saved" indicator.
+// Editing invalidates the "saved" indicator and marks the editor dirty so we can
+// warn before the page is unloaded with unsaved work.
+const dirty = ref(false)
 watch(
   () => `${JSON.stringify(config)}|${description.value}|${tagsText.value}|${coverImage.value}|${visibility.value}|${forkable.value}|${themeId.value}`,
   () => {
     savedId.value = null
+    dirty.value = true
   },
 )
+
+// Warn on refresh/close/navigation when there's unsaved work. Hosting an
+// unsaved draft is safe now (it survives reload via sessionStorage), but a
+// straight unload would still lose edits that were never saved or hosted.
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (dirty.value && !savedId.value) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 </script>
 
 <template>

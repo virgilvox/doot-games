@@ -66,6 +66,18 @@ function newId(): string {
   return `g_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
 }
 
+// A saved config carries no media bytes (images are URLs), so a legitimate game
+// is small. Cap the serialized size to keep one user from storing a multi-MB
+// blob 50 rounds deep (the per-round `content` is an open record).
+const MAX_CONFIG_BYTES = 512_000
+function serializeConfig(config: GameInput['config']): string {
+  const s = JSON.stringify(config)
+  if (s.length > MAX_CONFIG_BYTES) {
+    throw createError({ statusCode: 413, statusMessage: 'This game is too large to save.' })
+  }
+  return s
+}
+
 /** Map a validated input to the metadata columns (shared by create + update). */
 function metaColumns(input: GameInput) {
   return {
@@ -156,7 +168,7 @@ export async function createGame(input: GameInput, ownerId: string): Promise<{ i
     id,
     pluginId: input.pluginId,
     title: input.config.title,
-    config: JSON.stringify(input.config),
+    config: serializeConfig(input.config),
     ownerId,
     ...metaColumns(input),
     createdAt: now,
@@ -165,19 +177,71 @@ export async function createGame(input: GameInput, ownerId: string): Promise<{ i
   return { id }
 }
 
-/** Full update of a saved game, owner only. Returns true if a row was updated. */
+/**
+ * Full update of a saved game, owner only. A metadata field is changed only when
+ * the body actually carries it: an *omitted* field is left as-is, while an
+ * explicit empty value (`''`/`[]`) clears it. This stops a rounds-only PUT from
+ * silently resetting visibility/forkable/description back to defaults.
+ */
 export async function updateGame(id: string, ownerId: string, input: GameInput): Promise<boolean> {
+  const set: Record<string, unknown> = {
+    title: input.config.title,
+    config: serializeConfig(input.config),
+    updatedAt: Date.now(),
+  }
+  if (input.themeId !== undefined) set.themeId = input.themeId
+  if (input.visibility !== undefined) set.visibility = input.visibility
+  if (input.forkable !== undefined) set.forkable = input.forkable
+  if (input.description !== undefined) set.description = input.description.length ? input.description : null
+  if (input.tags !== undefined) set.tags = input.tags.length ? JSON.stringify(input.tags) : null
+  if (input.coverImage !== undefined) set.coverImage = input.coverImage.length ? input.coverImage : null
   const db = await useDb()
-  const res = await db
-    .update(games)
-    .set({
-      title: input.config.title,
-      config: JSON.stringify(input.config),
-      ...metaColumns(input),
-      updatedAt: Date.now(),
-    })
-    .where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
+  const res = await db.update(games).set(set).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
   return (res.rowsAffected ?? 0) > 0
+}
+
+/**
+ * Copy a game into a new one owned by the requester. You can copy your own game,
+ * or anyone's game that they marked `forkable` and you're allowed to see. The
+ * copy is made from the *stored* config (answers intact) rather than the redacted
+ * view, so forking a Guess game keeps its answer key. A fresh copy starts
+ * `private` and non-forkable until its new owner opts in.
+ */
+export async function cloneGame(id: string, requesterId: string): Promise<{ id: string }> {
+  const db = await useDb()
+  const rows = await db.select().from(games).where(eq(games.id, id)).limit(1)
+  const row = rows[0]
+  if (!row) throw createError({ statusCode: 404, statusMessage: 'Game not found' })
+  const visibility = row.visibility as Visibility
+  const isOwner = !!row.ownerId && row.ownerId === requesterId
+  const viewable = isOwner || visibility !== 'private'
+  if (!viewable || (!isOwner && !row.forkable)) {
+    throw createError({ statusCode: 403, statusMessage: 'This game cannot be copied.' })
+  }
+  let config: SavedGame['config']
+  try {
+    config = JSON.parse(row.config)
+  } catch {
+    throw createError({ statusCode: 422, statusMessage: 'The source game is corrupt.' })
+  }
+  const now = Date.now()
+  const newGameId = newId()
+  await db.insert(games).values({
+    id: newGameId,
+    pluginId: row.pluginId,
+    title: `${row.title} (copy)`,
+    config: serializeConfig(config),
+    ownerId: requesterId,
+    themeId: row.themeId,
+    visibility: 'private',
+    description: row.description,
+    tags: row.tags,
+    coverImage: row.coverImage,
+    forkable: false,
+    createdAt: now,
+    updatedAt: now,
+  })
+  return { id: newGameId }
 }
 
 /** Quick metadata toggles (visibility / forkable), owner only. */
@@ -236,7 +300,9 @@ export async function getGame(id: string, requesterId: string | null): Promise<S
   const row = rows[0]
   if (!row) return null
   const visibility = row.visibility as Visibility
-  if (visibility === 'private' && row.ownerId !== requesterId) return null
+  // A null owner (legacy pre-auth row) must never match a null requester, or an
+  // anonymous viewer would read every owner-less private game.
+  if (visibility === 'private' && (!row.ownerId || row.ownerId !== requesterId)) return null
   let config: SavedGame['config']
   try {
     config = JSON.parse(row.config)

@@ -18,7 +18,7 @@ apps/web          @doot-games/web     Nuxt shell: home, explore, create, editor,
 ## The two-state split
 
 - **Ephemeral** state (phase, rounds, roster, inputs, live media) lives on the **CLASP relay**, namespaced under `/doot/<ROOM>/…`. Nothing about a live room touches the database.
-- **Durable** state (accounts, saved games, plugin registry, stats) lives in Postgres. *(Auth, saved games, and uploads are PRD phase-one items not yet built; the engine + plugins + shell host/play path are.)*
+- **Durable** state (accounts, saved games, plugin registry, stats) lives in a SQL store, Drizzle over libSQL/SQLite today (zero-config local file), Postgres behind the same `useDb()` seam as the documented prod follow-up. Auth (better-auth), saved games, and presigned uploads are all built and live; only the live-room state stays off the database, on the relay.
 
 ## The engine (the heart)
 

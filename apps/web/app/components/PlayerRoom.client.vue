@@ -8,7 +8,7 @@ import { createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
 import { GamePlayer, getPlugin } from '@doot-games/games'
 import { Avatar, PhoneShell } from '@doot-games/ui'
-import { computed, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 
 const props = defineProps<{ room: string; name: string }>()
 const runtime = useRuntimeConfig()
@@ -33,6 +33,24 @@ const plugin = computed(() => {
   return id ? getPlugin(id) : undefined
 })
 const PlayerView = computed(() => plugin.value?.components?.Player ?? GamePlayer)
+
+// A live host publishes meta (persisted on the relay with a TTL) within a beat
+// of subscribing, so if none has arrived after a grace window the code is wrong
+// or the host is gone. Surface that instead of spinning on "Joining…" forever.
+const notFound = ref(false)
+const timer = setTimeout(() => {
+  if (!room.meta.value) notFound.value = true
+}, 8000)
+watch(
+  () => room.meta.value,
+  (m) => {
+    if (m) {
+      notFound.value = false
+      clearTimeout(timer)
+    }
+  },
+)
+onScopeDispose(() => clearTimeout(timer))
 </script>
 
 <template>
@@ -50,6 +68,11 @@ const PlayerView = computed(() => plugin.value?.components?.Player ?? GamePlayer
       </span>
     </template>
     <component :is="PlayerView" v-if="plugin" :plugin="plugin" />
+    <div v-else-if="notFound" class="loading deadroom">
+      <h2>Can't find room {{ code }}</h2>
+      <p>Double-check the code with the host, or the room may have ended.</p>
+      <NuxtLink to="/" class="btn btn-primary">Back to start</NuxtLink>
+    </div>
     <div v-else class="loading">Joining room {{ code }}…</div>
   </PhoneShell>
 </template>
@@ -72,6 +95,24 @@ const PlayerView = computed(() => plugin.value?.components?.Player ?? GamePlayer
   text-align: center;
   color: var(--ink-soft);
   padding: 40px 0;
+}
+.deadroom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.deadroom h2 {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.deadroom p {
+  max-width: 30ch;
+  line-height: 1.45;
+}
+.deadroom .btn {
+  margin-top: 8px;
 }
 .banner {
   margin: -22px -22px 0;
