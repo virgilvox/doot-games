@@ -1,5 +1,5 @@
 /* =============================================================================
-   @doot-games/ui — design-system component styles.
+   @doot-games/ui - design-system component styles.
    Ported and tidied from doot-mockup.html (shell) and votebox (1).html
    (gameplay). Everything reads theme tokens, so a component looks correct in
    any theme. Import once in the app, after @doot-games/themes/base.css.

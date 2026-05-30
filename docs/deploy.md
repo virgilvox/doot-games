@@ -23,10 +23,10 @@ pnpm dev        # Nuxt dev server on http://localhost:3000
 The live site (https://doot.games) deploys by **git push**, not by building on
 the droplet. Pushing to `main` runs `.github/workflows/deploy.yml`:
 
-1. **check** — `pnpm test` + `pnpm -r typecheck` (gates the rest).
-2. **build** — builds `docker/Dockerfile` and pushes the image to GHCR
+1. **check** - `pnpm test` + `pnpm -r typecheck` (gates the rest).
+2. **build** - builds `docker/Dockerfile` and pushes the image to GHCR
    (`ghcr.io/virgilvox/doot-games:latest`).
-3. **deploy** — SSHes to the droplet, copies `docker/docker-compose.deploy.yml`
+3. **deploy** - SSHes to the droplet, copies `docker/docker-compose.deploy.yml`
    + `docker/Caddyfile`, and runs `docker compose pull && up -d`.
 
 `docker-compose.deploy.yml` runs the prebuilt image plus **Caddy** (automatic

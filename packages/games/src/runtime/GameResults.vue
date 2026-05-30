@@ -15,7 +15,7 @@ const hasAwards = props.results.awards && props.results.awards.length > 0
 
 <template>
   <div class="results">
-    <ConfettiBurst v-if="!compact" />
+    <ConfettiBurst v-if="!compact && hasLeaderboard" />
     <header class="rhead">
       <div class="kicker">That is a wrap</div>
       <h1>{{ results.headline }}</h1>

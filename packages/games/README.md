@@ -9,9 +9,9 @@ First-party blocks, games, the generic renderer, and the registry.
 - Renderer: `GameHost`, `GamePlayer`, `GameResults` (generic) + `derive.ts`
   (`gameRounds`, `redactGameConfig`, `gameAnswerKeys`, `scoreGame`, `getBlock`,
   `distributionToBars`).
-- `parseMarkdownGame` — build a `GameComposition` from a markdown spec
+- `parseMarkdownGame` - build a `GameComposition` from a markdown spec
   (see `docs/markdown-games.md`).
-- `@doot-games/games/catalog` — a **server-safe** subpath (plain data, no `.vue`)
+- `@doot-games/games/catalog` - a **server-safe** subpath (plain data, no `.vue`)
   with the game catalog, `isKnownPlugin`, and `REDACTION_RULES` for API-side
   answer withholding.
 

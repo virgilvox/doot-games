@@ -180,12 +180,12 @@ typecheck + web build, real-relay two-phase live test, 3-player real-browser pla
 - An independent adversarial code audit + a Jackbox robustness/a11y research pass ran
   against Quip Clash. **Verified:** withholding, anonymized vote content, author-map
   withheld until reveal, relay-only state, reconnect-to-derived-round, final-round
-  doubling — all re-confirmed **over the real CLASP relay** by a new two-phase live test.
+  doubling - all re-confirmed **over the real CLASP relay** by a new two-phase live test.
 - **Fixed:** self-votes can't score (enforced in the pure tally, not just UI); a player
   who submits then leaves still scores and is named (leaderboard = roster ∪ scorers,
   names captured at derive time); degenerate (&lt;2 answers) vote round handled;
   `aria-live` + `overflow-wrap`; `assignment`/`promptFor` marked reserved.
-- **Tests:** 108 offline (+2 live, opt-in) pass — added vote self-vote/doubling/empty/
+- **Tests:** 108 offline (+2 live, opt-in) pass - added vote self-vote/doubling/empty/
   duplicate/departed-author cases, engine reconnect-to-derived-round, derive-helper +
   seeded-shuffle tests, and a live two-phase relay test. Full typecheck + web build green.
 - **UI rebuilt from `doot-mockup.html`:** a theme-aware `GameCover` (gradient + per-type
@@ -218,14 +218,14 @@ The big direction now is a slate of polished, replayable, Jackbox-grade games un
 Paste this into a new session to onboard the next agent on the flagship-games phase.
 
 **Status (so the next agent doesn't redo shipped work):** steps 1–3 of the mission
-below are **done and live** — the polish sweep, the research (`docs/flagship-games.md`),
+below are **done and live** - the polish sweep, the research (`docs/flagship-games.md`),
 the engine/SDK extensions (the **runtime-derived-content** primitive, `quip`/`vote`
 blocks, scoring knobs, content pools), and the first flagship **Quip Clash**. The
 explore page + footer were rebuilt from the mockup. **Remaining (step 4+):** `fill`→
 Anonymous Mad Libs, `split`→Split the Room, the **audio layer** + Robot Rap Battle
 (TTS performance + the `vote` block's `head-to-head` mode, not yet built), the research-
 backed robustness items (timeout safety net, untimed mode, content filters, audience
-bloc — doc §6), and the **"Games From Doot" category** (step 5). Quip Clash currently
+bloc - doc §6), and the **"Games From Doot" category** (step 5). Quip Clash currently
 uses **field voting**; true Quiplash per-player prompts need `assignment`/`promptFor`
 (RESERVED in the SDK, unwired).
 
@@ -239,13 +239,13 @@ uses **field voting**; true Quiplash per-player prompts need `assignment`/`promp
 >
 > 1. **Polish pass.** Sweep the existing loop (lobby → host → play → results), the editor, mobile, and the seven existing games for rough edges. Fix the cheap, high-impact ones; note the rest.
 >
-> 2. **Research the web, seriously.** Study how the best party games actually work and why they're fun and replayable — Jackbox especially (Quiplash, Fibbage, **Mad Verse City** = robot rap battle, **Speech!/Talking Points** = presentation, **Split the Room**, Survive the Internet, Drawful, Patently Stupid), plus Kahoot/Skribbl/etc. For each capture: round structure, the submit/vote/score loop, timing, ideal player counts, the source of replayability, and what makes it land in a room. Write `docs/flagship-games.md` (a design doc) and propose the **full template slate** (more than the four named below).
+> 2. **Research the web, seriously.** Study how the best party games actually work and why they're fun and replayable - Jackbox especially (Quiplash, Fibbage, **Mad Verse City** = robot rap battle, **Speech!/Talking Points** = presentation, **Split the Room**, Survive the Internet, Drawful, Patently Stupid), plus Kahoot/Skribbl/etc. For each capture: round structure, the submit/vote/score loop, timing, ideal player counts, the source of replayability, and what makes it land in a room. Write `docs/flagship-games.md` (a design doc) and propose the **full template slate** (more than the four named below).
 >
-> 3. **Extend the engine/SDK for the new interaction patterns** (foundational and hard — design carefully and get my sign-off on the contract before building): a **free-text submission** block; the **submit→vote two-phase** pattern (collect player text, then vote on *anonymized, shuffled* submissions — round content derived from the prior round's inputs at runtime and revealed only at vote time, **without breaking answer-withholding or the relay-only rule**); **head-to-head matchups / a small bracket**; a **multi-blank fill** block and a **dividing-scenario + split-scoring** block; an **audio layer** (host plays music + SFX; `RoomMeta.musicUrl` exists, wire it; honor mute + reduced-motion); and **content pools** (draw a fresh random subset of prompts each play; extend the markdown importer / a content-pack format for big pools).
+> 3. **Extend the engine/SDK for the new interaction patterns** (foundational and hard - design carefully and get my sign-off on the contract before building): a **free-text submission** block; the **submit→vote two-phase** pattern (collect player text, then vote on *anonymized, shuffled* submissions - round content derived from the prior round's inputs at runtime and revealed only at vote time, **without breaking answer-withholding or the relay-only rule**); **head-to-head matchups / a small bracket**; a **multi-blank fill** block and a **dividing-scenario + split-scoring** block; an **audio layer** (host plays music + SFX; `RoomMeta.musicUrl` exists, wire it; honor mute + reduced-motion); and **content pools** (draw a fresh random subset of prompts each play; extend the markdown importer / a content-pack format for big pools).
 >
 > 4. **Build the flagship games end-to-end** on top of those: **Robot Rap Battle** (fill → robots perform over a beat → head-to-head vote), **anonymous Mad Libs** (fill blanks → vote the funniest), **Split the Room** (dividing prompt → yes/no → split-based scoring), and a **presentation/improv** game (the room feeds a presenter slides they've never seen). Each: deep content pool, music/SFX, accessible (semantic HTML, reduced-motion, an untimed option), genuinely fun and replayable. Some standalone (full-custom `components`), some composable/editable in the editor.
 >
-> 5. **"Games From Doot" category.** Surface these flagship, well-stocked games as a distinct category on `/explore` and the catalog — the showcase.
+> 5. **"Games From Doot" category.** Surface these flagship, well-stocked games as a distinct category on `/explore` and the catalog - the showcase.
 >
 > 6. **Verify + ship incrementally.** test/typecheck/build on every change; each push deploys, so keep `main` green; playtest with `scripts/playtest.mjs` and ideally a two-phone real-device pass. Update `HANDOFF.md` + the design doc as you go.
 >

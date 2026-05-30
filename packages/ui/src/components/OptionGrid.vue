@@ -120,6 +120,9 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
   font-size: clamp(15px, 2vw, 20px);
   flex: 1;
   min-width: 0;
+  /* A long unbroken token (e.g. a no-space quip answer voted on through this
+     grid) must wrap instead of forcing horizontal scroll on a narrow phone. */
+  overflow-wrap: anywhere;
 }
 .ocount {
   font-weight: 700;

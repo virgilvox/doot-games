@@ -56,8 +56,11 @@ const meta: RoomMeta = {
   themeId,
 }
 // The roster, read lazily at derive/reveal time (it changes as players join).
+// Read the runtime's authoritative roster directly rather than the reactive
+// snapshot: derive/reveal run synchronously inside host actions, and the Vue
+// computed can lag, which would drop author names from a derived round's reveal.
 const getPlayers = (): ScorePlayer[] =>
-  room.players.value.map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex }))
+  room.runtime.recentPlayers().map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex }))
 
 room.host.loadGame({
   meta,

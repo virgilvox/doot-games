@@ -35,7 +35,12 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
   }),
   defaultTimer: null,
   timerOf: (c) => c.timer,
-  emptyInput: (c) => ({ order: c.items.map((i) => i.id) }),
+  // Seed each player with a SHUFFLED order, not the authored one. A ranking has no
+  // natural "empty" state and the player UI renders this order directly, so a
+  // player who locks in without reordering casts a ballot regardless. Shuffling
+  // per player makes those passive ballots average to noise instead of
+  // systematically crowning the author's declared order (consensus bias).
+  emptyInput: (c) => ({ order: shuffleIds(c.items.map((i) => i.id)) }),
   isComplete: (c, input) => input.order.length === c.items.length,
   PlayerInput: RankPlayer,
   HostDisplay: RankHost,
@@ -61,6 +66,17 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
     }
   },
 })
+
+/** A per-player random order so a no-op submit doesn't bias toward the author's
+ *  declared order. Uses Math.random by design (we want per-player variation). */
+function shuffleIds(ids: string[]): string[] {
+  const out = [...ids]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j] as string, out[i] as string]
+  }
+  return out
+}
 
 /** Average each item's position across players; lower average ranks higher. */
 function consensus(content: RankContent, inputs: Map<string, RankInput>) {

@@ -19,10 +19,20 @@ const props = defineProps<{
 const room = injectDootRoom()
 const revealed = computed(() => props.state === 'reveal')
 
+// The host knows the author map locally (kept off the relay), so it can exclude
+// self-votes from the LIVE tally too. Without this, a self-vote inflates the live
+// count and the bar visibly shrinks at reveal (where self-votes are dropped).
+const authors = computed(
+  () =>
+    (room.answerKeyFor(room.round.value.index) as { authors?: Record<string, string> } | undefined)
+      ?.authors ?? {},
+)
 const liveCounts = computed(() => {
   const counts = new Map<string, number>(props.content.options.map((o) => [o.id, 0]))
-  for (const v of props.inputs.values()) {
-    if (v?.choice && counts.has(v.choice)) counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
+  for (const [pid, v] of props.inputs) {
+    if (!v?.choice || !counts.has(v.choice)) continue
+    if (authors.value[v.choice] === pid) continue // self-vote: not counted
+    counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
   }
   return counts
 })
@@ -53,7 +63,7 @@ const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
 <template>
   <div class="vote-host">
     <p v-if="rows.length < 2" class="degenerate">
-      Not enough answers to vote on this round &mdash; skip ahead.
+      Not enough answers to vote on this round. Skip ahead.
     </p>
     <ul v-else class="rows">
       <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner }">

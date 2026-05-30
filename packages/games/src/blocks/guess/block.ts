@@ -3,9 +3,16 @@
  * correct (withheld until reveal). Contributes a leaderboard of correct guesses.
  */
 import { isEligible } from '@doot-games/engine'
-import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import {
+  type BlockResultsContext,
+  type ResultsFragment,
+  type RevealContext,
+  defineBlock,
+  z,
+} from '@doot-games/sdk'
 import GuessHost from './GuessHost.vue'
 import GuessPlayer from './GuessPlayer.vue'
+import GuessReveal from './GuessReveal.vue'
 
 export const guessOptionSchema = z.object({
   label: z.string().default(''),
@@ -45,8 +52,18 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
   isComplete: (_c, input) => input.choice != null,
   PlayerInput: GuessPlayer,
   HostDisplay: GuessHost,
+  PlayerReveal: GuessReveal,
   redactContent: (c) => ({ ...c, correct: -1 }),
   answerOf: (c) => ({ correct: c.correct }),
+  // Public per-round reveal so phones can show right/wrong feedback. The correct
+  // answer is only meant to be secret BEFORE reveal; publishing it now is fine.
+  revealSummary: (ctx: RevealContext<GuessContent, GuessInput>) => {
+    const correctIndex = (ctx.answer as { correct?: number } | undefined)?.correct ?? -1
+    return {
+      correctIndex,
+      correctLabel: ctx.content.options[correctIndex]?.label ?? '',
+    }
+  },
   aggregate: (ctx: BlockResultsContext<GuessContent, GuessInput>): ResultsFragment => {
     const tallies = ctx.players.map((p) => ({
       id: p.id,

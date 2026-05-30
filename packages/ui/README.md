@@ -13,6 +13,6 @@ fonts, and radii from the active theme's CSS custom properties.
 - Editor: `SchemaForm` (auto-generates a form from a block's Zod `contentSchema`),
   `ImageField` (URL + upload), the `IMAGE_UPLOAD` provide/inject capability, and
   `describeSchema`/`blankValue` introspection.
-- `@doot-games/ui/styles.css` — the design-system stylesheet.
+- `@doot-games/ui/styles.css` - the design-system stylesheet.
 
 CSS-first animation; Pixi (via `vue3-pixi`/imperative fallback) only for canvas work.

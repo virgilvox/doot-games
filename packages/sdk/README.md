@@ -3,10 +3,10 @@
 The authoring contract. Games are **blocks** + **compositions**.
 
 **Public surface**
-- `defineBlock` + `RoundBlock` — a standalone round kind: `contentSchema` (Zod),
+- `defineBlock` + `RoundBlock` - a standalone round kind: `contentSchema` (Zod),
   `PlayerInput`/`HostDisplay` views, `emptyInput`/`isComplete`, a pure `aggregate`,
   and optional `redactContent`/`answerOf` (answer withholding).
-- `defineGame` + `GamePlugin` — a manifest + an ordered `{ block, content }` list,
+- `defineGame` + `GamePlugin` - a manifest + an ordered `{ block, content }` list,
   with an optional full-custom `components` override.
 - `gameManifestSchema` / `GameManifest`, results types (`StandardResults`,
   `LeaderboardEntry`, `Distribution`, `StatItem`), and `z` (re-exported Zod).
