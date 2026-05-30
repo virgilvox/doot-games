@@ -153,25 +153,50 @@ Still deferred (low value): the dead per-round answer publish (a write-only rela
 
 ## Suggested next step
 
-**Doot is live at https://doot.games** with git-push CI/CD (SHA-pinned, non-root deploy user + non-root container), working CDN-served uploads, seven games, markdown import, full game editing/cloning/forking with cover/description/tags, per-game themes, host-gone detection, rate-limiting, account management, and a responsive UI. Highest-leverage next: a **two-phone test on real devices** (the last unverified surface, touch + QR join); **OAuth / magic-link** via better-auth config; **Postgres** for multi-instance scale; and **upload hardening** (presigned-POST with a size policy). See the round-3 "still deferred" note above for the small remaining items.
+**Doot is live at https://doot.games** with git-push CI/CD (SHA-pinned, non-root deploy user + non-root container), working CDN-served uploads, seven games, markdown import, full game editing/cloning/forking with cover/description/tags, per-game themes, host-gone detection, rate-limiting, account management, and a responsive UI. The platform is solid; **the next push is content and depth** (below). Smaller polish items still open: a **two-phone test on real devices** (touch + QR join), **OAuth / magic-link** (better-auth config), **Postgres** for multi-instance scale, and **upload hardening** (presigned-POST size policy).
+
+## Next phase: flagship games & replayable content
+
+The big direction now is a slate of polished, replayable, Jackbox-grade games under a "**Games From Doot**" banner, plus the engine/SDK extensions they need. The full brief is the kickoff prompt below; the engineering shape:
+
+**Target games** (research the real designs before building): a **robot rap battle** (Mad Verse City-style: fill words → robots "perform" → head-to-head audience vote), a **presentation/improv** game (Speech!/Talking Points-style: the room feeds a presenter slides they've never seen), **anonymous mad libs** (fill a story's blanks → vote the funniest), and **Split the Room** (fill a dividing "would you…" scenario → yes/no → score on how close to a 50/50 split). All with **music + sound** and deep replayability.
+
+**What the engine/SDK needs first (the foundational, hard part).** Every current block (guess/rate/poll/rank/draw) is single-input. These games need new patterns:
+- a **free-text submission** block ("Quip");
+- the **submit→vote two-phase** pattern (Jackbox core): collect player text in phase 1, then show the *anonymized, shuffled* submissions as the options to vote on in phase 2. Today round content is static and published up front; this needs the host to **derive a round's content from the previous round's inputs at runtime** and publish it only at vote time, **without breaking answer-withholding** (no early peeking at submissions) or the relay-only rule (nothing to the DB). Design as a multi-phase block or a composition where round N+1's content is injected from round N's inputs;
+- **head-to-head matchups / a small bracket** (pair submissions, vote per pair, tally wins) for the rap battle;
+- a **multi-blank fill** block (mad libs) and a **dividing-scenario + split-scoring** block (Split the Room);
+- an **audio layer**: the host plays background music + SFX (round start / lock / reveal / winner). `RoomMeta.musicUrl` already exists but isn't wired. Honor mute + `prefers-reduced-motion`;
+- **content pools for replayability**: a game carries a large pool of prompts/templates and draws a fresh random subset each play (shuffle, optionally seed by room code) so no two sessions match. Extend the markdown importer / a content-pack format to author big pools.
+
+**"Games From Doot" category**: surface these first-party, deeply-stocked flagship games as a distinct category on `/explore` (and the catalog), as the showcase.
 
 ---
 
 ## Fresh-session kickoff prompt
 
-Paste this into a new session to onboard the next agent:
+Paste this into a new session to onboard the next agent on the flagship-games phase:
 
-> You're picking up **Doot**, a self-hostable platform for live party games (one host on a big screen, players join from phones over the CLASP real-time relay). Repo: this directory; git remote `virgilvox/doot-games`; trunk branch **`main`** (the MVP scaffold was merged in).
+> You're picking up **Doot**, a live party-game platform (host on a big screen, players join from phones over the CLASP relay). Live at https://doot.games; repo `virgilvox/doot-games`; trunk `main` (every push to `main` deploys via CI). It's built and solid; this phase is about **content and depth**.
 >
-> **Read first, in order:** `HANDOFF.md` (current state + what's next), `CLAUDE.md` (conventions + invariants, read fully), `docs/authoring-a-game.md` (the block model), `Doot-PRD.md` (full spec). Design sources: `doot-mockup.html` (the shell/theme look + copy, source of truth) and `votebox (1).html` (the original gameplay prototype).
+> **Read first, in order:** `HANDOFF.md` (state + the "Next phase: flagship games" section), `CLAUDE.md` (invariants, read fully), `docs/authoring-a-game.md` (the block model), `Doot-PRD.md`. Design source of truth: `doot-mockup.html`.
 >
-> **Hard rules:**
-> - Commit messages are plain with **no AI attribution** (no "Generated with", no `Co-Authored-By` trailers). `main` is the trunk now, work on `main` or a branch off it.
-> - **Games are blocks + compositions.** A *block* is a standalone round kind (guess/rate/poll/rank) declaring a content schema + Player view + Host view + `aggregate` + optional answer-withholding; a *game* is a manifest + an ordered `{ block, content }` list rendered by the generic `GameHost`/`GamePlayer`/`GameResults`. New game = compose blocks; new round kind = one block; full-custom = override `components`. Never reintroduce per-game components or make one game import another.
-> - Architecture invariants (see `CLAUDE.md`): ephemeral state lives on the relay, durable on Postgres, nothing about a live room is written to the DB during play; the engine never imports a game; answer keys are withheld until reveal; identity is reconnect-by-name.
-> - **CSS-first animation**; use `vue3-pixi` (installed) only for canvas-heavy work (the Draw block, mini-games).
-> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 82 tests pass (+1 opt-in live test), all typecheck, the app builds.
+> **Hard rules:** no AI attribution in commits (no "Generated with" / `Co-Authored-By`); games are **blocks + compositions** (a block = a round kind with content schema + Player/Host views + `aggregate` + answer-withholding; a game = manifest + ordered `{block, content}`; never make one game import another); ephemeral state lives on the relay only (nothing about a live room touches the DB); answers/submissions withheld until reveal; identity is reconnect-by-name; **CSS-first animation** (Pixi only for canvas-heavy bits). Verify every change with `pnpm test && pnpm -r typecheck && pnpm --filter @doot-games/web build` (currently 84 tests green). Keep `main` deployable; ship small verified increments.
 >
-> **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. **Live at https://doot.games** (git push to `main` deploys, see the Deployment section). `pnpm install && pnpm dev` → http://localhost:3000 (public relay, zero-config SQLite). Author at `/editor/<type>` (e.g. `custom` for any mix, with Import from Markdown), **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw, custom), play at `/play/<CODE>`.
+> **Mission: build a slate of flagship, replayable "Games From Doot."** Work in this order:
 >
-> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one, likely a **real-device two-phone playtest**, **re-open a saved game in the editor** to edit its rounds, **OAuth/magic-link** (better-auth config), or **Postgres**. Auth is `better-auth` (`server/utils/auth.ts`); markdown import is `packages/games/src/markdown.ts` + `docs/markdown-games.md`; the browser playtest is `scripts/playtest.mjs`. Every push to `main` deploys, so keep `main` green. Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
+> 1. **Polish pass.** Sweep the existing loop (lobby → host → play → results), the editor, mobile, and the seven existing games for rough edges. Fix the cheap, high-impact ones; note the rest.
+>
+> 2. **Research the web, seriously.** Study how the best party games actually work and why they're fun and replayable — Jackbox especially (Quiplash, Fibbage, **Mad Verse City** = robot rap battle, **Speech!/Talking Points** = presentation, **Split the Room**, Survive the Internet, Drawful, Patently Stupid), plus Kahoot/Skribbl/etc. For each capture: round structure, the submit/vote/score loop, timing, ideal player counts, the source of replayability, and what makes it land in a room. Write `docs/flagship-games.md` (a design doc) and propose the **full template slate** (more than the four named below).
+>
+> 3. **Extend the engine/SDK for the new interaction patterns** (foundational and hard — design carefully and get my sign-off on the contract before building): a **free-text submission** block; the **submit→vote two-phase** pattern (collect player text, then vote on *anonymized, shuffled* submissions — round content derived from the prior round's inputs at runtime and revealed only at vote time, **without breaking answer-withholding or the relay-only rule**); **head-to-head matchups / a small bracket**; a **multi-blank fill** block and a **dividing-scenario + split-scoring** block; an **audio layer** (host plays music + SFX; `RoomMeta.musicUrl` exists, wire it; honor mute + reduced-motion); and **content pools** (draw a fresh random subset of prompts each play; extend the markdown importer / a content-pack format for big pools).
+>
+> 4. **Build the flagship games end-to-end** on top of those: **Robot Rap Battle** (fill → robots perform over a beat → head-to-head vote), **anonymous Mad Libs** (fill blanks → vote the funniest), **Split the Room** (dividing prompt → yes/no → split-based scoring), and a **presentation/improv** game (the room feeds a presenter slides they've never seen). Each: deep content pool, music/SFX, accessible (semantic HTML, reduced-motion, an untimed option), genuinely fun and replayable. Some standalone (full-custom `components`), some composable/editable in the editor.
+>
+> 5. **"Games From Doot" category.** Surface these flagship, well-stocked games as a distinct category on `/explore` and the catalog — the showcase.
+>
+> 6. **Verify + ship incrementally.** test/typecheck/build on every change; each push deploys, so keep `main` green; playtest with `scripts/playtest.mjs` and ideally a two-phone real-device pass. Update `HANDOFF.md` + the design doc as you go.
+>
+> **Where things live:** blocks in `packages/games/src/blocks/`, generic renderer in `packages/games/src/runtime/`, engine + state machine in `packages/engine/`, markdown import in `packages/games/src/markdown.ts` (+ `docs/markdown-games.md`), shell/editor/catalog in `apps/web` (`packages/games/src/catalog.ts` is the server-safe game list). Auth is better-auth (`server/utils/auth.ts`).
+>
+> **Start with the polish pass + the research, then bring me the proposed game slate and the block-contract design before building the engine extensions.**
