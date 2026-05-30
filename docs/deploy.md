@@ -9,7 +9,7 @@ cp .env.example .env
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-Brings up the app (`http://localhost:3000`), Postgres, and MinIO. The relay is the public `wss://relay.clasp.to`. *(The current MVP only needs the relay to host and play; Postgres and MinIO are provisioned for the upcoming auth/saved-games/uploads work.)*
+Brings up the app (`http://localhost:3000`), Postgres, and MinIO. The relay is the public `wss://relay.clasp.to`. *(Hosting and playing need only the relay; auth, saved games, and uploads are shipped, the durable store is libSQL/SQLite by default with a `DATABASE_URL` override, and MinIO/Spaces backs presigned image uploads. A `postgres://` URL currently falls back to SQLite with a warning.)*
 
 ## Local without Docker
 

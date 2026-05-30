@@ -1,12 +1,54 @@
 # Authoring a game
 
-Doot games are built from **blocks**. A block is a standalone round kind (Guess, Rate, Poll, …), think of it like a node in Node-RED. A game is a **composition**: a manifest plus an ordered list of `{ block, content }`. The engine's generic renderer mounts the right block per round and merges their results, so most games need *no components at all*.
+A guide for developers building games on Doot. You'll use **TypeScript**, a little
+**Vue 3**, and **Zod** for content schemas. If you can write a Vue component and a
+Zod object, you can ship a game.
 
-There are four ways to author, easy → powerful.
+Runnable, copy-paste starting points for everything below live in
+[`examples/`](../examples/). This doc explains the model; the examples show the code.
 
-## 1. Compose existing blocks (no code)
+---
 
-A new game type is just a manifest and a default composition:
+## 1. The mental model
+
+Two concepts, and the engine does the rest.
+
+- A **block** is a *round kind*: Guess, Rate, Poll, Quip, Vote, Fill, Split, Draw.
+  It declares only what's unique to that kind, a content schema, a phone (Player)
+  view, a big-screen (Host) view, and a pure `aggregate` for results. It knows
+  nothing about any game.
+- A **game** is a *composition*: a manifest plus an ordered list of
+  `{ block, content }` rounds. VoteBox is literally `[guess, rate]` alternating.
+
+The engine owns everything else, so you never touch it: the CLASP relay, the room,
+the `lobby → active(ready → open → locked → reveal) → results` state machine,
+timers and auto-lock, the roster, late joiners, reconnect-by-name, and
+**answer-withholding** (correct answers and derived submissions never reach a
+player's relay feed early). The generic renderer mounts the right block per round
+and merges their results, so **most games are ~20 lines and need no components**.
+
+```
+packages/games/src/
+  blocks/<kind>/   block.ts (schema + aggregate + withholding) + Player.vue + Host.vue
+  runtime/         GameHost / GamePlayer / GameResults (generic) + derive.ts
+  games/           compositions: votebox = [guess, rate]; quip-clash = [quip, vote]; ...
+  registry.ts      builtinPlugins[]    catalog.ts  server-safe list (id/name/version/flagship)
+```
+
+**Dependency rule (do not break):** games depend on `engine`, `sdk`, `themes`,
+`ui`. The engine never imports a game; no game imports another. New game = compose
+blocks. New round kind = one block.
+
+---
+
+## 2. The four ways to author
+
+Pick the lowest-effort one that fits. Each links a complete example.
+
+### Way 1 — Compose existing blocks (no code)
+
+A new game is just a manifest and a list of rounds.
+→ [`examples/01-compose-blocks.ts`](../examples/01-compose-blocks.ts)
 
 ```ts
 import { defineGame } from '@doot-games/sdk'
@@ -15,108 +57,168 @@ import { guessBlock, rateBlock } from '@doot-games/games'
 export const myGame = defineGame({
   manifest: { id: 'my-game', name: 'My Game', version: '0.1.0', author: 'you', capabilities: ['timer'] },
   blocks: [guessBlock, rateBlock],
-  defaultConfig: {
-    title: 'My Game',
-    rounds: [
-      { block: 'guess', content: { subject: 'Q1', prompt: 'Who is this?', image: '', timer: 20,
-        options: [{ label: 'A' }, { label: 'B' }], correct: 0 } },
-      { block: 'rate',  content: { subject: 'Q1', prompt: 'Rate it', image: '', timer: null,
-        categories: [{ id: 'fun', label: 'Fun' }], scale: { kind: 'numeric', min: 1, max: 10, step: 1 } } },
-    ],
-  },
+  defaultConfig: { title: 'My Game', rounds: [/* { block, content }, ... */] },
 })
 ```
 
-That's it, Host, Player, and Results are rendered for you. **VoteBox is exactly this**: `[guess, rate]` alternating (`packages/games/src/games/votebox.ts`).
+### Way 2 — Write a new block (a new round kind)
 
-## 2. Write a new block (a new round kind)
+When no existing block covers your interaction. Build it with `defineBlock`: a Zod
+content schema (the editor auto-forms from it), an `emptyInput`, a Player view, a
+Host view, and a pure `aggregate`.
+→ [`examples/02-new-block/`](../examples/02-new-block/) (a complete "Slider" block)
 
-A block declares only what's unique to its kind. Build it with `defineBlock`:
+The Player view is a **controlled input** (`v-model` of the input value); the
+generic renderer owns the "Lock it in" button and gates it on `isComplete`. The
+Host view shows the live tally. `aggregate` is pure and unit-testable.
 
-```ts
-import { defineBlock, z } from '@doot-games/sdk'
-import MyPlayer from './MyPlayer.vue'
-import MyHost from './MyHost.vue'
+### Way 3 — Remix / template with a content pool
 
-export const myBlock = defineBlock<MyContent, MyInput>({
-  kind: 'my-kind',
-  name: 'My Kind',
-  contentSchema,                 // Zod; the editor auto-forms from it (image fields → upload+preview)
-  defaultContent: () => ({ /* … */ }),
-  timerOf: (c) => c.timer,
-  emptyInput: () => ({ /* initial value */ }),
-  isComplete: (c, input) => /* ready to submit? */ true,
-  PlayerInput: MyPlayer,         // phone view: props { content, modelValue, disabled }, emits update:modelValue
-  HostDisplay: MyHost,           // big-screen view: props { content, inputs, state, answer }
-  aggregate: (ctx) => ({ /* leaderboard / awards / distributions / stats */ }),
-  redactContent: (c) => c,       // optional: strip answers before publish
-  answerOf: (c) => undefined,    // optional: answer revealed at reveal
-})
-```
+A curated composition of existing blocks. Add a `buildConfig(seed)` to draw a fresh
+random subset from a large pool each play, so no two rooms get the same game.
+→ [`examples/03-template-with-pool.ts`](../examples/03-template-with-pool.ts)
 
-The player view is a controlled input (`v-model` of the input value); the generic renderer owns the "Lock it in" button and gates it on `isComplete`. The host view shows the live tally. `aggregate` is pure and unit-testable (see `packages/games/src/blocks/aggregate.test.ts`). The standard blocks, `guess`, `rate`, `poll` in `packages/games/src/blocks/`, are the worked examples. **Rate** shows a flexible scale: numeric, letter grades, or tiers (any ordered `{ label, value }` steps).
+### Way 4 — Full custom (override the views)
 
-## 3. Remix / template
-
-Ship a preconfigured composition of existing blocks, same as (1), with curated default content.
-
-## 4. Full custom
-
-For a game that doesn't fit the block model, override the rendered views:
+For a game the block model doesn't fit. Override the rendered components; the
+engine still handles the relay, room, and state machine.
+→ [`examples/04-full-custom/`](../examples/04-full-custom/) (a "Tap Battle")
 
 ```ts
 defineGame({
   manifest, blocks: [],
-  defaultConfig: { title, rounds: [] },
+  defaultConfig: { title, rounds: [/* one round for timing */] },
   components: { Host: MyHost, Player: MyPlayer, Results: MyResults },
 })
 ```
 
-Custom views reach the live room with `injectDootRoom()` from `@doot-games/engine/vue` (reactive reads, `room.submit`, `room.host.*`), the engine still handles all the relay machinery.
+Custom views reach the live room with `injectDootRoom()` from
+`@doot-games/engine/vue`: reactive reads (`phase`, `round`, `players`, `me`,
+`results`), `room.submit(input)`, and host actions (`room.host.start/openVoting/
+lock/reveal/next/finish`, gated by `room.host.can(...)`).
 
-## The editor (auto-form from a block's schema)
+---
 
-Every block is authorable in the UI with **no editor code**. The web app's
-editor (`/editor/<game-type>`) seeds from a game type's default composition,
-then lets a host edit the title and the ordered list of rounds. Each round is
-authored by a form generated from its block's `contentSchema`:
-`@doot-games/ui`'s `SchemaForm` walks the Zod schema (`describeSchema`) into a
-field tree and renders a control per field, objects nest, arrays get
-add/remove/reorder, and a discriminated union (like Rate's `scale`) becomes a
-variant selector. A live preview of the phone view sits beside the form, and
-each round is validated against its block schema before hosting.
+## 3. The two-phase pattern (make → judge)
 
-On top of the raw schema the editor applies a few **field-name conventions**:
+The Jackbox-style loop: collect free-text in one round, then vote on the
+**anonymized, shuffled** submissions in the next. This is how Quip Clash, Mad Libs,
+and Split the Room work, and you get it by **composing blocks**, no engine code.
+→ [`examples/05-two-phase.ts`](../examples/05-two-phase.ts)
+
+How it works:
+
+- A **make** block (`quip` free-text, or `fill` multi-blank) collects each player's
+  submission. Submissions stay private (a player only receives their own input over
+  the relay; the host sees all).
+- A **judge** block (`vote`, or `split` for yes/no) has empty content authored. When
+  the room reaches it, the engine calls the block's `derive` with the make round's
+  inputs; the block returns the shuffled, anonymized options to publish plus a
+  withheld author map. The map is revealed only at reveal, so authorship can't leak.
+- `RoundInstance.from` selects which earlier round feeds a derived round (defaults
+  to the previous round).
+- A make block declares `toVoteText(content, input)` so the judge round can render
+  any submission to a votable string (a Quip = its text; a Mad Lib = its filled-in
+  story). That's why the same `vote` block judges both.
+
+Scoring helpers for these games are pure and tested in `blocks/scoring.ts`:
+`voteSharePoints`, `roundMultiplier`, `sweepBonus`, `pityPoints`, `closenessToHalf`
+/ `splitPoints` (Split the Room), `speedDecay` (Kahoot-style).
+
+---
+
+## 4. The block contract
+
+`RoundBlock<Content, Input>` (see `packages/sdk/src/block.ts`):
+
+| Field | Purpose |
+| --- | --- |
+| `kind`, `name` | id and display name |
+| `contentSchema` | Zod schema for one round's content; the editor auto-forms from it |
+| `defaultContent()` | a sensible starting content |
+| `timerOf(content)` / `defaultTimer` | seconds before auto-lock, or `null` for untimed |
+| `emptyInput(content)` | the initial player input (avoid biasing a no-op submit) |
+| `isComplete(content, input)?` | gate the "Lock it in" button (default: always) |
+| `PlayerInput` | phone view. Props `{ content, modelValue, disabled }`; emits `update:modelValue` |
+| `HostDisplay` | big-screen view. Props `{ content, inputs: Map, state, answer }` |
+| `aggregate(ctx)?` | pure → results fragment (leaderboard / awards / distributions / stats) |
+| `redactContent(content)?` | strip answers before publish (deep-copy what you edit) |
+| `answerOf(content)?` | the answer key, revealed only at that round's reveal |
+| `PlayerReveal?` | phone reveal view. Props `{ content, myInput, reveal }` (the public per-round reveal payload). Falls back to a generic notice |
+| `revealSummary(ctx)?` | host computes a public per-round payload (tallies, winner) published at reveal so phones can show personal feedback |
+| `Editor?` | a custom per-round editor (auto-generated from the schema otherwise) |
+| **two-phase:** `derive(ctx)?` | build this round's content from earlier rounds' inputs; returns `{ publish, answer? }` |
+| `toVoteText(content, input)?` | render this block's submission to votable text for a later judge round |
+
+---
+
+## 5. The editor (auto-form from your schema)
+
+Every block is authorable in the UI with **no editor code**. `/editor/<type>` seeds
+from a game's default composition; `@doot-games/ui`'s `SchemaForm` walks each
+block's `contentSchema` and renders a control per field (objects nest, arrays get
+add/remove/reorder, a discriminated union becomes a variant selector). A few
+field-name conventions get nicer controls for free:
 
 | Field name | Rendered as |
 | --- | --- |
-| `image` (string) | URL input + live preview (presigned upload swaps in later) |
+| `image` (string) | URL input + preview (with an Upload button when storage is configured) |
 | `prompt` (string) | multi-line textarea |
 | `timer` / any nullable number | a number with an on/off toggle |
 | `correct` (number, with a sibling `options` array) | a "mark correct" option select |
-| `id` inside an array item | a compact slug, auto-seeded when you add an item |
+| `id` inside an array item | a compact slug, auto-seeded |
 
-So naming a block's content fields with these conventions gets you good form
-ergonomics for free. When a block needs something the generic form can't
-express, set `Editor` on the block (the `RoundBlock.Editor?` slot) for a custom
-per-round editor; everything else still renders generically.
+So naming your fields with these conventions gives good editor ergonomics. When the
+generic form can't express something, set `Editor` on the block.
 
-From the editor you can either **Host now**, which stows the composition in an
-in-memory draft (`useGameDraft`) and opens `/host/<type>`, or **Save**, which
-`POST`s it to `/api/games` and returns a shareable `/g/<id>` link. A saved game
-is hosted by id at `/host/g/<id>` (HostRoom loads the stored composition);
-either way the host publishes the **redacted** config to the relay exactly as
-it does the default deck. The durable store holds game *definitions* only, never live room state, which stays on the relay.
+From the editor you **Host now** (stows an in-memory draft and opens `/host/<type>`)
+or **Save** (POSTs to `/api/games`, returns a shareable `/g/<id>`). Saving needs an
+optional account; hosting and playing never do. Each saved game has a visibility
+(`private` / `unlisted` / `public`), enforced server-side.
 
-Saving requires an account (optional, argon2id via `better-auth`); hosting
-and playing never do. Each saved game has a **visibility**, `private` (owner
-only), `unlisted` (anyone with the link), or `public` (also listed on
-`/explore`), enforced server-side in `getGame`/the list routes.
+---
 
-## How it fits together
+## 6. Content pools, replayability, and markdown
 
-- The engine owns rooms, roster, the round state machine, late joiners, reconnect, timers, and answer-withholding, none of it per-game.
-- `gameRounds`, `redactGameConfig`, `gameAnswerKeys`, and `scoreGame` (in `@doot-games/games/runtime`) derive everything the engine and results need from the blocks.
-- `GameHost`, `GamePlayer`, `GameResults` are the generic renderer; a plugin overrides them only for the full-custom path.
+- **Pools:** add `buildConfig(seed)` to a `GamePlugin` to sample a fresh subset of a
+  large pool each play. The host calls `buildConfig(roomCode)`, so a room is
+  internally consistent across reconnects but differs from other rooms. Use
+  `seededShuffle(seed)` from `@doot-games/games` for a deterministic shuffle. (Way 3.)
+- **Markdown import:** the editor can build a whole game from a markdown spec
+  (guess/rate/poll/rank/draw blocks). Format: [`docs/markdown-games.md`](./markdown-games.md).
 
-No game imports another. New game = compose blocks. New round kind = one block.
+---
+
+## 7. Testing
+
+Test the logic that matters: a block's `aggregate` (and any `derive`/`revealSummary`
+/scoring) is **pure**, so it's a plain Vitest unit test, no relay, no DOM. See
+`packages/games/src/blocks/*/*.test.ts` (e.g. `vote/vote.test.ts`,
+`split/split.test.ts`, `blocks/scoring.test.ts`) for worked examples. Run `pnpm test`.
+
+---
+
+## 8. Registering your game
+
+Once your files live under `packages/games/src/`:
+
+1. `export` your `defineGame(...)` plugin from its file.
+2. Add it to `builtinPlugins` in `registry.ts`.
+3. Add a matching `gameCatalog` entry in `catalog.ts` (`id`, `name`, `version`,
+   `flagship`, `description`). A test keeps the catalog in sync with the registry.
+4. New round kinds (Way 2): `export` the block from `packages/games/src/index.ts`.
+
+It now appears on **Create** as a template. If you set `manifest.flagship: true`
+**and** ship a `buildConfig` pool, it's a ready-to-play **Game From Doot**, surfaced
+as a "Host now" card on **Explore** and **Home** (a catalog test enforces that a
+flagship really has a pool).
+
+---
+
+## 9. External plugins (roadmap, not yet)
+
+Registering a game by **URL** as a sandboxed external plugin (an iframe behind a
+typed postMessage bridge, so it never sees cookies, DB routes, or the raw relay) is
+specified in PRD §9 but **not yet implemented**. Today, games live in-repo as above.
+When the bridge lands, the contract on this page is what an external plugin will
+implement; nothing here changes.

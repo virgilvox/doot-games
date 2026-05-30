@@ -9,7 +9,9 @@ fonts, and radii from the active theme's CSS custom properties.
 - Inputs: `OptionGrid`, `RatingStrip`, `RankList`, `JoinForm`.
 - Display/results: `VoteBars`, `Leaderboard`, `StatStrip`, `CountdownRing`,
   `RosterChips`, `Avatar`, `ConfettiBurst` (CSS).
-- Drawing (Pixi 8, lazy-loaded): `DrawCanvas`, `DrawThumb` (SVG), `DrawValue`.
+- Catalog/discovery: `GameCover` (gradient cover + per-type motif), `GameTypeIcon`
+  (colored type icon), `SiteFooter`, and the `gameVisual(type)` map (`visuals.ts`).
+- Drawing (Pixi 8, lazy-loaded): `DrawCanvas`, `DrawThumb` (SVG), `DrawValue` (type).
 - Editor: `SchemaForm` (auto-generates a form from a block's Zod `contentSchema`),
   `ImageField` (URL + upload), the `IMAGE_UPLOAD` provide/inject capability, and
   `describeSchema`/`blankValue` introspection.

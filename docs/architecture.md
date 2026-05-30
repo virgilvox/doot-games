@@ -9,7 +9,7 @@ packages/engine   @doot-games/engine  CLASP wrapper, room runtime, state machine
 packages/sdk      @doot-games/sdk     plugin contract, round primitives, Zod schemas, scoring types
 packages/themes   @doot-games/themes  five theme token packs + CSS generation (the design system)
 packages/ui       @doot-games/ui      theme-aware Vue components + design-system stylesheet
-packages/games    @doot-games/games   blocks + games (Guess/Rate/Poll/Rank/Draw/VoteBox/Custom) + renderer + markdown import
+packages/games    @doot-games/games   blocks (incl. quip/vote/fill/split) + 10 games (incl. flagships) + renderer + scoring + markdown import
 apps/web          @doot-games/web     Nuxt shell: home, explore, create, editor, host, play, auth, /api
 ```
 
@@ -34,8 +34,8 @@ The runtime is framework-agnostic and is exercised by an in-memory fake relay in
 
 ## Game types and plugins
 
-Games are built from **blocks** + **compositions** (see [authoring-a-game.md](./authoring-a-game.md)). A *block* is a standalone round kind (Guess, Rate, Poll, Rank, Draw) declaring a content schema, Player/Host views, a pure `aggregate`, and optional answer-withholding. A *game* is a manifest plus an ordered `{ block, content }` list; the generic `GameHost`/`GamePlayer`/`GameResults` renderer mounts the right block per round and merges results. The seven built-ins: Guess, Rate, Poll, Rank, Draw (single-block), **VoteBox** (`[guess, rate]`), and **Custom** (all blocks). No game imports another.
+Games are built from **blocks** + **compositions** (see [authoring-a-game.md](./authoring-a-game.md)). A *block* is a standalone round kind declaring a content schema, Player/Host views, a pure `aggregate`, and optional answer-withholding (nine blocks: guess, rate, poll, rank, draw, plus the two-phase family quip, vote, fill, split). A *game* is a manifest plus an ordered `{ block, content }` list; the generic `GameHost`/`GamePlayer`/`GameResults` renderer mounts the right block per round and merges results. The ten built-ins: Guess, Rate, Poll, Rank, Draw (single-block), **VoteBox** (`[guess, rate]`), **Custom** (all blocks), and three flagship **"Games From Doot"**, Quip Clash, Mad Libs, and Split the Room (two-phase make→judge games with content pools, surfaced as ready-to-play). The **two-phase primitive** lets a judge round's content be derived at runtime from the prior round's anonymized inputs (`room.ts` publishes to `round/<i>/content` + `round/<i>/reveal`). No game imports another.
 
 ## Tests
 
-`pnpm test` runs Vitest across the workspace, the engine state machine, identity, eligibility, addresses, the room runtime (fake relay), the theme registry, and VoteBox scoring.
+`pnpm test` runs Vitest across the workspace (117 tests + 2 opt-in live): the engine state machine, identity, eligibility, addresses, the room runtime + two-phase derive/reveal (fake relay), the theme registry, schema-form introspection, the block aggregates + scoring knobs (guess/rate/poll/rank/vote/fill/split), the catalog/registry sync, markdown import, and a two-phase integration test. The opt-in `DOOT_LIVE=1` tests drive the real CLASP relay.

@@ -26,7 +26,7 @@ A **flagship** is a first-party, ready-to-play, deeply replayable game (it ships
 content pool via `buildConfig`, so hosting `/host/<id>` runs a full, fresh game).
 
 - `GameManifest.flagship?: boolean` (`packages/sdk/src/manifest.ts`); set `true` on
-  the plugin (currently only **Quip Clash**).
+  the plugin (currently **Quip Clash**, **Mad Libs**, and **Split the Room**).
 - Mirrored into the server-safe catalog (`GameCatalogEntry.flagship` + `version`),
   with `flagshipGames` / `templateGames` helpers. A catalog test asserts
   `flagship` ⟺ the plugin actually has a `buildConfig` (so a "Game From Doot" is
@@ -38,8 +38,9 @@ content pool via `buildConfig`, so hosting `/host/<id>` runs a full, fresh game)
 **The pipeline to add more (today):** add a `defineGame` with a content pool +
 `buildConfig` (Quip Clash is the worked example), set `manifest.flagship: true`,
 register it in `registry.ts`, add the catalog entry (the sync test enforces it).
-No DB or auth change. The next flagships (Mad Libs, Split the Room, Robot Rap
-Battle) land this way and appear under Games From Doot automatically.
+No DB or auth change. Mad Libs and Split the Room shipped this way; the next
+flagship (Robot Rap Battle) will land the same way and appear under Games From Doot
+automatically.
 
 ## Covers & icons = one visual map (shipped)
 

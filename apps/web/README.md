@@ -2,7 +2,7 @@
 
 The Nuxt 4 shell: discovery, the editor, host/play, auth, persistence, uploads.
 
-- **Pages**: `/` (home), `/explore`, `/create`, `/editor/<type>` + `/editor/g/<id>`
+- **Pages**: `/` (home), `/explore`, `/create`, `/mine` (Your Games, visibility filter), `/editor/<type>` + `/editor/g/<id>`
   (schema-driven editor with markdown import), `/host/<type>` + `/host/g/<id>`,
   `/play/<CODE>`, `/g/<id>` (shareable detail), `/login`. Host/play are client-only
   (they open the relay).
