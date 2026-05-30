@@ -6,8 +6,9 @@ FROM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
 
-# Install deps with the lockfile for reproducible builds.
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+# Install deps with the lockfile for reproducible builds. tsconfig.base.json is
+# extended by every package's tsconfig, so the build needs it at the root.
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
 RUN pnpm install --frozen-lockfile
