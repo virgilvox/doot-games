@@ -16,15 +16,21 @@ RUN pnpm install --frozen-lockfile
 # Build the web app (engine/sdk/ui/themes/games are transpiled by Nuxt).
 RUN pnpm --filter @doot-games/web build
 
+# Stage libSQL's prebuilt native addon. Nitro bundles its JS wrapper but not the
+# platform binary; copy it into the server output in the run stage below.
+RUN set -eux; \
+    NATIVE="$(find /app/node_modules/.pnpm -type d -path '*@libsql+linux-x64-musl*/node_modules/@libsql/linux-x64-musl' | head -1)"; \
+    test -n "$NATIVE"; \
+    mkdir -p /tmp/libsql-native; \
+    cp -a "$NATIVE/." /tmp/libsql-native/
+
 FROM node:22-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
 COPY --from=build /app/apps/web/.output ./.output
-# Nitro bundles libSQL's JS wrapper but not its native addon; install the exact
-# matching version next to the bundled server so it resolves at runtime (the
-# musl variant is selected automatically on Alpine).
-RUN cd .output/server && npm install --no-save --no-package-lock --omit=dev libsql@0.3.19
+# Drop in libSQL's native addon where the bundled server resolves it.
+COPY --from=build /tmp/libsql-native ./.output/server/node_modules/@libsql/linux-x64-musl
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
