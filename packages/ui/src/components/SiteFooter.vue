@@ -23,7 +23,7 @@ import DootLogo from './DootLogo.vue'
           <h5>Create</h5>
           <a href="/create">Make a game</a>
           <a href="/create">Game types</a>
-          <a href="/create">Link your plugin</a>
+          <a href="https://github.com/virgilvox/doot-games/blob/main/docs/external-plugins.md" target="_blank" rel="noopener">Link your plugin</a>
         </div>
         <div class="fcol">
           <h5>About</h5>

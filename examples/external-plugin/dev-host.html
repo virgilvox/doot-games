@@ -1,0 +1,74 @@
+<!doctype html>
+<!--
+  Standalone dev harness: a MOCK HOST that lets you develop/test a plugin without
+  the whole Doot platform. It embeds the plugin in the SAME sandboxed null-origin
+  iframe + speaks the SAME bridge protocol used in production, then scripts a fake
+  room so you can step lobby -> round -> reveal -> results, fake other players'
+  inputs, withhold the answer until "Reveal", and watch every bridge message.
+
+  Run: `npx vite` in this folder, open the printed URL, click through the controls.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Doot plugin dev harness</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; margin: 0; display: grid; grid-template-columns: 1fr 380px; height: 100vh; }
+      .stage { padding: 24px; }
+      .panel { border-left: 2px solid #eee; padding: 16px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+      iframe { width: 360px; height: 520px; border: 2px solid #241910; border-radius: 22px; background: #fff; }
+      button { padding: 8px 12px; font: inherit; border-radius: 8px; border: 2px solid #241910; background: #fff; cursor: pointer; }
+      h3 { margin: 8px 0 2px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #888; }
+      #log { font: 12px/1.4 ui-monospace, monospace; background: #faf7f2; border-radius: 8px; padding: 8px; flex: 1; overflow: auto; white-space: pre-wrap; }
+      .bad { color: #c00; }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <h2>Plugin under test (sandboxed iframe)</h2>
+      <!-- The trust boundary: allow-scripts only (null origin), no allow-same-origin. -->
+      <iframe id="plugin" sandbox="allow-scripts" src="./plugin.html"></iframe>
+    </div>
+    <div class="panel">
+      <h3>Mock room</h3>
+      <button id="round">Start round (send redacted content)</button>
+      <button id="others">Simulate 3 other players answering</button>
+      <button id="reveal">Reveal (send answer key)</button>
+      <h3>Bridge inspector</h3>
+      <div id="log"></div>
+    </div>
+
+    <script type="module">
+      import { createPluginHost } from './bridge.ts'
+
+      const iframe = document.getElementById('plugin')
+      const log = document.getElementById('log')
+      const line = (s, bad) => { const d = document.createElement('div'); if (bad) d.className = 'bad'; d.textContent = s; log.appendChild(d); log.scrollTop = log.scrollHeight }
+
+      // A scripted round + the withheld answer (the plugin only gets `answer` at reveal).
+      const round = { prompt: 'Which planet is hottest?', options: [{ label: 'Mercury' }, { label: 'Venus' }, { label: 'Mars' }] }
+      const answerKey = { correct: 1 }
+      const inputs = new Map() // pid -> { choice }
+
+      const host = createPluginHost(iframe, {
+        onReady: () => { line('← ready'); host.send({ t: 'init', block: 'trivia', role: 'player', theme: {} }) },
+        onSubmit: (input) => {
+          // In production the host re-validates `input` against the block's schema here.
+          line('← submit ' + JSON.stringify(input))
+          inputs.set('me', input)
+          host.send({ t: 'state', myInput: input, phase: 'active' })
+        },
+        onResize: (h) => line('← resize ' + h),
+      })
+
+      iframe.addEventListener('load', () => host.bootstrap())
+
+      document.getElementById('round').onclick = () => { line('→ round (redacted)'); host.send({ t: 'round', content: round, phase: 'active', index: 0 }) }
+      document.getElementById('others').onclick = () => { for (const p of ['a', 'b', 'c']) inputs.set(p, { choice: Math.floor(Math.random() * 3) }); line('(faked 3 other players)') }
+      document.getElementById('reveal').onclick = () => { line('→ answer (reveal)'); host.send({ t: 'answer', key: answerKey }) }
+
+      // Catch any off-protocol message the plugin tries to send to the window.
+      window.addEventListener('message', (e) => { if (e.source === iframe.contentWindow && e.data?.t !== '__port') line('⚠ off-channel message ignored: ' + JSON.stringify(e.data), true) })
+    </script>
+  </body>
+</html>

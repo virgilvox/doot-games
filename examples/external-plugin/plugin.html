@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  The plugin's iframe entry. In production this is served from the separate
+  plugins origin under the production CSP; here it's served by the dev harness.
+  It loads the plugin bundle, nothing else.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font: 16px/1.4 system-ui, sans-serif; margin: 16px; }
+      button { display: block; width: 100%; margin: 6px 0; padding: 12px; font: inherit; border-radius: 10px; border: 2px solid #ccc; background: #fff; cursor: pointer; }
+      button.sel { background: #FF5A33; color: #fff; border-color: #FF5A33; }
+      button.correct { background: #16C8B5; color: #fff; border-color: #16C8B5; }
+      h2 { font-size: 20px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./plugin.ts"></script>
+  </body>
+</html>

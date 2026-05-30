@@ -1,0 +1,11 @@
+{
+  "$comment": "An external plugin manifest. Register a game by pasting the URL of a file like this. Doot fetches the bundle, pins it by SHA-256, and loads it in a sandboxed null-origin iframe (see docs/external-plugins.md).",
+  "name": "Trivia Royale",
+  "version": "1.0.0",
+  "author": "you",
+  "description": "A tiny multiple-choice trivia game.",
+  "bundle": "https://esm.sh/gh/you/trivia-royale@<commit-sha>/dist/plugin.js",
+  "integrity": "sha384-REPLACE_WITH_BUNDLE_HASH",
+  "blocks": [{ "kind": "trivia", "name": "Trivia" }],
+  "allowedConnectSrc": []
+}
