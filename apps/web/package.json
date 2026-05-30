@@ -19,6 +19,7 @@
     "@doot-games/ui": "workspace:*",
     "@libsql/client": "^0.17.3",
     "@node-rs/argon2": "^2.0.2",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.45.2",
     "nuxt-auth-utils": "^0.5.29",
     "vue": "^3.5.13"

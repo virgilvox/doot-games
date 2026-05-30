@@ -31,6 +31,9 @@ export { default as VoteBars } from './components/VoteBars.vue'
 export { default as RosterChips } from './components/RosterChips.vue'
 export { default as Avatar } from './components/Avatar.vue'
 
+// Image uploads (capability the app injects; ImageField falls back to URL)
+export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'
+
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'
 export { default as DrawThumb } from './components/DrawThumb.vue'

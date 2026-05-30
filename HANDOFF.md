@@ -51,6 +51,8 @@ Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds
 
 **Auth** is optional — needed only to save games. Set `SESSION_PASSWORD` (32+ chars) to seal session cookies in production; dev uses a stable fallback. Sign up / in at `/login`.
 
+**Uploads** are optional too: with no `SPACES_*` env, image fields are URL-paste only. Set `SPACES_ENDPOINT`/`SPACES_REGION`/`SPACES_BUCKET`/`SPACES_KEY`/`SPACES_SECRET` (+ optional `SPACES_PUBLIC_URL`) to enable presigned uploads. To try it locally: run MinIO, make a public-read bucket, and start dev with those vars pointed at it.
+
 ## Key decisions
 
 - **Blocks + compositions** (above) — the easy path; full-custom override is the escape hatch.
@@ -62,6 +64,7 @@ Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds
 - **Persistence stores definitions only.** Drizzle over libSQL (SQLite by default, zero-config); the `games` table holds the JSON `GameComposition`. `/api/games` validates at the boundary (shape + known plugin via the server-safe `@doot-games/games/catalog`; deep per-round validation is client-side in the editor). Honors the invariant: nothing about a live room is ever written here. "Host now" still uses the in-memory draft for an ephemeral game.
 - **Auth is optional and only gates saving.** `nuxt-auth-utils` (sealed httpOnly cookie, no server store) + argon2id (`@node-rs/argon2`). Hosting and playing need no account. Saving requires login and stamps an `ownerId`; `/api/games` returns the caller's games for `?scope=mine` and publicly-listed games otherwise. **Visibility** (`private`/`unlisted`/`public`) is enforced server-side: a private game reads as 404 to non-owners (so its existence doesn't leak); unlisted is link-only; public is also listed. Augment the session-user type in `apps/web/auth.d.ts`.
 - **Draw is the first Pixi block.** Drawings are normalized vector **strokes** sent over the relay (small, replayable) — not rasterized — so no uploads are needed to play. `DrawCanvas` is an imperative Pixi 8 `Application` (the sanctioned fallback for a pointer-driven widget) that **lazy-imports `pixi.js`** in `onMounted`, so Pixi stays out of SSR and ships as a ~500KB on-demand client chunk. The host gallery renders many drawings as lightweight **SVG** (`DrawThumb`) to avoid a WebGL context per tile.
+- **Image uploads are presigned + direct-to-storage.** `/api/uploads/presign` (session-gated) signs a PUT with `aws4fetch`; the browser uploads straight to S3/Spaces (MinIO locally), and the editor stores the resulting public URL. `ImageField` shows an Upload button only when the app injects an uploader (`IMAGE_UPLOAD` provide/inject) and `/api/uploads/config` reports enabled (storage configured + signed in); otherwise it's URL-paste, so dev with no storage still works. Verified end-to-end against MinIO (presign → PUT → public GET). Caveats for the audit: the signed `content-type` isn't enforced (only `host`+`x-amz-acl` are signed), there's no server-side size cap, the S3 endpoint must be reachable under the *same* hostname by both app and browser, and the bucket needs CORS for browser PUTs.
 - **The core loop is verified live.** A `DOOT_LIVE=1` test drives a host + player headlessly through the engine against `wss://relay.clasp.to` and asserts redacted-config delivery, the answer-withholding invariant over the wire, input round-trip, and play-to-results. It is skipped by default so the suite stays offline.
 - **The design system** is `doot-mockup.html`, ported to `@doot-games/themes` + `@doot-games/ui`, with an accessibility baseline.
 - Commit messages contain **no AI attribution** (project rule).
@@ -74,8 +77,7 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 
 ## Not built yet (PRD phase one and beyond)
 
-1. **Uploads**: presigned PUT to Spaces/MinIO. The editor's image fields are URL-input + preview today (`ImageField.vue`); swapping in an uploader only changes how the field's value is set.
-2. **Postgres**: the durable store is libSQL/SQLite today (zero-config). For multi-instance prod, wire `drizzle-orm/node-postgres` behind the same `useDb()`/repo seam and select the driver by `DATABASE_URL`. The docker prod compose still names Postgres — reconcile when this lands.
+1. **Postgres**: the durable store is libSQL/SQLite today (zero-config). For multi-instance prod, wire `drizzle-orm/node-postgres` behind the same `useDb()`/repo seam and select the driver by `DATABASE_URL`. The docker prod compose still names Postgres — reconcile when this lands.
 3. **More blocks**: Buzz (reaction/first-correct), Quip (free-text + a follow-on vote), or a "vote for the best drawing" follow-on to Draw. Each is one block — and each becomes authorable in the editor and savable for free the moment it ships. (**Draw** shipped — see the Pixi decision above.)
 4. **Account niceties**: editing/deleting saved games, changing visibility after save, and magic-link (SMTP) sign-in are not built. Today a save creates a new immutable record; there is no update/delete route yet.
 5. **External plugins**: sandboxed iframe + postMessage bridge + publishing (PRD §9).
@@ -93,7 +95,7 @@ Across audit rounds we fixed: a reconnect bug (couldn't restore `joinedAtIndex` 
 
 ## Suggested next step
 
-The end-to-end loop (author → save/share → host → play → results) works across six games (incl. the new Pixi-backed **Draw**), with optional accounts and per-game visibility. Next up (in progress this stretch): **image uploads** (presigned PUT to upgrade `ImageField` from URL-only), then an **audit of auth + DB management** (incl. a keep-vs-migrate decision on `nuxt-auth-utils` vs `better-auth`). Still pending: a **real-browser two-phone playtest** (incl. the Pixi canvas), and account niceties (edit/delete, change visibility, magic-link).
+The end-to-end loop (author → save/share → host → play → results) works across six games (incl. the Pixi-backed **Draw**), with optional accounts, per-game visibility, and presigned image **uploads**. Next up: an **audit of auth + DB management** — including a keep-vs-migrate decision on `nuxt-auth-utils` vs `better-auth` — then hardening (rate-limiting, indexes, the upload caveats above). Still pending: a **real-browser two-phone playtest** (incl. the Pixi canvas), Postgres, and account niceties (edit/delete, change visibility, magic-link).
 
 ---
 
@@ -114,4 +116,4 @@ Paste this into a new session to onboard the next agent:
 >
 > **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. `pnpm install && pnpm dev` → http://localhost:3000 (uses the public relay `wss://relay.clasp.to`; saved games use a zero-config local SQLite file — no DB setup needed). Author at `/editor/<type>`, **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw), play at `/play/<CODE>`.
 >
-> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely the **Draw block** (vue3-pixi canvas + ephemeral media on the relay), **uploads** (presigned PUT for `ImageField`), or **account niceties** (edit/delete saved games, change visibility). Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.
+> **Your task:** see `HANDOFF.md` → "Not built yet" / "Suggested next step" and pick one — likely the **auth/DB audit + hardening** (rate-limiting, the upload caveats, possibly migrating to `better-auth`), a **real-browser playtest**, or **account niceties** (edit/delete saved games, change visibility). Confirm scope with me before large changes, work in small verified increments, and update `HANDOFF.md` as you go.

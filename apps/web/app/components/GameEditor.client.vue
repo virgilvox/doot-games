@@ -10,8 +10,8 @@
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
-import { SchemaForm } from '@doot-games/ui'
-import { computed, reactive, ref, toRaw, watch } from 'vue'
+import { IMAGE_UPLOAD, SchemaForm } from '@doot-games/ui'
+import { computed, provide, reactive, ref, toRaw, watch } from 'vue'
 
 const props = defineProps<{ pluginId: string }>()
 const router = useRouter()
@@ -27,6 +27,13 @@ const themeId = ref(themeState.value)
 const themes = themeList.map((t) => ({ id: t.id, name: t.name }))
 const { loggedIn } = useUserSession()
 const visibility = ref<'private' | 'unlisted' | 'public'>('private')
+
+// Offer image uploads in the editor's image fields when storage is configured
+// and the user is signed in; otherwise fields stay URL-only.
+const uploadsEnabled = ref(false)
+const { data: uploadCfg } = useFetch('/api/uploads/config', { default: () => ({ enabled: false }) })
+watch(uploadCfg, (v) => { uploadsEnabled.value = !!v?.enabled }, { immediate: true })
+provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload() })
 
 const blockChoices = computed(() => plugin.blocks)
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
