@@ -76,6 +76,20 @@ export function useDootRoom(options: UseDootRoomOptions) {
       void snapshot.value
       return runtime.inputsFor(roundIndex)
     },
+    // two-phase reads (runtime-derived content, per-round reveal, answer key).
+    // Touch the snapshot first so computeds re-run when these arrive.
+    runtimeContentFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.runtimeContentFor(roundIndex)
+    },
+    roundRevealFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.roundRevealFor(roundIndex)
+    },
+    answerKeyFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.answerKeyFor(roundIndex)
+    },
 
     // host actions
     host: {

@@ -22,6 +22,13 @@ export const addr = {
   hostPing: (room: string) => `${roomBase(room)}/host/ping`,
   /** Answer key for round `i`, published only at reveal. */
   roundAnswer: (room: string, i: number) => `${roomBase(room)}/round/${i}/answer`,
+  /** Runtime-derived content for round `i` (the two-phase pattern): the host
+   *  builds it from an earlier round's inputs and publishes it (shuffled +
+   *  anonymized) when the room reaches the round. Overrides the authored content. */
+  roundContent: (room: string, i: number) => `${roomBase(room)}/round/${i}/content`,
+  /** Public per-round reveal summary for round `i` (vote tallies, the winner),
+   *  published at reveal so phones can show personal feedback. */
+  roundReveal: (room: string, i: number) => `${roomBase(room)}/round/${i}/reveal`,
   resultsSummary: (room: string) => `${roomBase(room)}/results/summary`,
   playerProfile: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/profile`,
   playerPing: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/ping`,
@@ -39,7 +46,23 @@ export const patterns = {
   allInputs: (room: string) => `${roomBase(room)}/input/*/*`,
   /** This player's own inputs across rounds (reconnect restore + private score). */
   inputsForPlayer: (room: string, pid: string) => `${roomBase(room)}/input/*/${pid}`,
+  /** Runtime-derived content for all rounds (player/viewer reads these). */
+  roundContent: (room: string) => `${roomBase(room)}/round/*/content`,
+  /** Per-round reveal summaries for all rounds (player/viewer reads these). */
+  roundReveal: (room: string) => `${roomBase(room)}/round/*/reveal`,
 } as const
+
+/**
+ * Extract the round index from a `/round/<i>/<leaf>` address (e.g. `content`,
+ * `reveal`), or null if it doesn't match.
+ */
+export function parseRoundSubAddress(address: string, leaf: string): number | null {
+  const parts = address.split('/')
+  // /doot/<room>/round/<i>/<leaf> => 3='round' 4=i 5=leaf
+  if (parts[3] !== 'round' || parts[5] !== leaf || parts[4] === undefined) return null
+  const i = Number.parseInt(parts[4], 10)
+  return Number.isNaN(i) ? null : i
+}
 
 /** Extract the player id from a `/player/<pid>/...` address. */
 export function pidFromPlayerAddress(address: string): string | null {

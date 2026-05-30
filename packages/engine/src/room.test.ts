@@ -188,6 +188,111 @@ describe('RoomRuntime host presence', () => {
   })
 })
 
+describe('RoomRuntime runtime-derived content (the two-phase pattern)', () => {
+  // A game whose round 1 (vote) content is derived from round 0 (submit) inputs.
+  const TWO_PHASE = {
+    meta: { pluginId: 'quip-clash', pluginVersion: '0.0.0', title: 'Two phase', themeId: 'doot' },
+    config: { title: 'Two phase', rounds: [{}, {}] } as RelayValue,
+    rounds: [{ timer: null }, { timer: null }],
+    // Build round 1's options from round 0's submissions: shuffle off, anonymize
+    // the authors into the published payload, keep the author map as the answer.
+    deriveContent: (index: number, inputsFor: (i: number) => Map<string, RelayValue>) => {
+      if (index !== 1) return undefined
+      const subs = [...inputsFor(0).entries()].map(([pid, v], i) => ({
+        pid,
+        id: `o${i}`,
+        text: (v as { text?: string }).text ?? '',
+      }))
+      return {
+        publish: { options: subs.map((s) => ({ id: s.id, text: s.text })) } as RelayValue,
+        answer: { authors: Object.fromEntries(subs.map((s) => [s.id, s.pid])) } as RelayValue,
+      }
+    },
+    revealSummary: (index: number, inputsFor: (i: number) => Map<string, RelayValue>) => {
+      if (index !== 1) return undefined
+      return { votes: inputsFor(1).size } as RelayValue
+    },
+  }
+
+  it('derives a later round from earlier inputs, withholds the author map until reveal', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(TWO_PHASE)
+    host.start()
+
+    // Round 0: a player submits free text. Nothing derived for round 0.
+    const p1 = makePlayer(hub, 'Ada', now)
+    await p1.connect()
+    await flush()
+    p1.submit({ text: 'banana' } as RelayValue)
+    expect(hub.store.get(addr.roundContent('ABCD', 1))).toBeUndefined()
+
+    // Host walks round 0 to its end, then advances to the derived vote round.
+    host.openVoting()
+    host.lock()
+    host.reveal()
+    host.next()
+
+    // The anonymized options are now on the relay; the author map is NOT.
+    const pid = playerId('ABCD', 'Ada')
+    expect(hub.store.get(addr.roundContent('ABCD', 1))).toEqual({
+      options: [{ id: 'o0', text: 'banana' }],
+    })
+    expect(hub.store.get(addr.roundContent('ABCD', 1))).not.toHaveProperty('authors')
+    // The host keeps the withheld author map locally for scoring.
+    expect(host.answerKeyFor(1)).toEqual({ authors: { o0: pid } })
+    // It is not published until reveal.
+    expect(hub.store.get(addr.roundAnswer('ABCD', 1))).toBeUndefined()
+
+    // A player sees the derived content via subscription, but not the author map.
+    const voter = makePlayer(hub, 'Bee', now)
+    await voter.connect()
+    await flush()
+    expect(voter.runtimeContentFor(1)).toEqual({ options: [{ id: 'o0', text: 'banana' }] })
+
+    // Reveal publishes the author map and the public reveal summary.
+    voter.submit({ choice: 'o0' } as RelayValue)
+    host.openVoting()
+    host.lock()
+    host.reveal()
+    expect(hub.store.get(addr.roundAnswer('ABCD', 1))).toEqual({ authors: { o0: pid } })
+    expect(hub.store.get(addr.roundReveal('ABCD', 1))).toEqual({ votes: 1 })
+    expect(voter.roundRevealFor(1)).toEqual({ votes: 1 })
+  })
+
+  it('restores derived vote content and the players own prior submission on reconnect', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(TWO_PHASE)
+    host.start()
+
+    const p1 = makePlayer(hub, 'Ada', now)
+    await p1.connect()
+    await flush()
+    p1.submit({ text: 'banana' } as RelayValue)
+
+    // Advance to the derived vote round (host publishes the runtime content).
+    host.openVoting()
+    host.lock()
+    host.reveal()
+    host.next()
+    expect(hub.store.get(addr.roundContent('ABCD', 1))).toEqual({ options: [{ id: 'o0', text: 'banana' }] })
+
+    // Ada reconnects mid-vote-round (new runtime, same name) and must recover both
+    // the derived options (to vote) and her own quip (to hide her own answer).
+    const p2 = makePlayer(hub, 'Ada', now)
+    await p2.connect()
+    await flush()
+    expect(p2.me.id).toBe(p1.me.id)
+    expect(p2.runtimeContentFor(1)).toEqual({ options: [{ id: 'o0', text: 'banana' }] })
+    expect(p2.inputFor(0)).toEqual({ text: 'banana' })
+  })
+})
+
 describe('RoomRuntime host + player over a shared relay', () => {
   it('registers a late joiner, restores eligibility, and routes inputs', async () => {
     const hub = new FakeHub()

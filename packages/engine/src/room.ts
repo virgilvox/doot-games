@@ -9,7 +9,13 @@
  * response to relay messages and local actions, and notifies listeners. The Vue
  * binding (`@doot-games/engine/vue`) mirrors this into refs.
  */
-import { addr, parseInputAddress, patterns, pidFromPlayerAddress } from './addresses'
+import {
+  addr,
+  parseInputAddress,
+  parseRoundSubAddress,
+  patterns,
+  pidFromPlayerAddress,
+} from './addresses'
 import { computeJoinedAtIndex, isEligible } from './eligibility'
 import { playerId } from './identity'
 import { DEFAULT_TTL_US, type RelayClient, type RelayValue, type Unsubscribe } from './relay'
@@ -46,6 +52,27 @@ export interface LoadedGame {
   rounds: RoundTiming[]
   /** Answer key per round index, published only at that round's reveal. */
   answerKeys?: Record<number, RelayValue>
+  /**
+   * Two-phase pattern: build round `index`'s content from earlier rounds' inputs.
+   * Called by the host (only) when it lands on the round. Returns the anonymized
+   * content to publish to the relay plus the withheld answer key (e.g. the author
+   * map), or undefined for an ordinary static round. The engine never inspects the
+   * payloads, it just publishes `publish` to the round's content address and folds
+   * `answer` into the round's answer key (revealed at reveal like any other).
+   */
+  deriveContent?: (
+    index: number,
+    inputsFor: (i: number) => Map<string, RelayValue>,
+  ) => { publish: RelayValue; answer?: RelayValue } | undefined
+  /**
+   * A public per-round reveal payload (vote tallies, the round winner) the host
+   * computes from all inputs and publishes at `reveal`, so phones can show
+   * personal feedback. Returns undefined to publish nothing.
+   */
+  revealSummary?: (
+    index: number,
+    inputsFor: (i: number) => Map<string, RelayValue>,
+  ) => RelayValue | undefined
 }
 
 export interface RoomRuntimeOptions {
@@ -94,6 +121,14 @@ export class RoomRuntime {
   private state: RoomState = { ...INITIAL_STATE, round: { ...INITIAL_STATE.round } }
   private playersMap = new Map<string, Player>()
   private inputs = new Map<string, RelayValue>() // key `${round}:${pid}`
+  /** Runtime-derived content per round (two-phase). Host fills it on publish;
+   *  player/viewer fill it from the relay. Overrides authored content. */
+  private runtimeContent = new Map<number, RelayValue>()
+  /** Public per-round reveal summaries, keyed by round index. */
+  private roundReveals = new Map<number, RelayValue>()
+  /** Host-only: the withheld answer key a runtime derivation produced (e.g. the
+   *  author map for a vote round), so end-of-game scoring can read it. */
+  private derivedAnswers = new Map<number, RelayValue>()
   private config: RelayValue | undefined
   private meta: RoomMeta | undefined
   private results: RelayValue | undefined
@@ -249,6 +284,18 @@ export class RoomRuntime {
         this.lastHostPing = Number(v)
         this.emit()
       })
+      on(patterns.roundContent(r), (v, a) => {
+        const i = parseRoundSubAddress(a, 'content')
+        if (i == null) return
+        this.runtimeContent.set(i, v)
+        this.emit()
+      })
+      on(patterns.roundReveal(r), (v, a) => {
+        const i = parseRoundSubAddress(a, 'reveal')
+        if (i == null) return
+        this.roundReveals.set(i, v)
+        this.emit()
+      })
     }
 
     if (this.me.role === 'player') {
@@ -375,6 +422,24 @@ export class RoomRuntime {
     return out
   }
 
+  /** The runtime-derived content for a round, or undefined for a static round.
+   *  The renderer overlays this on the authored content. */
+  runtimeContentFor(roundIndex: number): RelayValue | undefined {
+    return this.runtimeContent.get(roundIndex)
+  }
+
+  /** The public reveal summary for a round, once the host has revealed it. */
+  roundRevealFor(roundIndex: number): RelayValue | undefined {
+    return this.roundReveals.get(roundIndex)
+  }
+
+  /** The answer key for a round (host-side scoring): a runtime-derived key if one
+   *  exists, else the authored static key. Undefined when the round has none. */
+  answerKeyFor(roundIndex: number): RelayValue | undefined {
+    if (this.derivedAnswers.has(roundIndex)) return this.derivedAnswers.get(roundIndex)
+    return this.game?.answerKeys?.[roundIndex]
+  }
+
   // ---- player actions ------------------------------------------------------
 
   /** Publish this player's input for the current round. */
@@ -472,6 +537,23 @@ export class RoomRuntime {
     this.publish(addr.roundDeadline(this.room), null)
     this.publish(addr.phase(this.room), 'active')
     this.transition({ type: 'start' })
+    this.publishDerivedIfAny(0)
+  }
+
+  /**
+   * When the host lands on a round, give the game a chance to build that round's
+   * content from earlier rounds' inputs (the two-phase pattern). The anonymized
+   * content goes on the relay; the withheld answer key is kept for reveal/scoring.
+   * A no-op for ordinary static rounds. Host only.
+   */
+  private publishDerivedIfAny(index: number): void {
+    if (this.me.role !== 'host' || !this.game?.deriveContent) return
+    const derived = this.game.deriveContent(index, (i) => this.inputsFor(i))
+    if (!derived) return
+    this.runtimeContent.set(index, derived.publish)
+    this.publish(addr.roundContent(this.room, index), derived.publish)
+    if (derived.answer !== undefined) this.derivedAnswers.set(index, derived.answer)
+    this.emit()
   }
 
   openVoting(): void {
@@ -495,8 +577,15 @@ export class RoomRuntime {
   reveal(): void {
     this.assertHost()
     const i = this.state.round.index
-    const answer = this.game?.answerKeys?.[i]
+    const answer = this.answerKeyFor(i)
     if (answer !== undefined) this.publish(addr.roundAnswer(this.room, i), answer)
+    // Publish a public reveal summary (vote tallies, the winner) so phones can
+    // show personal feedback, not just the big screen.
+    const summary = this.game?.revealSummary?.(i, (j) => this.inputsFor(j))
+    if (summary !== undefined) {
+      this.roundReveals.set(i, summary)
+      this.publish(addr.roundReveal(this.room, i), summary)
+    }
     this.publish(addr.roundState(this.room), 'reveal')
     this.transition({ type: 'reveal' })
   }
@@ -505,7 +594,11 @@ export class RoomRuntime {
     this.assertHost()
     const roundCount = this.game?.rounds.length ?? 0
     this.transition({ type: 'next', roundCount })
-    this.publish(addr.roundIndex(this.room), this.state.round.index)
+    const i = this.state.round.index
+    // Build this round's content from earlier rounds before announcing it, so a
+    // player sees the derived content as soon as the round becomes current.
+    this.publishDerivedIfAny(i)
+    this.publish(addr.roundIndex(this.room), i)
     this.publish(addr.roundState(this.room), 'ready')
     this.publish(addr.roundDeadline(this.room), null)
   }
