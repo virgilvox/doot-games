@@ -9,7 +9,7 @@
  */
 import { isKnownPlugin } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { type Visibility, games, useDb } from './db'
 
 const roundSchema = z.object({
@@ -124,6 +124,27 @@ export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> 
     .where(eq(games.visibility, 'public'))
     .orderBy(desc(games.createdAt))
     .limit(limit) as Promise<SavedGameSummary[]>
+}
+
+/** Change a game's visibility — owner only. Returns true if a row was updated. */
+export async function updateGameVisibility(
+  id: string,
+  ownerId: string,
+  visibility: Visibility,
+): Promise<boolean> {
+  const db = await useDb()
+  const res = await db
+    .update(games)
+    .set({ visibility, updatedAt: Date.now() })
+    .where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
+  return (res.rowsAffected ?? 0) > 0
+}
+
+/** Delete a saved game — owner only. Returns true if a row was deleted. */
+export async function deleteGame(id: string, ownerId: string): Promise<boolean> {
+  const db = await useDb()
+  const res = await db.delete(games).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
+  return (res.rowsAffected ?? 0) > 0
 }
 
 /**

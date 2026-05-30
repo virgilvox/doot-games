@@ -11,6 +11,7 @@ interface SavedGame {
   pluginId: string
   title: string
   themeId: string
+  ownerId: string | null
   visibility: 'private' | 'unlisted' | 'public'
   config: GameComposition
   createdAt: number
@@ -24,6 +25,34 @@ const typeName = computed(
   () => gameCatalog.find((c) => c.id === game.value?.pluginId)?.name ?? game.value?.pluginId ?? '',
 )
 const roundCount = computed(() => game.value?.config.rounds.length ?? 0)
+
+// Owner-only management: change visibility, delete.
+const session = authClient.useSession()
+const isOwner = computed(() => !!game.value?.ownerId && session.value?.data?.user?.id === game.value.ownerId)
+const visibility = ref(game.value?.visibility ?? 'private')
+const saving = ref(false)
+const manageError = ref('')
+async function changeVisibility() {
+  if (!game.value) return
+  saving.value = true
+  manageError.value = ''
+  try {
+    await $fetch(`/api/games/${game.value.id}`, { method: 'PATCH', body: { visibility: visibility.value } })
+  } catch (e) {
+    manageError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not update.'
+  } finally {
+    saving.value = false
+  }
+}
+async function remove() {
+  if (!game.value || !confirm('Delete this game? This cannot be undone.')) return
+  try {
+    await $fetch(`/api/games/${game.value.id}`, { method: 'DELETE' })
+    await navigateTo('/explore')
+  } catch (e) {
+    manageError.value = (e as { statusMessage?: string })?.statusMessage ?? 'Could not delete.'
+  }
+}
 </script>
 
 <template>
@@ -44,6 +73,19 @@ const roundCount = computed(() => game.value?.config.rounds.length ?? 0)
         <div class="detail-actions">
           <NuxtLink :to="`/host/g/${game.id}`" class="btn btn-primary btn-lg">Host this game</NuxtLink>
           <NuxtLink :to="`/editor/${game.pluginId}`" class="btn btn-ghost btn-lg">Build your own</NuxtLink>
+        </div>
+
+        <div v-if="isOwner" class="manage">
+          <span class="manage-label">Manage your game</span>
+          <div class="manage-row">
+            <select v-model="visibility" class="sf-select" aria-label="Visibility" :disabled="saving" @change="changeVisibility">
+              <option value="private">Private</option>
+              <option value="unlisted">Unlisted (link only)</option>
+              <option value="public">Public (listed)</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" @click="remove">Delete</button>
+          </div>
+          <p v-if="manageError" class="sf-error">{{ manageError }}</p>
         </div>
       </div>
     </div>
@@ -80,5 +122,30 @@ const roundCount = computed(() => game.value?.config.rounds.length ?? 0)
   justify-content: center;
   flex-wrap: wrap;
   margin-top: 28px;
+}
+.manage {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: var(--bd) solid var(--line-soft);
+}
+.manage-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mute);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.manage-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.manage-row .sf-select {
+  width: auto;
+  min-width: 180px;
 }
 </style>
