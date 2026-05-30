@@ -6,7 +6,7 @@ _Last updated: 2026-05-29. Branch: `main` (the scaffold was merged to `main`; wo
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **82 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable, and a markdown importer builds whole games from an LLM-written spec. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed. The UI is mobile-responsive (verified no overflow at 360/390px) and free of em dashes.
+A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **83 tests pass (+1 live test, opt-in), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable, and a markdown importer builds whole games from an LLM-written spec. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed. The UI is mobile-responsive (verified no overflow at 360/390px) and free of em dashes.
 
 **The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. Hosting and playing never need an account; **saving** uses an optional account (email/password, argon2id) and each saved game has a **visibility**: private (owner only), unlisted (anyone with the link), or public (also listed on `/explore`). Zero DB setup, accounts and games live in a local SQLite file.
 
@@ -17,7 +17,7 @@ A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **8
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
 | `@doot-games/ui` | Done. Theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm`) + the **Pixi drawing surface** (`DrawCanvas`) and SVG gallery thumbnail (`DrawThumb`). |
 | `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank/**draw**), the generic renderer, seven games (Guess, Rate, Poll, Rank, Draw, VoteBox, **Custom** = all blocks), and a **markdown game parser** (`parseMarkdownGame`). |
-| `apps/web` | Builds + **deployed**. Home/explore/create + client-only host/play + the **editor** (`/editor/<type>`, with **Import from Markdown**) + **persistence** (`/api/games`, save → `/g/<id>`, host-by-id, owner edit/delete + change-visibility) + **auth** (`better-auth` + argon2id) + presigned image **uploads** (live, to the `doot` Space). Mobile-responsive. |
+| `apps/web` | Builds + **deployed**. Home/explore/create + host/play + the **editor** (`/editor/<type>` new, `/editor/g/<id>` to **edit-in-place or fork**, with **Import from Markdown** and a Details panel for cover image / description / tags / forkable) + **persistence** (`/api/games` create/get/list/**put**/patch/delete, owner-scoped, visibility + answer-redaction enforced) + **auth** (`better-auth` + argon2id) + presigned image **uploads** (live, to the `doot` Space; the Upload button shows on every image field). Mobile-responsive. |
 
 ## The architecture (read this first)
 
@@ -37,7 +37,7 @@ No game imports another. New game = compose blocks. New round kind = one block. 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000  (uses the public relay; no DB needed)
-pnpm test         # 82 tests (+1 live test, skipped unless DOOT_LIVE=1)
+pnpm test         # 83 tests (+1 live test, skipped unless DOOT_LIVE=1)
 pnpm -r typecheck # all packages, incl. nuxi typecheck of apps/web
 pnpm --filter @doot-games/web build
 
@@ -146,7 +146,7 @@ Paste this into a new session to onboard the next agent:
 > - **Games are blocks + compositions.** A *block* is a standalone round kind (guess/rate/poll/rank) declaring a content schema + Player view + Host view + `aggregate` + optional answer-withholding; a *game* is a manifest + an ordered `{ block, content }` list rendered by the generic `GameHost`/`GamePlayer`/`GameResults`. New game = compose blocks; new round kind = one block; full-custom = override `components`. Never reintroduce per-game components or make one game import another.
 > - Architecture invariants (see `CLAUDE.md`): ephemeral state lives on the relay, durable on Postgres, nothing about a live room is written to the DB during play; the engine never imports a game; answer keys are withheld until reveal; identity is reconnect-by-name.
 > - **CSS-first animation**; use `vue3-pixi` (installed) only for canvas-heavy work (the Draw block, mini-games).
-> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 82 tests pass (+1 opt-in live test), all typecheck, the app builds.
+> - Verify every change: `pnpm test`, `pnpm -r typecheck`, `pnpm --filter @doot-games/web build`. Today: 83 tests pass (+1 opt-in live test), all typecheck, the app builds.
 >
 > **Stack & run:** pnpm monorepo; Nuxt 4 + Vue 3; packages `@doot-games/{engine,sdk,ui,themes,games}` + `apps/web`. **Live at https://doot.games** (git push to `main` deploys, see the Deployment section). `pnpm install && pnpm dev` → http://localhost:3000 (public relay, zero-config SQLite). Author at `/editor/<type>` (e.g. `custom` for any mix, with Import from Markdown), **Save** → `/g/<id>`, host at `/host/<type>` or `/host/g/<id>` (votebox, guess, rate, poll, rank, draw, custom), play at `/play/<CODE>`.
 >
