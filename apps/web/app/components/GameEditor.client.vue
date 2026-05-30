@@ -258,14 +258,25 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
         </div>
         <div class="ed-actions">
           <div class="ed-settings" role="group" aria-label="Game settings">
+            <div class="ed-field">
+              <span class="ed-label">Theme</span>
+              <div class="ed-swatches" role="group" aria-label="Theme">
+                <button
+                  v-for="t in themeList"
+                  :key="t.id"
+                  type="button"
+                  class="ed-swatch"
+                  :class="{ on: themeId === t.id }"
+                  :title="t.name"
+                  :aria-label="`Theme: ${t.name}`"
+                  :aria-pressed="themeId === t.id"
+                  :style="{ background: `linear-gradient(135deg, ${t.tokens.primary}, ${t.tokens.c1})` }"
+                  @click="themeId = t.id"
+                />
+              </div>
+            </div>
             <label class="ed-field">
-              <span class="sf-label">Theme</span>
-              <select v-model="themeId" class="sf-select" aria-label="Theme">
-                <option v-for="t in themes" :key="t.id" :value="t.id">{{ t.name }}</option>
-              </select>
-            </label>
-            <label class="ed-field">
-              <span class="sf-label">Visibility</span>
+              <span class="ed-label">Visibility</span>
               <select v-model="visibility" class="sf-select" aria-label="Visibility">
                 <option value="private">Private</option>
                 <option value="unlisted">Unlisted (link only)</option>
@@ -452,11 +463,41 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 .ed-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
 .ed-field .sf-select {
   width: auto;
   min-width: 130px;
+}
+/* Clearly readable label, not muted grey. */
+.ed-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.ed-swatches {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  height: 42px;
+}
+.ed-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s;
+}
+.ed-swatch:hover {
+  transform: scale(1.12);
+}
+.ed-swatch.on {
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
 }
 .ed-toggle {
   display: inline-flex;

@@ -10,7 +10,10 @@ const redirectTo = computed(() => (typeof route.query.redirect === 'string' ? ro
 // Already signed in? Move along.
 if (import.meta.client && session.value?.data?.user) navigateTo(redirectTo.value)
 
-const mode = ref<'login' | 'register'>('login')
+// Open in register mode when arriving from a "Sign up" CTA (?signup=1 or ?mode=register).
+const mode = ref<'login' | 'register'>(
+  route.query.signup != null || route.query.mode === 'register' ? 'register' : 'login',
+)
 const email = ref('')
 const password = ref('')
 const error = ref('')

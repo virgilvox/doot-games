@@ -34,7 +34,10 @@ async function logout() {
             <span class="account-email" :title="user?.email">{{ user?.email }}</span>
             <button class="linkbtn" @click="logout">Log out</button>
           </template>
-          <NuxtLink v-else to="/login" class="navlink">Log in</NuxtLink>
+          <template v-else>
+            <NuxtLink to="/login" class="navlink">Log in</NuxtLink>
+            <NuxtLink to="/login?signup=1" class="signup-btn">Sign up</NuxtLink>
+          </template>
         </div>
         <div class="themebar" role="group" aria-label="Theme">
           <span class="lbl mono">theme</span>
@@ -50,6 +53,9 @@ async function logout() {
             @click="theme = t.id"
           />
         </div>
+        <NuxtLink to="/support" class="support-btn" title="Support Doot">
+          <span class="heart" aria-hidden="true">&#10084;</span> Support
+        </NuxtLink>
       </div>
     </header>
     <NuxtPage />
@@ -82,6 +88,22 @@ async function logout() {
   font-family: inherit;
   padding: 0;
 }
+.signup-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line);
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.signup-btn:hover {
+  opacity: 0.9;
+}
 .themebar {
   display: flex;
   align-items: center;
@@ -108,6 +130,29 @@ async function logout() {
 .swatch.on {
   outline: 3px solid var(--ink);
   outline-offset: 1px;
+}
+.support-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line);
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s;
+}
+.support-btn:hover {
+  transform: translateY(-1px);
+}
+.support-btn .heart {
+  font-size: 13px;
 }
 
 /* Mobile topbar: keep the nav reachable, drop the theme switcher + email, and
@@ -141,6 +186,10 @@ async function logout() {
   .navlink {
     padding: 7px 9px;
     font-size: 13px;
+  }
+  .support-btn {
+    margin-left: 6px;
+    padding: 7px 11px;
   }
 }
 </style>
