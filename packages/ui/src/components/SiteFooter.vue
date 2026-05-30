@@ -31,9 +31,15 @@ import DootLogo from './DootLogo.vue'
           <a href="https://github.com/virgilvox/doot-games#deploy" target="_blank" rel="noopener">Self-host</a>
           <a href="https://clasp.to" target="_blank" rel="noopener">Built on CLASP</a>
         </div>
+        <div class="fcol">
+          <h5>Support</h5>
+          <a href="https://ko-fi.com/hackbuild" target="_blank" rel="noopener">Ko-fi</a>
+          <a href="https://patreon.com/HackBuild" target="_blank" rel="noopener">Patreon</a>
+        </div>
       </div>
       <p class="fnote mono">
         doot.games, a home for collaborative party games. Host on a screen, play on a phone.
+        Made by <a href="https://hack.build" target="_blank" rel="noopener" class="fmade">hack.build</a>.
       </p>
     </div>
   </footer>
@@ -80,5 +86,13 @@ import DootLogo from './DootLogo.vue'
   margin-top: 24px;
   font-size: 13px;
   color: var(--mute);
+}
+.fmade {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+.fmade:hover {
+  text-decoration: underline;
 }
 </style>
