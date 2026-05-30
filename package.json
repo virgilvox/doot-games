@@ -32,6 +32,9 @@
     "onlyBuiltDependencies": [
       "@biomejs/biome",
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "@libsql/client": "0.17.3"
+    }
   }
 }
