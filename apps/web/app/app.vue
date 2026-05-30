@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { themeList } from '@doot-games/themes'
-import { DootLogo, ThemeProvider } from '@doot-games/ui'
+import { DootLogo, SiteFooter, ThemeProvider } from '@doot-games/ui'
 
 const theme = useState('doot-theme', () => 'doot')
 const route = useRoute()
@@ -52,6 +52,7 @@ async function logout() {
       </div>
     </header>
     <NuxtPage />
+    <SiteFooter v-if="chrome" />
   </ThemeProvider>
 </template>
 

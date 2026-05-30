@@ -30,6 +30,8 @@ export { default as CountdownRing } from './components/CountdownRing.vue'
 export { default as VoteBars } from './components/VoteBars.vue'
 export { default as RosterChips } from './components/RosterChips.vue'
 export { default as Avatar } from './components/Avatar.vue'
+export { default as GameCover } from './components/GameCover.vue'
+export { default as SiteFooter } from './components/SiteFooter.vue'
 
 // Image uploads (capability the app injects; ImageField falls back to URL)
 export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'

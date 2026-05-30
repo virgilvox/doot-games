@@ -7,11 +7,19 @@
  */
 import { type RelayValue, type RoomMeta, createClaspRelay, makeRoomCode } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
-import { GameHost, gameAnswerKeys, gameRounds, getPlugin, redactGameConfig } from '@doot-games/games'
+import {
+  GameHost,
+  buildDeriveContent,
+  buildRevealSummary,
+  gameAnswerKeys,
+  gameRounds,
+  getPlugin,
+  redactGameConfig,
+} from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
 import { computed } from 'vue'
 
-import type { GameComposition } from '@doot-games/sdk'
+import type { GameComposition, ScorePlayer } from '@doot-games/sdk'
 
 const props = defineProps<{
   pluginId: string
@@ -32,10 +40,10 @@ const room = useDootRoom({ relay, room: roomCode, role: 'host' })
 provideDootRoom(room)
 
 // Precedence: an explicit config (a saved game) > the editor draft (if it's for
-// this game type) > the game type's default deck (a direct /host link).
+// this game type) > a fresh pool sample (replayable flagships) > the default deck.
 const draft = useGameDraft()
 const fromDraft = draft.value && draft.value.pluginId === plugin.manifest.id ? draft.value : null
-const config = props.config ?? fromDraft?.config ?? plugin.defaultConfig
+const config = props.config ?? fromDraft?.config ?? plugin.buildConfig?.(roomCode) ?? plugin.defaultConfig
 // Theme precedence mirrors config: a saved game's theme > the draft's theme
 // (survives a host-tab reload via the persisted draft) > the global selection.
 const themeId = props.themeId ?? fromDraft?.themeId ?? themeState.value
@@ -47,12 +55,26 @@ const meta: RoomMeta = {
   title: config.title || plugin.manifest.name,
   themeId,
 }
+// The roster, read lazily at derive/reveal time (it changes as players join).
+const getPlayers = (): ScorePlayer[] =>
+  room.players.value.map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex }))
+
 room.host.loadGame({
   meta,
   config: config as unknown as RelayValue,
   publishConfig: redactGameConfig(plugin, config) as unknown as RelayValue,
   rounds: gameRounds(plugin, config),
   answerKeys: gameAnswerKeys(plugin, config) as unknown as Record<number, RelayValue>,
+  // Two-phase wiring: derive a round's content from earlier inputs at runtime,
+  // and publish a public reveal summary so phones can show personal feedback.
+  deriveContent: buildDeriveContent(plugin, config, roomCode, getPlayers) as never,
+  revealSummary: buildRevealSummary(
+    plugin,
+    config,
+    getPlayers,
+    (i) => room.runtimeContentFor(i),
+    (i) => room.answerKeyFor(i),
+  ) as never,
 })
 
 const HostView = plugin.components?.Host ?? GameHost
