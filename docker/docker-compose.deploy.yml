@@ -25,7 +25,8 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
 volumes:
   caddy-data:

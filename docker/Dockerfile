@@ -29,12 +29,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOST=0.0.0.0
+# su-exec lets the entrypoint drop from root to the unprivileged `node` user.
+RUN apk add --no-cache su-exec
 COPY --from=build /app/apps/web/.output ./.output
 # Drop in libSQL's native addon where the bundled server resolves it.
 COPY --from=build /tmp/libsql-native ./.output/server/node_modules/@libsql/linux-x64-musl
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 EXPOSE 3000
 # Liveness for `docker ps` health + Caddy startup gating. Uses Node's global
 # fetch (no extra tooling); start-period covers boot + startup migrations.
 HEALTHCHECK --interval=15s --timeout=4s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", ".output/server/index.mjs"]
+# The server runs as the unprivileged `node` user (see entrypoint).
+ENTRYPOINT ["/entrypoint.sh"]
