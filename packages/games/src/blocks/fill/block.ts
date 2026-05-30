@@ -26,6 +26,10 @@ export const fillContentSchema = z.object({
   blanks: z.array(fillBlankSchema).min(1),
   maxLength: z.number().int().positive().max(60).default(30),
   timer: z.number().int().nonnegative().nullable().default(75),
+  /** Show the template (blanks as ___) as context above the inputs. Mad Libs
+   *  keeps this off (blind, for the reveal); Split the Room turns it on (you
+   *  complete a visible dilemma). */
+  showTemplate: z.boolean().default(false),
 })
 export type FillContent = z.infer<typeof fillContentSchema>
 export interface FillInput {
@@ -53,6 +57,7 @@ export const fillBlock = defineBlock<FillContent, FillInput>({
     ],
     maxLength: 30,
     timer: 75,
+    showTemplate: false,
   }),
   defaultTimer: 75,
   timerOf: (c) => c.timer,

@@ -11,9 +11,21 @@ import { poll } from './games/poll'
 import { quipClash } from './games/quipclash'
 import { rank } from './games/rank'
 import { rate } from './games/rate'
+import { splitRoom } from './games/splitroom'
 import { voteBox } from './games/votebox'
 
-export const builtinPlugins: GamePlugin[] = [guess, rate, poll, rank, draw, voteBox, quipClash, madLibs, custom]
+export const builtinPlugins: GamePlugin[] = [
+  guess,
+  rate,
+  poll,
+  rank,
+  draw,
+  voteBox,
+  quipClash,
+  madLibs,
+  splitRoom,
+  custom,
+]
 
 const byId = new Map<string, GamePlugin>(builtinPlugins.map((p) => [p.manifest.id, p]))
 

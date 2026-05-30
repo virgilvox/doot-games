@@ -4,12 +4,17 @@
  * shown (the reveal is the joke); the player just supplies words by prompt.
  */
 import { computed } from 'vue'
-import type { FillContent, FillInput } from './block'
+import { type FillContent, type FillInput, renderFilled } from './block'
 
 const props = defineProps<{ content: FillContent; modelValue: FillInput; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: FillInput] }>()
 
 const values = computed(() => props.modelValue.values ?? {})
+// When showTemplate is on (e.g. Split the Room), show the sentence with blanks
+// as ___ for context. Mad Libs keeps it hidden so the story is a surprise.
+const templatePreview = computed(() =>
+  props.content.showTemplate ? renderFilled(props.content.template, {}) : '',
+)
 function onInput(id: string, e: Event) {
   const v = (e.target as HTMLInputElement).value.slice(0, props.content.maxLength)
   emit('update:modelValue', { values: { ...values.value, [id]: v } })
@@ -18,6 +23,7 @@ function onInput(id: string, e: Event) {
 
 <template>
   <div class="fill">
+    <p v-if="templatePreview" class="fill-template">{{ templatePreview }}</p>
     <label v-for="b in content.blanks" :key="b.id" class="fill-row">
       <span class="fill-label">{{ b.label || b.id }}</span>
       <input
@@ -39,6 +45,17 @@ function onInput(id: string, e: Event) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.fill-template {
+  font-size: clamp(17px, 4.6vw, 21px);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
 }
 .fill-row {
   display: flex;

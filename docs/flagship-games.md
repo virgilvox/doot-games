@@ -300,7 +300,9 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
    blanks blind, the completed stories are derived into a vote round (a new block
    `toVoteText` hook + `DeriveSource.render` let the vote block render any "make"
    submission to votable text), and the room votes the funniest. 10-story pool
-   sampled per play. ⏳ **`split` block** → Split the Room is next.
+   sampled per play. ✅ **`split` block** → **Split the Room** (shipped): complete a
+   dividing "would you...?" dilemma, the room votes yes/no on every scenario, and
+   authors score on closeness to a 50/50 split (`closenessToHalf`/`splitPoints`).
 5. ⏳ **Audio layer** + **Robot Rap Battle** (TTS performance + head-to-head vote
    mode). **Content pools** are in place (`buildConfig` + `seededShuffle`); Quip
    Clash already samples a 24-prompt pool per play.
