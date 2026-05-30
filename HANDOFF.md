@@ -6,17 +6,17 @@ _Last updated: 2026-05-30. Branch: `main` (the scaffold was merged to `main`; wo
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **82 tests pass (+1 opt-in live test), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop is **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + player through a full game, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable, and a markdown importer builds whole games from an LLM-written spec. Multiple audit rounds ran (incl. an independent security + correctness pass); findings are fixed. The UI is mobile-responsive (verified no overflow at 360/390px) and free of em dashes.
+A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **108 tests pass (+2 opt-in live tests), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop and the new **two-phase (make→judge) loop** are **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + players through a full game, the Pixi Draw canvas, Quip Clash, and auth→editor→save). Authored games **persist** and are shareable, and a markdown importer builds whole games from an LLM-written spec. Multiple audit rounds ran (incl. independent security/correctness passes and a flagship-code audit); findings are fixed. The UI is mobile-responsive (verified no overflow at 360/390px) and free of em dashes. The first **flagship game (Quip Clash)** and the engine primitive behind it (**runtime-derived round content**) are live; the catalog UI (explore + footer) was rebuilt from `doot-mockup.html`.
 
 **The full user loop works today:** open `/`, pick a type → edit rounds in the schema-driven editor → **Host now** (ephemeral) or **Save** for a shareable `/g/<id>` link → host on a big screen → players join from phones over the relay → play → animated results. Hosting and playing never need an account; **saving** uses an optional account (email/password, argon2id) and each saved game has a **visibility**: private (owner only), unlisted (anyone with the link), or public (also listed on `/explore`). Zero DB setup, accounts and games live in a local SQLite file.
 
 | Package | State |
 | --- | --- |
-| `@doot-games/engine` | Done + tested. Room runtime, phase/round state machine, reconnect-by-name identity (via `relay.get`), late-joiner eligibility, CLASP wrapper, answer withholding, reactive `useDootRoom`. |
-| `@doot-games/sdk` | Done. The **block** contract (`RoundBlock` + `defineBlock`) and the **composition** contract (`GamePlugin` + `defineGame`), Zod manifest, round primitives, results types. |
+| `@doot-games/engine` | Done + tested. Room runtime, phase/round state machine, reconnect-by-name identity (via `relay.get`), late-joiner eligibility, CLASP wrapper, answer withholding, reactive `useDootRoom`, and **runtime-derived round content** (`roundContent`/`roundReveal` + `deriveContent`/`revealSummary` host callbacks) for two-phase games. |
+| `@doot-games/sdk` | Done. The **block** contract (`RoundBlock` + `defineBlock`, incl. `derive`/`revealSummary`/`PlayerReveal`) and the **composition** contract (`GamePlugin` + `defineGame`, incl. `buildConfig` content pools, `RoundInstance.from`), Zod manifest, round primitives, results types. |
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
-| `@doot-games/ui` | Done. Theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm`) + the **Pixi drawing surface** (`DrawCanvas`) and SVG gallery thumbnail (`DrawThumb`). |
-| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank/**draw**), the generic renderer, seven games (Guess, Rate, Poll, Rank, Draw, VoteBox, **Custom** = all blocks), and a **markdown game parser** (`parseMarkdownGame`). |
+| `@doot-games/ui` | Done. Theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm`) + the **Pixi drawing surface** (`DrawCanvas`) and SVG gallery thumbnail (`DrawThumb`) + **`GameCover`** (gradient covers with per-type motifs) and **`SiteFooter`**. |
+| `@doot-games/games` | Done + tested. Blocks (guess/rate/poll/rank/**draw**/**quip**/**vote**), the generic renderer, the **two-phase derive wiring** + a pure tested **`scoring.ts`** (vote-share, multiplier, sweep/pity, closeness, speed-decay), **eight games** (Guess, Rate, Poll, Rank, Draw, VoteBox, **Quip Clash** flagship, **Custom**), and a **markdown game parser** (`parseMarkdownGame`). |
 | `apps/web` | Builds + **deployed**. Home/explore/create + host/play + the **editor** (`/editor/<type>` new, `/editor/g/<id>` to **edit-in-place or fork**, with **Import from Markdown** and a Details panel for cover image / description / tags / forkable) + **persistence** (`/api/games` create/get/list/**put**/patch/delete, owner-scoped, visibility + answer-redaction enforced) + **auth** (`better-auth` + argon2id) + presigned image **uploads** (live, to the `doot` Space; the Upload button shows on every image field). Mobile-responsive. |
 
 ## The architecture (read this first)
@@ -37,7 +37,7 @@ No game imports another. New game = compose blocks. New round kind = one block. 
 ```bash
 pnpm install
 pnpm dev          # http://localhost:3000  (uses the public relay; no DB needed)
-pnpm test         # 82 tests (+1 live test, skipped unless DOOT_LIVE=1)
+pnpm test         # 108 tests (+2 live tests, skipped unless DOOT_LIVE=1)
 pnpm -r typecheck # all packages, incl. nuxi typecheck of apps/web
 pnpm --filter @doot-games/web build
 
@@ -153,9 +153,49 @@ Still deferred (low value): the dead per-round answer publish (a write-only rela
 
 ## Suggested next step
 
-**Doot is live at https://doot.games** with git-push CI/CD (SHA-pinned, non-root deploy user + non-root container), working CDN-served uploads, seven games, markdown import, full game editing/cloning/forking with cover/description/tags, per-game themes, host-gone detection, rate-limiting, account management, and a responsive UI. The platform is solid; **the next push is content and depth** (below). Smaller polish items still open: a **two-phone test on real devices** (touch + QR join), **OAuth / magic-link** (better-auth config), **Postgres** for multi-instance scale, and **upload hardening** (presigned-POST size policy).
+**Doot is live at https://doot.games** with git-push CI/CD (SHA-pinned, non-root deploy user + non-root container), working CDN-served uploads, eight games (incl. the **Quip Clash** flagship), markdown import, full game editing/cloning/forking with cover/description/tags, per-game themes, host-gone detection, rate-limiting, account management, and a responsive UI (explore + footer rebuilt from the mockup). The platform is solid; **the next push is more flagship content and depth** (below). Smaller polish items still open: a **two-phone test on real devices** (touch + QR join), **OAuth / magic-link** (better-auth config), **Postgres** for multi-instance scale, and **upload hardening** (presigned-POST size policy).
 
 ## Next phase: flagship games & replayable content
+
+**Progress (merged to `main` and deployed).** The design doc + contract is
+[`docs/flagship-games.md`](./docs/flagship-games.md) (research synthesis, the
+proposed slate, the signed-off contract). **Shipped + verified (108 tests, full
+typecheck + web build, real-relay two-phase live test, 3-player real-browser playtest):**
+- The **runtime-derived-content engine primitive** (the one hard piece): new relay
+  addresses `roundContent`/`roundReveal`, two optional host callbacks on
+  `LoadedGame` (`deriveContent`/`revealSummary`), derive-on-enter + reveal publish,
+  runtime answer keys. No new phase states; the two-phase loop is a composition of
+  ordinary rounds. Submissions stay off the relay until the anonymized vote opens;
+  the author map is withheld until reveal (unit-tested over the wire fake).
+- **SDK contract**: `derive`/`revealSummary`/`PlayerReveal`/`assignment` on a block,
+  `RoundInstance.from`, `GamePlugin.buildConfig`. `PlayerReveal` also closes the
+  polish gap (phones now show personal reveal feedback, not just the big screen).
+- **`quip` + `vote` blocks** + a pure, tested `scoring.ts` (vote-share, round
+  multiplier, sweep/pity, closeness-to-50/50, Kahoot speed-decay) → **Quip Clash**,
+  the first flagship: a fill-the-blank prompt → free-text answer → derived
+  anonymized vote → score by vote share. Ships with a 24-prompt pool sampled per
+  play (`buildConfig` + a seeded shuffle). Registered in the catalog.
+
+**Audit + tests + UI pass (shipped together):**
+- An independent adversarial code audit + a Jackbox robustness/a11y research pass ran
+  against Quip Clash. **Verified:** withholding, anonymized vote content, author-map
+  withheld until reveal, relay-only state, reconnect-to-derived-round, final-round
+  doubling — all re-confirmed **over the real CLASP relay** by a new two-phase live test.
+- **Fixed:** self-votes can't score (enforced in the pure tally, not just UI); a player
+  who submits then leaves still scores and is named (leaderboard = roster ∪ scorers,
+  names captured at derive time); degenerate (&lt;2 answers) vote round handled;
+  `aria-live` + `overflow-wrap`; `assignment`/`promptFor` marked reserved.
+- **Tests:** 108 offline (+2 live, opt-in) pass — added vote self-vote/doubling/empty/
+  duplicate/departed-author cases, engine reconnect-to-derived-round, derive-helper +
+  seeded-shuffle tests, and a live two-phase relay test. Full typecheck + web build green.
+- **UI rebuilt from `doot-mockup.html`:** a theme-aware `GameCover` (gradient + per-type
+  motif), a site-wide `SiteFooter`, and a new **explore page** (DISCOVER header, search,
+  Type/Theme filter chips, featured hero, cover-card grid). See doc §6 (audit + research
+  roadmap: timeout safety net, untimed mode, content filters, audience bloc) and §7 (UI).
+
+**Next (build order in the doc §4):** `fill`→Mad Libs, `split`→Split the Room,
+audio layer + Robot Rap Battle (TTS + head-to-head vote mode), then the "Games
+From Doot" `/explore` category. Polish-pass findings are in the doc §5.
 
 The big direction now is a slate of polished, replayable, Jackbox-grade games under a "**Games From Doot**" banner, plus the engine/SDK extensions they need. The full brief is the kickoff prompt below; the engineering shape:
 
@@ -175,13 +215,25 @@ The big direction now is a slate of polished, replayable, Jackbox-grade games un
 
 ## Fresh-session kickoff prompt
 
-Paste this into a new session to onboard the next agent on the flagship-games phase:
+Paste this into a new session to onboard the next agent on the flagship-games phase.
+
+**Status (so the next agent doesn't redo shipped work):** steps 1–3 of the mission
+below are **done and live** — the polish sweep, the research (`docs/flagship-games.md`),
+the engine/SDK extensions (the **runtime-derived-content** primitive, `quip`/`vote`
+blocks, scoring knobs, content pools), and the first flagship **Quip Clash**. The
+explore page + footer were rebuilt from the mockup. **Remaining (step 4+):** `fill`→
+Anonymous Mad Libs, `split`→Split the Room, the **audio layer** + Robot Rap Battle
+(TTS performance + the `vote` block's `head-to-head` mode, not yet built), the research-
+backed robustness items (timeout safety net, untimed mode, content filters, audience
+bloc — doc §6), and the **"Games From Doot" category** (step 5). Quip Clash currently
+uses **field voting**; true Quiplash per-player prompts need `assignment`/`promptFor`
+(RESERVED in the SDK, unwired).
 
 > You're picking up **Doot**, a live party-game platform (host on a big screen, players join from phones over the CLASP relay). Live at https://doot.games; repo `virgilvox/doot-games`; trunk `main` (every push to `main` deploys via CI). It's built and solid; this phase is about **content and depth**.
 >
 > **Read first, in order:** `HANDOFF.md` (state + the "Next phase: flagship games" section), `CLAUDE.md` (invariants, read fully), `docs/authoring-a-game.md` (the block model), `Doot-PRD.md`. Design source of truth: `doot-mockup.html`.
 >
-> **Hard rules:** no AI attribution in commits (no "Generated with" / `Co-Authored-By`); games are **blocks + compositions** (a block = a round kind with content schema + Player/Host views + `aggregate` + answer-withholding; a game = manifest + ordered `{block, content}`; never make one game import another); ephemeral state lives on the relay only (nothing about a live room touches the DB); answers/submissions withheld until reveal; identity is reconnect-by-name; **CSS-first animation** (Pixi only for canvas-heavy bits). Verify every change with `pnpm test && pnpm -r typecheck && pnpm --filter @doot-games/web build` (currently 84 tests green). Keep `main` deployable; ship small verified increments.
+> **Hard rules:** no AI attribution in commits (no "Generated with" / `Co-Authored-By`); games are **blocks + compositions** (a block = a round kind with content schema + Player/Host views + `aggregate` + answer-withholding; a game = manifest + ordered `{block, content}`; never make one game import another); ephemeral state lives on the relay only (nothing about a live room touches the DB); answers/submissions withheld until reveal; identity is reconnect-by-name; **CSS-first animation** (Pixi only for canvas-heavy bits). Verify every change with `pnpm test && pnpm -r typecheck && pnpm --filter @doot-games/web build` (currently 108 tests green). Keep `main` deployable; ship small verified increments.
 >
 > **Mission: build a slate of flagship, replayable "Games From Doot."** Work in this order:
 >

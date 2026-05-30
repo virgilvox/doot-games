@@ -76,6 +76,67 @@ async function corePlayLoop(browser) {
   results.push('core-play-loop')
 }
 
+async function quipClashLoop(browser) {
+  step('Quip Clash: 3 players write + vote through the two-phase (make -> judge) loop')
+  const host = await (await browser.newContext()).newPage()
+  await host.goto(`${BASE}/host/quip-clash`)
+  await host.waitForSelector('.code', { timeout: 40000 })
+  const code = (await host.textContent('.code')).trim()
+  ok(`host room code = ${code}`)
+
+  const names = ['Ana', 'Ben', 'Cat']
+  const players = []
+  for (const n of names) {
+    const p = await (await browser.newContext()).newPage()
+    await p.goto(`${BASE}/play/${code}`)
+    await p.waitForSelector('input', { timeout: 40000 })
+    await p.fill('input[placeholder="e.g. Robin"]', n)
+    await p.click('button:has-text("Join game")')
+    await p.waitForSelector('text=You are in', { timeout: 40000 })
+    players.push(p)
+  }
+  ok('3 players joined')
+
+  await host.click('button:has-text("Start game")')
+  let sawQuip = false
+  let sawVote = false
+  for (let guard = 0; guard < 12; guard++) {
+    await host.waitForSelector('button:has-text("Open voting")', { timeout: 40000 })
+    await host.click('button:has-text("Open voting")')
+    // Detect the round kind from the first player's input surface.
+    await players[0].waitForSelector('.quip-input, .opt', { timeout: 40000 })
+    const kind = (await players[0].locator('.quip-input').count()) ? 'quip' : 'vote'
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i]
+      await p.waitForSelector('.quip-input, .opt', { timeout: 40000 })
+      if (kind === 'quip') {
+        await p.fill('.quip-input', `${names[i]} thinks thing number ${guard}`)
+      } else {
+        await p.locator('.opt').first().click()
+      }
+      await p.click('button:has-text("Lock it in")')
+    }
+    if (kind === 'quip') sawQuip = true
+    else sawVote = true
+    ok(`round ${guard} (${kind}): all 3 players submitted`)
+
+    await host.waitForSelector('button:has-text("Lock voting")', { timeout: 40000 })
+    await host.click('button:has-text("Lock voting")')
+    await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })
+    await host.click('button:has-text("Reveal")')
+    await host.waitForSelector('button:has-text("Next round"), button:has-text("Final results")', { timeout: 40000 })
+    if (await host.locator('button:has-text("Final results")').count()) {
+      await host.click('button:has-text("Final results")')
+      break
+    }
+    await host.click('button:has-text("Next round")')
+  }
+  if (!sawQuip || !sawVote) throw new Error(`did not see both phases (quip=${sawQuip}, vote=${sawVote})`)
+  await host.waitForSelector('text=/wins|results are in/i', { timeout: 40000 })
+  ok('two-phase loop ran (write + vote) and reached final results')
+  results.push('quip-clash')
+}
+
 async function drawCanvas(browser) {
   step('Draw block: player sketches on the Pixi canvas, host gallery fills in')
   const host = await (await browser.newContext()).newPage()
@@ -136,7 +197,7 @@ async function authEditorSave(browser) {
 
 const browser = await chromium.launch()
 try {
-  for (const scenario of [corePlayLoop, drawCanvas, authEditorSave]) {
+  for (const scenario of [corePlayLoop, quipClashLoop, drawCanvas, authEditorSave]) {
     try {
       await scenario(browser)
     } catch (e) {
@@ -146,5 +207,5 @@ try {
 } finally {
   await browser.close()
 }
-console.log(`\nPASSED ${results.length}/3 scenarios: ${results.join(', ') || '(none)'}`)
-process.exit(results.length === 3 ? 0 : 1)
+console.log(`\nPASSED ${results.length}/4 scenarios: ${results.join(', ') || '(none)'}`)
+process.exit(results.length === 4 ? 0 : 1)
