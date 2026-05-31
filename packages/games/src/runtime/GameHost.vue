@@ -8,7 +8,7 @@ import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
-import { computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, scoreGame } from './derive'
 
@@ -30,6 +30,16 @@ const roundChoices = computed(() => {
   for (let n = roundConfig.min; n <= roundConfig.max; n++) out.push(n)
   return out
 })
+
+// Optional soft player cap, set from the lobby. A reconnecting name still gets in.
+const playerCap = inject<Ref<number | null>>('dootPlayerCap', ref(null))
+function toggleCap(on: boolean) {
+  playerCap.value = on ? 20 : null
+}
+function setCap(raw: string) {
+  const n = Math.floor(Number(raw))
+  playerCap.value = Number.isFinite(n) && n > 0 ? n : null
+}
 
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
@@ -214,6 +224,26 @@ function startVote() {
           </button>
         </div>
       </div>
+      <div class="cap-pick">
+        <label class="cap-row">
+          <input
+            type="checkbox"
+            :checked="playerCap != null"
+            @change="toggleCap(($event.target as HTMLInputElement).checked)"
+          />
+          <span class="kicker">Limit how many can join</span>
+        </label>
+        <input
+          v-if="playerCap != null"
+          type="number"
+          min="1"
+          inputmode="numeric"
+          class="cap-input"
+          :value="playerCap ?? 20"
+          aria-label="Maximum players"
+          @input="setCap(($event.target as HTMLInputElement).value)"
+        />
+      </div>
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="!config" @click="room.host.start()">
           Start game
@@ -343,6 +373,27 @@ function startVote() {
   background: var(--primary);
   color: var(--primary-ink);
   border-color: var(--line);
+}
+.cap-pick {
+  margin-top: 16px;
+}
+.cap-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.cap-input {
+  display: block;
+  margin-top: 8px;
+  width: 110px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
 }
 .lobby-actions {
   margin-top: 18px;

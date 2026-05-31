@@ -17,7 +17,7 @@ import {
   redactGameConfig,
 } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
-import { computed, provide, reactive, watch } from 'vue'
+import { computed, provide, reactive, ref, watch } from 'vue'
 
 import type { GameComposition, ScorePlayer } from '@doot-games/sdk'
 
@@ -65,6 +65,14 @@ const usesPool = !props.config && !fromDraft && !!game.buildConfig
 const roundConfig =
   usesPool && game.roundOptions ? reactive({ ...game.roundOptions, value: game.roundOptions.default }) : null
 provide('dootRoundConfig', roundConfig)
+
+// Optional soft player cap, set by the host from the lobby. Changing it republishes
+// meta so the join screen can turn away a new player once the room is at the cap.
+const playerCap = ref<number | null>(null)
+provide('dootPlayerCap', playerCap)
+watch(playerCap, (cap) => {
+  if (room.phase.value === 'lobby') room.host.setPlayerCap(cap)
+})
 
 function resolveConfig(): GameComposition {
   if (props.config) return props.config

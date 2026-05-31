@@ -293,6 +293,42 @@ describe('RoomRuntime.probePresence (A5)', () => {
   })
 })
 
+describe('RoomRuntime player cap (A8)', () => {
+  it('stamps a player cap into meta and republishes it, and clears it', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.loadGame(GAME)
+
+    host.setPlayerCap(8)
+    expect((hub.store.get(addr.meta('ABCD')) as { playerCap?: number }).playerCap).toBe(8)
+
+    host.setPlayerCap(null)
+    expect((hub.store.get(addr.meta('ABCD')) as { playerCap?: number }).playerCap).toBeUndefined()
+  })
+
+  it('counts only live players for the soft-cap join probe, ignoring stale pings', async () => {
+    const hub = new FakeHub()
+    const t = 30_000
+    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Live1')), 30_000)
+    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Live2')), 29_000)
+    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Gone')), 1_000) // older than the window
+    const relay = new FakeRelayClient(hub)
+    const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => t, 5)
+    expect(count).toBe(2)
+  })
+
+  it('probeLiveCount resolves 0 when subscribing throws (fail-open)', async () => {
+    const hub = new FakeHub()
+    const relay = new FakeRelayClient(hub)
+    relay.on = () => {
+      throw new Error('relay down')
+    }
+    const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => 1_000, 5)
+    expect(count).toBe(0)
+  })
+})
+
 describe('RoomRuntime host presence', () => {
   it('publishes host liveness and players detect a vanished host', async () => {
     const hub = new FakeHub()

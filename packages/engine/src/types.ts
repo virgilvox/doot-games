@@ -61,4 +61,8 @@ export interface RoomMeta {
   themeId: string
   themeOverrides?: Record<string, string>
   musicUrl?: string | null
+  /** Optional soft cap on players, set by the host in the lobby. The join screen
+   *  reads it and turns away a new player past the cap (a reconnecting name still
+   *  gets in). Absent/0 means no cap. */
+  playerCap?: number | null
 }

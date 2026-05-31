@@ -205,6 +205,49 @@ export class RoomRuntime {
     return { id, present, hasProfile }
   }
 
+  /**
+   * Count players currently live in a room (a heartbeat within the presence
+   * window), for a soft pre-join capacity check. Subscribes briefly to the ping
+   * addresses, collects the retained snapshots the relay delivers on subscribe,
+   * then resolves the count. Fail-open: resolves 0 on any error, so a flaky relay
+   * never wrongly turns a player away.
+   */
+  static probeLiveCount(
+    relay: RelayClient,
+    room: string,
+    now: () => number = Date.now,
+    windowMs = 600,
+  ): Promise<number> {
+    return new Promise((resolve) => {
+      const pings = new Map<string, number>()
+      let unsub: Unsubscribe | null = null
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        try {
+          unsub?.()
+        } catch {
+          /* ignore */
+        }
+        const t = now()
+        let n = 0
+        for (const ms of pings.values()) if (t - ms < PRESENCE_WINDOW_MS) n++
+        resolve(n)
+      }
+      try {
+        unsub = relay.on(patterns.playerPing(room), (v, a) => {
+          const pid = pidFromPlayerAddress(a)
+          if (pid) pings.set(pid, Number(v))
+        })
+      } catch {
+        resolve(0)
+        return
+      }
+      setTimeout(finish, windowMs)
+    })
+  }
+
   // ---- lifecycle -----------------------------------------------------------
 
   async connect(): Promise<void> {
@@ -591,6 +634,18 @@ export class RoomRuntime {
     // If we're already connected, publish meta immediately so lobby joiners see
     // it; otherwise connect() will publish it once the socket is up.
     if (this.connected) this.publishMetaIfLoaded()
+    this.emit()
+  }
+
+  /** Set or clear the soft player cap and republish meta so the join screen,
+   *  which reads `meta.playerCap`, can turn away players past it. Lobby control. */
+  setPlayerCap(cap: number | null): void {
+    this.assertHost()
+    const base = this.meta ?? this.game?.meta
+    if (!base) return
+    this.meta = { ...base, playerCap: cap && cap > 0 ? cap : undefined }
+    if (this.game) this.game = { ...this.game, meta: this.meta }
+    this.publish(addr.meta(this.room), this.meta as unknown as RelayValue)
     this.emit()
   }
 

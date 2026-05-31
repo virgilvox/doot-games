@@ -100,6 +100,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
       reveal: () => runtime.reveal(),
       next: () => runtime.next(),
       finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
+      setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
       can: (action: HostAction['type']) => runtime.can(action),
     },
   }

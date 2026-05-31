@@ -9,12 +9,13 @@ const props = withDefaults(
     initialCode?: string
     initialName?: string
     /**
-     * Optional pre-join check: is this name already live in the room? Identity is
-     * derived from room + name, so two people typing the same name would collide
-     * onto one identity. The app supplies this (it owns the relay); it must fail
-     * open (a flaky relay should never block a join). Returns `{ present }`.
+     * Optional pre-join check supplied by the app (which owns the relay). Reports
+     * whether this name is already live in the room (identity is derived from room
+     * + name, so two people under one name would collide onto one identity), and
+     * whether the room is at its host-set player cap. Must fail open (a flaky relay
+     * should never block a join). Returns `{ present, full }`.
      */
-    probe?: (code: string, name: string) => Promise<{ present: boolean }>
+    probe?: (code: string, name: string) => Promise<{ present: boolean; full?: boolean }>
   }>(),
   { initialCode: '', initialName: '', probe: undefined },
 )
@@ -27,6 +28,8 @@ const checking = ref(false)
 // A name that is already live in the room: we warn rather than silently colliding
 // the two players onto one identity, but still let a genuine reconnect proceed.
 const nameTaken = ref(false)
+// The room is at the host's player cap (a reconnecting name still gets in).
+const roomFull = ref(false)
 
 // Land the cursor where the player actually needs to type: if they arrived via a
 // QR scan / deep link the code is already filled, so jump straight to the name;
@@ -64,18 +67,31 @@ async function submit() {
   }
   checking.value = true
   let present = false
+  let full = false
   try {
     const res = await props.probe(v.code, v.name)
     present = res.present
+    full = !!res.full
   } catch {
     present = false // fail open: a relay hiccup must never stop someone joining
+    full = false
   }
   checking.value = false
+  if (full) {
+    roomFull.value = true
+    return
+  }
   if (present) {
     nameTaken.value = true
     return
   }
   emit('join', v)
+}
+
+/** Re-check after a "room is full" (in case someone has since left). */
+function tryAgain() {
+  roomFull.value = false
+  void submit()
 }
 
 /** "That's me, reconnect": skip the warning and join under the same name. */
@@ -94,6 +110,7 @@ function pickAnother() {
 /** Editing the name invalidates a prior "taken" warning; re-check on next submit. */
 function onNameInput() {
   if (nameTaken.value) nameTaken.value = false
+  if (roomFull.value) roomFull.value = false
 }
 </script>
 
@@ -129,9 +146,15 @@ function onNameInput() {
         @keyup.enter="submit"
       />
     </label>
-    <DButton v-if="!nameTaken" variant="primary" type="submit" block :disabled="checking">
+    <DButton v-if="!nameTaken && !roomFull" variant="primary" type="submit" block :disabled="checking">
       {{ checking ? 'Checking…' : 'Join game' }}
     </DButton>
+    <div v-if="roomFull" class="taken" role="alert">
+      <p class="taken-msg">This room is full. Ask the host to raise the limit, then try again.</p>
+      <DButton variant="primary" type="button" block :disabled="checking" @click="tryAgain">
+        {{ checking ? 'Checking…' : 'Try again' }}
+      </DButton>
+    </div>
     <div v-if="nameTaken" class="taken" role="alert">
       <p class="taken-msg">That name is already in this room. Pick another, or reconnect if it's you.</p>
       <DButton variant="primary" type="button" block @click="pickAnother">Pick a different name</DButton>
