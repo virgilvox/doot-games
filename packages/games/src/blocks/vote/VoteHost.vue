@@ -6,7 +6,8 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import { computed } from 'vue'
+import { cancelSpeech, speakLines } from '@doot-games/ui'
+import { computed, onUnmounted, ref } from 'vue'
 import type { VoteContent, VoteInput, VoteRevealSummary } from './block'
 
 const props = defineProps<{
@@ -58,15 +59,57 @@ const rows = computed<Row[]>(() => {
     .sort((a, b) => b.votes - a.votes)
 })
 const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
+
+// "Perform the bars": robots read each answer aloud (the rap-battle moment).
+// Opt-in via `content.perform`; client-only TTS that no-ops where unavailable,
+// so the vote flow never depends on it. Highlight the verse being performed.
+const canPerform = computed(() => !!props.content.perform && !revealed.value && rows.value.length >= 2)
+const performing = ref(false)
+const currentId = ref<string | null>(null)
+let stopFn: (() => void) | null = null
+function perform() {
+  // Snapshot the current order so live votes re-sorting the rows can't make the
+  // highlight jump mid-performance.
+  const snapshot = rows.value.map((r) => ({ id: r.id, text: r.text }))
+  performing.value = true
+  stopFn = speakLines(
+    snapshot.map((r) => r.text),
+    {
+      onLine: (i) => {
+        currentId.value = snapshot[i]?.id ?? null
+      },
+      onDone: () => {
+        performing.value = false
+        currentId.value = null
+        stopFn = null
+      },
+    },
+  )
+}
+function stopPerform() {
+  stopFn?.()
+  stopFn = null
+  performing.value = false
+  currentId.value = null
+}
+onUnmounted(() => cancelSpeech())
 </script>
 
 <template>
   <div class="vote-host">
+    <div v-if="canPerform" class="perform-bar">
+      <button type="button" class="perform-btn" :class="{ on: performing }" @click="performing ? stopPerform() : perform()">
+        <span v-if="!performing">&#9654; Perform the bars</span>
+        <span v-else>&#9632; Stop</span>
+      </button>
+      <span v-if="performing" class="beat" aria-hidden="true"><i /><i /><i /><i /></span>
+      <span class="perform-hint">{{ performing ? '🎤 The robots are spitting bars…' : 'Let the robots rap each verse, then vote.' }}</span>
+    </div>
     <p v-if="rows.length < 2" class="degenerate">
       Not enough answers to vote on this round. Skip ahead.
     </p>
     <ul v-else class="rows">
-      <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner }">
+      <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner, performing: r.id === currentId }">
         <span class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
         <span class="text">
           <span v-if="r.winner" class="crown" aria-label="winner">&#127942;</span>{{ r.text }}
@@ -101,6 +144,72 @@ const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
 .row.winner {
   border-color: var(--c5);
   background: color-mix(in srgb, var(--c5) 14%, var(--surface-2));
+}
+.row.performing {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+  transform: scale(1.015);
+}
+/* Perform-the-bars control + beat indicator. */
+.perform-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.perform-btn {
+  border: var(--bd) solid var(--line);
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.perform-btn.on {
+  background: var(--ink);
+  color: var(--bg);
+}
+.perform-hint {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 14px;
+}
+.beat {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+}
+.beat i {
+  width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--primary);
+  transform-origin: bottom;
+  animation: beat 0.6s ease-in-out infinite;
+}
+.beat i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.beat i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.beat i:nth-child(4) {
+  animation-delay: 0.45s;
+}
+@keyframes beat {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 .fill {
   position: absolute;

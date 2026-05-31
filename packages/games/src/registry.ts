@@ -3,6 +3,7 @@
  * composite. All are block compositions, no game depends on another.
  */
 import type { GamePlugin } from '@doot-games/sdk'
+import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
 import { draw } from './games/draw'
 import { guess } from './games/guess'
@@ -24,6 +25,7 @@ export const builtinPlugins: GamePlugin[] = [
   quipClash,
   madLibs,
   splitRoom,
+  circuitCypher,
   custom,
 ]
 

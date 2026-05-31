@@ -26,6 +26,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer. The room writes the jokes.' },
   { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill in a story's blanks, then vote for the funniest tale. Nobody sees the sentence until the reveal." },
   { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Complete a "would you...?" dilemma, then the room votes yes or no. Score by dividing the room 50/50.' },
+  { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.1.0', flagship: true, description: 'A robot rap battle: fill the blanks in a verse, let the robots perform the bars, then vote for the hottest flow.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

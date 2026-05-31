@@ -38,6 +38,9 @@ export { type GameVisual, type IconName, gameVisual } from './visuals'
 // Image uploads (capability the app injects; ImageField falls back to URL)
 export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'
 
+// Audio (client-only robot TTS for the rap-battle performance)
+export { type SpeakOptions, canSpeak, cancelSpeech, speakLines } from './audio/speech'
+
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'
 export { default as DrawThumb } from './components/DrawThumb.vue'

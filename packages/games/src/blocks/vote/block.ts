@@ -42,6 +42,10 @@ export const voteContentSchema = z.object({
     .nullable()
     .default(30)
     .describe('Seconds to vote. Turn off for an untimed round.'),
+  perform: z
+    .boolean()
+    .default(false)
+    .describe('Have robots read each answer aloud (a "performance") before the room votes. Powers the rap battle.'),
 })
 export type VoteContent = z.infer<typeof voteContentSchema>
 export interface VoteInput {
@@ -88,7 +92,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   // The options are built at runtime from the previous round's answers, so the
   // editor hides the `options` field instead of asking for placeholder ids/text.
   derivedFields: ['options'],
-  defaultContent: () => ({ prompt: 'Which answer wins?', options: [], mode: 'field', timer: 30 }),
+  defaultContent: () => ({ prompt: 'Which answer wins?', options: [], mode: 'field', timer: 30, perform: false }),
   defaultTimer: 30,
   timerOf: (c) => c.timer,
   emptyInput: () => ({ choice: '' }),
@@ -100,7 +104,12 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   // Build the anonymized, shuffled vote options from the prior round's answers.
   derive: (ctx: DeriveContext<VoteContent>) => {
     const source = ctx.sources[0]
-    const sourcePrompt = (source?.content as { prompt?: string } | undefined)?.prompt
+    // Frame the vote with the source's prompt only when that prompt is the topic
+    // itself (a quip: "A bad name for a boat"). A fill round's prompt is an
+    // instruction ("Fill in the blanks"), not a topic, so for those keep the
+    // vote round's own authored prompt (e.g. "Funniest story wins").
+    const sourceContent = source?.content as { prompt?: string; template?: string } | undefined
+    const sourcePrompt = sourceContent && !sourceContent.template ? sourceContent.prompt : undefined
     const entries: Array<{ pid: string; text: string }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {
@@ -124,6 +133,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         options,
         mode: ctx.content.mode,
         timer: ctx.content.timer,
+        perform: ctx.content.perform,
       },
       answer: { authors, names } satisfies VoteAnswer,
     }

@@ -317,11 +317,18 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
    sampled per play. ✅ **`split` block** → **Split the Room** (shipped): complete a
    dividing "would you...?" dilemma, the room votes yes/no on every scenario, and
    authors score on closeness to a 50/50 split (`closenessToHalf`/`splitPoints`).
-5. ⏳ **Audio layer** + **Circuit Cypher** (TTS performance + head-to-head vote
-   mode). The audio layer includes the **Tone.js generated-beat fallback** (§3.6):
-   when no `musicUrl` is configured, synthesize a fitting loop rather than play
-   silent. **Content pools** are in place (`buildConfig` + `seededShuffle`); Quip
-   Clash already samples a 24-prompt pool per play.
+5. ✅ **Circuit Cypher** (shipped): the robot rap battle, a first-party flagship
+   composing `fill` (rap verses, `showTemplate` on so players can rhyme) → a
+   `vote` round with the new opt-in **`perform`** flag. When `perform` is set, the
+   big-screen vote view shows a **"Perform the bars"** control that has the robots
+   read each verse aloud via the browser `speechSynthesis` API (client-only,
+   SSR-guarded, a clean no-op where TTS is missing) over a CSS beat, then the room
+   votes. A 10-verse pool is sampled per play (`buildConfig`); host-pickable verse
+   count. Registered in `registry.ts`/`catalog.ts`/`visuals.ts` (a `mic` icon), so
+   it appears under Games From Doot and hosts directly — not a plugin, not
+   custom-only. ⏳ **Still to layer on:** head-to-head vote mode (it currently uses
+   the proven `field` vote) and the **Tone.js generated-beat fallback** (§3.6) for
+   when no `musicUrl` is configured.
 6. ⏳ **Fib Finder** and **Sketch & Spot** (cheap, reuse `vote`).
 7. ⏳ **"Games From Doot" category** on `/explore` + the catalog.
 8. ⏳ **The Big Reveal** (live feed channel) - the stretch capstone.

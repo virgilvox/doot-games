@@ -76,10 +76,14 @@ async function corePlayLoop(browser) {
   results.push('core-play-loop')
 }
 
-async function quipClashLoop(browser) {
-  step('Quip Clash: 3 players write + vote through the two-phase (make -> judge) loop')
+// Drive any two-phase (make -> judge) flagship: a make round (quip free-text or
+// fill blanks) feeds a vote round derived from it. Make rounds label the controls
+// "Collect/Lock answers" then "Start the vote →"; judge rounds say "Open/Lock
+// voting" then "Reveal". Detects the round kind from the player's input surface.
+async function twoPhaseLoop(browser, { gameId, tag }) {
+  step(`${gameId}: 3 players write + vote through the two-phase (make -> judge) loop`)
   const host = await (await browser.newContext()).newPage()
-  await host.goto(`${BASE}/host/quip-clash`)
+  await host.goto(`${BASE}/host/${gameId}`)
   await host.waitForSelector('.code', { timeout: 40000 })
   const code = (await host.textContent('.code')).trim()
   ok(`host room code = ${code}`)
@@ -98,29 +102,34 @@ async function quipClashLoop(browser) {
   ok('3 players joined')
 
   await host.click('button:has-text("Start game")')
-  let sawQuip = false
+  let sawMake = false
   let sawVote = false
-  for (let guard = 0; guard < 12; guard++) {
-    // Make rounds (quip) label the controls "Collect/Lock answers" and collapse
-    // reveal into "Start the vote →"; judge rounds (vote) say "Open/Lock voting"
-    // then "Reveal". Drive whichever pair is present.
+  for (let guard = 0; guard < 16; guard++) {
     await host.waitForSelector('button:has-text("Collect answers"), button:has-text("Open voting")', { timeout: 40000 })
     await host.locator('button:has-text("Collect answers"), button:has-text("Open voting")').first().click()
     // Detect the round kind from the first player's input surface.
-    await players[0].waitForSelector('.quip-input, .opt', { timeout: 40000 })
-    const kind = (await players[0].locator('.quip-input').count()) ? 'quip' : 'vote'
+    await players[0].waitForSelector('.quip-input, .fill-input, .opt', { timeout: 40000 })
+    const kind = (await players[0].locator('.quip-input').count())
+      ? 'quip'
+      : (await players[0].locator('.fill-input').count())
+        ? 'fill'
+        : 'vote'
     for (let i = 0; i < players.length; i++) {
       const p = players[i]
-      await p.waitForSelector('.quip-input, .opt', { timeout: 40000 })
+      await p.waitForSelector('.quip-input, .fill-input, .opt', { timeout: 40000 })
       if (kind === 'quip') {
         await p.fill('.quip-input', `${names[i]} thinks thing number ${guard}`)
+      } else if (kind === 'fill') {
+        const blanks = p.locator('.fill-input')
+        const count = await blanks.count()
+        for (let b = 0; b < count; b++) await blanks.nth(b).fill(`word${i}${b}`)
       } else {
         await p.locator('.opt').first().click()
       }
       await p.click('button:has-text("Lock it in")')
     }
-    if (kind === 'quip') sawQuip = true
-    else sawVote = true
+    if (kind === 'vote') sawVote = true
+    else sawMake = true
     ok(`round ${guard} (${kind}): all 3 players submitted`)
 
     await host.waitForSelector('button:has-text("Lock answers"), button:has-text("Lock voting")', { timeout: 40000 })
@@ -140,11 +149,14 @@ async function quipClashLoop(browser) {
     }
     await host.click('button:has-text("Next round")')
   }
-  if (!sawQuip || !sawVote) throw new Error(`did not see both phases (quip=${sawQuip}, vote=${sawVote})`)
+  if (!sawMake || !sawVote) throw new Error(`did not see both phases (make=${sawMake}, vote=${sawVote})`)
   await host.waitForSelector('text=/wins|results are in/i', { timeout: 40000 })
   ok('two-phase loop ran (write + vote) and reached final results')
-  results.push('quip-clash')
+  results.push(tag)
 }
+
+const quipClashLoop = (browser) => twoPhaseLoop(browser, { gameId: 'quip-clash', tag: 'quip-clash' })
+const circuitCypherLoop = (browser) => twoPhaseLoop(browser, { gameId: 'circuit-cypher', tag: 'circuit-cypher' })
 
 async function drawCanvas(browser) {
   step('Draw block: player sketches on the Pixi canvas, host gallery fills in')
@@ -204,9 +216,10 @@ async function authEditorSave(browser) {
   results.push('auth-editor-save')
 }
 
+const scenarios = [corePlayLoop, quipClashLoop, circuitCypherLoop, drawCanvas, authEditorSave]
 const browser = await chromium.launch()
 try {
-  for (const scenario of [corePlayLoop, quipClashLoop, drawCanvas, authEditorSave]) {
+  for (const scenario of scenarios) {
     try {
       await scenario(browser)
     } catch (e) {
@@ -216,5 +229,5 @@ try {
 } finally {
   await browser.close()
 }
-console.log(`\nPASSED ${results.length}/4 scenarios: ${results.join(', ') || '(none)'}`)
-process.exit(results.length === 4 ? 0 : 1)
+console.log(`\nPASSED ${results.length}/${scenarios.length} scenarios: ${results.join(', ') || '(none)'}`)
+process.exit(results.length === scenarios.length ? 0 : 1)

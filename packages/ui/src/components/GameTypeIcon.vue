@@ -29,6 +29,10 @@ const visual = computed(() => gameVisual(props.type))
       </template>
       <path v-else-if="visual.icon === 'check'" d="M5 12l5 5L20 6" />
       <path v-else-if="visual.icon === 'text'" d="M5 7h14M5 12h14M5 17h8" />
+      <template v-else-if="visual.icon === 'mic'">
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7" />
+      </template>
       <template v-else>
         <rect x="4" y="4" width="7" height="7" rx="1.6" />
         <rect x="13" y="4" width="7" height="7" rx="1.6" />
