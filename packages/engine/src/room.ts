@@ -15,6 +15,7 @@ import {
   parseRoundSubAddress,
   patterns,
   pidFromPlayerAddress,
+  roomBase,
 } from './addresses'
 import { computeJoinedAtIndex, isEligible } from './eligibility'
 import { playerId } from './identity'
@@ -606,6 +607,40 @@ export class RoomRuntime {
       index: this.state.round.index,
       nonce: this.controlNonce,
     })
+  }
+
+  // ---- custom channels (for custom-flow games) -----------------------------
+
+  /**
+   * Publish to a game-defined custom channel under `/<room>/x/<key>`. Lets a
+   * custom-flow game (the Circuit Cypher battle, live cheers, ...) drive its own
+   * state over the relay without bypassing the engine, TTL-scoped like everything
+   * else. Any role may publish.
+   */
+  publishExtra(key: string, value: RelayValue): void {
+    this.publish(addr.extra(this.room, key), value)
+  }
+
+  /**
+   * Subscribe to a custom channel; `keyPattern` may be multi-segment and contain
+   * `*`. The callback gets the value and the key suffix (the part after `/x/`).
+   * Tracked for teardown on dispose; the returned unsubscribe also removes it.
+   */
+  onExtra(keyPattern: string, cb: (value: RelayValue, key: string) => void): Unsubscribe {
+    const prefix = `${roomBase(this.room)}/x/`
+    const unsub = this.relay.on(addr.extra(this.room, keyPattern), (v, a) => {
+      cb(v, a.startsWith(prefix) ? a.slice(prefix.length) : a)
+    })
+    this.unsubs.push(unsub)
+    return () => {
+      const i = this.unsubs.indexOf(unsub)
+      if (i >= 0) this.unsubs.splice(i, 1)
+      try {
+        unsub()
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   private async ensureProfilePublished(): Promise<void> {

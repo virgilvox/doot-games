@@ -384,6 +384,33 @@ describe('RoomRuntime co-host / MC delegation (B9)', () => {
   })
 })
 
+describe('RoomRuntime custom channels (D13 battle transport)', () => {
+  it('publishes and reads a custom channel, with a wildcard and the key suffix', () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    const got: Array<{ v: unknown; key: string }> = []
+    host.onExtra('cheer/*', (v, key) => got.push({ v, key }))
+    host.publishExtra('cheer/p_1', 1)
+    host.publishExtra('cheer/p_2', 2)
+    host.publishExtra('other', 9) // does not match cheer/*
+    expect(got).toEqual([
+      { v: 1, key: 'cheer/p_1' },
+      { v: 2, key: 'cheer/p_2' },
+    ])
+  })
+
+  it('stops delivering after unsubscribe', () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    const got: unknown[] = []
+    const off = host.onExtra('battle', (v) => got.push(v))
+    host.publishExtra('battle', 1)
+    off()
+    host.publishExtra('battle', 2)
+    expect(got).toEqual([1])
+  })
+})
+
 describe('RoomRuntime host presence', () => {
   it('publishes host liveness and players detect a vanished host', async () => {
     const hub = new FakeHub()

@@ -41,6 +41,9 @@ export const addr = {
   input: (room: string, i: number, pid: string) => `${roomBase(room)}/input/${i}/${pid}`,
   /** Ephemeral image or drawing, TTL-scoped. */
   media: (room: string, key: string) => `${roomBase(room)}/media/${key}`,
+  /** A game-defined custom channel (custom-flow games, e.g. the Circuit Cypher
+   *  battle state + live cheers). `key` may be multi-segment and contain `*`. */
+  extra: (room: string, key: string) => `${roomBase(room)}/x/${key}`,
 } as const
 
 /** Wildcard subscription patterns. */

@@ -68,6 +68,11 @@ export function useDootRoom(options: UseDootRoomOptions) {
     // player actions
     submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
     sendControl: (action: Parameters<RoomRuntime['sendControl']>[0]) => runtime.sendControl(action),
+    // custom channels (custom-flow games)
+    publishExtra: (key: string, value: Parameters<RoomRuntime['publishExtra']>[1]) =>
+      runtime.publishExtra(key, value),
+    onExtra: (keyPattern: string, cb: Parameters<RoomRuntime['onExtra']>[1]) =>
+      runtime.onExtra(keyPattern, cb),
     // inputFor/inputsFor touch the reactive snapshot first so that a computed
     // calling them re-evaluates on every relay update (e.g. a vote arriving).
     // The runtime's maps are plain (non-reactive); the snapshot is the signal.
