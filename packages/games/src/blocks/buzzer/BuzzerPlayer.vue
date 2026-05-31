@@ -42,7 +42,10 @@ function pick(i: number) {
     >
       <span class="letter">{{ LETTERS[i] }}</span>
       <img v-if="opt.image" :src="opt.image" alt="" class="opt-img" />
-      <span class="opt-label">{{ opt.label }}</span>
+      <span class="opt-label">
+        <span class="opt-text">{{ opt.label }}</span>
+        <span v-if="opt.sublabel" class="opt-sub">{{ opt.sublabel }}</span>
+      </span>
     </button>
   </div>
 </template>
@@ -101,5 +104,14 @@ function pick(i: number) {
 }
 .opt-label {
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.opt-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mute);
+  line-height: 1.25;
 }
 </style>

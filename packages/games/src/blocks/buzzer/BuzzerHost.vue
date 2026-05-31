@@ -58,7 +58,10 @@ const firstName = computed(() => {
         :class="{ right: revealed && i === correctIndex, wrong: revealed && i !== correctIndex }"
       >
         <span class="letter">{{ LETTERS[i] }}</span>
-        <span class="label">{{ opt.label }}</span>
+        <span class="label">
+          <span class="ltext">{{ opt.label }}</span>
+          <span v-if="opt.sublabel" class="sub">{{ opt.sublabel }}</span>
+        </span>
         <span v-if="revealed" class="count mono">{{ counts[i] ?? 0 }}</span>
         <span v-if="revealed && i === correctIndex" class="tick" aria-hidden="true">&#10003;</span>
       </li>
@@ -151,6 +154,14 @@ const firstName = computed(() => {
 .panel .label {
   flex: 1;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.panel .sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .panel .count {
   font-weight: 800;

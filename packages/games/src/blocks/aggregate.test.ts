@@ -33,6 +33,31 @@ describe('guess block aggregate', () => {
       { id: 'b', name: 'Bo', score: 1, detail: '1 / 1' }, // only eligible for round 2
     ])
   })
+
+  it('awards the point for answering when pointsForAnswering is on (relaxed mode)', () => {
+    const c = {
+      ...guessBlock.defaultContent(),
+      options: [{ label: 'a' }, { label: 'b' }],
+      correct: 1,
+      pointsForAnswering: true,
+    }
+    const players: ScorePlayer[] = [
+      { id: 'a', name: 'Ann', joinedAtIndex: 0 },
+      { id: 'b', name: 'Bo', joinedAtIndex: 0 },
+      { id: 'c', name: 'Cy', joinedAtIndex: 0 },
+    ]
+    const frag = guessBlock.aggregate?.({
+      rounds: [{ index: 0, content: c }],
+      // Ann right, Bo wrong, Cy did not answer.
+      inputsFor: () => new Map([['a', { choice: 1 }], ['b', { choice: 0 }]]),
+      answerFor: () => ({ correct: 1 }),
+      players,
+    })
+    const byName = Object.fromEntries((frag?.leaderboard ?? []).map((e) => [e.name, e.score]))
+    expect(byName.Ann).toBe(1) // correct -> scores
+    expect(byName.Bo).toBe(1) // wrong but answered -> still scores
+    expect(byName.Cy).toBe(0) // did not answer -> no point
+  })
 })
 
 describe('draw block aggregate', () => {

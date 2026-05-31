@@ -34,6 +34,7 @@ describe('buzzer aggregate', () => {
     options: [{ label: 'A' }, { label: 'B' }, { label: 'C' }, { label: 'D' }],
     correct: 1,
     points: 100,
+    pointsForAnswering: false,
   }
   const players = [
     { id: 'p1', name: 'Ana', joinedAtIndex: 0 },
@@ -68,5 +69,16 @@ describe('buzzer aggregate', () => {
   it('withholds the correct index from the published content', () => {
     expect(buzzerBlock.redactContent!(content).correct).toBe(-1)
     expect(buzzerBlock.answerOf!(content)).toEqual({ correct: 1 })
+  })
+
+  it('awards points for answering (not just correct) in relaxed mode, keeping the right-count honest', () => {
+    const relaxed = { ...content, pointsForAnswering: true }
+    const frag = buzzerBlock.aggregate!({ ...ctx, rounds: [{ index: 0, content: relaxed }] })
+    const byName = Object.fromEntries(frag.leaderboard!.map((e) => [e.name, e]))
+    // Cat answered (wrong) -> now scores the points, instead of 0.
+    expect(byName.Cat!.score).toBeGreaterThan(0)
+    // ...but the "X right" detail still reflects real correctness.
+    expect(byName.Cat!.detail).toBe('0 right')
+    expect(byName.Ana!.detail).toBe('1 right')
   })
 })

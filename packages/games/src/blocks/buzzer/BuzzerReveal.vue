@@ -23,6 +23,10 @@ const answered = computed(() => props.myInput?.choice != null)
 const correct = computed(() => answered.value && props.myInput?.choice === props.reveal?.correctIndex)
 const iBuzzedFirst = computed(() => correct.value && props.reveal?.firstCorrect?.pid === myId.value)
 const answerLabel = computed(() => props.reveal?.correctLabel ?? '')
+const answerSublabel = computed(() => {
+  const i = props.reveal?.correctIndex
+  return i != null && i >= 0 ? (props.content.options[i]?.sublabel ?? '') : ''
+})
 
 onMounted(() => {
   if (iBuzzedFirst.value) playDing()
@@ -44,12 +48,12 @@ onMounted(() => {
     <template v-else-if="answered">
       <div class="badge no" aria-hidden="true">&#10007;</div>
       <h2>Not quite</h2>
-      <p>The answer was <b>{{ answerLabel }}</b>.</p>
+      <p>The answer was <b>{{ answerLabel }}</b><template v-if="answerSublabel"> ({{ answerSublabel }})</template>.</p>
     </template>
     <template v-else>
       <div class="badge no" aria-hidden="true">&#8211;</div>
       <h2>Time!</h2>
-      <p>The answer was <b>{{ answerLabel }}</b>.</p>
+      <p>The answer was <b>{{ answerLabel }}</b><template v-if="answerSublabel"> ({{ answerSublabel }})</template>.</p>
     </template>
   </div>
 </template>

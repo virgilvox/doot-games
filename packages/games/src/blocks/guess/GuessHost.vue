@@ -71,7 +71,10 @@ const letter = (i: number) => String.fromCharCode(65 + i)
       >
         <span class="letter">{{ letter(i) }}</span>
         <img v-if="opt.image" class="othumb" :src="opt.image" alt="" />
-        <span class="label">{{ opt.label || `Option ${letter(i)}` }}</span>
+        <span class="label">
+          <span class="ltext">{{ opt.label || `Option ${letter(i)}` }}</span>
+          <span v-if="opt.sublabel" class="sub">{{ opt.sublabel }}</span>
+        </span>
         <span v-if="showDistribution" class="count mono">{{ counts[i] ?? 0 }}</span>
         <span v-if="revealed && i === correctIndex" class="tick" aria-hidden="true">&#10003;</span>
       </li>
@@ -146,6 +149,14 @@ const letter = (i: number) => String.fromCharCode(65 + i)
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.panel .sub {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .panel .count {
   font-weight: 800;

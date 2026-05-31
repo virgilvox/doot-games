@@ -23,6 +23,10 @@ import BuzzerReveal from './BuzzerReveal.vue'
 
 export const buzzerOptionSchema = z.object({
   label: z.string().default(''),
+  sublabel: z
+    .string()
+    .optional()
+    .describe('Optional small print under the answer, e.g. the series a character is from.'),
   image: z.string().optional(),
 })
 
@@ -41,6 +45,10 @@ export const buzzerContentSchema = z.object({
   /** Correct option index; stripped to -1 in the published content. */
   correct: z.number().int().default(0),
   points: z.number().int().positive().default(100).describe('What this question is worth. Raise it each question to escalate the stakes.'),
+  pointsForAnswering: z
+    .boolean()
+    .default(false)
+    .describe('Relaxed mode: give everyone who answers the points, win or lose. Turn off for a normal quiz where only correct answers score.'),
 })
 export type BuzzerContent = z.infer<typeof buzzerContentSchema>
 export interface BuzzerInput {
@@ -103,6 +111,7 @@ export const buzzerBlock = defineBlock<BuzzerContent, BuzzerInput>({
     options: [{ label: 'Option A' }, { label: 'Option B' }, { label: 'Option C' }, { label: 'Option D' }],
     correct: 0,
     points: 100,
+    pointsForAnswering: false,
   }),
   defaultTimer: 20,
   timerOf: (c) => c.timer,
@@ -148,12 +157,17 @@ export const buzzerBlock = defineBlock<BuzzerContent, BuzzerInput>({
       const first = firstCorrectPid(inputs, correctIndex)
       if (first) buzzes++
       const timerMs = (content.timer ?? 0) * 1000
+      // Relaxed/participation mode: anyone who answered earns the points (the
+      // "X right" detail still reflects real correctness, only scoring changes).
+      const scoreAll = content.pointsForAnswering
       for (const t of totals) {
         if (!isEligible(t.joinedAtIndex, index)) continue
         const input = inputs.get(t.id)
         const isCorrect = !!input && input.choice === correctIndex
         if (isCorrect) t.correct++
-        t.score += buzzerScore(content.points, isCorrect, input?.ms ?? 0, timerMs, t.id === first)
+        const answered = !!input && input.choice != null
+        const credited = scoreAll ? answered : isCorrect
+        t.score += buzzerScore(content.points, credited, input?.ms ?? 0, timerMs, t.id === first)
       }
     }
     totals.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))

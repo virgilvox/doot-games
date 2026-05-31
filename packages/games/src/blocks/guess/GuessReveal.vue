@@ -18,6 +18,10 @@ const correct = computed(
   () => answered.value && props.myInput?.choice === props.reveal?.correctIndex,
 )
 const answerLabel = computed(() => props.reveal?.correctLabel ?? '')
+const answerSublabel = computed(() => {
+  const i = props.reveal?.correctIndex
+  return i != null && i >= 0 ? (props.content.options[i]?.sublabel ?? '') : ''
+})
 </script>
 
 <template>
@@ -30,12 +34,12 @@ const answerLabel = computed(() => props.reveal?.correctLabel ?? '')
     <template v-else-if="answered">
       <div class="badge no" aria-hidden="true">&#10007;</div>
       <h2>Not quite</h2>
-      <p>The answer was <b>{{ answerLabel }}</b>.</p>
+      <p>The answer was <b>{{ answerLabel }}</b><template v-if="answerSublabel"> ({{ answerSublabel }})</template>.</p>
     </template>
     <template v-else>
       <div class="badge no" aria-hidden="true">&#8211;</div>
       <h2>Time!</h2>
-      <p>The answer was <b>{{ answerLabel }}</b>.</p>
+      <p>The answer was <b>{{ answerLabel }}</b><template v-if="answerSublabel"> ({{ answerSublabel }})</template>.</p>
     </template>
   </div>
 </template>

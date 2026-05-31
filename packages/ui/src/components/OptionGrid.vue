@@ -9,6 +9,7 @@ import { computed } from 'vue'
 
 interface Opt {
   label: string
+  sublabel?: string
   image?: string
 }
 const props = withDefaults(
@@ -50,7 +51,10 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
       <span v-if="counts" class="fill" :style="{ width: `${pct(i)}%` }" />
       <span class="letter">{{ letter(i) }}</span>
       <img v-if="o.image" :src="o.image" alt="" class="othumb" />
-      <span class="olabel">{{ o.label || `Option ${letter(i)}` }}</span>
+      <span class="olabel">
+        <span class="otext">{{ o.label || `Option ${letter(i)}` }}</span>
+        <span v-if="o.sublabel" class="osub">{{ o.sublabel }}</span>
+      </span>
       <span v-if="revealed && correct === i" class="mark" aria-label="correct">✓</span>
       <span v-if="counts" class="ocount mono">{{ counts[i] ?? 0 }}</span>
     </button>
@@ -116,6 +120,9 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
   border: var(--bd) solid var(--line-soft);
 }
 .olabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-weight: 700;
   font-size: clamp(15px, 2vw, 20px);
   flex: 1;
@@ -123,6 +130,12 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
   /* A long unbroken token (e.g. a no-space quip answer voted on through this
      grid) must wrap instead of forcing horizontal scroll on a narrow phone. */
   overflow-wrap: anywhere;
+}
+.osub {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mute);
+  line-height: 1.25;
 }
 .ocount {
   font-weight: 700;
