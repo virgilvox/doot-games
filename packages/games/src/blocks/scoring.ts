@@ -42,6 +42,17 @@ export function pityPoints(votes: number, floor = 100): number {
 }
 
 /**
+ * Head-to-head (1v1) battle payout, Mad Verse City style: both performers earn
+ * cash if they drew any votes, and the winner earns more. Getting shut out (zero
+ * votes) earns nothing. On a tie, the caller marks both performers as winners so
+ * both take the win rate.
+ */
+export function headToHeadPoints(votes: number, isWinner: boolean, win = BASE_POINTS, show = 400): number {
+  if (votes <= 0) return 0
+  return isWinner ? win : show
+}
+
+/**
  * Closeness-to-even score in [0, 1]: 1 at a perfect 50/50 split, 0 when
  * unanimous. `score = 1 − |yesFraction − 0.5| × 2`. This is Split the Room's
  * inverted objective (Jackbox publishes the principle, not a curve).

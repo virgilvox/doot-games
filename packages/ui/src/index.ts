@@ -42,6 +42,7 @@ export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upl
 export { type SpeakOptions, canSpeak, cancelSpeech, speakLines } from './audio/speech'
 export { playDing } from './audio/sfx'
 export { default as RobotRapper } from './components/RobotRapper.vue'
+export { default as RobotBattle } from './components/RobotBattle.vue'
 
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'
