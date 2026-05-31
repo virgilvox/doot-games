@@ -26,7 +26,7 @@ export const barsContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen.'),
   prompt: z
     .string()
-    .default('Drop your bars — finish each line so it rhymes.'),
+    .default('Drop your bars: finish each line so it rhymes.'),
   couplets: z
     .array(coupletSchema)
     .min(1)
@@ -62,7 +62,7 @@ export const barsBlock = defineBlock<BarsContent, BarsInput>({
   contentSchema: barsContentSchema,
   defaultContent: () => ({
     subject: 'The Cypher',
-    prompt: 'Drop your bars — finish each line so it rhymes.',
+    prompt: 'Drop your bars: finish each line so it rhymes.',
     couplets: [
       { lead: "I'm a top-tier bot and my circuits run hot,", rhymeWith: 'hot' },
       { lead: 'They plugged me in and I started to spit,', rhymeWith: 'spit' },

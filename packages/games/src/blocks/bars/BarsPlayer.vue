@@ -25,7 +25,7 @@ function onInput(i: number, e: Event) {
       <p class="lead"><span class="bot-tag" aria-hidden="true">🤖</span>{{ cp.lead }}</p>
       <label class="resp">
         <span class="resp-label">
-          Your line<span v-if="cp.rhymeWith"> — rhyme with “{{ cp.rhymeWith }}”</span>
+          Your line<span v-if="cp.rhymeWith">, rhyme with “{{ cp.rhymeWith }}”</span>
         </span>
         <input
           class="bars-input"

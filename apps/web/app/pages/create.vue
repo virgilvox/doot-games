@@ -12,11 +12,11 @@ const types = gameCatalog
     <div class="wrap">
       <div class="create-head">
         <span class="kicker">Build something</span>
-        <h1>Start a new game</h1>
+        <h1>Create</h1>
         <p>
           Pick a type to open the editor, then add your content and pick a theme. <b>Custom</b> lets you mix any
           round types in one game. Rather describe it in words? In the editor, hit <b>Import</b> to paste a short
-          spec — or copy a one-click prompt and have ChatGPT or Claude write it for you. No account needed to host;
+          spec, or copy a one-click prompt and have an AI assistant write it for you. No account needed to host;
           you only sign in to save a shareable link.
         </p>
       </div>

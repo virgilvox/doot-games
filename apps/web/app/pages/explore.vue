@@ -266,6 +266,10 @@ const featured = computed(() => flagshipGames[0] ?? null)
   color: var(--ink-soft);
   line-height: 1.5;
   margin: 0 0 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .card-cta {
   display: inline-block;

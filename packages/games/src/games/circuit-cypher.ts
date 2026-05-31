@@ -54,7 +54,7 @@ const VERSE_POOL: Verse[] = [
     { lead: "Now I'm shaking the room with the bars that I peel,", rhymeWith: 'peel' },
   ] },
   { couplets: [
-    { lead: 'Error, error — your rhymes do not compute,', rhymeWith: 'compute' },
+    { lead: 'Error, error, your rhymes do not compute,', rhymeWith: 'compute' },
     { lead: "I'm the baddest little android and I came to refute,", rhymeWith: 'refute' },
   ] },
   { couplets: [
@@ -81,7 +81,7 @@ function pair(verse: Verse): RoundInstance[] {
       block: 'bars',
       content: {
         subject: 'The Cypher',
-        prompt: 'Drop your bars — finish each line so it rhymes.',
+        prompt: 'Drop your bars: finish each line so it rhymes.',
         couplets: verse.couplets,
         maxLength: 70,
         timer: 90,
@@ -109,8 +109,7 @@ export const circuitCypher = defineGame({
     id: 'circuit-cypher',
     name: 'Circuit Cypher',
     version: '0.2.0',
-    description:
-      'A robot rap battle: the robot raps you a line, you write the one that rhymes back, then an animated robot performs the bars and the room votes for the hottest verse.',
+    description: 'A robot rap battle: write rhyming bars, the robots perform, you vote.',
     author: 'Doot',
     capabilities: ['timer', 'music'],
     minPlayers: 3,

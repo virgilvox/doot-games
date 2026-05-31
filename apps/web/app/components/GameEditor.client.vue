@@ -219,7 +219,7 @@ prompt: Rate tonight's playlist
 categories: Energy, Variety
 scale: 1-10`
 
-// A ready-to-paste prompt for ChatGPT/Claude: hand it your topic and it returns
+// A ready-to-paste prompt for an AI assistant: hand it your topic and it returns
 // a spec you paste straight into the box below. This is the "I don't want to
 // learn a format, I'll ask an AI" path.
 const AI_PROMPT = `Write a party game for Doot as a Markdown spec. Output ONLY the spec, no commentary or code fences.
@@ -432,12 +432,12 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
         <div class="ed-import-actions ed-import-actions--top">
           <button class="btn btn-primary btn-sm" type="button" @click="copyAiPrompt">
-            {{ copiedPrompt ? '✓ Copied — paste into ChatGPT/Claude' : 'Copy an AI prompt' }}
+            {{ copiedPrompt ? 'Copied! Paste it into your AI assistant' : 'Copy an AI prompt' }}
           </button>
           <button class="btn btn-ghost btn-sm" type="button" @click="loadExample">Load an example</button>
         </div>
         <p class="ed-import-tip">
-          New here? Click <b>Copy an AI prompt</b>, paste it into ChatGPT or Claude with your topic, and paste
+          New here? Click <b>Copy an AI prompt</b>, paste it into your AI assistant with your topic, and paste
           what it gives you back into the box below. Or click <b>Load an example</b> to see the format.
         </p>
 
@@ -464,11 +464,11 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <code>-&nbsp;item</code> choices. Round types you can use:
             </p>
             <ul>
-              <li><b>guess</b> — multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
-              <li><b>poll</b> — opinion, no right answer. Just list the choices.</li>
-              <li><b>rank</b> — players drag items into order. List the items.</li>
-              <li><b>rate</b> — score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
-              <li><b>draw</b> — players sketch the prompt.</li>
+              <li><b>guess</b>: multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
+              <li><b>poll</b>: opinion, no right answer. Just list the choices.</li>
+              <li><b>rank</b>: players drag items into order. List the items.</li>
+              <li><b>rate</b>: score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
+              <li><b>draw</b>: players sketch the prompt.</li>
             </ul>
             <p class="ed-import-tip">
               Unknown lines are ignored; rounds that need attention are flagged below once imported.

@@ -86,7 +86,7 @@ function reloadPage() {
 
     <div v-else-if="unknownBlock" class="big">
       <h2>Tap to catch up</h2>
-      <p>The host started a round this page hasn't loaded yet. Reload to jump in — your spot is saved.</p>
+      <p>The host started a round this page hasn't loaded yet. Reload to jump in, your spot is saved.</p>
       <button class="btn btn-primary btn-lg" @click="reloadPage">Reload</button>
     </div>
 

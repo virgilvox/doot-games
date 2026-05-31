@@ -455,6 +455,10 @@ const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
   line-height: 1.5;
   margin: 0 0 12px;
   min-height: 42px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .card-cta {
   display: inline-block;

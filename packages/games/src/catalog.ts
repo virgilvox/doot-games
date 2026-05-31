@@ -18,16 +18,16 @@ export interface GameCatalogEntry {
 
 export const gameCatalog: GameCatalogEntry[] = [
   { id: 'guess', name: 'Guess', version: '0.2.0', flagship: false, description: 'Multiple-choice rounds with a right answer, scored on a leaderboard.' },
-  { id: 'rate', name: 'Rate', version: '0.2.0', flagship: false, description: 'Score subjects on flexible scales, numbers, letter grades, or tiers.' },
-  { id: 'poll', name: 'Poll', version: '0.1.0', flagship: false, description: 'Opinion questions with no right answer; reveal the live distribution.' },
-  { id: 'rank', name: 'Rank', version: '0.1.0', flagship: false, description: 'Players order a set of items into one room-consensus ranking.' },
-  { id: 'draw', name: 'Draw', version: '0.1.0', flagship: false, description: "Sketch the prompt on your phone; everyone's drawings fill the screen." },
+  { id: 'rate', name: 'Rate', version: '0.2.0', flagship: false, description: 'Score subjects on flexible scales: numbers, grades, or tiers.' },
+  { id: 'poll', name: 'Poll', version: '0.1.0', flagship: false, description: 'Opinion questions with no right answer; show the live results.' },
+  { id: 'rank', name: 'Rank', version: '0.1.0', flagship: false, description: 'Players order a set of items into one room ranking.' },
+  { id: 'draw', name: 'Draw', version: '0.1.0', flagship: false, description: "Sketch the prompt on your phone; the drawings fill the screen." },
   { id: 'votebox', name: 'VoteBox', version: '0.2.0', flagship: false, description: 'Guess then Rate, the original Doot party game.' },
-  { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer. The room writes the jokes.' },
-  { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill in a story's blanks, then vote for the funniest tale. Nobody sees the sentence until the reveal." },
-  { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Complete a "would you...?" dilemma, then the room votes yes or no. Score by dividing the room 50/50.' },
-  { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.2.0', flagship: true, description: 'A robot rap battle: the robot raps you a line, you write the one that rhymes back, then an animated robot performs the bars and the room votes for the hottest verse.' },
-  { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow on the big screen: obscure pop-culture questions, rising stakes, hidden answers — and the first to buzz in correct gets the spotlight.' },
+  { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer.' },
+  { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill a story's blanks, then vote for the funniest tale." },
+  { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Finish a divisive "would you?" then vote yes or no.' },
+  { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.2.0', flagship: true, description: 'A robot rap battle: write rhyming bars, the robots perform, you vote.' },
+  { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow: rising stakes, hidden answers, first to buzz in wins.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

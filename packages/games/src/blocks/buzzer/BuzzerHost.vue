@@ -69,7 +69,7 @@ const firstName = computed(() => {
     </div>
     <div v-else class="spotlight">
       <template v-if="firstName">🔔 First buzz: <b>{{ firstName }}</b>!</template>
-      <template v-else>Nobody got it — the answer stays a mystery to them.</template>
+      <template v-else>Nobody got it. The answer stays a mystery to them.</template>
     </div>
   </div>
 </template>

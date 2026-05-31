@@ -73,8 +73,7 @@ export const whatYouDidntKnow = defineGame({
     id: 'what-you-didnt-know',
     name: "What, You Didn't Know That?",
     version: '0.1.0',
-    description:
-      'A trivia gameshow on the big screen. Obscure pop-culture questions, rising stakes, answers hidden until the reveal — and the first to buzz in correct gets the spotlight (and a ding).',
+    description: 'A trivia gameshow: rising stakes, hidden answers, first to buzz in wins.',
     author: 'Doot',
     capabilities: ['timer'],
     minPlayers: 1,
