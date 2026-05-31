@@ -15,6 +15,7 @@ export type IconName =
   | 'grid'
   | 'text'
   | 'mic'
+  | 'bell'
 
 export interface GameVisual {
   /** A theme CSS custom property used as the icon background / accent. */
@@ -33,9 +34,11 @@ const VISUALS: Record<string, GameVisual> = {
   'mad-libs': { color: 'var(--c4)', icon: 'text' },
   'split-room': { color: 'var(--c1)', icon: 'rank' },
   'circuit-cypher': { color: 'var(--c5)', icon: 'mic' },
+  'what-you-didnt-know': { color: 'var(--c1)', icon: 'bell' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },
+  buzzer: { color: 'var(--c1)', icon: 'bell' },
   fill: { color: 'var(--c4)', icon: 'text' },
   split: { color: 'var(--c1)', icon: 'rank' },
   custom: { color: 'var(--c1)', icon: 'grid' },

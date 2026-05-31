@@ -160,6 +160,57 @@ async function twoPhaseLoop(browser, { gameId, tag }) {
 const quipClashLoop = (browser) => twoPhaseLoop(browser, { gameId: 'quip-clash', tag: 'quip-clash' })
 const circuitCypherLoop = (browser) => twoPhaseLoop(browser, { gameId: 'circuit-cypher', tag: 'circuit-cypher' })
 
+// The gameshow: a single-block buzzer trivia run (open -> answer -> reveal -> next).
+async function gameshowLoop(browser) {
+  step('What, You Didn\'t Know That?: host + players through a few buzzer questions')
+  const host = await (await browser.newContext()).newPage()
+  await host.goto(`${BASE}/host/what-you-didnt-know`)
+  await host.waitForSelector('.code', { timeout: 40000 })
+  const code = (await host.textContent('.code')).trim()
+  ok(`host room code = ${code}`)
+  const names = ['Ana', 'Ben']
+  const players = []
+  for (const n of names) {
+    const p = await (await browser.newContext()).newPage()
+    await p.goto(`${BASE}/play/${code}`)
+    await p.waitForSelector('input', { timeout: 40000 })
+    await p.locator('input').last().fill(n)
+    await p.click('button:has-text("Join")')
+    await p.waitForSelector('text=You are in', { timeout: 40000 })
+    players.push(p)
+  }
+  ok('players joined')
+  // Lower the question count to keep the playtest quick.
+  const three = host.locator('.round-opt:has-text("3")').first()
+  if (await three.count()) await three.click()
+  await host.click('button:has-text("Start game")')
+  let sawBuzzerOpt = false
+  for (let guard = 0; guard < 14; guard++) {
+    await host.waitForSelector('button:has-text("Open voting"), button:has-text("Collect answers")', { timeout: 40000 })
+    await host.locator('button:has-text("Open voting"), button:has-text("Collect answers")').first().click()
+    for (const p of players) {
+      await p.waitForSelector('.buzzer-opt', { timeout: 40000 })
+      sawBuzzerOpt = true
+      await p.locator('.buzzer-opt').first().click()
+      await p.click('button:has-text("Lock it in")')
+    }
+    await host.waitForSelector('button:has-text("Lock voting"), button:has-text("Lock answers")', { timeout: 40000 })
+    await host.locator('button:has-text("Lock voting"), button:has-text("Lock answers")').first().click()
+    await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })
+    await host.click('button:has-text("Reveal")')
+    await host.waitForSelector('button:has-text("Next round"), button:has-text("Final results")', { timeout: 40000 })
+    if (await host.locator('button:has-text("Final results")').count()) {
+      await host.click('button:has-text("Final results")')
+      break
+    }
+    await host.click('button:has-text("Next round")')
+  }
+  if (!sawBuzzerOpt) throw new Error('never saw the buzzer options on a phone')
+  await host.waitForSelector('text=/wins|crown|results are in/i', { timeout: 40000 })
+  ok('gameshow ran through buzzer questions to final results')
+  results.push('gameshow')
+}
+
 async function drawCanvas(browser) {
   step('Draw block: player sketches on the Pixi canvas, host gallery fills in')
   const host = await (await browser.newContext()).newPage()
@@ -218,7 +269,7 @@ async function authEditorSave(browser) {
   results.push('auth-editor-save')
 }
 
-const scenarios = [corePlayLoop, quipClashLoop, circuitCypherLoop, drawCanvas, authEditorSave]
+const scenarios = [corePlayLoop, quipClashLoop, circuitCypherLoop, gameshowLoop, drawCanvas, authEditorSave]
 const browser = await chromium.launch()
 try {
   for (const scenario of scenarios) {

@@ -464,3 +464,42 @@ Build order for it: (a) `vote` head-to-head mode + a `RobotBattle` two-robot vie
 (b) the bracket/pairing + host-driven matchup sequencing as a custom component;
 (c) the continuous cheer channel + bonus; (d) the live-perform timer mode; (e) the
 Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
+
+## 9. "What, You Didn't Know That?" — the trivia gameshow
+
+v1 (shipped): a first-party flagship built on a new **`buzzer` block** — multiple
+choice with one withheld answer, a per-question **point value** that escalates
+across the round, and **speed**: each phone reports its own time-to-answer (Kahoot
+style, clock-skew-immune), so the fastest correct answerer "buzzes in" — their
+phone **dings** (`@doot-games/ui playDing`, Web Audio, SSR-guarded) and the stage
+spotlights them. Scoring = value + up to +50% speed + a +25% buzz bonus for first.
+The **`BuzzerHost`** big screen is the stage: a glowing value tag, lettered answer
+panels, a live "N locked in" count (never the distribution — that would tip the
+on-stage contestants), and a dramatic reveal (correct panel lights up, the rest
+dim, the buzz-in is crowned). Everyone plays on phones, so it works at a panel and
+at home. Pool of pop-culture questions, host-pickable question count.
+
+The full gameshow (designed, next — a **custom-flow** feature like the rap
+tournament):
+- **The 4-contestant panel + audience steal** (the signature rule). A host-judged
+  mode: 4 named contestants answer (orally at a panel, or on their phones at home);
+  the audience answers silently on phones. If all 4 contestants miss, the floor
+  opens and the first audience member to buzz in correct (the ding identifies them)
+  **takes the lowest contestant's seat and their points** for the rest of the two
+  rounds. Needs a contestant/audience role split, a host "judge each contestant
+  right/wrong" panel, and the seat-swap + point-transfer logic — a custom
+  `components` game, not the generic renderer.
+- **Quick-draw tiebreaker**: reuse the `draw` block — a contestant draws a given
+  title; a random audience member guesses; first correct wins the tie.
+- **Final lightning round**: 16 equal-value questions; sudden-death on a tie.
+- **The specialty rounds** as `buzzer`/new-block content packs: Hey I Know That Guy
+  (actor photos — `image` options), Poorly Described Plots, Theme Songs (needs an
+  audio-clip block), Macguffins, Go Figure (toy photos), Those Aren't The Words,
+  Well Technically (correct-the-host — a new "rebuttal" input), A Rock In The Jungle,
+  and Six Degrees of Kevin Bacon (free-form connection chains — host-judged).
+- **Audio/visual cues**: image clues ship today (`image` on the question/options);
+  audio-clip questions need a small clip block + host playback.
+
+Build order: (a) the contestant/audience role split + host judging panel + steal;
+(b) the tiebreaker (reuse draw) + final lightning; (c) specialty content packs;
+(d) the audio-clip block for Theme Songs.

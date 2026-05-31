@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **117 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **eleven games** built from composable blocks, four flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, and Circuit Cypher — a robot rap battle where the robots perform the bars aloud) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **117 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **twelve games** built from composable blocks, five flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher — a robot rap battle — and "What, You Didn't Know That?" — a trivia gameshow with buzz-ins) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -52,7 +52,7 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 
 ## Features
 
-- 🎮 **Eleven built-in games**, four flagship **"Games From Doot"** that are ready to play and replayable (Quip Clash, Mad Libs, Split the Room, Circuit Cypher), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
+- 🎮 **Twelve built-in games**, five flagship **"Games From Doot"** that are ready to play and replayable (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, and "What, You Didn't Know That?"), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
 - 🧩 **Blocks + compositions**, a *block* is a round kind (content schema + Player/Host views + aggregate + answer-withholding); a *game* composes blocks. Most games are ~20 lines and need no components. Import a whole game from a [markdown spec](./docs/markdown-games.md).
 - 🎨 **Theming**, cute, cyber, professional, and playful packs out of the box; per-game accent and title overrides.
 - ♻️ **Reconnect by name**, no login, no local-storage dependency.

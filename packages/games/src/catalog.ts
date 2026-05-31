@@ -27,6 +27,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill in a story's blanks, then vote for the funniest tale. Nobody sees the sentence until the reveal." },
   { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Complete a "would you...?" dilemma, then the room votes yes or no. Score by dividing the room 50/50.' },
   { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.2.0', flagship: true, description: 'A robot rap battle: the robot raps you a line, you write the one that rhymes back, then an animated robot performs the bars and the room votes for the hottest verse.' },
+  { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow on the big screen: obscure pop-culture questions, rising stakes, hidden answers — and the first to buzz in correct gets the spotlight.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -50,4 +51,5 @@ export function isKnownPlugin(id: string): boolean {
  */
 export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   guess: { correct: -1 },
+  buzzer: { correct: -1 },
 }

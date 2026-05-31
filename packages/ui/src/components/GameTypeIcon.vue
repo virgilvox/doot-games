@@ -33,6 +33,10 @@ const visual = computed(() => gameVisual(props.type))
         <rect x="9" y="3" width="6" height="11" rx="3" />
         <path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7" />
       </template>
+      <template v-else-if="visual.icon === 'bell'">
+        <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2.5h-15z" />
+        <path d="M10 20a2 2 0 0 0 4 0" />
+      </template>
       <template v-else>
         <rect x="4" y="4" width="7" height="7" rx="1.6" />
         <rect x="13" y="4" width="7" height="7" rx="1.6" />
