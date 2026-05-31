@@ -286,7 +286,11 @@ function importMarkdown() {
 function hostGame() {
   if (!valid.value) return
   themeState.value = themeId.value
-  draft.value = { pluginId, config: structuredClone(toRaw(config)), themeId: themeId.value }
+  // Deep-clone via JSON, not structuredClone(toRaw()): once the schema-form has
+  // edited the config it holds nested Vue reactive proxies that toRaw only unwraps
+  // at the top level, and structuredClone throws on them ("could not be cloned").
+  // GameComposition is pure JSON data (it is persisted as JSON), so this is exact.
+  draft.value = { pluginId, config: JSON.parse(JSON.stringify(config)), themeId: themeId.value }
   dirty.value = false // the work is preserved in the (now persisted) draft
   router.push(`/host/${pluginId}`)
 }
