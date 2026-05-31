@@ -34,13 +34,8 @@ describe('guess block aggregate', () => {
     ])
   })
 
-  it('awards the point for answering when pointsForAnswering is on (relaxed mode)', () => {
-    const c = {
-      ...guessBlock.defaultContent(),
-      options: [{ label: 'a' }, { label: 'b' }],
-      correct: 1,
-      pointsForAnswering: true,
-    }
+  it('only a correct answer scores; a wrong or missing answer earns nothing', () => {
+    const c = { ...guessBlock.defaultContent(), options: [{ label: 'a' }, { label: 'b' }], correct: 1 }
     const players: ScorePlayer[] = [
       { id: 'a', name: 'Ann', joinedAtIndex: 0 },
       { id: 'b', name: 'Bo', joinedAtIndex: 0 },
@@ -55,8 +50,8 @@ describe('guess block aggregate', () => {
     })
     const byName = Object.fromEntries((frag?.leaderboard ?? []).map((e) => [e.name, e.score]))
     expect(byName.Ann).toBe(1) // correct -> scores
-    expect(byName.Bo).toBe(1) // wrong but answered -> still scores
-    expect(byName.Cy).toBe(0) // did not answer -> no point
+    expect(byName.Bo).toBe(0) // wrong -> nothing
+    expect(byName.Cy).toBe(0) // did not answer -> nothing
   })
 })
 

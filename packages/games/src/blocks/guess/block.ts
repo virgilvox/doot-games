@@ -38,10 +38,6 @@ export const guessContentSchema = z.object({
     .boolean()
     .default(true)
     .describe('Keep where people answered secret until you reveal, for a real reveal moment. Turn off to show a live tally as answers come in.'),
-  pointsForAnswering: z
-    .boolean()
-    .default(false)
-    .describe('Relaxed mode: give everyone who answers the point, win or lose. Turn off for a normal quiz where only correct answers score.'),
   options: z.array(guessOptionSchema).min(2).describe('At least two answers to choose from.'),
   /** Correct option index; stripped to -1 in the published content. */
   correct: z.number().int().default(0),
@@ -62,7 +58,6 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
     image: '',
     timer: 20,
     hideUntilReveal: true,
-    pointsForAnswering: false,
     options: [{ label: 'Option A' }, { label: 'Option B' }, { label: 'Option C' }, { label: 'Option D' }],
     correct: 0,
   }),
@@ -92,17 +87,15 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
       correct: 0,
       eligible: 0,
     }))
-    for (const { index, content } of ctx.rounds) {
+    for (const { index } of ctx.rounds) {
       const correctIndex = (ctx.answerFor(index) as { correct?: number } | undefined)?.correct
-      // Relaxed/participation mode: anyone who answered earns the point.
-      const scoreAll = content.pointsForAnswering
       const inputs = ctx.inputsFor(index)
       for (const t of tallies) {
         if (!isEligible(t.joinedAtIndex, index)) continue
         t.eligible++
         const input = inputs.get(t.id)
-        const answered = input != null && input.choice != null
-        if (answered && (scoreAll || input.choice === correctIndex)) t.correct++
+        // Only a correct answer scores. A wrong or missing answer earns nothing.
+        if (input && input.choice != null && input.choice === correctIndex) t.correct++
       }
     }
     tallies.sort((a, b) => b.correct - a.correct || a.name.localeCompare(b.name))
