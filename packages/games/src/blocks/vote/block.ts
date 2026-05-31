@@ -104,12 +104,17 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   // Build the anonymized, shuffled vote options from the prior round's answers.
   derive: (ctx: DeriveContext<VoteContent>) => {
     const source = ctx.sources[0]
-    // Frame the vote with the source's prompt only when that prompt is the topic
-    // itself (a quip: "A bad name for a boat"). A fill round's prompt is an
-    // instruction ("Fill in the blanks"), not a topic, so for those keep the
-    // vote round's own authored prompt (e.g. "Funniest story wins").
-    const sourceContent = source?.content as { prompt?: string; template?: string } | undefined
-    const sourcePrompt = sourceContent && !sourceContent.template ? sourceContent.prompt : undefined
+    // Frame the vote with the source's prompt only when that prompt IS the topic
+    // (a quip: "A bad name for a boat"). A fill/bars round's prompt is an
+    // instruction ("Fill in the blanks", "Drop your bars") and the topic is the
+    // story/verse itself, so for those keep the vote round's own authored prompt
+    // (e.g. "Funniest story wins", "Vote for the hottest bars"). We detect the
+    // structured "make" blocks by their telltale content fields.
+    const sc = source?.content as
+      | { prompt?: string; template?: unknown; blanks?: unknown; couplets?: unknown }
+      | undefined
+    const sourceIsTopical = !!sc && !sc.template && !sc.blanks && !sc.couplets
+    const sourcePrompt = sourceIsTopical ? sc.prompt : undefined
     const entries: Array<{ pid: string; text: string }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {

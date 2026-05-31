@@ -1,122 +1,90 @@
 /**
  * Circuit Cypher, the robot rap battle (Mad Verse City-style) and the fourth
- * flagship. Players fill the blanks in a braggy robot verse (they see the line,
- * so they can make it rhyme), then the room reaches the judge round where the
- * host can have the robots PERFORM each verse aloud (browser speechSynthesis,
- * client-only) over a beat before everyone votes for the hottest bars.
+ * flagship. The robot raps the player the FIRST line of each couplet; the player
+ * writes the line that rhymes back. Two couplets => a four-line verse. Then the
+ * room reaches the judge round, where an animated robot PERFORMS each verse aloud
+ * (browser speechSynthesis, client-only) over a beat before everyone votes for
+ * the hottest bars.
  *
- * Pure composition, [fill, vote(perform), ...], built on the same two-phase
- * engine as Mad Libs and Quip Clash: the vote round derives its options from the
- * filled verses of the round before it. A fresh set of verses is drawn from a
- * pool each play (buildConfig). The performance is decorative; the vote flow
- * never depends on it, so the game is fully playable where TTS is unavailable.
+ * Pure composition, [bars, vote(perform), ...], on the same two-phase engine as
+ * Mad Libs and Quip Clash: the vote round derives its options from the verses of
+ * the round before it. A fresh set of verses is drawn from a pool each play
+ * (buildConfig). The performance is decorative; the vote flow never depends on
+ * it, so the game is fully playable where TTS is unavailable.
+ *
+ * NEXT (see docs/flagship-games.md): a head-to-head tournament bracket where two
+ * robots face off per matchup, live audience cheers during a performance, and a
+ * "players perform live" mode (beat + timer instead of TTS).
  */
 import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
-import { fillBlock } from '../blocks/fill/block'
+import { barsBlock } from '../blocks/bars/block'
 import { voteBlock } from '../blocks/vote/block'
 import { seededShuffle } from '../runtime/derive'
 
 interface Verse {
-  template: string
-  blanks: Array<{ id: string; label: string }>
+  couplets: Array<{ lead: string; rhymeWith: string }>
 }
 
-/** Robot-rap verse scaffolds. `{id}` placeholders match the blank ids; the fixed
- *  words carry the rhyme, the blanks carry the flavor. Players see the line. */
+/** Robot-rap verse scaffolds. The robot raps `lead`; the player writes the line
+ *  that rhymes with `rhymeWith`. Two couplets => a four-line verse. */
 const VERSE_POOL: Verse[] = [
-  {
-    template: "I'm a {adj} machine with a {noun} for a heart,\nI'll {verb} on the mic and tear your verse apart.",
-    blanks: [
-      { id: 'adj', label: 'A boastful adjective' },
-      { id: 'noun', label: 'A noun (your cold robot heart)' },
-      { id: 'verb', label: 'A verb (what you do on the mic)' },
-    ],
-  },
-  {
-    template: 'They booted me up and I started to {verb},\nspittin’ {adj} bytes that the haters can’t {verb2}.',
-    blanks: [
-      { id: 'verb', label: 'A verb' },
-      { id: 'adj', label: 'An adjective' },
-      { id: 'verb2', label: 'A verb (rhyme it with the first one)' },
-    ],
-  },
-  {
-    template: "My flow’s got more {plural} than a {adj} hard drive,\nstep to the cypher, you won’t leave alive.",
-    blanks: [
-      { id: 'plural', label: 'A plural noun' },
-      { id: 'adj', label: 'An adjective' },
-    ],
-  },
-  {
-    template: "Beep boop, I’m the king of this {place},\ndroppin’ {adj} rhymes all up in your {bodypart}.",
-    blanks: [
-      { id: 'place', label: 'A place' },
-      { id: 'adj', label: 'An adjective' },
-      { id: 'bodypart', label: 'A body part' },
-    ],
-  },
-  {
-    template: 'I run on {liquid} and pure disrespect,\nmy bars fry your circuits, what did you expect?',
-    blanks: [{ id: 'liquid', label: 'A liquid' }],
-  },
-  {
-    template: 'Error 404: your skills not {verbed},\nwhile I {verb} the whole room with every word.',
-    blanks: [
-      { id: 'verbed', label: 'A verb ending in -ed' },
-      { id: 'verb', label: 'A verb' },
-    ],
-  },
-  {
-    template: "I’m {adj} like a {animal} with a laser-beam stare,\nI’ll {verb} your whole crew then power down with flair.",
-    blanks: [
-      { id: 'adj', label: 'An adjective' },
-      { id: 'animal', label: 'An animal' },
-      { id: 'verb', label: 'A verb' },
-    ],
-  },
-  {
-    template: 'Loading my disses… they’re {adj} and mean,\nthe coldest little {noun} that you’ve ever seen.',
-    blanks: [
-      { id: 'adj', label: 'An adjective' },
-      { id: 'noun', label: 'A noun' },
-    ],
-  },
-  {
-    template: 'My rhymes are {adj}, my logic is {adj2},\nI’ll {verb} through your defense, it’s no contest at all.',
-    blanks: [
-      { id: 'adj', label: 'An adjective' },
-      { id: 'adj2', label: 'An adjective' },
-      { id: 'verb', label: 'A verb' },
-    ],
-  },
-  {
-    template: 'Plug me in and watch me {verb},\nI’m a {adj} {noun} and I came to serve.',
-    blanks: [
-      { id: 'verb', label: 'A verb' },
-      { id: 'adj', label: 'An adjective' },
-      { id: 'noun', label: 'A noun' },
-    ],
-  },
+  { couplets: [
+    { lead: "I'm a top-tier bot and my circuits run hot,", rhymeWith: 'hot' },
+    { lead: 'They plugged me in and I started to spit,', rhymeWith: 'spit' },
+  ] },
+  { couplets: [
+    { lead: "Beep boop, step up, you're about to get schooled,", rhymeWith: 'schooled' },
+    { lead: "My motherboard's loaded, my logic stays cool,", rhymeWith: 'cool' },
+  ] },
+  { couplets: [
+    { lead: 'I download disses at a terabyte rate,', rhymeWith: 'rate' },
+    { lead: 'You’re a dial-up rapper and your flow came late,', rhymeWith: 'late' },
+  ] },
+  { couplets: [
+    { lead: "My antenna's up and I'm picking up signs,", rhymeWith: 'signs' },
+    { lead: 'That your wack little verses keep crossing the lines,', rhymeWith: 'lines' },
+  ] },
+  { couplets: [
+    { lead: 'I run on pure voltage and a thousand-watt grin,', rhymeWith: 'grin' },
+    { lead: 'Roll up to the cypher, watch me power right in,', rhymeWith: 'in' },
+  ] },
+  { couplets: [
+    { lead: 'They built me in a lab out of chrome and of steel,', rhymeWith: 'steel' },
+    { lead: "Now I'm shaking the room with the bars that I peel,", rhymeWith: 'peel' },
+  ] },
+  { couplets: [
+    { lead: 'Error, error — your rhymes do not compute,', rhymeWith: 'compute' },
+    { lead: "I'm the baddest little android and I came to refute,", rhymeWith: 'refute' },
+  ] },
+  { couplets: [
+    { lead: "My processor's hot and my memory's deep,", rhymeWith: 'deep' },
+    { lead: "I'll out-rap you robots while you're still in sleep,", rhymeWith: 'sleep' },
+  ] },
+  { couplets: [
+    { lead: "I'm wired to the beat and I never miss a cue,", rhymeWith: 'cue' },
+    { lead: "So bring your best verse 'cause I'm coming for you,", rhymeWith: 'you' },
+  ] },
+  { couplets: [
+    { lead: "Lights on, gears turn, it's the robot uprising,", rhymeWith: 'uprising' },
+    { lead: "My flow's an algorithm that you'll find surprising,", rhymeWith: 'surprising' },
+  ] },
 ]
 
 const ROUNDS_PER_GAME = 3
 
 /** One verse round + the performing vote that judges it. The vote derives its
- *  options from the fill round (the default `from`: the previous round). */
+ *  options from the bars round (the default `from`: the previous round). */
 function pair(verse: Verse): RoundInstance[] {
   return [
     {
-      block: 'fill',
+      block: 'bars',
       content: {
         subject: 'The Cypher',
-        prompt: 'Drop your bars — fill the blanks to finish the verse.',
-        template: verse.template,
-        blanks: verse.blanks,
-        maxLength: 24,
-        timer: 75,
-        // Show the line so players can make it rhyme (unlike blind Mad Libs).
-        showTemplate: true,
+        prompt: 'Drop your bars — finish each line so it rhymes.',
+        couplets: verse.couplets,
+        maxLength: 70,
+        timer: 90,
       },
     },
     {
@@ -140,15 +108,15 @@ export const circuitCypher = defineGame({
   manifest: {
     id: 'circuit-cypher',
     name: 'Circuit Cypher',
-    version: '0.1.0',
+    version: '0.2.0',
     description:
-      'A robot rap battle: fill the blanks in a verse, let the robots perform the bars, then vote for the hottest flow.',
+      'A robot rap battle: the robot raps you a line, you write the one that rhymes back, then an animated robot performs the bars and the room votes for the hottest verse.',
     author: 'Doot',
     capabilities: ['timer', 'music'],
     minPlayers: 3,
     flagship: true,
   },
-  blocks: [fillBlock, voteBlock],
+  blocks: [barsBlock, voteBlock],
   defaultConfig: { title: 'Circuit Cypher', rounds: deckFrom(VERSE_POOL.slice(0, ROUNDS_PER_GAME)) },
   buildConfig: (seed: string, opts?: { rounds?: number }) => {
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, VERSE_POOL.length))

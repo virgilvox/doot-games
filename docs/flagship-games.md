@@ -317,20 +317,30 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
    sampled per play. ✅ **`split` block** → **Split the Room** (shipped): complete a
    dividing "would you...?" dilemma, the room votes yes/no on every scenario, and
    authors score on closeness to a 50/50 split (`closenessToHalf`/`splitPoints`).
-5. ✅ **Circuit Cypher** (shipped): the robot rap battle, a first-party flagship
-   composing `fill` (rap verses, `showTemplate` on so players can rhyme) → a
-   `vote` round with the new opt-in **`perform`** flag. When `perform` is set, the
-   big-screen vote view shows a **"Perform the bars"** control that has the robots
-   read each verse aloud via the browser `speechSynthesis` API (client-only,
-   SSR-guarded, a clean no-op where TTS is missing) over a CSS beat, then the room
-   votes. A 10-verse pool is sampled per play (`buildConfig`); host-pickable verse
-   count. Registered in `registry.ts`/`catalog.ts`/`visuals.ts` (a `mic` icon), so
-   it appears under Games From Doot and hosts directly — not a plugin, not
-   custom-only. ⏳ **Still to layer on:** head-to-head vote mode (it currently uses
-   the proven `field` vote) and the **Tone.js generated-beat fallback** (§3.6) for
-   when no `musicUrl` is configured.
+5. ✅ **Circuit Cypher v2** (shipped): the robot rap battle, a first-party flagship.
+   - **Guided couplet writing** via a new **`bars` block**: the robot raps the
+     player the FIRST line of each couplet and the player writes the line that
+     rhymes back (a `rhymeWith` hint nudges it); two couplets => a four-line verse,
+     alternating robot/player lines (the Mad Verse City mechanic). `toVoteText`
+     assembles the verse for the judge round.
+   - **Animated robot performance**: the `vote` round carries an opt-in **`perform`**
+     flag; when set, `VoteHost` shows a **"Perform the bars"** control and an
+     animated **`RobotRapper`** (new `@doot-games/ui` component — CSS robot that
+     bobs to a beat with a running equalizer "mouth") that raps each verse aloud
+     via `speechSynthesis` (client-only, SSR-guarded, a clean no-op where TTS is
+     missing). The vote flow never depends on it.
+   - Composes `[bars, vote(perform)]`; 10-verse pool, host-pickable verse count;
+     in `registry`/`catalog`/`visuals` (`mic` icon). The vote-prompt derive now
+     keeps the authored prompt for structured make blocks (fill/bars) and only
+     borrows a quip's prompt as the topic.
+   - ⏳ **The full battle, next (designed in §7):** a head-to-head **tournament**
+     (two named robots face off per matchup; pairings until everyone has battled),
+     **live audience cheers** during a performance (minor points) with the
+     **post-battle vote** as the decider, a **"players perform live"** mode (beat +
+     per-performer timer instead of TTS), cumulative cash scoring, and the
+     **Tone.js generated beat** (§3.6).
 6. ⏳ **Fib Finder** and **Sketch & Spot** (cheap, reuse `vote`).
-7. ⏳ **"Games From Doot" category** on `/explore` + the catalog.
+7. ⏳ **Circuit Cypher tournament** (see §7) + **"Games From Doot"** polish.
 8. ⏳ **The Big Reveal** (live feed channel) - the stretch capstone.
 
 Verify each increment with `pnpm test && pnpm -r typecheck && pnpm --filter
@@ -415,5 +425,42 @@ optional "N live" badge. A site-wide **`SiteFooter`** (Play / Create / About col
 filter chips (functional), a "Featured this week" hero (newest public game, else the
 Quip Clash flagship), an optional "Your games" row, and a cover-card grid of public
 games + game-type templates.
-</content>
-</invoke>
+
+## 8. Circuit Cypher tournament (the full battle — design for the next build)
+
+v2 shipped the guided couplet writing + the animated `RobotRapper` performance +
+field vote. The full Mad Verse City experience adds a head-to-head tournament and
+live crowd energy. This is a **custom-flow** feature (the generic open/lock/reveal
+block renderer can't sequence per-matchup performances), so Circuit Cypher will
+override `components` (`GameHost`/`GamePlayer`) for the battle phase while reusing
+the `bars` write round and the engine's relay/roster/reconnect.
+
+- **Write phase** (today): everyone writes their 4-line verse via `bars`.
+- **Battle phase** (new): pair the players and run matchups. Pairing is dynamic
+  (depends on who's in the room at write time, which a fixed round list can't know
+  up front), so the host drives the bracket client-side within a battle round,
+  publishing the current matchup (the two robots + their verses) to the relay.
+  "Keep going until everyone has battled" => round-robin for small rooms, capped at
+  ~3 pairing rounds for large ones (log what's dropped). For each matchup:
+  1. **Robot A performs** player A's verse — the `RobotRapper` for A raps (TTS or
+     live, see below) while B's robot reacts; then **robot B performs** B's verse.
+     Two robots face off on the big screen (`facing="left"`/`"right"`).
+  2. **Live cheers** during each performance: phones show a tap-to-cheer button;
+     taps stream over a **continuous low-latency relay channel** (the one genuinely
+     new transport need, shared with The Big Reveal). Cheers add a small bonus and
+     can't decide the battle alone.
+  3. **Post-battle vote** (the decider): A vs B, head-to-head; the `vote` block's
+     reserved `head-to-head` mode tallies the winner. Both performers earn cash
+     (Mad Verse City: unless you got zero votes); the winner earns more.
+- **Perform-mode toggle** (host, in the lobby): **Robots** (speechSynthesis, as
+  today) or **Players perform live** — the beat plays and a per-performer countdown
+  runs while that human reads their verse aloud IRL; cheers happen during, vote
+  after. `prefers-reduced-motion` / a mute toggle govern audio either way.
+- **Beat**: a CSS beat visual today; add the **Tone.js generated loop** (§3.6) so
+  there's actual backing music when no `musicUrl` is configured.
+- **Scoring**: cumulative cash across matchups; final leaderboard crowns the MC.
+
+Build order for it: (a) `vote` head-to-head mode + a `RobotBattle` two-robot view;
+(b) the bracket/pairing + host-driven matchup sequencing as a custom component;
+(c) the continuous cheer channel + bonus; (d) the live-perform timer mode; (e) the
+Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.

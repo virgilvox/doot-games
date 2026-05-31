@@ -35,6 +35,7 @@ const VISUALS: Record<string, GameVisual> = {
   'circuit-cypher': { color: 'var(--c5)', icon: 'mic' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
+  bars: { color: 'var(--c5)', icon: 'mic' },
   fill: { color: 'var(--c4)', icon: 'text' },
   split: { color: 'var(--c1)', icon: 'rank' },
   custom: { color: 'var(--c1)', icon: 'grid' },

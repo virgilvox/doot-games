@@ -27,16 +27,18 @@ describe('flagship buildConfig honors the host-chosen round count', () => {
 })
 
 describe('Circuit Cypher composition', () => {
-  it('pairs each fill verse with a performing vote round', () => {
+  it('pairs each guided bars verse with a performing vote round', () => {
     const rounds = circuitCypher.buildConfig!('seed', { rounds: 2 }).rounds as RoundInstance[]
-    expect(rounds.map((r) => r.block)).toEqual(['fill', 'vote', 'fill', 'vote'])
+    expect(rounds.map((r) => r.block)).toEqual(['bars', 'vote', 'bars', 'vote'])
     // The judge rounds opt into the robot performance (the rap-battle moment).
     for (const r of rounds.filter((r) => r.block === 'vote')) {
       expect((r.content as { perform?: boolean }).perform).toBe(true)
     }
-    // Verses show the line so players can rhyme (unlike blind Mad Libs).
-    for (const r of rounds.filter((r) => r.block === 'fill')) {
-      expect((r.content as { showTemplate?: boolean }).showTemplate).toBe(true)
+    // Each bars round gives the player robot lead lines to rhyme back.
+    for (const r of rounds.filter((r) => r.block === 'bars')) {
+      const couplets = (r.content as { couplets?: Array<{ lead: string }> }).couplets ?? []
+      expect(couplets.length).toBeGreaterThanOrEqual(1)
+      expect(couplets.every((c) => c.lead.length > 0)).toBe(true)
     }
   })
 })

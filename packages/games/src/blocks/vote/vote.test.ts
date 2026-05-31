@@ -54,6 +54,23 @@ describe('vote block derive', () => {
     expect(JSON.stringify(publish.options)).not.toContain('A')
     expect((answer as VoteAnswer).authors).toEqual({ o0: 'A', o1: 'B', o2: 'C' })
   })
+
+  // A quip's prompt IS the topic, so frame the vote with it. A fill/bars round's
+  // prompt is an instruction and the topic is the story/verse itself, so the vote
+  // round keeps its own authored prompt.
+  function deriveFrom(sourceContent: Record<string, unknown>) {
+    return voteBlock.derive!({
+      content: { prompt: 'Funniest wins', options: [], mode: 'field', timer: 30 },
+      sources: [{ index: 0, content: sourceContent, inputs: new Map([['A', { text: 'x' }]]), render: textRender }],
+      players,
+      shuffle: identityShuffle,
+    })
+  }
+  it('frames the vote with a quip prompt (the topic) but keeps the authored prompt for fill/bars', () => {
+    expect(deriveFrom({ prompt: 'A bad boat name' }).publish.prompt).toBe('Best answer: "A bad boat name"')
+    expect(deriveFrom({ prompt: 'Fill the blanks', template: 'the {x}', blanks: [] }).publish.prompt).toBe('Funniest wins')
+    expect(deriveFrom({ prompt: 'Drop your bars', couplets: [{ lead: 'yo' }] }).publish.prompt).toBe('Funniest wins')
+  })
 })
 
 describe('vote block aggregate', () => {

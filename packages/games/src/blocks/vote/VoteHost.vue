@@ -6,7 +6,7 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import { cancelSpeech, speakLines } from '@doot-games/ui'
+import { RobotRapper, cancelSpeech, speakLines } from '@doot-games/ui'
 import { computed, onUnmounted, ref } from 'vue'
 import type { VoteContent, VoteInput, VoteRevealSummary } from './block'
 
@@ -92,6 +92,8 @@ function stopPerform() {
   performing.value = false
   currentId.value = null
 }
+// The verse currently being rapped (shown in the robot's speech bubble).
+const currentText = computed(() => rows.value.find((r) => r.id === currentId.value)?.text ?? '')
 onUnmounted(() => cancelSpeech())
 </script>
 
@@ -103,7 +105,12 @@ onUnmounted(() => cancelSpeech())
         <span v-else>&#9632; Stop</span>
       </button>
       <span v-if="performing" class="beat" aria-hidden="true"><i /><i /><i /><i /></span>
-      <span class="perform-hint">{{ performing ? '🎤 The robots are spitting bars…' : 'Let the robots rap each verse, then vote.' }}</span>
+      <span class="perform-hint">{{ performing ? '🎤 On the mic now…' : 'Let the robots rap each verse, then vote.' }}</span>
+    </div>
+    <!-- The animated robot performing the current verse. -->
+    <div v-if="canPerform && performing" class="stage">
+      <RobotRapper :speaking="true" :size="190" accent="var(--primary)" name="MC Doot" />
+      <p class="verse" aria-live="polite">{{ currentText }}</p>
     </div>
     <p v-if="rows.length < 2" class="degenerate">
       Not enough answers to vote on this round. Skip ahead.
@@ -178,6 +185,29 @@ onUnmounted(() => cancelSpeech())
   color: var(--ink-soft);
   font-weight: 600;
   font-size: 14px;
+}
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0 18px;
+}
+.verse {
+  position: relative;
+  max-width: 32ch;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(20px, 3vw, 32px);
+  line-height: 1.3;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  white-space: pre-line;
 }
 .beat {
   display: inline-flex;

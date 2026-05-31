@@ -108,21 +108,23 @@ async function twoPhaseLoop(browser, { gameId, tag }) {
     await host.waitForSelector('button:has-text("Collect answers"), button:has-text("Open voting")', { timeout: 40000 })
     await host.locator('button:has-text("Collect answers"), button:has-text("Open voting")').first().click()
     // Detect the round kind from the first player's input surface.
-    await players[0].waitForSelector('.quip-input, .fill-input, .opt', { timeout: 40000 })
+    await players[0].waitForSelector('.quip-input, .fill-input, .bars-input, .opt', { timeout: 40000 })
     const kind = (await players[0].locator('.quip-input').count())
       ? 'quip'
       : (await players[0].locator('.fill-input').count())
         ? 'fill'
-        : 'vote'
+        : (await players[0].locator('.bars-input').count())
+          ? 'bars'
+          : 'vote'
     for (let i = 0; i < players.length; i++) {
       const p = players[i]
-      await p.waitForSelector('.quip-input, .fill-input, .opt', { timeout: 40000 })
+      await p.waitForSelector('.quip-input, .fill-input, .bars-input, .opt', { timeout: 40000 })
       if (kind === 'quip') {
         await p.fill('.quip-input', `${names[i]} thinks thing number ${guard}`)
-      } else if (kind === 'fill') {
-        const blanks = p.locator('.fill-input')
-        const count = await blanks.count()
-        for (let b = 0; b < count; b++) await blanks.nth(b).fill(`word${i}${b}`)
+      } else if (kind === 'fill' || kind === 'bars') {
+        const fields = p.locator(kind === 'fill' ? '.fill-input' : '.bars-input')
+        const count = await fields.count()
+        for (let b = 0; b < count; b++) await fields.nth(b).fill(`${kind} line ${i}${b}`)
       } else {
         await p.locator('.opt').first().click()
       }
