@@ -12,24 +12,39 @@ import FillHost from './FillHost.vue'
 import FillPlayer from './FillPlayer.vue'
 
 export const fillBlankSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).describe('Must match a {placeholder} in the template above.'),
   /** What the player is asked for, e.g. "An animal", "A verb ending in -ing". */
-  label: z.string().default(''),
+  label: z.string().default('').describe('What players are asked for, e.g. "An animal".'),
 })
 export type FillBlank = z.infer<typeof fillBlankSchema>
 
 export const fillContentSchema = z.object({
-  subject: z.string().default(''),
+  subject: z.string().default('').describe('Optional label shown on the big screen.'),
   prompt: z.string().default('Fill in the blanks (no peeking at the story!)'),
   /** Template with `{id}` placeholders matching blank ids. */
-  template: z.string().default('The {noun} went to the {place}.'),
-  blanks: z.array(fillBlankSchema).min(1),
-  maxLength: z.number().int().positive().max(60).default(30),
-  timer: z.number().int().nonnegative().nullable().default(75),
+  template: z
+    .string()
+    .default('The {noun} went to the {place}.')
+    .describe('Write your sentence with {placeholders}. Each one needs a matching blank below.'),
+  blanks: z
+    .array(fillBlankSchema)
+    .min(1)
+    .describe('One per {placeholder} in the template. The id is the placeholder name; the label is the hint players see.'),
+  maxLength: z.number().int().positive().max(60).default(30).describe('Max characters per blank.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(75)
+    .describe('Seconds to fill the blanks. Turn off for an untimed round.'),
   /** Show the template (blanks as ___) as context above the inputs. Mad Libs
    *  keeps this off (blind, for the reveal); Split the Room turns it on (you
    *  complete a visible dilemma). */
-  showTemplate: z.boolean().default(false),
+  showTemplate: z
+    .boolean()
+    .default(false)
+    .describe('Show the sentence with blanks above the inputs. Off = players fill in blind (funnier reveal).'),
 })
 export type FillContent = z.infer<typeof fillContentSchema>
 export interface FillInput {

@@ -20,6 +20,8 @@ export interface FieldMeta {
   nullable?: boolean
   hasDefault?: boolean
   defaultValue?: unknown
+  /** A `.describe()` hint from the schema, shown as help text under the field. */
+  description?: string
 }
 
 export type FieldNode = FieldMeta &
@@ -121,6 +123,11 @@ function shapeEntries(def: ZodDef): FieldEntry[] {
 /** Walk a Zod schema into a render-ready `FieldNode`. */
 export function describeSchema(schema: unknown): FieldNode {
   const meta: FieldMeta = {}
+  // Zod exposes `.describe()` text on the schema's `.description` getter (it is
+  // set on the outermost wrapper, so read it before peeling). Reading a plain
+  // property keeps this module free of any runtime dependency on Zod.
+  const description = (schema as { description?: string } | null | undefined)?.description
+  if (typeof description === 'string' && description) meta.description = description
   let def = defOf(schema)
 
   // Peel wrapper layers, accumulating their metadata onto the inner field.

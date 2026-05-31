@@ -24,11 +24,20 @@ export const rateScaleSchema = z.discriminatedUnion('kind', [
 export type RateScale = z.infer<typeof rateScaleSchema>
 
 export const rateContentSchema = z.object({
-  subject: z.string().default(''),
+  subject: z.string().default('').describe('Optional label shown on the big screen, e.g. what is being rated.'),
   prompt: z.string().default('Rate this'),
-  image: z.string().default(''),
-  timer: z.number().int().nonnegative().nullable().default(null),
-  categories: z.array(z.object({ id: z.string().min(1), label: z.string().min(1) })).min(1),
+  image: z.string().default('').describe('Optional picture of the thing being rated.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(null)
+    .describe('Seconds to rate. Turn off for an untimed round.'),
+  categories: z
+    .array(z.object({ id: z.string().min(1).describe('Internal id (auto-filled).'), label: z.string().min(1) }))
+    .min(1)
+    .describe('One or more things to score, e.g. Taste, Looks, Value.'),
   scale: rateScaleSchema,
 })
 export type RateContent = z.infer<typeof rateContentSchema>

@@ -14,11 +14,18 @@ const props = defineProps<{
   /** A Zod schema (typically a block's `contentSchema`). */
   schema: unknown
   modelValue: Record<string, unknown>
+  /** Top-level field names to omit (e.g. a derived block's runtime-built fields,
+   *  which the author never sets by hand). */
+  hide?: string[]
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>] }>()
 
 const root = computed(() => describeSchema(props.schema))
-const fields = computed(() => (root.value.kind === 'object' ? root.value.fields : []))
+const fields = computed(() => {
+  const all = root.value.kind === 'object' ? root.value.fields : []
+  const hidden = props.hide ?? []
+  return hidden.length ? all.filter((f) => !hidden.includes(f.name)) : all
+})
 
 function setKey(key: string, value: unknown) {
   emit('update:modelValue', { ...props.modelValue, [key]: value })

@@ -101,8 +101,11 @@ async function quipClashLoop(browser) {
   let sawQuip = false
   let sawVote = false
   for (let guard = 0; guard < 12; guard++) {
-    await host.waitForSelector('button:has-text("Open voting")', { timeout: 40000 })
-    await host.click('button:has-text("Open voting")')
+    // Make rounds (quip) label the controls "Collect/Lock answers" and collapse
+    // reveal into "Start the vote →"; judge rounds (vote) say "Open/Lock voting"
+    // then "Reveal". Drive whichever pair is present.
+    await host.waitForSelector('button:has-text("Collect answers"), button:has-text("Open voting")', { timeout: 40000 })
+    await host.locator('button:has-text("Collect answers"), button:has-text("Open voting")').first().click()
     // Detect the round kind from the first player's input surface.
     await players[0].waitForSelector('.quip-input, .opt', { timeout: 40000 })
     const kind = (await players[0].locator('.quip-input').count()) ? 'quip' : 'vote'
@@ -120,10 +123,16 @@ async function quipClashLoop(browser) {
     else sawVote = true
     ok(`round ${guard} (${kind}): all 3 players submitted`)
 
-    await host.waitForSelector('button:has-text("Lock voting")', { timeout: 40000 })
-    await host.click('button:has-text("Lock voting")')
-    await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })
-    await host.click('button:has-text("Reveal")')
+    await host.waitForSelector('button:has-text("Lock answers"), button:has-text("Lock voting")', { timeout: 40000 })
+    await host.locator('button:has-text("Lock answers"), button:has-text("Lock voting")').first().click()
+    // A make round goes straight to the vote via "Start the vote →" (reveal+next
+    // in one action); a judge round reveals, then advances.
+    await host.waitForSelector('button:has-text("Start the vote"), button:has-text("Reveal")', { timeout: 40000 })
+    if (await host.locator('button:has-text("Start the vote")').count()) {
+      await host.locator('button:has-text("Start the vote")').click()
+      continue
+    }
+    await host.locator('button:has-text("Reveal")').click()
     await host.waitForSelector('button:has-text("Next round"), button:has-text("Final results")', { timeout: 40000 })
     if (await host.locator('button:has-text("Final results")').count()) {
       await host.click('button:has-text("Final results")')

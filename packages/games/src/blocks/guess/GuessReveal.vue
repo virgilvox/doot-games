@@ -23,17 +23,17 @@ const answerLabel = computed(() => props.reveal?.correctLabel ?? '')
 <template>
   <div class="guess-reveal big" aria-live="polite">
     <template v-if="correct">
-      <div class="badge ok">&#10003;</div>
+      <div class="badge ok" aria-hidden="true">&#10003;</div>
       <h2>Correct!</h2>
       <p>Nice one. Check the big screen for the standings.</p>
     </template>
     <template v-else-if="answered">
-      <div class="badge no">&#10007;</div>
+      <div class="badge no" aria-hidden="true">&#10007;</div>
       <h2>Not quite</h2>
       <p>The answer was <b>{{ answerLabel }}</b>.</p>
     </template>
     <template v-else>
-      <div class="badge no">&#8211;</div>
+      <div class="badge no" aria-hidden="true">&#8211;</div>
       <h2>Time!</h2>
       <p>The answer was <b>{{ answerLabel }}</b>.</p>
     </template>

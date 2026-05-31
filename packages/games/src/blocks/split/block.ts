@@ -23,9 +23,18 @@ export const splitScenarioSchema = z.object({ id: z.string(), text: z.string() }
 export type SplitScenario = z.infer<typeof splitScenarioSchema>
 
 export const splitContentSchema = z.object({
-  prompt: z.string().default('Would you? Vote yes or no on each'),
+  prompt: z
+    .string()
+    .default('Would you? Vote yes or no on each')
+    .describe('The instruction shown above the yes/no scenarios.'),
   scenarios: z.array(splitScenarioSchema).default([]),
-  timer: z.number().int().nonnegative().nullable().default(40),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(40)
+    .describe('Seconds to vote on every scenario. Turn off for an untimed round.'),
 })
 export type SplitContent = z.infer<typeof splitContentSchema>
 export interface SplitInput {
@@ -61,6 +70,9 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
   kind: 'split',
   name: 'Split',
   contentSchema: splitContentSchema,
+  // The scenarios are built at runtime from the previous round's answers, so the
+  // editor hides the `scenarios` field instead of asking for placeholder text.
+  derivedFields: ['scenarios'],
   defaultContent: () => ({ prompt: 'Would you? Vote yes or no on each', scenarios: [], timer: 40 }),
   defaultTimer: 40,
   timerOf: (c) => c.timer,

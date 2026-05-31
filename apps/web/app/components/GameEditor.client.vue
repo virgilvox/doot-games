@@ -97,17 +97,51 @@ function onContentUpdate(i: number, value: Record<string, unknown>) {
   resetPreview(i)
 }
 
+// ── two-phase (make → judge) rounds ──────────────────────────────────────
+// A "judge" round (Vote/Split) builds its content at runtime from the answers a
+// previous round collects, so the editor explains that and hides the fields it
+// fills in automatically (the placeholder option ids/text an author should never
+// touch). See the block's `derive`/`derivedFields`.
+function isDerived(inst: RoundInstance): boolean {
+  return !!blockFor(inst)?.derive
+}
+function derivedFieldsOf(inst: RoundInstance): string[] {
+  return blockFor(inst)?.derivedFields ?? []
+}
+/** The round a derived round draws its content from (default: the prior round). */
+function sourceIndexFor(i: number): number | null {
+  const inst = config.rounds[i]
+  if (!inst) return null
+  const from = inst.from
+  const src = from && from.length ? from[from.length - 1]! : i - 1
+  return src >= 0 && src < config.rounds.length ? src : null
+}
+/** The thing a derived block produces (its first derived field), e.g. "options". */
+function derivedNoun(inst: RoundInstance): string {
+  return derivedFieldsOf(inst)[0] ?? 'options'
+}
+function sourceName(i: number): string {
+  const src = sourceIndexFor(i)
+  return src === null ? '' : (blockFor(config.rounds[src]!)?.name ?? 'the previous round')
+}
+
 /** Validate one round's content against its block schema; return an error or ''. */
-function roundError(inst: RoundInstance): string {
+function roundError(inst: RoundInstance, i: number): string {
   const block = blockFor(inst)
   if (!block) return `Unknown block "${inst.block}"`
   const result = block.contentSchema.safeParse(inst.content)
-  if (result.success) return ''
-  const first = result.error.issues[0]
-  const path = first?.path.join('.')
-  return path ? `${path}: ${first?.message}` : (first?.message ?? 'Invalid')
+  if (!result.success) {
+    const first = result.error.issues[0]
+    const path = first?.path.join('.')
+    return path ? `${path}: ${first?.message}` : (first?.message ?? 'Invalid')
+  }
+  // A judge round (Vote/Split) needs an earlier round to build its options from.
+  if (block.derive && sourceIndexFor(i) === null) {
+    return 'This round builds on the round before it. Add a writing round (Quip or Fill) above it.'
+  }
+  return ''
 }
-const errors = computed(() => config.rounds.map(roundError))
+const errors = computed(() => config.rounds.map((r, i) => roundError(r, i)))
 const valid = computed(() => config.title.trim().length > 0 && config.rounds.length > 0 && errors.value.every((e) => !e))
 
 // Live preview of the phone view per round, a local input value, no relay.
@@ -370,9 +404,31 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
           <div v-if="expanded === i" class="ed-round-body">
             <div class="ed-form">
+              <!-- Judge rounds (Vote/Split) are built from the previous round's
+                   answers at runtime; explain that instead of showing the empty
+                   option fields. -->
+              <div v-if="isDerived(round)" class="ed-derived" :class="{ bad: errors[i] }">
+                <svg class="ed-derived-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8" /></svg>
+                <div class="ed-derived-body" v-if="sourceIndexFor(i) !== null">
+                  <strong>Built automatically from Round {{ sourceIndexFor(i)! + 1 }}.</strong>
+                  <p>
+                    You don't fill in the {{ derivedNoun(round) }} here. Whatever players write in
+                    Round {{ sourceIndexFor(i)! + 1 }} ({{ sourceName(i) }}) becomes the answers everyone
+                    votes on, shuffled and anonymized. You only set the prompt and timer below.
+                  </p>
+                </div>
+                <div class="ed-derived-body" v-else>
+                  <strong>This round needs a writing round before it.</strong>
+                  <p>
+                    A {{ blockFor(round)?.name }} round builds its {{ derivedNoun(round) }} from the answers
+                    collected in the round right above it. Add a Quip or Fill round before this one.
+                  </p>
+                </div>
+              </div>
               <SchemaForm
                 v-if="blockFor(round)"
                 :schema="blockFor(round)!.contentSchema"
+                :hide="derivedFieldsOf(round)"
                 :model-value="contentOf(round)"
                 @update:model-value="onContentUpdate(i, $event)"
               />
@@ -389,9 +445,19 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
                   alt=""
                   class="ed-phone-img"
                 />
+                <!-- Derived rounds have no authored options to preview; show a
+                     representative sample of what players will see at runtime. -->
+                <template v-if="isDerived(round)">
+                  <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
+                  <ul class="ed-sample">
+                    <li>An answer a player wrote</li>
+                    <li>Another player's answer</li>
+                    <li>A third answer</li>
+                  </ul>
+                </template>
                 <component
                   :is="blockFor(round)!.PlayerInput"
-                  v-if="blockFor(round) && !errors[i]"
+                  v-else-if="blockFor(round) && !errors[i]"
                   :content="round.content"
                   :model-value="previewValue(i)"
                   @update:model-value="previewInputs[i] = $event"
@@ -740,6 +806,59 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   letter-spacing: 0;
   color: var(--ink-soft);
   font-weight: 500;
+}
+/* Two-phase "this round is built automatically" explainer. */
+.ed-derived {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--round-accent, var(--primary)) 12%, var(--surface));
+  border: var(--bd) solid color-mix(in srgb, var(--round-accent, var(--primary)) 40%, var(--line-soft));
+  border-radius: 13px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.ed-derived.bad {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--line-soft));
+}
+.ed-derived-ic {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  margin-top: 1px;
+  fill: none;
+  stroke: var(--round-accent, var(--primary));
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ed-derived-body strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 3px;
+}
+.ed-derived-body p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.ed-sample {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ed-sample li {
+  border: var(--bd) dashed var(--line-soft);
+  border-radius: 11px;
+  padding: 11px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--surface-2);
 }
 .ed-add {
   display: flex;

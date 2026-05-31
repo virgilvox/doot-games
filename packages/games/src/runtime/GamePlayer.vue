@@ -84,7 +84,7 @@ function submit() {
 
     <div v-else-if="state === 'ready'" class="big">
       <h2>{{ prompt || block.name }}</h2>
-      <p>Get ready, voting opens in a moment.</p>
+      <p>Get ready, this round opens in a moment.</p>
     </div>
 
     <template v-else-if="state === 'open' && !submitted && value != null">
@@ -103,7 +103,7 @@ function submit() {
     </div>
     <div v-else-if="state === 'locked'" class="big">
       <h2>Time!</h2>
-      <p>Voting is closed. Results coming up on the big screen.</p>
+      <p>That's locked in. Watch the big screen for what's next.</p>
     </div>
     <component
       :is="block.PlayerReveal"
@@ -113,7 +113,7 @@ function submit() {
       :reveal="room.roundRevealFor(index)"
     />
     <div v-else class="big">
-      <h2>Answers are up!</h2>
+      <h2>Results are up!</h2>
       <p>Check the big screen.</p>
     </div>
   </div>

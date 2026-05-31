@@ -25,7 +25,9 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
 
-const label = computed(() => props.forceLabel ?? humanizeName(props.name))
+const label = computed(() => props.forceLabel ?? (props.name === 'id' ? 'ID' : humanizeName(props.name)))
+/** Help text from the schema's `.describe()`, shown under the field. */
+const hint = computed(() => props.node.description ?? '')
 
 const isImage = computed(() => props.node.kind === 'string' && props.name === 'image')
 const isPrompt = computed(() => props.node.kind === 'string' && props.name === 'prompt')
@@ -132,6 +134,7 @@ function toggleNullableNumber(on: boolean) {
       :value="(modelValue as string) ?? ''"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </label>
 
   <!-- correct: pick the right option -->
@@ -167,6 +170,7 @@ function toggleNullableNumber(on: boolean) {
       :value="modelValue as number"
       @input="onNumber(($event.target as HTMLInputElement).value)"
     />
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </div>
 
   <!-- id: compact slug -->
@@ -177,6 +181,7 @@ function toggleNullableNumber(on: boolean) {
       :value="(modelValue as string) ?? ''"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </label>
 
   <!-- plain string -->
@@ -187,6 +192,7 @@ function toggleNullableNumber(on: boolean) {
       :value="(modelValue as string) ?? ''"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </label>
 
   <!-- plain number -->
@@ -198,17 +204,21 @@ function toggleNullableNumber(on: boolean) {
       :value="modelValue as number"
       @input="emit('update:modelValue', Number(($event.target as HTMLInputElement).value))"
     />
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </label>
 
   <!-- boolean -->
-  <label v-else-if="node.kind === 'boolean'" class="sf-toggle">
-    <input
-      type="checkbox"
-      :checked="!!modelValue"
-      @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
-    />
-    <span>{{ label }}</span>
-  </label>
+  <div v-else-if="node.kind === 'boolean'" class="sf-field">
+    <label class="sf-toggle">
+      <input
+        type="checkbox"
+        :checked="!!modelValue"
+        @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
+      />
+      <span>{{ label }}</span>
+    </label>
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
+  </div>
 
   <!-- enum -->
   <label v-else-if="node.kind === 'enum'" class="sf-field">
@@ -220,6 +230,7 @@ function toggleNullableNumber(on: boolean) {
     >
       <option v-for="v in node.values" :key="v" :value="v">{{ v }}</option>
     </select>
+    <p v-if="hint" class="sf-hint">{{ hint }}</p>
   </label>
 
   <!-- discriminated union -->
@@ -244,6 +255,7 @@ function toggleNullableNumber(on: boolean) {
   <!-- array -->
   <div v-else-if="node.kind === 'array'" class="sf-field">
     <span class="sf-label">{{ label }}</span>
+    <p v-if="hint" class="sf-hint" style="margin-top: 0; margin-bottom: 8px">{{ hint }}</p>
     <div class="sf-array">
       <div v-for="(item, i) in arrValue" :key="i" class="sf-array-item">
         <div class="sf-array-head">
@@ -285,6 +297,7 @@ function toggleNullableNumber(on: boolean) {
   <!-- nested object -->
   <div v-else-if="node.kind === 'object'" class="sf-field">
     <span class="sf-label">{{ label }}</span>
+    <p v-if="hint" class="sf-hint" style="margin-top: 0; margin-bottom: 8px">{{ hint }}</p>
     <div class="sf-group">
       <SchemaField
         v-for="f in node.fields"

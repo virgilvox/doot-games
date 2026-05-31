@@ -12,10 +12,16 @@ import DrawPlayer from './DrawPlayer.vue'
 export const drawContentSchema = z.object({
   prompt: z.string().default('Draw the prompt!'),
   /** Optional reference image shown beside the prompt. */
-  image: z.string().default(''),
-  timer: z.number().int().nonnegative().nullable().default(60),
+  image: z.string().default('').describe('Optional reference picture shown beside the prompt.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(60)
+    .describe('Seconds to draw. Turn off for an untimed round.'),
   /** Canvas aspect ratio (height / width). */
-  aspect: z.number().positive().default(0.7),
+  aspect: z.number().positive().default(0.7).describe('Canvas shape (height ÷ width). 0.7 is landscape; 1 is square.'),
 })
 export type DrawContent = z.infer<typeof drawContentSchema>
 export type DrawInput = DrawValue

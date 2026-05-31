@@ -32,6 +32,19 @@ describe('describeSchema', () => {
     expect(node.defaultValue).toBe(20)
   })
 
+  it('captures .describe() help text, including through wrappers', () => {
+    const node = describeSchema(
+      z.object({
+        a: z.string().describe('plain help'),
+        t: z.number().nullable().default(30).describe('seconds; off = untimed'),
+        plain: z.string(),
+      }),
+    )
+    expect(field(node, 'a')?.description).toBe('plain help')
+    expect(field(node, 't')?.description).toBe('seconds; off = untimed')
+    expect(field(node, 'plain')?.description).toBeUndefined()
+  })
+
   it('marks optional fields', () => {
     const node = field(describeSchema(z.object({ image: z.string().optional() })), 'image')
     expect(node?.kind).toBe('string')

@@ -7,7 +7,7 @@
  * by vote share. This is the Quiplash spine.
  *
  * v1 implements `field` mode (pick one favorite among all answers). `head-to-head`
- * (pairwise matchups) is reserved for Robot Rap Battle.
+ * (pairwise matchups) is reserved for Circuit Cypher.
  */
 import {
   type BlockResultsContext,
@@ -26,10 +26,22 @@ export const voteOptionSchema = z.object({ id: z.string(), text: z.string() })
 export type VoteOption = z.infer<typeof voteOptionSchema>
 
 export const voteContentSchema = z.object({
-  prompt: z.string().default('Which answer wins?'),
+  prompt: z
+    .string()
+    .default('Which answer wins?')
+    .describe('Used only if the previous round has no prompt; normally players see "Best answer: <the previous prompt>".'),
   options: z.array(voteOptionSchema).default([]),
-  mode: z.enum(['field', 'head-to-head']).default('field'),
-  timer: z.number().int().nonnegative().nullable().default(30),
+  mode: z
+    .enum(['field', 'head-to-head'])
+    .default('field')
+    .describe('field = pick one favorite from everyone\'s answers.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(30)
+    .describe('Seconds to vote. Turn off for an untimed round.'),
 })
 export type VoteContent = z.infer<typeof voteContentSchema>
 export interface VoteInput {
@@ -73,6 +85,9 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   kind: 'vote',
   name: 'Vote',
   contentSchema: voteContentSchema,
+  // The options are built at runtime from the previous round's answers, so the
+  // editor hides the `options` field instead of asking for placeholder ids/text.
+  derivedFields: ['options'],
   defaultContent: () => ({ prompt: 'Which answer wins?', options: [], mode: 'field', timer: 30 }),
   defaultTimer: 30,
   timerOf: (c) => c.timer,

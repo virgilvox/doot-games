@@ -87,12 +87,18 @@ const countdown = computed(() => {
   if (!dl || !timer) return null
   return { remaining: Math.max(0, dl - now.value), total: timer * 1000 }
 })
-const stateLabel = computed(
-  () =>
-    ({ ready: 'Ready', open: 'Voting open', locked: 'Voting closed', reveal: 'Results' })[
-      state.value
-    ] ?? state.value,
-)
+// "Voting" only fits the judge rounds (Vote/Split); a make/standalone round
+// collects answers, so label the state by what's actually happening.
+const isJudge = computed(() => !!block.value?.derive)
+const stateLabel = computed(() => {
+  const labels = {
+    ready: 'Get ready',
+    open: isJudge.value ? 'Voting open' : 'Answers open',
+    locked: isJudge.value ? 'Voting closed' : 'Answers in',
+    reveal: 'Results',
+  }
+  return labels[state.value] ?? state.value
+})
 const isLast = computed(() => index.value >= rounds.value.length - 1)
 
 function finish() {

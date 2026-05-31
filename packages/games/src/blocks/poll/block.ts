@@ -9,9 +9,15 @@ import PollPlayer from './PollPlayer.vue'
 
 export const pollContentSchema = z.object({
   prompt: z.string().default('What do you think?'),
-  image: z.string().default(''),
-  timer: z.number().int().nonnegative().nullable().default(null),
-  options: z.array(z.object({ label: z.string().default('') })).min(2),
+  image: z.string().default('').describe('Optional picture shown with the question.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(null)
+    .describe('Seconds to vote. Off = open until you close it (a poll has no wrong answer).'),
+  options: z.array(z.object({ label: z.string().default('') })).min(2).describe('At least two choices.'),
 })
 
 export type PollContent = z.infer<typeof pollContentSchema>

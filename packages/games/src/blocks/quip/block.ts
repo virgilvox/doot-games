@@ -15,9 +15,15 @@ import QuipPlayer from './QuipPlayer.vue'
 export const quipContentSchema = z.object({
   prompt: z.string().default('Finish the sentence...'),
   /** Optional placeholder text shown inside the empty answer box on the phone. */
-  placeholder: z.string().default(''),
-  maxLength: z.number().int().positive().max(280).default(80),
-  timer: z.number().int().nonnegative().nullable().default(60),
+  placeholder: z.string().default('').describe('Greyed-out hint text inside the empty answer box.'),
+  maxLength: z.number().int().positive().max(280).default(80).describe('Max characters in an answer.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(60)
+    .describe('Seconds to write an answer. Turn off for an untimed round.'),
 })
 export type QuipContent = z.infer<typeof quipContentSchema>
 export interface QuipInput {

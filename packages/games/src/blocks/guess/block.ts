@@ -20,11 +20,17 @@ export const guessOptionSchema = z.object({
 })
 
 export const guessContentSchema = z.object({
-  subject: z.string().default(''),
+  subject: z.string().default('').describe('Optional label shown on the big screen, e.g. a category.'),
   prompt: z.string().default('Who is this?'),
-  image: z.string().default(''),
-  timer: z.number().int().nonnegative().nullable().default(20),
-  options: z.array(guessOptionSchema).min(2),
+  image: z.string().default('').describe('Optional picture shown with the question.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(20)
+    .describe('Seconds to answer. Turn off for an untimed round.'),
+  options: z.array(guessOptionSchema).min(2).describe('At least two answers to choose from.'),
   /** Correct option index; stripped to -1 in the published content. */
   correct: z.number().int().default(0),
 })

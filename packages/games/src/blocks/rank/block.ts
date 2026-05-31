@@ -9,9 +9,18 @@ import RankPlayer from './RankPlayer.vue'
 
 export const rankContentSchema = z.object({
   prompt: z.string().default('Rank these'),
-  image: z.string().default(''),
-  timer: z.number().int().nonnegative().nullable().default(null),
-  items: z.array(z.object({ id: z.string().min(1), label: z.string().min(1) })).min(2),
+  image: z.string().default('').describe('Optional picture shown with the question.'),
+  timer: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .default(null)
+    .describe('Seconds to rank. Turn off for an untimed round.'),
+  items: z
+    .array(z.object({ id: z.string().min(1).describe('Internal id (auto-filled).'), label: z.string().min(1) }))
+    .min(2)
+    .describe('The things players drag into order (at least two).'),
 })
 export type RankContent = z.infer<typeof rankContentSchema>
 export interface RankInput {

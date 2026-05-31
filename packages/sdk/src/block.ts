@@ -126,6 +126,13 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
    */
   derive?: (ctx: DeriveContext<Content>) => DerivedContent<Content>
 
+  /** Content keys this block's `derive` produces at runtime from the source
+   *  round (e.g. the vote block's `options`, the split block's `scenarios`).
+   *  The editor hides these fields and explains they are built automatically
+   *  from the previous round's answers, instead of asking the author to fill in
+   *  placeholder ids and empty text. Only meaningful alongside `derive`. */
+  derivedFields?: string[]
+
   /** How this block's submission renders to a votable string when a later
    *  derived round consumes it (e.g. a Mad Lib fills its template). Defaults to
    *  the input's `text` field. Pure. */
