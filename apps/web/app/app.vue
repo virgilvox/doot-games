@@ -192,4 +192,30 @@ async function logout() {
     padding: 7px 11px;
   }
 }
+/* Phones: the logo + account + Support don't fit on one row with the nav, so
+   wrap the nav onto its own full-width row (scrollable if needed). Drop the flex
+   spacer so the top row packs logo (left) against the actions (right). */
+@media (max-width: 620px) {
+  .topbar .inner {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    justify-content: space-between;
+  }
+  .bar-spacer {
+    display: none;
+  }
+  .nav {
+    order: 10;
+    flex-basis: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .account {
+    margin-right: 0;
+  }
+  .support-btn {
+    margin-left: 8px;
+  }
+}
 </style>

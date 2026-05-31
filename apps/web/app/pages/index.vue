@@ -597,4 +597,22 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
     min-height: 320px;
   }
 }
+/* Phones: let the join box fill the row so "ENTER CODE" isn't clipped, and let
+   the primary CTA go full-width beneath it. */
+@media (max-width: 560px) {
+  .hero-cta {
+    width: 100%;
+  }
+  .joinbig {
+    width: 100%;
+  }
+  .joinbig input {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+  .hero-cta .btn-lg {
+    width: 100%;
+  }
+}
 </style>
