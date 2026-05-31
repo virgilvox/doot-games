@@ -363,7 +363,8 @@ describe('RoomRuntime co-host / MC delegation (B9)', () => {
     // Rob's own sendControl is a no-op (he isn't the driver); simulate a tampered
     // client publishing a raw command and confirm the host drops it.
     rob.sendControl('open')
-    expect(hub.store.get(addr.controlCommand('ABCD'))).toBeUndefined()
+    // setDriver cleared the channel to null; Rob's no-op leaves it null (not his command).
+    expect(hub.store.get(addr.controlCommand('ABCD'))).toBeNull()
     hub.set(addr.controlCommand('ABCD'), { pid: rob.me.id, action: 'open', index: 0, nonce: 1 })
     expect(host.getSnapshot().command).toBeNull()
   })
@@ -381,6 +382,26 @@ describe('RoomRuntime co-host / MC delegation (B9)', () => {
     expect(mia.getSnapshot().isDriver).toBe(true)
     host.setDriver(null)
     expect(mia.getSnapshot().isDriver).toBe(false)
+  })
+
+  it('wipes the retained drive command on a driver change so it cannot replay', async () => {
+    const { hub, host, mia } = await setup()
+    host.setDriver(mia.me.id)
+    mia.sendControl('open')
+    expect(host.getSnapshot().command?.action).toBe('open')
+    // A driver change clears the retained command, so a relay re-delivery is a no-op
+    // even if the room is back on the same round index (the replay the audit caught).
+    host.setDriver(null)
+    expect(hub.store.get(addr.controlCommand('ABCD'))).toBeNull()
+    host.setDriver(mia.me.id)
+    expect(host.getSnapshot().command).toBeNull()
+  })
+
+  it('drops a drive command that carries no nonce (not replay-safe)', async () => {
+    const { hub, host, mia } = await setup()
+    host.setDriver(mia.me.id)
+    hub.set(addr.controlCommand('ABCD'), { pid: mia.me.id, action: 'reveal', index: 0 })
+    expect(host.getSnapshot().command).toBeNull()
   })
 })
 

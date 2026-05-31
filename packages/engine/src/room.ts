@@ -469,12 +469,14 @@ export class RoomRuntime {
       if (this.me.role === 'host') {
         on(addr.controlCommand(r), (v) => {
           const cmd = v as { pid?: string; action?: ControlAction; index?: number; nonce?: number } | null
-          if (!cmd || cmd.action == null) return
-          if (cmd.pid !== this.driverPid) return
-          if (cmd.index !== this.state.round.index) return
-          if (cmd.nonce != null && cmd.nonce === this.lastCommandNonce) return
-          this.lastCommandNonce = cmd.nonce ?? null
-          this.incomingCommand = { action: cmd.action, nonce: cmd.nonce ?? 0 }
+          // Require a nonce: a command without one can't be deduped, so a relay
+          // re-delivery would re-fire it. `sendControl` always supplies one.
+          if (!cmd || cmd.action == null || cmd.nonce == null) return
+          if (cmd.pid !== this.driverPid) return // only the current delegate may drive
+          if (cmd.index !== this.state.round.index) return // stale: the round already moved on
+          if (cmd.nonce === this.lastCommandNonce) return // drop a relay re-delivery
+          this.lastCommandNonce = cmd.nonce
+          this.incomingCommand = { action: cmd.action, nonce: cmd.nonce }
           this.emit()
         })
       }
@@ -600,12 +602,17 @@ export class RoomRuntime {
    *  host has delegated driving to this player. The host validates and applies it. */
   sendControl(action: ControlAction): void {
     if (this.me.role !== 'player' || this.driverPid !== this.me.id) return
-    this.controlNonce++
+    // Time-seeded, strictly-increasing nonce. A plain counter restarts at 0 when
+    // this runtime is recreated (a reconnect), which could collide with a nonce
+    // the host already saw and get a real tap silently deduped. Seeding from the
+    // clock makes a post-reconnect nonce larger than anything the host has seen.
+    const nonce = Math.max(this.now(), this.controlNonce + 1)
+    this.controlNonce = nonce
     this.publish(addr.controlCommand(this.room), {
       pid: this.me.id,
       action,
       index: this.state.round.index,
-      nonce: this.controlNonce,
+      nonce,
     })
   }
 
@@ -751,6 +758,14 @@ export class RoomRuntime {
     this.assertHost()
     this.driverPid = pid && pid.length ? pid : null
     this.publish(addr.controlDriver(this.room), this.driverPid ?? '')
+    // Wipe any retained drive command and reset the dedup state. Every published
+    // value is retained on the relay with a long TTL, so without this the LAST
+    // command would linger and could re-fire (e.g. a phantom `reveal` leaking the
+    // answer key) after a host reload or a re-delegation lands the room back on
+    // that command's round index. A null command is ignored by the handler.
+    this.publish(addr.controlCommand(this.room), null)
+    this.lastCommandNonce = null
+    this.incomingCommand = null
     this.emit()
   }
 
