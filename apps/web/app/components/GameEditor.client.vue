@@ -59,6 +59,15 @@ const coverImage = ref(source?.coverImage ?? '')
 const forkable = ref(source?.forkable ?? false)
 const showDetails = ref(false)
 const headerLabel = computed(() => (isFork.value ? 'Forking' : editId.value ? 'Editing' : 'New'))
+// Plain-language meaning of each visibility level, shown next to the picker and
+// when a game is saved (so "I shared the link but my friend gets a 404" never
+// happens silently).
+const VISIBILITY_NOTE: Record<'private' | 'unlisted' | 'public', string> = {
+  private: 'Private: only you can open this. Set it to Unlisted or Public before sharing the link.',
+  unlisted: 'Unlisted: anyone with the link can play it, but it is not listed anywhere.',
+  public: 'Public: anyone can play it and it is listed on Explore for others to find.',
+}
+const visibilityNote = computed(() => VISIBILITY_NOTE[visibility.value])
 
 // Offer image uploads whenever object storage is configured (the upload itself
 // is session-gated; a logged-out click surfaces a "sign in" error).
@@ -186,6 +195,64 @@ function toggle(i: number) {
 const showImport = ref(false)
 const markdownText = ref('')
 const importWarnings = ref<string[]>([])
+
+// A complete, valid example so a creator can see the format and tweak it,
+// instead of having to leave for the docs.
+const MARKDOWN_EXAMPLE = `# Trivia & Vibes Night
+theme: playful
+
+## guess
+prompt: What year did the first iPhone launch?
+timer: 20
+- 2007 (correct)
+- 2005
+- 2010
+
+## poll
+prompt: Pineapple on pizza?
+- Absolutely
+- Never
+- Only sometimes
+
+## rate
+prompt: Rate tonight's playlist
+categories: Energy, Variety
+scale: 1-10`
+
+// A ready-to-paste prompt for ChatGPT/Claude: hand it your topic and it returns
+// a spec you paste straight into the box below. This is the "I don't want to
+// learn a format, I'll ask an AI" path.
+const AI_PROMPT = `Write a party game for Doot as a Markdown spec. Output ONLY the spec, no commentary or code fences.
+
+Format:
+# Game Title
+theme: doot        (or: cutesie, cyber, professional, playful)
+
+Then one or more rounds. Each round is a "## type" heading, then "key: value" lines and "- item" lines:
+
+## guess  - multiple choice with ONE right answer. Fields: prompt, timer (seconds). List 2+ "- choice"; mark the correct one with "(correct)".
+## poll   - opinion, no right answer. Fields: prompt. List 2+ "- choice".
+## rank   - players put items in order. Fields: prompt. List 2+ "- item".
+## rate   - score things on a scale. Fields: prompt, "categories: A, B, C", "scale: 1-5" (or letters like "F, D, C, B, A").
+## draw   - players sketch it. Fields: prompt, timer.
+
+Now make a game about: <YOUR TOPIC HERE>, with about 5 rounds. Mix the round types for variety.`
+
+const copiedPrompt = ref(false)
+async function copyAiPrompt() {
+  try {
+    await navigator.clipboard.writeText(AI_PROMPT)
+    copiedPrompt.value = true
+    setTimeout(() => {
+      copiedPrompt.value = false
+    }, 2000)
+  } catch {
+    /* clipboard blocked: the prompt is still visible to select manually */
+  }
+}
+function loadExample() {
+  markdownText.value = MARKDOWN_EXAMPLE
+}
 function importMarkdown() {
   const parsed = parseMarkdownGame(markdownText.value)
   const supported = new Set(plugin!.blocks.map((b) => b.kind))
@@ -311,7 +378,7 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
             </div>
             <label class="ed-field">
               <span class="ed-label">Visibility</span>
-              <select v-model="visibility" class="sf-select" aria-label="Visibility">
+              <select v-model="visibility" class="sf-select" aria-label="Visibility" :title="visibilityNote">
                 <option value="private">Private</option>
                 <option value="unlisted">Unlisted (link only)</option>
                 <option value="public">Public (listed)</option>
@@ -353,14 +420,32 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
       <div v-if="showImport" class="ed-import">
         <div class="ed-import-head">
-          <span>Paste a markdown game spec, then Import. It replaces the rounds below.</span>
-          <a href="https://github.com/virgilvox/doot-games/blob/main/docs/markdown-games.md" target="_blank" rel="noopener" class="ed-import-doc">Format guide ↗</a>
+          <div>
+            <strong>Build a whole game from a text spec.</strong>
+            <p class="ed-import-lead">
+              Don't want to fill in rounds by hand? Write (or have an AI write) a short spec and paste it
+              here, then Import. It replaces the rounds below.
+            </p>
+          </div>
+          <a href="https://github.com/virgilvox/doot-games/blob/main/docs/markdown-games.md" target="_blank" rel="noopener" class="ed-import-doc">Full guide ↗</a>
         </div>
+
+        <div class="ed-import-actions ed-import-actions--top">
+          <button class="btn btn-primary btn-sm" type="button" @click="copyAiPrompt">
+            {{ copiedPrompt ? '✓ Copied — paste into ChatGPT/Claude' : 'Copy an AI prompt' }}
+          </button>
+          <button class="btn btn-ghost btn-sm" type="button" @click="loadExample">Load an example</button>
+        </div>
+        <p class="ed-import-tip">
+          New here? Click <b>Copy an AI prompt</b>, paste it into ChatGPT or Claude with your topic, and paste
+          what it gives you back into the box below. Or click <b>Load an example</b> to see the format.
+        </p>
+
         <textarea
           v-model="markdownText"
           class="sf-textarea ed-import-text"
           rows="10"
-          placeholder="# My Game&#10;theme: cyber&#10;&#10;## guess&#10;prompt: Who is this?&#10;- Option A (correct)&#10;- Option B"
+          placeholder="# My Game&#10;theme: cyber&#10;&#10;## guess&#10;prompt: Who is this?&#10;timer: 20&#10;- Option A (correct)&#10;- Option B"
         />
         <div class="ed-import-actions">
           <button class="btn btn-primary btn-sm" :disabled="!markdownText.trim()" @click="importMarkdown">Import</button>
@@ -369,6 +454,27 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <ul v-if="importWarnings.length" class="ed-import-warn">
           <li v-for="(w, i) in importWarnings" :key="i">{{ w }}</li>
         </ul>
+
+        <details class="ed-import-fmt">
+          <summary>The format, in brief</summary>
+          <div class="ed-import-fmt-body">
+            <p>
+              <code>#&nbsp;Title</code> at the top, an optional <code>theme:</code>, then one
+              <code>##&nbsp;type</code> heading per round with <code>key: value</code> lines and
+              <code>-&nbsp;item</code> choices. Round types you can use:
+            </p>
+            <ul>
+              <li><b>guess</b> — multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
+              <li><b>poll</b> — opinion, no right answer. Just list the choices.</li>
+              <li><b>rank</b> — players drag items into order. List the items.</li>
+              <li><b>rate</b> — score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
+              <li><b>draw</b> — players sketch the prompt.</li>
+            </ul>
+            <p class="ed-import-tip">
+              Unknown lines are ignored; rounds that need attention are flagged below once imported.
+            </p>
+          </div>
+        </details>
       </div>
 
       <p v-if="!valid" class="ed-note">
@@ -376,9 +482,12 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
       </p>
       <p v-if="saveError" class="ed-note ed-note--err" role="alert">{{ saveError }}</p>
       <div v-if="savedId" class="ed-saved" role="status">
-        <span>Saved. Share this link to host it from anywhere:</span>
-        <NuxtLink :to="shareUrl" class="ed-saved-link mono">{{ shareUrl }}</NuxtLink>
-        <NuxtLink :to="`/host/g/${savedId}`" class="btn btn-primary btn-sm">Host saved game →</NuxtLink>
+        <div class="ed-saved-row">
+          <span>Saved. Share this link to host it from anywhere:</span>
+          <NuxtLink :to="shareUrl" class="ed-saved-link mono">{{ shareUrl }}</NuxtLink>
+          <NuxtLink :to="`/host/g/${savedId}`" class="btn btn-primary btn-sm">Host saved game →</NuxtLink>
+        </div>
+        <p class="ed-saved-vis">{{ visibilityNote }}</p>
       </div>
 
       <ol class="ed-rounds">
@@ -656,16 +765,33 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   font-size: 14px;
   color: var(--ink-soft);
   margin-bottom: 10px;
 }
+.ed-import-head strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+.ed-import-lead {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  max-width: 60ch;
+}
 .ed-import-doc {
   color: var(--primary);
   font-weight: 700;
   white-space: nowrap;
+}
+.ed-import-tip {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 8px 0 12px;
 }
 .ed-import-text {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -676,6 +802,41 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   display: flex;
   gap: 8px;
   margin-top: 10px;
+  flex-wrap: wrap;
+}
+.ed-import-actions--top {
+  margin-top: 4px;
+}
+.ed-import-fmt {
+  margin-top: 14px;
+  border-top: var(--bd) solid var(--line-soft);
+  padding-top: 12px;
+}
+.ed-import-fmt summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+.ed-import-fmt-body {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin-top: 10px;
+}
+.ed-import-fmt-body ul {
+  margin: 8px 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 5px;
+}
+.ed-import-fmt-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
 }
 .ed-import-warn {
   margin: 12px 0 0;
@@ -688,16 +849,23 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   font-weight: 600;
 }
 .ed-saved {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
   background: color-mix(in srgb, var(--c5, var(--primary)) 12%, var(--surface));
   border: var(--bd) solid var(--line-soft);
   border-radius: 13px;
   padding: 12px 16px;
   margin: 0 0 16px;
   font-size: 14px;
+}
+.ed-saved-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ed-saved-vis {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
 }
 .ed-saved-link {
   font-weight: 700;

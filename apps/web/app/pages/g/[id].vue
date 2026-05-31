@@ -69,6 +69,14 @@ const visibility = ref(game.value?.visibility ?? 'private')
 const forkable = ref(!!game.value?.forkable)
 const saving = ref(false)
 const manageError = ref('')
+// Plain-language meaning so the owner knows whether their shared link will work
+// for other people.
+const VISIBILITY_NOTE = {
+  private: 'Private: only you can open this. Set Unlisted or Public before sharing the link.',
+  unlisted: 'Unlisted: anyone with the link can play it, but it is not listed anywhere.',
+  public: 'Public: anyone can play it and it is listed on Explore.',
+} as const
+const visibilityNote = computed(() => VISIBILITY_NOTE[visibility.value])
 async function patch(body: { visibility?: typeof visibility.value; forkable?: boolean }) {
   if (!game.value) return
   const prev = { visibility: visibility.value, forkable: forkable.value }
@@ -137,6 +145,7 @@ async function remove() {
             <NuxtLink :to="`/editor/g/${game.id}`" class="btn btn-ghost btn-sm">Edit</NuxtLink>
             <button class="btn btn-ghost btn-sm" @click="remove">Delete</button>
           </div>
+          <p class="manage-vis">{{ visibilityNote }}</p>
           <label class="sf-toggle manage-fork">
             <input type="checkbox" v-model="forkable" :disabled="saving" @change="patch({ forkable })" />
             <span>Let others fork (copy) this game</span>
@@ -217,6 +226,12 @@ async function remove() {
 .manage-row .sf-select {
   width: auto;
   min-width: 180px;
+}
+.manage-vis {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
 }
 .manage-fork {
   justify-content: center;

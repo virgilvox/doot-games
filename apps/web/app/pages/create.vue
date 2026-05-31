@@ -13,7 +13,12 @@ const types = gameCatalog
       <div class="create-head">
         <span class="kicker">Build something</span>
         <h1>Start a new game</h1>
-        <p>Pick a type to open the editor. Add your content, choose a theme, and publish to Explore when you are ready.</p>
+        <p>
+          Pick a type to open the editor, then add your content and pick a theme. <b>Custom</b> lets you mix any
+          round types in one game. Rather describe it in words? In the editor, hit <b>Import</b> to paste a short
+          spec — or copy a one-click prompt and have ChatGPT or Claude write it for you. No account needed to host;
+          you only sign in to save a shareable link.
+        </p>
       </div>
       <div class="typegrid">
         <NuxtLink v-for="t in types" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
