@@ -27,8 +27,10 @@ const trending = computed(() => publicGames.value.slice(0, 8))
 const fresh = computed(() => [...publicGames.value].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8))
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
-// "Create by vibe": the game types (building blocks) to start authoring.
-const vibes = gameCatalog.filter((c) => c.id !== 'custom')
+// "Create by vibe": the core building-block types to start authoring from. The
+// flagship "Games From Doot" are remixable too (and live in their own rail + on
+// /create), so we keep this row to just the primitives for a clean, uniform grid.
+const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
 </script>
 
 <template>
@@ -161,9 +163,12 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
         </div>
       </section>
 
-      <!-- Create by vibe: pick a type to build -->
+      <!-- Create by vibe: pick a core building block to build from -->
       <section class="section">
-        <div class="section-head"><div><span class="kicker">Pick a lane</span><h2>Create by vibe</h2></div></div>
+        <div class="section-head">
+          <div><span class="kicker">Pick a lane</span><h2>Create by vibe</h2></div>
+          <NuxtLink class="more" to="/create">See all &rarr;</NuxtLink>
+        </div>
         <div class="vibes">
           <NuxtLink v-for="v in vibes" :key="v.id" :to="`/editor/${v.id}`" class="vibe">
             <GameTypeIcon :type="v.id" :size="44" />

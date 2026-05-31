@@ -4,7 +4,7 @@
  * (a common frame around the current block's HostDisplay), the control bar, and
  * the results. No game writes this, it delegates per round to the block.
  */
-import type { RelayValue } from '@doot-games/engine'
+import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
@@ -100,6 +100,21 @@ const stateLabel = computed(() => {
   return labels[state.value] ?? state.value
 })
 const isLast = computed(() => index.value >= rounds.value.length - 1)
+
+// Live "locked in" count so the host knows when to advance: eligible players this
+// round who have submitted. Shown only while the round is open/locked.
+const lockCount = computed(() => {
+  const inputs = room.inputsFor(index.value)
+  let locked = 0
+  let total = 0
+  for (const p of room.players.value) {
+    if (!isEligible(p.joinedAtIndex, index.value)) continue
+    total++
+    if (inputs.has(p.id)) locked++
+  }
+  return { locked, total }
+})
+const answering = computed(() => state.value === 'open' || state.value === 'locked')
 
 function finish() {
   const cfg = config.value
@@ -241,7 +256,13 @@ function startVote() {
       </div>
     </div>
 
-    <ControlBar :round-index="index" :round-count="rounds.length" :state-label="stateLabel">
+    <ControlBar
+      :round-index="index"
+      :round-count="rounds.length"
+      :state-label="stateLabel"
+      :locked-in="lockCount.locked"
+      :total="answering ? lockCount.total : 0"
+    >
       <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" />
       <DButton v-if="room.host.can('open')" variant="primary" size="lg" @click="room.host.openVoting()">
         {{ isMakeRound ? 'Collect answers' : 'Open voting' }}

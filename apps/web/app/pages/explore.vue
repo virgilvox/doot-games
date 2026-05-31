@@ -92,10 +92,7 @@ const featured = computed(() => flagshipGames[0] ?? null)
             <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
               <div class="card-title">{{ g.name }}</div>
-              <div class="card-meta">
-                <span class="badge type">{{ g.name }}</span>
-                <span class="badge mono">v{{ g.version }}</span>
-              </div>
+              <p class="card-desc">{{ g.description }}</p>
               <span class="card-cta">Host now &rarr;</span>
             </div>
           </NuxtLink>
@@ -263,6 +260,12 @@ const featured = computed(() => flagshipGames[0] ?? null)
   height: 100% !important;
   border-bottom: none;
   border-left: var(--bd) solid var(--line);
+}
+.card-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0 0 12px;
 }
 .card-cta {
   display: inline-block;
