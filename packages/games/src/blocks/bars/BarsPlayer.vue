@@ -21,7 +21,7 @@ function onInput(i: number, e: Event) {
 
 <template>
   <div class="bars">
-    <div v-for="(cp, i) in content.couplets" :key="i" class="couplet">
+    <div v-for="(cp, i) in (content.couplets ?? [])" :key="i" class="couplet">
       <p class="lead"><span class="bot-tag" aria-hidden="true">🤖</span>{{ cp.lead }}</p>
       <label class="resp">
         <span class="resp-label">

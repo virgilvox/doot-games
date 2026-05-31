@@ -59,6 +59,15 @@ function submit() {
   if (!canSubmit.value) return
   room.submit(value.value as never)
 }
+
+// The config names this round's block, but this client doesn't have it. That
+// almost always means the page was loaded before this game type shipped a new
+// round kind (a stale tab on a phone) — so a reload pulls the current code.
+// Without this, the player would silently stall on a "getting ready" screen.
+const unknownBlock = computed(() => !!instance.value && !block.value)
+function reloadPage() {
+  if (typeof window !== 'undefined') window.location.reload()
+}
 </script>
 
 <template>
@@ -75,7 +84,13 @@ function submit() {
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 
-    <div v-else-if="!instance || !block" class="big">Get ready…</div>
+    <div v-else-if="unknownBlock" class="big">
+      <h2>Tap to catch up</h2>
+      <p>The host started a round this page hasn't loaded yet. Reload to jump in — your spot is saved.</p>
+      <button class="btn btn-primary btn-lg" @click="reloadPage">Reload</button>
+    </div>
+
+    <div v-else-if="!instance || !block" class="big">Getting the next round…</div>
 
     <div v-else-if="!eligible" class="big">
       <h2>You joined mid-game</h2>

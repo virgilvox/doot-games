@@ -72,8 +72,9 @@ export const barsBlock = defineBlock<BarsContent, BarsInput>({
   }),
   defaultTimer: 90,
   timerOf: (c) => c.timer,
-  emptyInput: (c) => ({ lines: c.couplets.map(() => '') }),
-  isComplete: (c, input) => c.couplets.every((_, i) => (input.lines?.[i]?.trim().length ?? 0) > 0),
+  emptyInput: (c) => ({ lines: (c.couplets ?? []).map(() => '') }),
+  isComplete: (c, input) =>
+    (c.couplets ?? []).length > 0 && (c.couplets ?? []).every((_, i) => (input.lines?.[i]?.trim().length ?? 0) > 0),
   PlayerInput: BarsPlayer,
   HostDisplay: BarsHost,
   toVoteText: (c, input) => renderVerse(c, input),

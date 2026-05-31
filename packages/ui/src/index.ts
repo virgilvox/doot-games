@@ -40,6 +40,7 @@ export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upl
 
 // Audio (client-only robot TTS for the rap-battle performance)
 export { type SpeakOptions, canSpeak, cancelSpeech, speakLines } from './audio/speech'
+export { playDing } from './audio/sfx'
 export { default as RobotRapper } from './components/RobotRapper.vue'
 
 // Drawing (Pixi surface + SVG thumbnail + shared format)
