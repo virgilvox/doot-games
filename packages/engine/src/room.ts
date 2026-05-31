@@ -30,6 +30,12 @@ import type { Identity, Phase, Player, RoomMeta, RoomState, RoundState } from '.
 
 const PRESENCE_WINDOW_MS = 20_000
 const HEARTBEAT_INTERVAL_MS = 5_000
+// A relay.get on a key that doesn't exist doesn't answer "absent" quickly, it
+// hangs until the relay's own multi-second get timeout. The pre-join name probe
+// reads keys that are usually ABSENT (a fresh, un-taken name), so it races each
+// read against this short timeout to stay snappy. A present key returns its
+// snapshot well within this.
+const PROBE_GET_TIMEOUT_MS = 700
 // The host republishes a liveness ping on this cadence; players treat the host
 // as gone once its last ping is older than the window (a few missed beats).
 const HOST_HEARTBEAT_INTERVAL_MS = 5_000
@@ -178,14 +184,23 @@ export class RoomRuntime {
     room: string,
     name: string,
     now: () => number = Date.now,
+    timeoutMs: number = PROBE_GET_TIMEOUT_MS,
   ): Promise<{ id: string; present: boolean; hasProfile: boolean }> {
     const id = playerId(room, name)
-    const [pingR, profR] = await Promise.allSettled([
-      relay.get(addr.playerPing(room, id)),
-      relay.get(addr.playerProfile(room, id)),
+    // Race each read against a short timeout that resolves to undefined, so an
+    // absent key (the common case: a name nobody is using) reports "not present"
+    // promptly instead of leaving a new player on a "checking" spinner until the
+    // relay's own get timeout fires.
+    const read = (address: string): Promise<RelayValue | undefined> =>
+      Promise.race([
+        relay.get(address).catch(() => undefined),
+        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs)),
+      ])
+    const [ping, prof] = await Promise.all([
+      read(addr.playerPing(room, id)),
+      read(addr.playerProfile(room, id)),
     ])
-    const ping = pingR.status === 'fulfilled' ? pingR.value : undefined
-    const hasProfile = profR.status === 'fulfilled' && profR.value != null
+    const hasProfile = prof != null
     const present = ping != null && now() - Number(ping) < PRESENCE_WINDOW_MS
     return { id, present, hasProfile }
   }

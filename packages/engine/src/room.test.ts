@@ -279,6 +279,18 @@ describe('RoomRuntime.probePresence (A5)', () => {
     expect(res.present).toBe(false)
     expect(res.hasProfile).toBe(false)
   })
+
+  it('does not hang on an absent key: a never-answering get times out to not-present', async () => {
+    const hub = new FakeHub()
+    const relay = new FakeRelayClient(hub)
+    // The real relay does not answer "absent" quickly for a missing key, it hangs
+    // until its own multi-second timeout. Model that, and assert the probe still
+    // resolves promptly (via the short internal timeout) rather than waiting.
+    relay.get = () => new Promise<RelayValue>(() => {})
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Ghost', () => 1_000, 20)
+    expect(res.present).toBe(false)
+    expect(res.hasProfile).toBe(false)
+  })
 })
 
 describe('RoomRuntime host presence', () => {
