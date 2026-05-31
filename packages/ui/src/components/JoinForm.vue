@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** The player join form: room code + display name, with validation. */
 import { isValidRoomCode } from '@doot-games/engine'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import DButton from './DButton.vue'
 
 const props = withDefaults(defineProps<{ initialCode?: string; initialName?: string }>(), {
@@ -13,6 +13,16 @@ const emit = defineEmits<{ join: [payload: { code: string; name: string }] }>()
 const code = ref(props.initialCode.toUpperCase())
 const name = ref(props.initialName)
 const error = ref('')
+
+// Land the cursor where the player actually needs to type: if they arrived via a
+// QR scan / deep link the code is already filled, so jump straight to the name;
+// otherwise focus the code field. Saves a tap in the most common (QR) path.
+const codeInput = ref<HTMLInputElement | null>(null)
+const nameInput = ref<HTMLInputElement | null>(null)
+onMounted(() => {
+  const target = isValidRoomCode(code.value) ? nameInput.value : codeInput.value
+  target?.focus()
+})
 
 function submit() {
   const c = code.value.trim().toUpperCase()
@@ -35,18 +45,31 @@ function submit() {
     <label class="fld">
       <span>Room code</span>
       <input
+        ref="codeInput"
         v-model="code"
         class="input code mono"
         maxlength="4"
         autocapitalize="characters"
+        autocorrect="off"
+        spellcheck="false"
         autocomplete="off"
+        aria-label="Room code"
         placeholder="ABCD"
         @input="code = code.toUpperCase()"
       />
     </label>
     <label class="fld">
       <span>Your name</span>
-      <input v-model="name" class="input" maxlength="18" placeholder="e.g. Robin" />
+      <input
+        ref="nameInput"
+        v-model="name"
+        class="input"
+        maxlength="18"
+        autocomplete="off"
+        aria-label="Your display name"
+        placeholder="e.g. Robin"
+        @keyup.enter="submit"
+      />
     </label>
     <DButton variant="primary" type="submit" block>Join game</DButton>
     <p v-if="error" class="err" role="alert">{{ error }}</p>
