@@ -248,6 +248,7 @@ function startVote() {
       <div class="right">
         <component
           :is="block.HostDisplay"
+          :key="index"
           :content="content"
           :inputs="room.inputsFor(index)"
           :state="state"
@@ -385,16 +386,21 @@ function startVote() {
   margin: 14px 0;
 }
 .imgbox {
-  aspect-ratio: 4 / 3;
   border: var(--bd) solid var(--line-soft);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface-2);
+  display: grid;
+  place-items: center;
 }
+/* The question image is the main visual on a guess/trivia round, so fit it whole
+   (no crop) rather than filling a fixed box. Capped so a tall image can't blow
+   out the stage. */
 .imgbox img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: min(46vh, 460px);
+  object-fit: contain;
+  display: block;
 }
 @media (max-width: 900px) {
   .lobby,

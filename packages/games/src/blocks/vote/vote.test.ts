@@ -6,6 +6,7 @@ import {
   type VoteInput,
   type VoteRevealSummary,
   voteBlock,
+  voteContentSchema,
 } from './block'
 
 const players: ScorePlayer[] = [
@@ -70,6 +71,23 @@ describe('vote block derive', () => {
     expect(deriveFrom({ prompt: 'A bad boat name' }).publish.prompt).toBe('Best answer: "A bad boat name"')
     expect(deriveFrom({ prompt: 'Fill the blanks', template: 'the {x}', blanks: [] }).publish.prompt).toBe('Funniest wins')
     expect(deriveFrom({ prompt: 'Drop your bars', couplets: [{ lead: 'yo' }] }).publish.prompt).toBe('Funniest wins')
+  })
+})
+
+describe('vote block hideUntilReveal (A2)', () => {
+  it('defaults the live-tally hide to on, and preserves an explicit choice', () => {
+    expect(voteContentSchema.parse({}).hideUntilReveal).toBe(true)
+    expect(voteContentSchema.parse({ hideUntilReveal: false }).hideUntilReveal).toBe(false)
+  })
+
+  it('carries the author hide choice into the published derived content', () => {
+    const result = voteBlock.derive!({
+      content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30, perform: false, hideUntilReveal: false },
+      sources: [{ index: 0, content: { prompt: 'Q' }, inputs: new Map([['A', { text: 'x' }]]), render: textRender }],
+      players,
+      shuffle: identityShuffle,
+    })
+    expect((result.publish as { hideUntilReveal?: boolean }).hideUntilReveal).toBe(false)
   })
 })
 

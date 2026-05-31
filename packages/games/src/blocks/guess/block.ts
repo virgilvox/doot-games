@@ -30,6 +30,10 @@ export const guessContentSchema = z.object({
     .nullable()
     .default(20)
     .describe('Seconds to answer. Turn off for an untimed round.'),
+  hideUntilReveal: z
+    .boolean()
+    .default(true)
+    .describe('Keep where people answered secret until you reveal, for a real reveal moment. Turn off to show a live tally as answers come in.'),
   options: z.array(guessOptionSchema).min(2).describe('At least two answers to choose from.'),
   /** Correct option index; stripped to -1 in the published content. */
   correct: z.number().int().default(0),
@@ -49,6 +53,7 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
     prompt: 'Who is this?',
     image: '',
     timer: 20,
+    hideUntilReveal: true,
     options: [{ label: 'Option A' }, { label: 'Option B' }, { label: 'Option C' }, { label: 'Option D' }],
     correct: 0,
   }),

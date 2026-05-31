@@ -46,6 +46,10 @@ export const voteContentSchema = z.object({
     .boolean()
     .default(false)
     .describe('Have robots read each answer aloud (a "performance") before the room votes. Powers the rap battle.'),
+  hideUntilReveal: z
+    .boolean()
+    .default(true)
+    .describe('Keep where people voted secret until you reveal, for a real reveal moment. Turn off to show a live tally as votes come in.'),
 })
 export type VoteContent = z.infer<typeof voteContentSchema>
 export interface VoteInput {
@@ -92,7 +96,14 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
   // The options are built at runtime from the previous round's answers, so the
   // editor hides the `options` field instead of asking for placeholder ids/text.
   derivedFields: ['options'],
-  defaultContent: () => ({ prompt: 'Which answer wins?', options: [], mode: 'field', timer: 30, perform: false }),
+  defaultContent: () => ({
+    prompt: 'Which answer wins?',
+    options: [],
+    mode: 'field',
+    timer: 30,
+    perform: false,
+    hideUntilReveal: true,
+  }),
   defaultTimer: 30,
   timerOf: (c) => c.timer,
   emptyInput: () => ({ choice: '' }),
@@ -139,6 +150,10 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         mode: ctx.content.mode,
         timer: ctx.content.timer,
         perform: ctx.content.perform,
+        // Carry the author's choice so the derived round the relay gets still
+        // withholds (or shows) the live tally as authored. Presentation only,
+        // not an answer, so it isn't subject to withholding.
+        hideUntilReveal: ctx.content.hideUntilReveal,
       },
       answer: { authors, names } satisfies VoteAnswer,
     }

@@ -20,6 +20,18 @@ const props = defineProps<{
 const room = injectDootRoom()
 const revealed = computed(() => props.state === 'reveal')
 
+// Keep where the room is voting secret until reveal, for a real reveal moment.
+// Default to hidden (so a careless host gets the un-spoiled reveal); only an author
+// who explicitly set hideUntilReveal=false starts live. The host can peek mid-round.
+// This is the host's own big screen only; nothing about it is published.
+const showLive = ref(props.content.hideUntilReveal === false)
+const showDistribution = computed(() => revealed.value || showLive.value)
+const votesIn = computed(() => {
+  let n = 0
+  for (const v of props.inputs.values()) if (v?.choice) n++
+  return n
+})
+
 // The host knows the author map locally (kept off the relay), so it can exclude
 // self-votes from the LIVE tally too. Without this, a self-vote inflates the live
 // count and the bar visibly shrinks at reveal (where self-votes are dropped).
@@ -54,9 +66,15 @@ const rows = computed<Row[]>(() => {
     const win = summary.value.winnerId
     return summary.value.tallies.map((t) => ({ ...t, winner: t.id === win }))
   }
-  return props.content.options
-    .map((o) => ({ id: o.id, text: o.text, votes: liveCounts.value.get(o.id) ?? 0, winner: false }))
-    .sort((a, b) => b.votes - a.votes)
+  const base = props.content.options.map((o) => ({
+    id: o.id,
+    text: o.text,
+    votes: liveCounts.value.get(o.id) ?? 0,
+    winner: false,
+  }))
+  // While the distribution is hidden, keep the authored order: sorting by votes
+  // would float the leading answer to the top and leak who's winning early.
+  return showDistribution.value ? base.sort((a, b) => b.votes - a.votes) : base
 })
 const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
 
@@ -115,22 +133,62 @@ onUnmounted(() => cancelSpeech())
     <p v-if="rows.length < 2" class="degenerate">
       Not enough answers to vote on this round. Skip ahead.
     </p>
-    <ul v-else class="rows">
-      <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner, performing: r.id === currentId }">
-        <span class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
-        <span class="text">
-          <span v-if="r.winner" class="crown" aria-label="winner">&#127942;</span>{{ r.text }}
-        </span>
-        <span class="meta">
-          <span v-if="revealed && r.author" class="author">{{ r.author }}</span>
-          <span class="votes mono">{{ r.votes }}</span>
-        </span>
-      </li>
-    </ul>
+    <template v-else>
+      <div v-if="!revealed" class="peek-bar">
+        <span class="votes-in">{{ votesIn }} vote{{ votesIn === 1 ? '' : 's' }} in</span>
+        <button type="button" class="peek" :aria-pressed="showLive" @click="showLive = !showLive">
+          {{ showLive ? 'Hide votes' : 'Peek at votes' }}
+        </button>
+      </div>
+      <ul class="rows">
+        <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner, performing: r.id === currentId }">
+          <span v-if="showDistribution" class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
+          <span class="text">
+            <span v-if="r.winner" class="crown" aria-label="winner">&#127942;</span>{{ r.text }}
+          </span>
+          <span class="meta">
+            <span v-if="revealed && r.author" class="author">{{ r.author }}</span>
+            <span v-if="showDistribution" class="votes mono">{{ r.votes }}</span>
+          </span>
+        </li>
+      </ul>
+    </template>
   </div>
 </template>
 
 <style scoped>
+.peek-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.votes-in {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+.peek {
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.peek:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+.peek[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--line);
+}
 .rows {
   list-style: none;
   display: grid;
