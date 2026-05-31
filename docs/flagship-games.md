@@ -465,6 +465,39 @@ Build order for it: (a) `vote` head-to-head mode + a `RobotBattle` two-robot vie
 (c) the continuous cheer channel + bonus; (d) the live-perform timer mode; (e) the
 Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
 
+**Build status.**
+- ✅ **(a) foundations shipped + tested** (`cypher-bracket.ts`, `scoring.headToHeadPoints`,
+  `RobotBattle.vue`): `buildBracket` (round-robin circle method, capped, rotating
+  bye), `tallyBattle` (1v1 tally, self-vote dropped), `headToHeadPoints` (Mad Verse
+  City payout), and the two-robot face-off view.
+- ✅ **Battle transport shipped + tested**: `room.publishExtra(key, value)` /
+  `room.onExtra(keyPattern, cb)` (engine) for the custom battle state + the
+  continuous cheer channel (the `/<room>/x/<key>` namespace, wildcards supported).
+- ⏳ **(b) the custom tournament flow — next.** Plan:
+  - `circuit-cypher.ts` gains `components: { Host: CircuitCypherHost, Player:
+    CircuitCypherPlayer }` and a **single** `bars` write round (no vote rounds in
+    the config). The engine stays in `active`/round-0 through the whole battle; the
+    battle is custom state layered on top via `publishExtra`/`onExtra` (NOT engine
+    rounds, since the matchup count is dynamic).
+  - **Write phase**: the custom Host reuses the generic open/lock for round 0 (or
+    embeds `BarsHost`/`BarsPlayer`); players submit verses to the round-0 input.
+  - **On lock**, the Host reads `room.inputsFor(0)` (verses), filters to authors who
+    wrote one, `buildBracket(pids)`, and starts the battle. It publishes battle
+    state to `publishExtra('battle', { matchupIndex, total, step, left:{pid,name,
+    verse}, right:{...}, result? })` where `step` walks `intro -> performA ->
+    performB -> vote -> result`. The Host drives the steps (TTS via `speakLines`
+    for the performances, a per-step button), tallies via `tallyBattle`
+    (reading `onExtra('vote/<i>/*')`), scores via `headToHeadPoints`, accumulates
+    cash, then `room.host.finish(summary)` after the last matchup.
+  - **Player**: `onExtra('battle', ...)` to render `RobotBattle` + a tap-to-cheer
+    button (`publishExtra('cheer/<i>/<pid>', t)`, rate-limited) during a perform
+    step and a 2-option A/B vote (`publishExtra('vote/<i>/<pid>', { choice })`)
+    during the vote step. The MC/co-host advance controls (B9) apply if delegated.
+  - **Reconnect**: battle state is a retained relay value, so a rejoining phone
+    reads the current matchup on subscribe; votes/cheers are keyed by pid so they
+    reclaim on reconnect.
+  - Then (c) cheer bonus, (d) live-perform timer mode, (e) Tone.js beat.
+
 ## 9. "What, You Didn't Know That?" — the trivia gameshow
 
 v1 (shipped): a first-party flagship built on a new **`buzzer` block** — multiple
