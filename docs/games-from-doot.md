@@ -39,7 +39,7 @@ content pool via `buildConfig`, so hosting `/host/<id>` runs a full, fresh game)
 `buildConfig` (Quip Clash is the worked example), set `manifest.flagship: true`,
 register it in `registry.ts`, add the catalog entry (the sync test enforces it).
 No DB or auth change. Mad Libs and Split the Room shipped this way; the next
-flagship (Robot Rap Battle) will land the same way and appear under Games From Doot
+flagship (Circuit Cypher) will land the same way and appear under Games From Doot
 automatically.
 
 ## Covers & icons = one visual map (shipped)

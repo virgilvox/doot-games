@@ -205,7 +205,7 @@ typecheck + web build, real-relay two-phase live test, 3-player real-browser pla
   documented future path (`docs/games-from-doot.md`), deliberately not built yet.
 
 **Next (build order in the doc §4):** `fill`→Mad Libs, `split`→Split the Room,
-audio layer + Robot Rap Battle (TTS + head-to-head vote mode), then the "Games
+audio layer + Circuit Cypher (TTS + head-to-head vote mode), then the "Games
 From Doot" `/explore` category. Polish-pass findings are in the doc §5.
 
 The big direction now is a slate of polished, replayable, Jackbox-grade games under a "**Games From Doot**" banner, plus the engine/SDK extensions they need. The full brief is the kickoff prompt below; the engineering shape:
@@ -237,7 +237,7 @@ live**. Paste the prompt below into a new session to tackle what remains.
 >
 > **Mission: finish the remaining roadmap.** In rough priority:
 >
-> 1. **Robot Rap Battle** (the 4th flagship, Mad Verse City-style). Two hard prerequisites: (a) the **`vote` block's `head-to-head` mode** (today it's `field`-only) — pair submissions and vote per matchup, tally wins; (b) an **audio layer** — wire the existing `RoomMeta.musicUrl`, add SFX on state transitions and a host mute toggle in `@doot-games/ui` (an `AudioController`), honor `prefers-reduced-motion`. The performance is the delight engine: robots "rap" the filled verses via the browser `speechSynthesis` API (client-only, lazy, SSR-guarded) over a CSS beat, then head-to-head vote. Build on `fill` (rhyming-word blanks) + the new head-to-head `vote`.
+> 1. **Circuit Cypher** (the 4th flagship, Mad Verse City-style robot rap battle). Two hard prerequisites: (a) the **`vote` block's `head-to-head` mode** (today it's `field`-only) — pair submissions and vote per matchup, tally wins; (b) an **audio layer** — wire the existing `RoomMeta.musicUrl`, add SFX on state transitions and a host mute toggle in `@doot-games/ui` (an `AudioController`), honor `prefers-reduced-motion`. When no `musicUrl` is configured (incl. remixes), the `AudioController` **synthesizes a fitting loopable beat via Tone.js** (lazy, client-only, SSR-guarded) rather than playing silent. The performance is the delight engine: robots "rap" the filled verses via the browser `speechSynthesis` API (client-only, lazy, SSR-guarded) over that beat, then head-to-head vote. Build on `fill` (rhyming-word blanks) + the new head-to-head `vote`.
 >
 > 2. **External-plugin runtime** (link a game by URL). Design + foundation already done: read `docs/external-plugins.md` and the standalone harness in `examples/external-plugin/` (the bridge protocol + a mock host). Build the phases there: (0) render first-party games through the `MessageChannel` bridge against an in-process mock host; (1) move them into a `sandbox="allow-scripts"` null-origin iframe on a **separate origin** (`plugins.doot.games`) with the strict CSP — **this needs an infra decision on the second origin/subdomain; get sign-off**; (2) unlisted manifest-by-URL registration with SHA pinning + `connect-src 'none'`. Security-critical — follow the doc; the sandbox is the boundary, not code review. Promote the bridge to `@doot-games/plugin-bridge` + a `@doot-games/plugin-dev` harness as Phase 1 lands.
 >

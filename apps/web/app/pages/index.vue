@@ -27,7 +27,7 @@ const trending = computed(() => publicGames.value.slice(0, 8))
 const fresh = computed(() => [...publicGames.value].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8))
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
-// "Browse by vibe": the game types (building blocks) to start authoring.
+// "Create by vibe": the game types (building blocks) to start authoring.
 const vibes = gameCatalog.filter((c) => c.id !== 'custom')
 </script>
 
@@ -107,6 +107,43 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
         </div>
       </section>
 
+      <!-- How Doot works: the three-step flow -->
+      <section class="section how">
+        <div class="section-head"><div><span class="kicker">Three steps</span><h2>How Doot works</h2></div></div>
+        <div class="how-steps">
+          <div class="how-step" style="--accent: var(--c4)">
+            <div class="how-top">
+              <div class="how-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 16 8" /><path d="m13.5 6 4.5 4.5" /><path d="M18.4 3.2l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z" fill="currentColor" stroke="none" /></svg>
+              </div>
+              <span class="how-num">1</span>
+            </div>
+            <h4>Pick or make a game</h4>
+            <p>Grab a Game From Doot or build your own. Choose a theme that styles the lobby and the whole game.</p>
+          </div>
+          <div class="how-step" style="--accent: var(--c2)">
+            <div class="how-top">
+              <div class="how-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+              </div>
+              <span class="how-num">2</span>
+            </div>
+            <h4>Put it on the big screen</h4>
+            <p>Open it on a TV, a projector, or a shared laptop. A join code and QR appear for the room.</p>
+          </div>
+          <div class="how-step" style="--accent: var(--primary)">
+            <div class="how-top">
+              <div class="how-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18.5h2" /></svg>
+              </div>
+              <span class="how-num">3</span>
+            </div>
+            <h4>Everyone plays along</h4>
+            <p>The crowd joins from their phones, answers each round, and the results pop on screen.</p>
+          </div>
+        </div>
+      </section>
+
       <!-- Trending (only once there's a real shelf) -->
       <section v-if="enoughCommunity" class="section">
         <div class="section-head">
@@ -124,9 +161,9 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
         </div>
       </section>
 
-      <!-- Browse by vibe: pick a type to build -->
+      <!-- Create by vibe: pick a type to build -->
       <section class="section">
-        <div class="section-head"><div><span class="kicker">Pick a lane</span><h2>Browse by vibe</h2></div></div>
+        <div class="section-head"><div><span class="kicker">Pick a lane</span><h2>Create by vibe</h2></div></div>
         <div class="vibes">
           <NuxtLink v-for="v in vibes" :key="v.id" :to="`/editor/${v.id}`" class="vibe">
             <GameTypeIcon :type="v.id" :size="44" />
@@ -153,14 +190,6 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-head"><div><span class="kicker">Three steps</span><h2>How Doot works</h2></div></div>
-        <div class="steps">
-          <div class="step"><div class="n">1</div><h4>Pick or make a game</h4><p>Grab a Game From Doot or build your own. Choose a theme that styles the lobby and the whole game.</p></div>
-          <div class="step"><div class="n">2</div><h4>Put it on the big screen</h4><p>Open it on a TV, a projector, or a shared laptop. A join code and QR appear for the room.</p></div>
-          <div class="step"><div class="n">3</div><h4>Everyone plays along</h4><p>The crowd joins from their phones, answers each round, and the results pop on screen.</p></div>
-        </div>
-      </section>
     </div>
   </main>
 </template>
@@ -457,6 +486,111 @@ const vibes = gameCatalog.filter((c) => c.id !== 'custom')
   font-size: 13px;
   color: var(--ink-soft);
   line-height: 1.45;
+}
+/* How Doot works: playful three-step flow */
+.how-steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+/* dashed connector threading the gaps between cards */
+.how-steps::before {
+  content: '';
+  position: absolute;
+  top: 54px;
+  left: 9%;
+  right: 9%;
+  border-top: 3px dashed var(--line-soft);
+  z-index: 0;
+}
+.how-step {
+  --accent: var(--primary);
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 24px 24px 26px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* soft accent wash bleeding from the top-right corner */
+.how-step::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.how-step:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.how-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.how-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border: var(--bd) solid color-mix(in srgb, var(--accent) 45%, var(--line-soft));
+  box-shadow: var(--shadow-sm);
+  transform: rotate(-6deg);
+  transition: transform 0.15s ease;
+}
+.how-step:hover .how-icon {
+  transform: rotate(0deg) scale(1.06);
+}
+.how-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.how-num {
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 58px;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.24;
+}
+.how-step h4 {
+  position: relative;
+  font-size: 21px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+.how-step p {
+  position: relative;
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0;
+}
+@media (max-width: 980px) {
+  .how-steps {
+    grid-template-columns: 1fr;
+  }
+  .how-steps::before {
+    display: none;
+  }
 }
 @media (max-width: 860px) {
   .hero-vis {

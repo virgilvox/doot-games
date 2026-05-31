@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **117 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **ten games** built from composable blocks, three flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox, OAuth, and the Robot Rap Battle flagship. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **117 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **ten games** built from composable blocks, three flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox, OAuth, and the Circuit Cypher flagship (robot rap battle). See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -209,7 +209,7 @@ All configuration is environment-driven; the same image runs anywhere. Copy `.en
 
 - **Phase 1 (MVP, shipped):** engine + room runtime, the block contract, the first-party games, the schema-driven editor + markdown import, optional auth + saved games, five theme packs, animated results, presigned uploads, and git-push deploy to a single droplet.
 - **Phase 1.5 (shipped):** the two-phase make→judge engine primitive and three flagship "Games From Doot" (Quip Clash, Mad Libs, Split the Room) with content pools, plus the Explore / Create / Your Games catalog.
-- **Phase 2:** external plugins (sandboxed iframe + bridge + publishing), the Robot Rap Battle flagship (audio + head-to-head), richer results, OAuth.
+- **Phase 2:** external plugins (sandboxed iframe + bridge + publishing), the Circuit Cypher flagship (robot rap battle: audio + head-to-head), richer results, OAuth.
 - **Phase 3:** managed Postgres + multiple instances, optional self-hosted relay, accessibility & phone polish.
 
 See [PRD §23](./Doot-PRD.md) for detail.

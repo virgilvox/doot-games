@@ -99,7 +99,7 @@ in the editor from blocks; "Custom" = ships full-custom `components`.
 | 2 | **Anonymous Mad Libs** | fill a story's blanks → vote the funniest completed story | Composable (`fill`→`vote` field) | Multi-blank fill + field vote + reveal-the-winner |
 | 3 | **Split the Room** | fill a dividing "would you…" → YES/NO → closeness-to-50/50 score | Composable (`fill`→`split`) | The inverted-objective aggregate + live split bar |
 | 4 | **Fib Finder** (Fibbage) | fact-with-blank → write a lie → spot the truth among lies → dual score | Composable (`quip`→`vote` field + injected truth) | Decoy authoring + dual-axis scoring |
-| 5 | **Robot Rap Battle** (Mad Verse City) | fill rhyming words → robots perform (TTS over a beat) → head-to-head vote | Custom (performance HostDisplay + audio) | Performance phase, audio layer, head-to-head bracket |
+| 5 | **Circuit Cypher** (Mad Verse City) | fill rhyming words → robots perform (TTS over a beat) → head-to-head vote | Custom (performance HostDisplay + audio) | Performance phase, audio layer, head-to-head bracket |
 | 6 | **Sketch & Spot** (Drawful) | draw the prompt → write decoy titles → spot the real one | Composable (existing `draw` → `vote` field) | Reuse of the shipped Draw block in the two-phase loop |
 | 7 | **The Big Reveal** (Talking Points) | improvise over slides an Assistant feeds live; crowd taps up/down | Custom (live feed channel) | Live co-control + reaction stream - the ambitious capstone, ships last |
 
@@ -264,8 +264,22 @@ functions tested with Vitest.
 music and fires SFX on state transitions (`open`/`lock`/`reveal`/`finish`) and
 block-declared cues. A **mute toggle** in the host bar, persisted; default off-loud
 is fine but respect a stored preference. Honor `prefers-reduced-motion` for any
-visual that accompanies sound. Robot Rap Battle's TTS is `window.speechSynthesis`
+visual that accompanies sound. Circuit Cypher's TTS is `window.speechSynthesis`
 (client-only, lazy, SSR-guarded), played in the matchup HostDisplay over a CSS beat.
+
+**Generated backing track (no asset required).** When `RoomMeta.musicUrl` is unset
+(the common case, and any remix that did not configure one), the `AudioController`
+synthesizes a fitting, loopable beat at runtime instead of going silent - a
+royalty-free, asset-free boom-bap loop (kick/snare/hat + a simple bassline, ~85-90
+BPM) that the robot TTS performs over. Use **Tone.js** for this: it is the focused,
+purpose-built browser library for music synthesis and sequencing (synths, drum
+voices, a `Transport`/`Loop` clock), it ships nothing to the network, and it loads
+the same way the TTS does - **lazy, client-only, SSR-guarded** (dynamic `import()`
+inside the AudioController, never at module top level). A configured `musicUrl`
+always wins; the generator is only the fallback. The beat reads the active theme's
+tempo/mood where it can, and the mute toggle and `prefers-reduced-motion`
+(audio-off-by-default when set) govern it exactly like a file-backed track. Pin
+`tone` alongside the other audio deps when this layer is built.
 
 ### 3.7 New UI components
 
@@ -303,8 +317,10 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
    sampled per play. ✅ **`split` block** → **Split the Room** (shipped): complete a
    dividing "would you...?" dilemma, the room votes yes/no on every scenario, and
    authors score on closeness to a 50/50 split (`closenessToHalf`/`splitPoints`).
-5. ⏳ **Audio layer** + **Robot Rap Battle** (TTS performance + head-to-head vote
-   mode). **Content pools** are in place (`buildConfig` + `seededShuffle`); Quip
+5. ⏳ **Audio layer** + **Circuit Cypher** (TTS performance + head-to-head vote
+   mode). The audio layer includes the **Tone.js generated-beat fallback** (§3.6):
+   when no `musicUrl` is configured, synthesize a fitting loop rather than play
+   silent. **Content pools** are in place (`buildConfig` + `seededShuffle`); Quip
    Clash already samples a 24-prompt pool per play.
 6. ⏳ **Fib Finder** and **Sketch & Spot** (cheap, reuse `vote`).
 7. ⏳ **"Games From Doot" category** on `/explore` + the catalog.
