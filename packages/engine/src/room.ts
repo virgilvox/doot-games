@@ -93,6 +93,13 @@ export interface RoomRuntimeOptions {
   ttlUs?: number
 }
 
+/**
+ * A drive intent the delegated player (co-host/MC) can send. The host maps each
+ * to the matching host action; `startVote` is the make-round shortcut (reveal +
+ * next). The engine only validates and forwards; the host UI interprets them.
+ */
+export type ControlAction = 'open' | 'lock' | 'reveal' | 'startVote' | 'next' | 'finish'
+
 /** A read-only snapshot of live room state. */
 export interface RoomSnapshot {
   phase: Phase
@@ -112,6 +119,13 @@ export interface RoomSnapshot {
   /** Whether the host's heartbeat is current (true for the host itself, and
    *  true before any ping is seen so the join screen doesn't flash "gone"). */
   hostPresent: boolean
+  /** The delegated driver's pid (co-host/MC), or null if the host drives. */
+  driverPid: string | null
+  /** True when this client is the delegated driver (a player who may advance). */
+  isDriver: boolean
+  /** Host only: the latest validated drive intent to apply, or null. The host UI
+   *  watches its `nonce` and dispatches it through the same handlers its buttons use. */
+  command: { action: ControlAction; nonce: number } | null
 }
 
 type Listener = () => void
@@ -147,6 +161,14 @@ export class RoomRuntime {
   private myJoinedAtIndex = 0
   /** Last host-ping timestamp seen (player/viewer only). */
   private lastHostPing: number | null = null
+  /** The delegated driver's pid (everyone tracks it), or null for host-driven. */
+  private driverPid: string | null = null
+  /** Host: the latest validated drive intent for the host UI to apply. */
+  private incomingCommand: { action: ControlAction; nonce: number } | null = null
+  /** Host: the last drive-command nonce handled, to drop relay re-deliveries. */
+  private lastCommandNonce: number | null = null
+  /** Player: a monotonic nonce stamped on each drive intent we send. */
+  private controlNonce = 0
 
   private game: LoadedGame | null = null
   private unsubs: Unsubscribe[] = []
@@ -371,6 +393,13 @@ export class RoomRuntime {
         this.lastHostPing = Number(v)
         this.emit()
       })
+      // Who (if anyone) the host has delegated driving to. Players read this to
+      // know whether to show the advance controls; viewers just track it.
+      on(addr.controlDriver(r), (v) => {
+        const pid = typeof v === 'string' ? v : ''
+        this.driverPid = pid.length ? pid : null
+        this.emit()
+      })
       on(patterns.roundContent(r), (v, a) => {
         const i = parseRoundSubAddress(a, 'content')
         if (i == null) return
@@ -432,6 +461,22 @@ export class RoomRuntime {
         this.inputs.set(`${parsed.roundIndex}:${parsed.pid}`, v)
         this.emit()
       })
+      // Host only: drive intents from the delegated player. Apply one only if it
+      // comes from the CURRENT driver and targets the CURRENT round (so a stale
+      // tap after the round advanced can't double-fire), and drop relay
+      // re-deliveries by nonce. The host UI watches `command` and dispatches it.
+      if (this.me.role === 'host') {
+        on(addr.controlCommand(r), (v) => {
+          const cmd = v as { pid?: string; action?: ControlAction; index?: number; nonce?: number } | null
+          if (!cmd || cmd.action == null) return
+          if (cmd.pid !== this.driverPid) return
+          if (cmd.index !== this.state.round.index) return
+          if (cmd.nonce != null && cmd.nonce === this.lastCommandNonce) return
+          this.lastCommandNonce = cmd.nonce ?? null
+          this.incomingCommand = { action: cmd.action, nonce: cmd.nonce ?? 0 }
+          this.emit()
+        })
+      }
     }
   }
 
@@ -456,6 +501,9 @@ export class RoomRuntime {
       ready: this.ready,
       joinedAtIndex: this.myJoinedAtIndex,
       hostPresent: this.hostIsPresent(),
+      driverPid: this.driverPid,
+      isDriver: this.me.role === 'player' && this.driverPid != null && this.driverPid === this.me.id,
+      command: this.me.role === 'host' ? this.incomingCommand : null,
     }
   }
 
@@ -545,6 +593,19 @@ export class RoomRuntime {
     this.inputs.set(`${i}:${this.me.id}`, input)
     this.publish(addr.input(this.room, i, this.me.id), input)
     this.emit()
+  }
+
+  /** Send a drive intent as the delegated player (co-host/MC). A no-op unless the
+   *  host has delegated driving to this player. The host validates and applies it. */
+  sendControl(action: ControlAction): void {
+    if (this.me.role !== 'player' || this.driverPid !== this.me.id) return
+    this.controlNonce++
+    this.publish(addr.controlCommand(this.room), {
+      pid: this.me.id,
+      action,
+      index: this.state.round.index,
+      nonce: this.controlNonce,
+    })
   }
 
   private async ensureProfilePublished(): Promise<void> {
@@ -646,6 +707,15 @@ export class RoomRuntime {
     this.meta = { ...base, playerCap: cap && cap > 0 ? cap : undefined }
     if (this.game) this.game = { ...this.game, meta: this.meta }
     this.publish(addr.meta(this.room), this.meta as unknown as RelayValue)
+    this.emit()
+  }
+
+  /** Delegate driving to a player (co-host/MC), or pass null to drive yourself.
+   *  Publishes the driver so that player's phone shows the advance controls. */
+  setDriver(pid: string | null): void {
+    this.assertHost()
+    this.driverPid = pid && pid.length ? pid : null
+    this.publish(addr.controlDriver(this.room), this.driverPid ?? '')
     this.emit()
   }
 

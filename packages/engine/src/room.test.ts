@@ -329,6 +329,61 @@ describe('RoomRuntime player cap (A8)', () => {
   })
 })
 
+describe('RoomRuntime co-host / MC delegation (B9)', () => {
+  async function setup() {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start() // round 0, state ready
+    const mia = makePlayer(hub, 'Mia', now)
+    await mia.connect()
+    await flush()
+    return { hub, host, mia, now }
+  }
+
+  it('delegates driving and applies the driver\'s intent on the host', async () => {
+    const { hub, host, mia } = await setup()
+    host.setDriver(mia.me.id)
+    expect(hub.store.get(addr.controlDriver('ABCD'))).toBe(mia.me.id)
+    expect(mia.getSnapshot().isDriver).toBe(true)
+
+    mia.sendControl('open')
+    // The host validated the intent and queued it for its UI to dispatch.
+    expect(host.getSnapshot().command?.action).toBe('open')
+  })
+
+  it('does not let a non-delegated player drive', async () => {
+    const { hub, host, mia } = await setup()
+    const rob = makePlayer(hub, 'Rob', () => 0)
+    await rob.connect()
+    await flush()
+    host.setDriver(mia.me.id)
+    // Rob's own sendControl is a no-op (he isn't the driver); simulate a tampered
+    // client publishing a raw command and confirm the host drops it.
+    rob.sendControl('open')
+    expect(hub.store.get(addr.controlCommand('ABCD'))).toBeUndefined()
+    hub.set(addr.controlCommand('ABCD'), { pid: rob.me.id, action: 'open', index: 0, nonce: 1 })
+    expect(host.getSnapshot().command).toBeNull()
+  })
+
+  it('ignores a stale command for a round that already moved on', async () => {
+    const { hub, host, mia } = await setup()
+    host.setDriver(mia.me.id)
+    hub.set(addr.controlCommand('ABCD'), { pid: mia.me.id, action: 'open', index: 5, nonce: 1 })
+    expect(host.getSnapshot().command).toBeNull()
+  })
+
+  it('clears the driver when the host takes back control', async () => {
+    const { host, mia } = await setup()
+    host.setDriver(mia.me.id)
+    expect(mia.getSnapshot().isDriver).toBe(true)
+    host.setDriver(null)
+    expect(mia.getSnapshot().isDriver).toBe(false)
+  })
+})
+
 describe('RoomRuntime host presence', () => {
   it('publishes host liveness and players detect a vanished host', async () => {
     const hub = new FakeHub()

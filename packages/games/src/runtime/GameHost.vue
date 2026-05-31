@@ -8,7 +8,7 @@ import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
 import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
-import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, scoreGame } from './derive'
 
@@ -179,6 +179,40 @@ function startVote() {
   room.host.reveal()
   room.host.next()
 }
+
+// ── Co-host / MC delegation ────────────────────────────────────────────────
+// The host can hand the advance controls to a joined player. Default: the host
+// drives. An optional "first to join" auto-picks the first player.
+const firstToJoin = ref(false)
+const driverPid = computed(() => room.driverPid.value)
+const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
+function pickDriver(pid: string) {
+  room.host.setDriver(pid || null)
+}
+watch([firstToJoin, () => room.players.value.length], () => {
+  if (firstToJoin.value && !room.driverPid.value && room.players.value[0]) {
+    room.host.setDriver(room.players.value[0].id)
+  }
+})
+
+// Apply a delegated player's drive intent through the SAME handlers the host
+// buttons use, so "Final results" still scores and a make round still skips its
+// empty reveal. Watch the command nonce so each intent fires exactly once, and
+// re-check `can()` so a stale or out-of-order intent is a safe no-op.
+watch(
+  () => room.command.value?.nonce,
+  (nonce) => {
+    const cmd = room.command.value
+    if (!cmd || nonce == null) return
+    const a = cmd.action
+    if (a === 'open' && room.host.can('open')) room.host.openVoting()
+    else if (a === 'lock' && room.host.can('lock')) room.host.lock()
+    else if (a === 'startVote' && room.host.can('reveal') && isMakeRound.value) startVote()
+    else if (a === 'reveal' && room.host.can('reveal')) room.host.reveal()
+    else if (a === 'next' && room.host.can('next')) room.host.next()
+    else if (a === 'finish' && state.value === 'reveal' && isLast.value) finish()
+  },
+)
 </script>
 
 <style scoped>
@@ -244,6 +278,26 @@ function startVote() {
           @input="setCap(($event.target as HTMLInputElement).value)"
         />
       </div>
+      <div class="cohost-pick">
+        <span class="kicker">Who drives the game</span>
+        <select
+          class="cohost-select"
+          aria-label="Who drives the game"
+          :value="driverPid ?? ''"
+          @change="pickDriver(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">Just me (host)</option>
+          <option v-for="p in room.players.value" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+        <label class="cohost-first">
+          <input
+            type="checkbox"
+            :checked="firstToJoin"
+            @change="firstToJoin = ($event.target as HTMLInputElement).checked"
+          />
+          <span>Let the first to join drive</span>
+        </label>
+      </div>
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="!config" @click="room.host.start()">
           Start game
@@ -285,6 +339,11 @@ function startVote() {
           :answer="answer"
         />
       </div>
+    </div>
+
+    <div v-if="driverName" class="driving-note">
+      <span><span aria-hidden="true">🎮</span> {{ driverName }} is driving from their phone</span>
+      <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
     </div>
 
     <ControlBar
@@ -394,6 +453,56 @@ function startVote() {
   color: var(--ink);
   font: inherit;
   font-weight: 700;
+}
+.cohost-pick {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cohost-select {
+  width: 100%;
+  max-width: 260px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+.cohost-first {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.driving-note {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface-2);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.take-back {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
 }
 .lobby-actions {
   margin-top: 18px;

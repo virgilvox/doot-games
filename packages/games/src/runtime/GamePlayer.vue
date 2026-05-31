@@ -4,6 +4,7 @@
  * states are shared; the open-round input delegates to the current block's
  * PlayerInput. No game writes this.
  */
+import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin } from '@doot-games/sdk'
 import { computed, ref, watch } from 'vue'
@@ -37,6 +38,38 @@ watch(image, () => {
 const showImage = computed(() => !!image.value && !failedImage.value)
 const submitted = computed(() => room.inputFor(index.value) !== undefined)
 const eligible = computed(() => index.value >= room.joinedAtIndex.value)
+
+// ── Co-host / MC drive controls ────────────────────────────────────────────
+// When the host has delegated driving to this player, mirror the host's "what's
+// next" button on their phone. Tapping publishes an intent; the host applies it.
+const roundCount = computed(() => rounds.value.length)
+const isLast = computed(() => index.value >= roundCount.value - 1)
+const isMakeRound = computed(() => {
+  const next = rounds.value[index.value + 1]
+  if (!next) return false
+  const nextBlock = getBlock(props.plugin, next.block)
+  if (!nextBlock?.derive) return false
+  return (next.from ?? [index.value]).includes(index.value)
+})
+const driverAction = computed<{ type: ControlAction; label: string } | null>(() => {
+  if (!room.isDriver.value || room.phase.value !== 'active') return null
+  switch (state.value) {
+    case 'ready':
+      return { type: 'open', label: isMakeRound.value ? 'Collect answers' : 'Open voting' }
+    case 'open':
+      return { type: 'lock', label: isMakeRound.value ? 'Lock answers' : 'Lock voting' }
+    case 'locked':
+      return isMakeRound.value
+        ? { type: 'startVote', label: 'Start the vote' }
+        : { type: 'reveal', label: 'Reveal' }
+    case 'reveal':
+      return isLast.value
+        ? { type: 'finish', label: 'Final results' }
+        : { type: 'next', label: 'Next round' }
+    default:
+      return null
+  }
+})
 
 const value = ref<unknown>(null)
 // Re-initialize when the round changes AND when the block/content first become
@@ -72,6 +105,14 @@ function reloadPage() {
 
 <template>
   <div class="player" aria-live="polite">
+    <!-- MC controls: the host delegated driving to this player. -->
+    <div v-if="driverAction" class="drive-bar">
+      <span class="drive-tag"><span aria-hidden="true">🎮</span> You're the MC · {{ index + 1 }}/{{ rounds.length }}</span>
+      <button class="btn btn-primary drive-go" @click="room.sendControl(driverAction.type)">
+        {{ driverAction.label }} →
+      </button>
+    </div>
+
     <div v-if="!room.ready.value" class="big">Joining…</div>
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">
@@ -140,6 +181,25 @@ function reloadPage() {
   flex-direction: column;
   gap: 16px;
   flex: 1;
+}
+.drive-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: var(--bd) solid var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+}
+.drive-tag {
+  font-weight: 800;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.drive-go {
+  flex: none;
 }
 .big {
   flex: 1;

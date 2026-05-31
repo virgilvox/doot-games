@@ -60,9 +60,14 @@ export function useDootRoom(options: UseDootRoomOptions) {
     isHost: computed(() => snapshot.value.me.role === 'host'),
     hostPresent: computed(() => snapshot.value.hostPresent),
     joinedAtIndex: computed(() => snapshot.value.joinedAtIndex),
+    // co-host / MC delegation
+    driverPid: computed(() => snapshot.value.driverPid),
+    isDriver: computed(() => snapshot.value.isDriver),
+    command: computed(() => snapshot.value.command),
 
     // player actions
     submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
+    sendControl: (action: Parameters<RoomRuntime['sendControl']>[0]) => runtime.sendControl(action),
     // inputFor/inputsFor touch the reactive snapshot first so that a computed
     // calling them re-evaluates on every relay update (e.g. a vote arriving).
     // The runtime's maps are plain (non-reactive); the snapshot is the signal.
@@ -101,6 +106,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
       next: () => runtime.next(),
       finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
       setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
+      setDriver: (pid: string | null) => runtime.setDriver(pid),
       can: (action: HostAction['type']) => runtime.can(action),
     },
   }

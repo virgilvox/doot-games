@@ -20,6 +20,11 @@ export const addr = {
   roundDeadline: (room: string) => `${roomBase(room)}/round/deadline`,
   /** Host liveness heartbeat; players watch it to detect a vanished host. */
   hostPing: (room: string) => `${roomBase(room)}/host/ping`,
+  /** The delegated driver (co-host/MC): a player's pid, or '' for none. Host writes. */
+  controlDriver: (room: string) => `${roomBase(room)}/control/driver`,
+  /** A drive intent from the delegated player (advance the round). They write it;
+   *  the host validates (right driver, current round) and applies it. */
+  controlCommand: (room: string) => `${roomBase(room)}/control/command`,
   /** Answer key for round `i`, published only at reveal. */
   roundAnswer: (room: string, i: number) => `${roomBase(room)}/round/${i}/answer`,
   /** Runtime-derived content for round `i` (the two-phase pattern): the host
