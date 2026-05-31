@@ -39,6 +39,8 @@ function matches(pattern: string, address: string): boolean {
 
 class FakeRelayClient implements RelayClient {
   connected = false
+  /** Addresses passed to get(), so a test can assert the lobby fast path skips reads. */
+  getCalls: string[] = []
   private connectCbs: Array<() => void> = []
   constructor(private hub: FakeHub) {}
   async connect() {
@@ -55,6 +57,7 @@ class FakeRelayClient implements RelayClient {
     return this.hub.store.get(address)
   }
   async get(address: string) {
+    this.getCalls.push(address)
     return this.hub.store.get(address) as RelayValue
   }
   onConnect(cb: () => void) {
@@ -159,6 +162,122 @@ describe('RoomRuntime host actions', () => {
     t = 20_001 // past the 20s deadline
     host.tick(t)
     expect(hub.store.get(addr.roundState('ABCD'))).toBe('locked')
+  })
+})
+
+describe('RoomRuntime join presence (A3)', () => {
+  it('shows a joiner in the roster from the profile alone, before any ping arrives', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    // Simulate a profile landing on the relay with no heartbeat yet (the gap the
+    // bug left a player invisible in). The host must already roster them.
+    const pid = playerId('ABCD', 'Quinn')
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Quinn', joinedAtIndex: 0 })
+    expect(host.recentPlayers().map((p) => p.name)).toContain('Quinn')
+
+    // ...but a profile-only player still ages out after one presence window if no
+    // real ping ever follows (the seed is a one-window grace, not permanent).
+    t = 1_000 + 21_000
+    expect(host.recentPlayers().map((p) => p.name)).not.toContain('Quinn')
+  })
+
+  it('does not resurrect a stale-ping player when their profile re-publishes', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    const pid = playerId('ABCD', 'Robin')
+    // A real (now stale) ping was seen earlier.
+    hub.set(addr.playerPing('ABCD', pid), 1_000)
+    t = 1_000 + 25_000 // past the presence window
+    // The profile re-publishes (e.g. a dead tab's retained value re-delivered).
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Robin', joinedAtIndex: 0 })
+    // The prior (stale) ping is kept, so they stay aged out rather than flashing back.
+    expect(host.recentPlayers().map((p) => p.name)).not.toContain('Robin')
+  })
+
+  it('publishes a lobby joiner immediately, without waiting on authoritative reads', async () => {
+    const hub = new FakeHub()
+    const now = () => 5_000
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    // No start(): the room stays in the lobby, the common party case.
+
+    const relay = new FakeRelayClient(hub)
+    const player = new RoomRuntime({ relay, room: 'ABCD', role: 'player', name: 'Lobby', now })
+    cleanups.push(() => player.dispose())
+    await player.connect()
+    await flush()
+
+    const pid = playerId('ABCD', 'Lobby')
+    expect(player.joinedAtIndex).toBe(0)
+    expect(hub.store.get(addr.playerProfile('ABCD', pid))).toEqual({ name: 'Lobby', joinedAtIndex: 0 })
+    // The fast path skips the four authoritative reads entirely in the lobby.
+    expect(relay.getCalls).toHaveLength(0)
+    // And the host rosters them at once.
+    expect(host.recentPlayers().map((p) => p.name)).toContain('Lobby')
+  })
+})
+
+describe('RoomRuntime.probePresence (A5)', () => {
+  it('reports not present when no profile or ping exists (join allowed)', async () => {
+    const hub = new FakeHub()
+    const relay = new FakeRelayClient(hub)
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Newbie', () => 1_000)
+    expect(res.present).toBe(false)
+    expect(res.hasProfile).toBe(false)
+    expect(res.id).toBe(playerId('ABCD', 'Newbie'))
+  })
+
+  it('reports not present for a profile with a stale ping (a genuine reconnect)', async () => {
+    const hub = new FakeHub()
+    const pid = playerId('ABCD', 'Sam')
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Sam', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', pid), 1_000)
+    const relay = new FakeRelayClient(hub)
+    // now is well past the presence window since the last ping.
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Sam', () => 1_000 + 60_000)
+    expect(res.present).toBe(false)
+    expect(res.hasProfile).toBe(true)
+  })
+
+  it('reports present for a profile with a fresh ping (a live collision)', async () => {
+    const hub = new FakeHub()
+    const pid = playerId('ABCD', 'Sam')
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Sam', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', pid), 9_000)
+    const relay = new FakeRelayClient(hub)
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Sam', () => 10_000)
+    expect(res.present).toBe(true)
+  })
+
+  it('normalizes the name so a casing variant maps to the same live identity', async () => {
+    const hub = new FakeHub()
+    const pid = playerId('ABCD', 'Robin')
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Robin', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', pid), 9_500)
+    const relay = new FakeRelayClient(hub)
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', '  robin ', () => 10_000)
+    expect(res.id).toBe(pid)
+    expect(res.present).toBe(true)
+  })
+
+  it('fails open: a rejecting relay.get reports not present (never blocks a join)', async () => {
+    const hub = new FakeHub()
+    const relay = new FakeRelayClient(hub)
+    relay.get = () => Promise.reject(new Error('relay down'))
+    const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Anyone', () => 1_000)
+    expect(res.present).toBe(false)
+    expect(res.hasProfile).toBe(false)
   })
 })
 

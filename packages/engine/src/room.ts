@@ -161,6 +161,35 @@ export class RoomRuntime {
     }
   }
 
+  /**
+   * Probe whether a name is already actively in use in a room, before a player
+   * commits to joining under it. Identity is `hash(room + name)`, so two people
+   * typing the same name collide onto one identity (and one reclaims the other's
+   * inputs and score). This reads the target id's last heartbeat and profile and
+   * reports whether a phone is currently live on that name (a ping within the
+   * presence window). The join UI uses it to warn on a live collision while still
+   * allowing a genuine reconnect (a stale or absent ping reads as not present).
+   *
+   * Fail-open by design: the caller should bound this with a timeout and treat
+   * any error as "not present", a relay hiccup must never stop someone joining.
+   */
+  static async probePresence(
+    relay: RelayClient,
+    room: string,
+    name: string,
+    now: () => number = Date.now,
+  ): Promise<{ id: string; present: boolean; hasProfile: boolean }> {
+    const id = playerId(room, name)
+    const [pingR, profR] = await Promise.allSettled([
+      relay.get(addr.playerPing(room, id)),
+      relay.get(addr.playerProfile(room, id)),
+    ])
+    const ping = pingR.status === 'fulfilled' ? pingR.value : undefined
+    const hasProfile = profR.status === 'fulfilled' && profR.value != null
+    const present = ping != null && now() - Number(ping) < PRESENCE_WINDOW_MS
+    return { id, present, hasProfile }
+  }
+
   // ---- lifecycle -----------------------------------------------------------
 
   async connect(): Promise<void> {
@@ -317,7 +346,13 @@ export class RoomRuntime {
           id: pid,
           name: prof?.name ?? prev?.name ?? 'Player',
           joinedAtIndex: prof?.joinedAtIndex ?? prev?.joinedAtIndex ?? 0,
-          lastPing: prev?.lastPing ?? null,
+          // A profile is only ever published by an actively-joining client, so
+          // treat its first arrival as a presence pulse: the player shows in the
+          // roster the instant their profile lands, without waiting for the
+          // separate heartbeat to round-trip. `?? this.now()` only fires on first
+          // sight, so a reconnect can't reset a real (possibly stale) ping, and a
+          // joiner whose ping never follows still ages out after one window.
+          lastPing: prev?.lastPing ?? this.now(),
         })
         this.emit()
       })
@@ -457,11 +492,28 @@ export class RoomRuntime {
   private async ensureProfilePublished(): Promise<void> {
     if (this.me.role !== 'player' || this.profilePublished) return
     this.profilePublished = true // guard re-entry while the read is in flight
-    // Read our profile (to detect a reconnect) and the round pointer together,
-    // authoritatively. phase/index/state are published to separate addresses and
-    // arrive in any order, so the local snapshot may hold only `phase` so far,
-    // computing the join index from that partial view would mis-set eligibility
-    // for a mid-game joiner. `allSettled` so one failed read can't sink the rest.
+
+    // Common party case: everyone joins during the lobby. No round has started,
+    // so this player's join index is unconditionally 0 (a lobby reconnect is 0
+    // too, since the phase only moves forward, never back to lobby). Publish the
+    // profile and start heartbeating immediately, without waiting on the
+    // authoritative reads, so the host roster shows the player the instant they
+    // join instead of after a relay round-trip.
+    if (this.state.phase === 'lobby') {
+      this.myJoinedAtIndex = 0
+      this.publishProfile(0)
+      this.startHeartbeat()
+      this.emit()
+      return
+    }
+
+    // Mid-game (or post-game) join: the join index depends on the live round
+    // state and on whether this is a reconnect, so read our profile (to detect a
+    // reconnect) and the round pointer together, authoritatively. phase/index/
+    // state are published to separate addresses and arrive in any order, so the
+    // local snapshot may hold only `phase` so far; computing the join index from
+    // that partial view would mis-set eligibility for a mid-game joiner.
+    // `allSettled` so one failed read can't sink the rest.
     const [profR, phaseR, indexR, stateR] = await Promise.allSettled([
       this.relay.get(addr.playerProfile(this.room, this.me.id)),
       this.relay.get(addr.phase(this.room)),
@@ -487,12 +539,16 @@ export class RoomRuntime {
       joinedAtIndex = computeJoinedAtIndex(phase, round)
     }
     this.myJoinedAtIndex = joinedAtIndex
+    this.publishProfile(joinedAtIndex)
+    this.startHeartbeat()
+    this.emit()
+  }
+
+  private publishProfile(joinedAtIndex: number): void {
     this.publish(addr.playerProfile(this.room, this.me.id), {
       name: this.me.name,
       joinedAtIndex,
     })
-    this.startHeartbeat()
-    this.emit()
   }
 
   /** First round index this player may act on (0 until the profile is published). */
