@@ -69,18 +69,27 @@ const VISIBILITY_NOTE: Record<'private' | 'unlisted' | 'public', string> = {
 }
 const visibilityNote = computed(() => VISIBILITY_NOTE[visibility.value])
 
-// Offer image uploads whenever object storage is configured (the upload itself
-// is session-gated; a logged-out click surfaces a "sign in" error).
-const uploadsEnabled = ref(false)
+// Image uploads need object storage configured AND a signed-in author (the
+// presign route is session-gated). Rather than show an Upload button that 401s
+// for a logged-out author, only offer it when both hold, and otherwise explain
+// why (so they sign in, or just paste a URL, which always works). Computed off
+// `loggedIn` so the button appears the moment they sign in mid-edit.
+const storageConfigured = ref(false)
 onMounted(async () => {
   try {
-    const c = await $fetch<{ enabled: boolean }>('/api/uploads/config')
-    uploadsEnabled.value = !!c.enabled
+    const c = await $fetch<{ enabled: boolean; signedIn: boolean }>('/api/uploads/config')
+    storageConfigured.value = !!c.enabled
   } catch {
     /* leave disabled */
   }
 })
-provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload() })
+const uploadsEnabled = computed(() => storageConfigured.value && loggedIn.value)
+const uploadReason = computed(() =>
+  storageConfigured.value && !loggedIn.value
+    ? 'Sign in to upload images. You can paste an image URL without signing in.'
+    : '',
+)
+provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload(), reason: uploadReason })
 
 const blockChoices = computed(() => plugin.blocks)
 function blockFor(inst: RoundInstance): AnyBlock | undefined {

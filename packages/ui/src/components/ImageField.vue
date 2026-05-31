@@ -14,6 +14,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const broken = ref(false)
 const uploadCtx = inject(IMAGE_UPLOAD, null)
 const canUpload = computed(() => !!uploadCtx?.enabled.value)
+// A reason to show when uploads are configured but not available right now (e.g.
+// the author is signed out), so they understand the option instead of seeing
+// nothing. URL-paste still works regardless.
+const uploadHint = computed(() => (canUpload.value ? '' : (uploadCtx?.reason?.value ?? '')))
 const uploading = ref(false)
 const uploadError = ref('')
 
@@ -52,6 +56,7 @@ async function onFile(e: Event) {
         <span>{{ uploading ? 'Uploading…' : 'Upload' }}</span>
       </label>
     </div>
+    <p v-if="uploadHint" class="sf-hint">{{ uploadHint }}</p>
     <p v-if="uploadError" class="sf-error">{{ uploadError }}</p>
     <div v-if="modelValue" class="sf-image-preview">
       <img v-if="!broken" :src="modelValue" alt="Preview of the round image" @error="broken = true" />
@@ -91,6 +96,11 @@ async function onFile(e: Event) {
 }
 .if-upload input {
   display: none;
+}
+.sf-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--mute);
 }
 .sf-image-preview {
   margin-top: 10px;

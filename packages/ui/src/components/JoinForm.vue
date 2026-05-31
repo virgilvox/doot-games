@@ -4,15 +4,29 @@ import { isValidRoomCode } from '@doot-games/engine'
 import { onMounted, ref } from 'vue'
 import DButton from './DButton.vue'
 
-const props = withDefaults(defineProps<{ initialCode?: string; initialName?: string }>(), {
-  initialCode: '',
-  initialName: '',
-})
+const props = withDefaults(
+  defineProps<{
+    initialCode?: string
+    initialName?: string
+    /**
+     * Optional pre-join check: is this name already live in the room? Identity is
+     * derived from room + name, so two people typing the same name would collide
+     * onto one identity. The app supplies this (it owns the relay); it must fail
+     * open (a flaky relay should never block a join). Returns `{ present }`.
+     */
+    probe?: (code: string, name: string) => Promise<{ present: boolean }>
+  }>(),
+  { initialCode: '', initialName: '', probe: undefined },
+)
 const emit = defineEmits<{ join: [payload: { code: string; name: string }] }>()
 
 const code = ref(props.initialCode.toUpperCase())
 const name = ref(props.initialName)
 const error = ref('')
+const checking = ref(false)
+// A name that is already live in the room: we warn rather than silently colliding
+// the two players onto one identity, but still let a genuine reconnect proceed.
+const nameTaken = ref(false)
 
 // Land the cursor where the player actually needs to type: if they arrived via a
 // QR scan / deep link the code is already filled, so jump straight to the name;
@@ -24,19 +38,62 @@ onMounted(() => {
   target?.focus()
 })
 
-function submit() {
+function validate(): { code: string; name: string } | null {
   const c = code.value.trim().toUpperCase()
   const n = name.value.trim()
   if (!isValidRoomCode(c)) {
     error.value = 'Enter the 4-character room code.'
-    return
+    return null
   }
   if (!n) {
     error.value = 'Pick a name so others know who you are.'
-    return
+    return null
   }
   error.value = ''
-  emit('join', { code: c, name: n })
+  return { code: c, name: n }
+}
+
+async function submit() {
+  if (checking.value) return
+  const v = validate()
+  if (!v) return
+  // No probe wired: join straight away (keeps the form usable on its own).
+  if (!props.probe) {
+    emit('join', v)
+    return
+  }
+  checking.value = true
+  let present = false
+  try {
+    const res = await props.probe(v.code, v.name)
+    present = res.present
+  } catch {
+    present = false // fail open: a relay hiccup must never stop someone joining
+  }
+  checking.value = false
+  if (present) {
+    nameTaken.value = true
+    return
+  }
+  emit('join', v)
+}
+
+/** "That's me, reconnect": skip the warning and join under the same name. */
+function reconnect() {
+  const v = validate()
+  if (v) emit('join', v)
+}
+
+/** "Pick a different name": clear the warning and let them retype. */
+function pickAnother() {
+  nameTaken.value = false
+  nameInput.value?.focus()
+  nameInput.value?.select()
+}
+
+/** Editing the name invalidates a prior "taken" warning; re-check on next submit. */
+function onNameInput() {
+  if (nameTaken.value) nameTaken.value = false
 }
 </script>
 
@@ -68,10 +125,18 @@ function submit() {
         autocomplete="off"
         aria-label="Your display name"
         placeholder="e.g. Robin"
+        @input="onNameInput"
         @keyup.enter="submit"
       />
     </label>
-    <DButton variant="primary" type="submit" block>Join game</DButton>
+    <DButton v-if="!nameTaken" variant="primary" type="submit" block :disabled="checking">
+      {{ checking ? 'Checking…' : 'Join game' }}
+    </DButton>
+    <div v-if="nameTaken" class="taken" role="alert">
+      <p class="taken-msg">That name is already in this room. Pick another, or reconnect if it's you.</p>
+      <DButton variant="primary" type="button" block @click="pickAnother">Pick a different name</DButton>
+      <button type="button" class="link-btn" @click="reconnect">That's me, reconnect</button>
+    </div>
     <p v-if="error" class="err" role="alert">{{ error }}</p>
   </form>
 </template>
@@ -117,5 +182,35 @@ function submit() {
   font-size: 13px;
   color: var(--primary);
   margin: 0;
+}
+.taken {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+.taken-msg {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+  text-align: center;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--mute);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px;
+}
+.link-btn:hover {
+  color: var(--ink);
 }
 </style>

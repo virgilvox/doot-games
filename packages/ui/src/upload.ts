@@ -14,6 +14,10 @@ export interface ImageUploadContext {
   /** Whether uploads are available right now (configured + permitted). */
   enabled: Ref<boolean>
   upload: ImageUploader
+  /** Why uploads are unavailable (e.g. "Sign in to upload images."), shown as a
+   *  hint beside the URL field when `enabled` is false but storage exists. Empty
+   *  string means uploads are available or there is nothing to explain. */
+  reason?: Ref<string>
 }
 
 export const IMAGE_UPLOAD: InjectionKey<ImageUploadContext> = Symbol('doot-image-upload')
