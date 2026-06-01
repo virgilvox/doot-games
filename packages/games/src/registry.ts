@@ -13,6 +13,7 @@ import { poll } from './games/poll'
 import { quipClash } from './games/quipclash'
 import { rank } from './games/rank'
 import { rate } from './games/rate'
+import { sketchSpot } from './games/sketchspot'
 import { splitRoom } from './games/splitroom'
 import { voteBox } from './games/votebox'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
@@ -28,6 +29,7 @@ export const builtinPlugins: GamePlugin[] = [
   madLibs,
   splitRoom,
   fibFinder,
+  sketchSpot,
   circuitCypher,
   whatYouDidntKnow,
   custom,

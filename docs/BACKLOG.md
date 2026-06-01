@@ -7,17 +7,23 @@ each group; `[size]` is a rough effort hint.
 
 ## Done (for context, do not redo)
 - Consumer bugs A1–A5, author features B6–B9.
-- 12 games incl. 5 flagships; the catalog IA; saved games + optional auth + uploads.
+- 14 games incl. 7 flagships; the catalog IA; saved games + optional auth + uploads.
 - **D13 Circuit Cypher** — full 3D animated rap-battle tournament (custom flow), MC
   voice, per-player verses, live-perform mode, co-host driving. Deployed. (Polish
   follow-ups tracked under "Circuit Cypher polish" below.)
+- **C10 author display name** — community games and `/g/<id>` credit the author by
+  display name (better-auth `user.name`, never the email). Deployed.
+- **Fib Finder** (Fibbage) — new `fibvote` block: lies + an injected withheld truth,
+  dual-axis scoring (find the truth / fool the room). Deployed.
+- **Sketch & Spot** (Drawful) — new `drawvote` block: vote on a gallery of the
+  room's drawings (the Draw block in the two-phase loop). Deployed.
 
 ---
 
-## C. Social / discovery  (none built)
-- [ ] **C10. Publisher / author name** on community games + the `/g/<id>` detail page
-  (show the author's display name, never the email). `[small]` — confirmed: no
-  author/publisher display in `apps/web/app/pages/g/`.
+## C. Social / discovery
+- [x] **C10. Publisher / author name** on community games + the `/g/<id>` detail page
+  (display name, never the email). Shipped: `server/utils/users.ts` resolves names
+  from better-auth's `user` table; shown on `/g/<id>`, Explore, and Home rails.
 - [ ] **C11. User profile pages** + a profile editor (display name, avatar, bio); the
   profile lists that user's public games. `[medium]` — no `/u` pages exist.
 - [ ] **C12. Bookmark / save games** so a logged-in user can find them again. `[small-medium]`
@@ -30,10 +36,11 @@ each group; `[size]` is a rough effort hint.
   tiebreaker** (reuse `draw`), a **final lightning round**, and the **specialty content
   packs** (actor photos via option images, poorly-described plots, a **theme-song
   audio-clip block**, macguffins, misheard lyrics, Six Degrees of Kevin Bacon…). `[large]`
-- [ ] **Fib Finder** (Fibbage) — `quip` → `vote` (field) + an injected truth + dual-axis
-  scoring (find the truth / fool others). Nearly free now that `vote` exists. `[small]`
-- [ ] **Sketch & Spot** (Drawful) — the existing `draw` block → `vote` (field). Pure
-  reuse; proves the Draw block in the two-phase loop. `[small]`
+- [x] **Fib Finder** (Fibbage) — shipped. `quip` → new `fibvote` block (lies + an
+  injected withheld truth, dual-axis scoring). 20-fact pool; verified end to end.
+- [x] **Sketch & Spot** (Drawful) — shipped. `draw` → new `drawvote` block (vote on a
+  gallery of the room's drawings). 16-prompt pool; verified end to end
+  (`scripts/sketch-smoke.mjs` drives the Pixi canvas + the gallery vote).
 - [ ] **The Big Reveal** (Talking Points) — the stretch capstone: a presenter improvises
   over slides an Assistant feeds live; the crowd taps up/down. Needs a continuous
   reaction/feed channel — now more feasible since `publishExtra`/`onExtra` + the

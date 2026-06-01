@@ -1,0 +1,166 @@
+<script setup lang="ts">
+/**
+ * Big-screen draw vote: the gallery of sketches. Vote counts stay hidden until
+ * reveal (peek to show a live tally); at reveal the winner is crowned and each
+ * drawing is credited to its artist.
+ */
+import type { RoundState } from '@doot-games/engine'
+import { injectDootRoom } from '@doot-games/engine/vue'
+import { DrawThumb } from '@doot-games/ui'
+import type { DrawValue } from '@doot-games/ui'
+import { computed, ref } from 'vue'
+import type { DrawVoteContent, DrawVoteInput, DrawVoteRevealSummary } from './block'
+
+const props = defineProps<{
+  content: DrawVoteContent
+  inputs: Map<string, DrawVoteInput>
+  state: RoundState
+  answer?: unknown
+}>()
+
+const room = injectDootRoom()
+const revealed = computed(() => props.state === 'reveal')
+const showLive = ref(props.content.hideUntilReveal === false)
+const showDistribution = computed(() => revealed.value || showLive.value)
+const votesIn = computed(() => {
+  let n = 0
+  for (const v of props.inputs.values()) if (v?.choice) n++
+  return n
+})
+
+const authors = computed(
+  () =>
+    (room.answerKeyFor(room.round.value.index) as { authors?: Record<string, string> } | undefined)
+      ?.authors ?? {},
+)
+const liveCounts = computed(() => {
+  const counts = new Map<string, number>(props.content.options.map((o) => [o.id, 0]))
+  for (const [pid, v] of props.inputs) {
+    if (!v?.choice || !counts.has(v.choice)) continue
+    if (authors.value[v.choice] === pid) continue
+    counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
+  }
+  return counts
+})
+
+const summary = computed(
+  () => room.roundRevealFor(room.round.value.index) as DrawVoteRevealSummary | undefined,
+)
+
+interface Cell {
+  id: string
+  drawing: DrawValue
+  votes: number
+  author?: string
+  winner: boolean
+}
+const cells = computed<Cell[]>(() => {
+  if (revealed.value && summary.value) {
+    const win = summary.value.winnerId
+    return summary.value.tallies.map((t) => ({ ...t, winner: t.id === win }))
+  }
+  return props.content.options.map((o) => ({
+    id: o.id,
+    drawing: o.drawing,
+    votes: liveCounts.value.get(o.id) ?? 0,
+    winner: false,
+  }))
+})
+</script>
+
+<template>
+  <div class="dv-host">
+    <p v-if="cells.length < 2" class="degenerate">
+      Not enough drawings to vote on this round. Skip ahead.
+    </p>
+    <template v-else>
+      <div v-if="!revealed" class="head">
+        <span class="votes-in">{{ votesIn }} vote{{ votesIn === 1 ? '' : 's' }} in</span>
+        <button type="button" class="peek" :aria-pressed="showLive" @click="showLive = !showLive">
+          {{ showLive ? 'Hide votes' : 'Peek at votes' }}
+        </button>
+      </div>
+      <div class="gallery">
+        <figure v-for="c in cells" :key="c.id" class="tile" :class="{ winner: revealed && c.winner }">
+          <DrawThumb :value="c.drawing" :aspect="content.aspect" />
+          <figcaption class="cap">
+            <span v-if="revealed && c.winner" class="badge-win">WINNER</span>
+            <span v-if="revealed && c.author" class="author">{{ c.author }}</span>
+            <span v-if="showDistribution" class="votes mono">{{ c.votes }} vote{{ c.votes === 1 ? '' : 's' }}</span>
+          </figcaption>
+        </figure>
+      </div>
+    </template>
+  </div>
+</template>
+
+<style scoped>
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.votes-in {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+.peek {
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.tile {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tile.winner :deep(.draw-thumb) {
+  border-color: var(--c5);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c5) 45%, transparent);
+}
+.cap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+.badge-win {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: var(--c5-ink, #06210f);
+  background: var(--c5);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.author {
+  font-weight: 800;
+  color: var(--c2);
+}
+.votes {
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.degenerate {
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 28px 0;
+  font-weight: 600;
+}
+</style>

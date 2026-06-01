@@ -34,6 +34,7 @@ const VISUALS: Record<string, GameVisual> = {
   'mad-libs': { color: 'var(--c4)', icon: 'text' },
   'split-room': { color: 'var(--c1)', icon: 'rank' },
   'fib-finder': { color: 'var(--c2)', icon: 'check' },
+  'sketch-spot': { color: 'var(--c2)', icon: 'squiggle' },
   'circuit-cypher': { color: 'var(--c5)', icon: 'mic' },
   'what-you-didnt-know': { color: 'var(--c1)', icon: 'bell' },
   quip: { color: 'var(--primary)', icon: 'text' },
@@ -43,6 +44,7 @@ const VISUALS: Record<string, GameVisual> = {
   fill: { color: 'var(--c4)', icon: 'text' },
   split: { color: 'var(--c1)', icon: 'rank' },
   fibvote: { color: 'var(--c2)', icon: 'check' },
+  drawvote: { color: 'var(--c2)', icon: 'squiggle' },
   custom: { color: 'var(--c1)', icon: 'grid' },
 }
 

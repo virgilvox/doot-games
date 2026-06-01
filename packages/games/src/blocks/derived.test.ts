@@ -15,8 +15,8 @@ for (const plugin of builtinPlugins) {
 const derivedBlocks = [...blocks.values()].filter((b) => b.derive)
 
 describe('derived (two-phase) blocks', () => {
-  it('there is at least one (vote/split/fibvote)', () => {
-    expect(derivedBlocks.map((b) => b.kind).sort()).toEqual(['fibvote', 'split', 'vote'])
+  it('there is at least one (vote/split/fibvote/drawvote)', () => {
+    expect(derivedBlocks.map((b) => b.kind).sort()).toEqual(['drawvote', 'fibvote', 'split', 'vote'])
   })
 
   for (const block of derivedBlocks) {
