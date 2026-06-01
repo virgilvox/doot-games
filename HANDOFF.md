@@ -4,31 +4,31 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 
 _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; every push to `main` deploys via CI)._
 
-> **Circuit Cypher visual-polish batch — DONE + VERIFIED, NOT YET COMMITTED/DEPLOYED (2026-06-01).**
-> A round of consumer-feedback fixes to the (already-deployed) 3D rap battle, sitting
-> **uncommitted in the working tree** (verified green: 182 tests, full typecheck incl.
-> `nuxi`, web build, + real-browser screenshots). **First decision next session:** review
-> on `pnpm dev`, then commit + push to deploy (or keep iterating). Changes:
-> - **Verse box overflow fixed** — the performed verse now renders one row per line with
->   flex-wrapped words + real gaps, constrained to its box (measured: words inside the
->   box, `scrollWidth === clientWidth`, no spill). Previously it ran off both sides.
-> - **No emojis -> real SVG icons.** New `Icon` component in `@doot-games/ui` (mic,
->   volume/mute, skip, cheer, crown, cpu, mc) replaces every emoji in the host + player.
->   **New standing rule: use `Icon`, never emoji, in user-facing UI.**
-> - **Pacing slowed** to feel like the mockup (a `PACE` table: title 4.2s, banner 2.6s,
->   intro 2.9s, countdown 0.95s, complete 2.6s; robot-rap TTS rate 0.9).
-> - **Robot animation fixed** — the bob/sway clock read `audio.beatPhase()`, which returns
->   `0` (not null) when muted/idle, so `?? fallback` never fired and the robots **froze
->   when muted**. Now an always-advancing local clock drives motion; the analyser bass
->   only adds the kick. Also pulled the perform camera back (it was cropping the robot)
->   and lifted ambient light.
-> - **Opening title sequence added** — a cinematic "CIRCUIT CYPHER // ROBOT RAP BATTLE"
->   gradient title + lineup (like the mockup `#start`) before the first battle.
-> - **`docs/BACKLOG.md` added** — the verified remaining-work inventory (the source of
->   truth for what's left; see the kickoff prompt).
-> - Verification note: Playwright headless **throttles background-tab `setTimeout`**, so
->   pacing/the title hold time can't be measured reliably headless (real foreground
->   browsers are fine). Verify timing-sensitive UI on a real browser, not the smoke.
+> **Quick-wins batch — SHIPPED + DEPLOYED (2026-06-01).** Four increments, each
+> verified (200 tests, full typecheck incl. `nuxi`, web build) and pushed to `main`:
+> - **Circuit Cypher visual polish** — verse-box overflow fix (one row per line,
+>   flex-wrapped), a new `Icon` component in `@doot-games/ui` replacing every emoji
+>   (**standing rule: use `Icon`, never emoji**), slower mockup-matched pacing (`PACE`
+>   table), the robot-freeze-when-muted fix (motion now runs off a local clock, not
+>   `audio.beatPhase()` which is `0` when muted), camera pulled back, and an opening
+>   "CIRCUIT CYPHER" title sequence. (Headless Playwright throttles background-tab
+>   `setTimeout`, so verify timing-sensitive UI on a real foreground browser.)
+> - **C10 author display name** — community games + `/g/<id>` credit the author by
+>   display name (better-auth `user.name`, never the email). New `server/utils/users.ts`
+>   batch-resolves owner ids to names; shown on `/g/<id>`, Explore, and the Home rails.
+> - **Fib Finder** (Fibbage flagship) — new `fibvote` block: a `quip` make round of lies
+>   plus an injected, withheld `truth`, dual-axis scoring (find the truth + fool the
+>   room). 20-fact brand-free pool. The truth is an answer key (stripped via
+>   `redactContent` + `REDACTION_RULES`).
+> - **Sketch & Spot** (Drawful flagship) — new `drawvote` block: vote on a gallery of the
+>   room's drawings (Draw block in the two-phase loop), derived from the prior draw
+>   round's strokes. 16-prompt pool. `scripts/sketch-smoke.mjs` drives the Pixi canvas +
+>   gallery vote end to end.
+>
+> Doot now ships **14 games incl. 7 flagships**. Both new flagships were verified end to
+> end in a real browser (`scripts/playtest.mjs` gained a `fib-finder` scenario + an
+> `ONLY=` filter; `scripts/sketch-smoke.mjs` is new) with host + phone screenshots.
+> Next per `docs/BACKLOG.md`: robustness (E16), then D14 the gameshow.
 
 > **D13b Circuit Cypher tournament + full animated 3D battle — SHIPPED + DEPLOYED (2026-05-31).**
 > Circuit Cypher is now a **custom-flow** game: `circuit-cypher.ts` ships
