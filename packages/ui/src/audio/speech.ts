@@ -1,10 +1,22 @@
 /**
  * Client-only text-to-speech for the "robots perform the verses" moment in
- * Circuit Cypher (the rap battle). It is a thin, safe wrapper over the browser
- * `speechSynthesis` API: SSR-guarded and feature-detected, so it is a clean
- * no-op anywhere the API is missing (servers, older browsers, headless test
+ * Circuit Cypher (the rap battle) and the MC announcer. A thin, safe wrapper over
+ * the browser `speechSynthesis` API: SSR-guarded and feature-detected, so it is a
+ * clean no-op anywhere the API is missing (servers, older browsers, headless test
  * runs) and never blocks or throws. The play flow never depends on it; it is a
  * decorative performance layer.
+ *
+ * Reliability notes (these earned real debugging time, see scripts/tts-probe.mjs):
+ *  - We speak EVERYTHING through ONE voice (the platform default / a local voice)
+ *    and tell the MC + the two robots apart by PITCH and RATE. The old code gave
+ *    each robot a different *platform* voice by index; on machines where the
+ *    second voice doesn't actually produce audio, the second robot went silent
+ *    while the first played. Pitch/rate on a single known-good voice can't fail
+ *    that way.
+ *  - Chrome/macOS silently DROPS a `speak()` issued in the same tick as a
+ *    `cancel()` of actively-playing speech. So when we're interrupting live
+ *    speech we put a short gap between the cancel and the speak; when nothing is
+ *    speaking we speak immediately.
  */
 
 /** Whether the browser can speak (SSR-safe, feature-detected). */
@@ -17,20 +29,18 @@ export function canSpeak(): boolean {
 }
 
 /**
- * Prime the speech engine so the FIRST verse actually speaks. Chrome loads
- * voices lazily and asynchronously: `getVoices()` is often empty on a fresh page
- * until a `voiceschanged` event fires, and a `speak()` issued before then can be
- * silently dropped. Calling this once on mount kicks the load so voices are
- * ready by the time the battle starts. Safe to call repeatedly; a no-op where
- * speech is unavailable.
+ * Prime the speech engine so the FIRST line actually speaks. Chrome loads voices
+ * lazily and asynchronously: `getVoices()` is often empty on a fresh page until a
+ * `voiceschanged` event fires, and a `speak()` issued before then can be silently
+ * dropped. Calling this once on mount kicks the load so voices are ready by the
+ * time the battle starts. Safe to call repeatedly; a no-op where speech is
+ * unavailable.
  */
 let voicesWarmed = false
 export function warmUpSpeech(): void {
   if (!canSpeak()) return
   try {
     window.speechSynthesis.getVoices()
-    // Attach the populate-on-change listener only once, ever (each host mount
-    // calls this; re-adding it per mount would leak a listener per navigation).
     if (!voicesWarmed) {
       voicesWarmed = true
       window.speechSynthesis.addEventListener?.('voiceschanged', () => {
@@ -43,9 +53,9 @@ export function warmUpSpeech(): void {
 }
 
 /**
- * Chrome can wedge `speechSynthesis` into a paused state after a `cancel()`, so
- * a following `speak()` produces no sound. Calling `resume()` right after speak
- * unwedges it; it is a harmless no-op when nothing is paused.
+ * Chrome can wedge `speechSynthesis` into a paused state after a `cancel()`, so a
+ * following `speak()` produces no sound. Calling `resume()` unwedges it; harmless
+ * no-op when nothing is paused.
  */
 function kick(synth: SpeechSynthesis): void {
   try {
@@ -60,6 +70,50 @@ export function cancelSpeech(): void {
   if (canSpeak()) window.speechSynthesis.cancel()
 }
 
+/**
+ * The single voice we use for ALL speech. Prefer the platform default, then any
+ * LOCAL (non-network) English voice, then any English, then anything. Local
+ * voices are the reliable ones; network voices can fail silently. The MC and the
+ * two robots are differentiated by pitch/rate, not by choosing different voices.
+ */
+function reliableVoice(): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices()
+  if (!voices.length) return undefined
+  const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang))
+  const pool = en.length ? en : voices
+  return (
+    pool.find((v) => v.default && v.localService) ??
+    pool.find((v) => v.localService) ??
+    pool.find((v) => v.default) ??
+    pool[0]
+  )
+}
+
+// Chrome drops a speak() issued the same tick as a cancel() of ACTIVE speech, so
+// when interrupting we wait a beat before speaking. Idle -> speak immediately.
+const SPEAK_DELAY_MS = 140
+
+/**
+ * Speak one utterance. If something is currently speaking we cancel it and defer
+ * the new speak briefly (so it isn't dropped); otherwise we speak at once. Calls
+ * `onFail` if the synth throws synchronously.
+ */
+function speakSoon(synth: SpeechSynthesis, u: SpeechSynthesisUtterance, isCancelled: () => boolean, onFail: () => void): void {
+  const busy = synth.speaking || synth.pending
+  synth.cancel()
+  const go = () => {
+    if (isCancelled()) return
+    try {
+      synth.speak(u)
+      kick(synth)
+    } catch {
+      onFail()
+    }
+  }
+  if (busy) setTimeout(go, SPEAK_DELAY_MS)
+  else go()
+}
+
 export interface SpeakOptions {
   /** Speaking rate (0.1–10, default 0.95 for a deliberate flow). */
   rate?: number
@@ -69,42 +123,6 @@ export interface SpeakOptions {
   onLine?: (index: number) => void
   /** Called once when every line has finished (or playback is cancelled). */
   onDone?: () => void
-}
-
-/** English voices first (most consistent), else whatever the platform offers. */
-function englishVoices(): SpeechSynthesisVoice[] {
-  const voices = window.speechSynthesis.getVoices()
-  const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang))
-  return en.length ? en : voices
-}
-
-/** Prefer a stable English voice when one is available; fall back to default. */
-function pickVoice(): SpeechSynthesisVoice | undefined {
-  return englishVoices()[0]
-}
-
-/**
- * A performer ("rapper") voice, varied by index so the two robots in a matchup
- * sound like different MCs where the platform offers more than one voice. Falls
- * back to the single available voice (still differentiated by pitch elsewhere).
- */
-function performerVoice(index = 0): SpeechSynthesisVoice | undefined {
-  const v = englishVoices()
-  if (!v.length) return undefined
-  return v[index % v.length]
-}
-
-/**
- * The announcer/MC voice: deliberately a DIFFERENT voice from the performers
- * when the platform has more than one (the last English voice, least likely to
- * collide with performer index 0/1), so the host narration reads as a separate
- * hype-man. Where only one voice exists, the announcer is set apart by its higher
- * pitch and quicker rate instead.
- */
-function announcerVoice(): SpeechSynthesisVoice | undefined {
-  const v = englishVoices()
-  if (!v.length) return undefined
-  return v.length > 2 ? v[v.length - 1] : v[v.length === 2 ? 1 : 0]
 }
 
 /**
@@ -119,8 +137,7 @@ export function speakLines(lines: string[], opts: SpeakOptions = {}): () => void
     return () => {}
   }
   const synth = window.speechSynthesis
-  synth.cancel() // never stack on top of a prior performance
-  const voice = pickVoice()
+  const voice = reliableVoice()
   let cancelled = false
   let i = 0
 
@@ -139,13 +156,21 @@ export function speakLines(lines: string[], opts: SpeakOptions = {}): () => void
       i++
       speakNext()
     }
-    // On error, don't stall the performance: advance to the next line.
     u.onerror = () => {
       i++
       speakNext()
     }
-    synth.speak(u)
-    kick(synth)
+    // The first line may interrupt prior speech; later lines fire from onend with
+    // nothing active, so they speak immediately.
+    if (i === 0) {
+      speakSoon(synth, u, () => cancelled, () => {
+        i++
+        speakNext()
+      })
+    } else {
+      synth.speak(u)
+      kick(synth)
+    }
   }
 
   speakNext()
@@ -165,9 +190,9 @@ export interface AnnounceOptions {
 }
 
 /**
- * Speak a single line in the announcer/MC voice (a distinct persona from the
- * rapping robots). Used by the host to introduce the battle and each performer.
- * A no-op (calls `onDone`) where speech is unavailable. Returns a cancel fn.
+ * Speak a single line in the announcer/MC voice. Same underlying voice as the
+ * robots, set apart by a brighter pitch and quicker rate. A no-op (calls
+ * `onDone`) where speech is unavailable. Returns a cancel fn.
  */
 export function announce(text: string, opts: AnnounceOptions = {}): () => void {
   const line = text.trim()
@@ -176,8 +201,7 @@ export function announce(text: string, opts: AnnounceOptions = {}): () => void {
     return () => {}
   }
   const synth = window.speechSynthesis
-  synth.cancel()
-  const voice = announcerVoice()
+  const voice = reliableVoice()
   let cancelled = false
   const u = new window.SpeechSynthesisUtterance(line)
   u.rate = opts.rate ?? 1.06
@@ -189,12 +213,9 @@ export function announce(text: string, opts: AnnounceOptions = {}): () => void {
   u.onerror = () => {
     if (!cancelled) opts.onDone?.()
   }
-  try {
-    synth.speak(u)
-    kick(synth)
-  } catch {
-    opts.onDone?.()
-  }
+  speakSoon(synth, u, () => cancelled, () => {
+    if (!cancelled) opts.onDone?.()
+  })
   return () => {
     cancelled = true
     synth.cancel()
@@ -205,10 +226,9 @@ export function announce(text: string, opts: AnnounceOptions = {}): () => void {
 export interface VerseOptions {
   /** Speaking rate (default 0.95). */
   rate?: number
-  /** Voice pitch (default 0.45, a deadpan robot). Vary per side for two MCs. */
+  /** Voice pitch (default 0.6, a deadpan robot). Vary per side so the two robots
+   *  sound distinct on the shared voice. */
   pitch?: number
-  /** Which performer voice to use (0 / 1 for the two robots in a matchup). */
-  voiceIndex?: number
   /** Fired as each word begins (index into the whitespace-split words). Drives
    *  the karaoke highlight and the jaw chomp. */
   onWord?: (wordIndex: number) => void
@@ -217,11 +237,10 @@ export interface VerseOptions {
 }
 
 /**
- * Perform a whole verse as one utterance in a performer voice, firing `onWord`
- * at each word boundary so the caller can sync a karaoke highlight + a jaw chomp.
- * Where the browser doesn't emit boundary events the caller should run its own
- * time-based fallback; where speech is unavailable this calls `onDone` at once.
- * Returns a cancel fn.
+ * Perform a whole verse as one utterance, firing `onWord` at each word boundary
+ * so the caller can sync a karaoke highlight + a jaw chomp. Where the browser
+ * doesn't emit boundary events the caller should run its own time-based fallback;
+ * where speech is unavailable this calls `onDone` at once. Returns a cancel fn.
  */
 export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   const clean = text.replace(/\s+/g, ' ').trim()
@@ -230,7 +249,6 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
     return () => {}
   }
   const synth = window.speechSynthesis
-  synth.cancel()
   // Char offset where each word begins, to map a boundary charIndex -> word.
   const words = clean.split(' ')
   const wordStart: number[] = []
@@ -239,11 +257,11 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
     wordStart.push(pos)
     pos += w.length + 1
   }
-  const voice = performerVoice(opts.voiceIndex ?? 0)
+  const voice = reliableVoice()
   let cancelled = false
   const u = new window.SpeechSynthesisUtterance(clean)
   u.rate = opts.rate ?? 0.95
-  u.pitch = opts.pitch ?? 0.45
+  u.pitch = opts.pitch ?? 0.6
   if (voice) u.voice = voice
   u.onboundary = (e) => {
     if (cancelled || (e.name && e.name !== 'word')) return
@@ -257,12 +275,9 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   u.onerror = () => {
     if (!cancelled) opts.onDone?.()
   }
-  try {
-    synth.speak(u)
-    kick(synth)
-  } catch {
-    opts.onDone?.()
-  }
+  speakSoon(synth, u, () => cancelled, () => {
+    if (!cancelled) opts.onDone?.()
+  })
   return () => {
     cancelled = true
     synth.cancel()

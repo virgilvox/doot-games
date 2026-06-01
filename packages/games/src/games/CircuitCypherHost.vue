@@ -169,8 +169,9 @@ function setMuted(m: boolean) {
   // Unmuting mid-battle: make sure the beat is actually running.
   else if (mode.value === 'battle') void audio.value?.start()
 }
-function mcSay(text: string) {
-  if (!muted.value) announce(text)
+function mcSay(text: string, onDone?: () => void) {
+  if (!muted.value && canSpeak()) announce(text, { onDone })
+  else onDone?.()
 }
 
 // ── Battle state ───────────────────────────────────────────────────────────
@@ -248,6 +249,37 @@ function schedule(fn: () => void, ms: number) {
 function clearTimers() {
   for (const t of timers) clearTimeout(t)
   timers = []
+}
+/** Hard ceiling on waiting for an MC line, so a muted/failed/never-ending voice
+ *  can't stall the show. Generous enough that the long opening welcome line
+ *  (~12s of speech) finishes before the cap rather than being cut off. */
+const SPEECH_CAP_MS = 18000
+/**
+ * Speak an MC line, then advance to `next` only once the line FINISHES, so intros
+ * are never cut off mid-sentence. The card holds at least `minHold` ms (a visual
+ * beat) and never longer than the safety cap. Skip still fast-forwards (the
+ * pending action is the advance). With speech muted/unavailable this is just the
+ * old fixed-pace transition.
+ */
+function sayThenAdvance(text: string, next: Fine, minHold: number) {
+  let advanced = false
+  const start = performance.now()
+  const go = () => {
+    if (advanced) return
+    advanced = true
+    enter(next)
+  }
+  pending.value = go
+  if (muted.value || !canSpeak()) {
+    schedule(go, minHold)
+    return
+  }
+  // Safety cap in case onDone never fires for this voice.
+  timers.push(setTimeout(go, minHold + SPEECH_CAP_MS))
+  mcSay(text, () => {
+    // Speech finished: advance, but keep the card up for the rest of minHold.
+    timers.push(setTimeout(go, Math.max(0, minHold - (performance.now() - start))))
+  })
 }
 function stopKaraoke() {
   if (karRAF) cancelAnimationFrame(karRAF)
@@ -430,10 +462,12 @@ function performSide(left: boolean) {
   }
   tickKar()
   if (!muted.value && canSpeak()) {
+    // Both robots share one reliable voice (see speech.ts); they're told apart by
+    // pitch + rate. Left = deeper/slower, right = brighter/quicker. Both clearly
+    // robotic, and neither depends on a second platform voice existing.
     speakVerse(perf.verse, {
-      voiceIndex: left ? 0 : 1,
-      pitch: left ? 0.5 : 0.4,
-      rate: PERFORM_RATE,
+      pitch: left ? 0.55 : 0.95,
+      rate: left ? PERFORM_RATE : PERFORM_RATE + 0.08,
       onWord: (k) => {
         if (!finished) setActive(k)
       },
@@ -459,13 +493,14 @@ function enter(step: Fine) {
       karaoke.value = null
       confetti.value = false
       audio.value?.airhorn()
-      mcSay(
+      publishBattle()
+      sayThenAdvance(
         performMode.value === 'live'
           ? "Welcome to the Circuit Cypher! Tonight the humans hold the mic. Warm up those vocal cords, because in a moment you'll be spitting these bars live. Let's find out who runs this room!"
           : `Welcome to the Circuit Cypher, where the bars are silicon and the beat is pure voltage! ${performerCount.value} MCs stepped to the mic, but only one runs the cypher. Power up, line them up, and let the robots battle!`,
+        'banner',
+        PACE.title,
       )
-      publishBattle()
-      schedule(() => enter('banner'), PACE.title)
       break
     case 'banner':
       card.value = { kicker: 'NOW BATTLING', big: `BATTLE ${matchupIndex.value + 1}`, sub: `${nameL} VS ${nameR}`, color: GOLD }
@@ -473,20 +508,20 @@ function enter(step: Fine) {
       karaoke.value = null
       confetti.value = false
       audio.value?.airhorn()
-      mcSay(`Matchup ${matchupIndex.value + 1}. ${nameL} versus ${nameR}!`)
       publishBattle()
-      schedule(() => enter('introA'), PACE.banner)
+      sayThenAdvance(`Matchup ${matchupIndex.value + 1}. ${nameL} versus ${nameR}!`, 'introA', PACE.banner)
       break
     case 'introA':
       card.value = { kicker: 'NOW ON THE MIC', big: nameL, color: LEFT_COLOR }
       audio.value?.cheer()
-      mcSay(
+      publishBattle()
+      sayThenAdvance(
         performMode.value === 'live'
           ? `${nameL}, this verse is all yours. Grab the mic and get ready to sing it yourself!`
           : `On the mic... ${nameL}!`,
+        'countA',
+        PACE.intro,
       )
-      publishBattle()
-      schedule(() => enter('countA'), PACE.intro)
       break
     case 'countA':
       card.value = null
@@ -508,13 +543,14 @@ function enter(step: Fine) {
     case 'introB':
       card.value = { kicker: 'NOW ON THE MIC', big: nameR, color: RIGHT_COLOR }
       audio.value?.cheer()
-      mcSay(
+      publishBattle()
+      sayThenAdvance(
         performMode.value === 'live'
           ? `${nameR}, you're up next. Take the mic and get ready to sing your verse out loud!`
           : `And now... ${nameR}!`,
+        'countB',
+        PACE.intro,
       )
-      publishBattle()
-      schedule(() => enter('countB'), PACE.intro)
       break
     case 'countB':
       card.value = null
