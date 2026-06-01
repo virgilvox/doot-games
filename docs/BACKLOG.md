@@ -24,8 +24,17 @@ each group; `[size]` is a rough effort hint.
 - [x] **C10. Publisher / author name** on community games + the `/g/<id>` detail page
   (display name, never the email). Shipped: `server/utils/users.ts` resolves names
   from better-auth's `user` table; shown on `/g/<id>`, Explore, and Home rails.
-- [ ] **C11. User profile pages** + a profile editor (display name, avatar, bio); the
-  profile lists that user's public games. `[medium]` — no `/u` pages exist.
+- [x] **C11. User profile pages** + a profile editor (display name, avatar, bio); the
+  profile lists that user's public games. Shipped: better-auth `username` plugin gives
+  `@handle` vanity URLs (`/u/@handle`) + a `bio` additionalField (both via a manual
+  SQLite-safe ALTER fallback in `auth-migrate.ts`, since SQLite can't ADD a UNIQUE
+  column to the existing `user` table). `/account` editor (display name, @handle with
+  live availability + reserved-name guard, avatar upload/URL/monogram, bio ≤280);
+  public `/u/[handle]` page (avatar/name/@handle/bio + their public games, 404 unknown);
+  `GET /api/users/[handle]` (never leaks email); C10 bylines on `/g/<id>`/Explore/Home
+  now link to `/u/@handle` (stretched-link cards); nav shows Account + a "finish your
+  profile" nudge. Verified end-to-end on a running server (handle claim/normalize,
+  reserved/length rejection, public games shown, private excluded, no email leak, 404).
 - [ ] **C12. Bookmark / save games** so a logged-in user can find them again. `[small-medium]`
 
 ## D. Flagship depth / more content

@@ -11,6 +11,7 @@ interface SavedGameSummary {
   themeId: string
   visibility: 'private' | 'unlisted' | 'public'
   authorName: string | null
+  authorHandle: string | null
   createdAt: number
 }
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games')
@@ -107,7 +108,8 @@ const featured = computed(() => flagshipGames[0] ?? null)
       <section class="section">
         <div class="section-head"><div><span class="kicker">From the community</span><h2>Public games</h2></div></div>
         <div v-if="community.length" class="grid">
-          <NuxtLink v-for="g in community" :key="g.id" :to="`/g/${g.id}`" class="card">
+          <div v-for="g in community" :key="g.id" class="card card-link">
+            <NuxtLink :to="`/g/${g.id}`" class="card-stretch" :aria-label="`${g.title}, view and host`" />
             <GameCover :title="g.title" :type="g.pluginId" />
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
@@ -115,10 +117,11 @@ const featured = computed(() => flagshipGames[0] ?? null)
                 <span class="badge type">{{ typeName(g.pluginId) }}</span>
                 <span class="badge">{{ g.themeId }}</span>
               </div>
-              <p v-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
+              <NuxtLink v-if="g.authorHandle" :to="`/u/@${g.authorHandle}`" class="card-by card-by-link">by {{ g.authorName }}</NuxtLink>
+              <p v-else-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
               <span class="card-cta">View &amp; host &rarr;</span>
             </div>
-          </NuxtLink>
+          </div>
         </div>
         <p v-else class="empty">
           No public games yet. <NuxtLink to="/create" class="explore-link">Build one</NuxtLink> and set it public to see it here.

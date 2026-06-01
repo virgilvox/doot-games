@@ -20,6 +20,7 @@ interface SavedGame {
   forkable: boolean
   isOwner: boolean
   authorName: string | null
+  authorHandle: string | null
   config: GameComposition
   createdAt: number
 }
@@ -111,7 +112,11 @@ async function remove() {
         <img v-if="game.coverImage" :src="game.coverImage" alt="" class="detail-cover" @error="game.coverImage = null" />
         <span class="kicker">Saved game</span>
         <h1 class="detail-title">{{ game.title }}</h1>
-        <p v-if="game.authorName" class="detail-by">by {{ game.authorName }}</p>
+        <p v-if="game.authorName" class="detail-by">
+          by
+          <NuxtLink v-if="game.authorHandle" :to="`/u/@${game.authorHandle}`" class="detail-by-link">{{ game.authorName }}</NuxtLink>
+          <template v-else>{{ game.authorName }}</template>
+        </p>
         <div class="detail-meta">
           <span class="badge type">{{ typeName }}</span>
           <span class="badge">{{ roundCount }} {{ roundCount === 1 ? 'round' : 'rounds' }}</span>
@@ -182,6 +187,14 @@ async function remove() {
   color: var(--ink-soft);
   font-size: 15px;
   font-weight: 600;
+}
+.detail-by-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+}
+.detail-by-link:hover {
+  text-decoration: underline;
 }
 .detail-meta {
   display: flex;

@@ -9,6 +9,20 @@ const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.st
 const session = authClient.useSession()
 const user = computed(() => session.value?.data?.user ?? null)
 const loggedIn = computed(() => !!user.value)
+const handle = computed(() => (user.value as { username?: string | null } | null)?.username ?? null)
+// Nudge the user to personalize while the signup default is still in place (no
+// handle claimed and the display name still equals the email local-part).
+const needsSetup = computed(() => {
+  const u = user.value
+  if (!u) return false
+  const prefix = (u.email ?? '').split('@')[0] ?? ''
+  return !handle.value && (!u.name || u.name === prefix)
+})
+const accountLabel = computed(() => {
+  if (needsSetup.value) return 'Finish your profile'
+  if (handle.value) return `@${handle.value}`
+  return user.value?.name || 'Account'
+})
 async function logout() {
   await authClient.signOut()
   await navigateTo('/')
@@ -31,7 +45,7 @@ async function logout() {
         <div class="bar-spacer" />
         <div class="account">
           <template v-if="loggedIn">
-            <span class="account-email" :title="user?.email">{{ user?.email }}</span>
+            <NuxtLink to="/account" class="navlink account-link" :class="{ nudge: needsSetup }">{{ accountLabel }}</NuxtLink>
             <button class="linkbtn" @click="logout">Log out</button>
           </template>
           <template v-else>
@@ -70,13 +84,16 @@ async function logout() {
   gap: 10px;
   margin-right: 14px;
 }
-.account-email {
-  font-size: 13px;
-  color: var(--ink-soft);
-  max-width: 180px;
+.account-link {
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.account-link.nudge {
+  color: var(--primary-ink);
+  background: var(--primary);
+  border-radius: 999px;
 }
 .linkbtn {
   background: none;

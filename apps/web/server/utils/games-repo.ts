@@ -13,7 +13,7 @@ import { REDACTION_RULES, isKnownPlugin } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
 import { and, desc, eq } from 'drizzle-orm'
 import { type Visibility, games, useDb } from './db'
-import { displayNamesFor } from './users'
+import { authorsFor } from './users'
 
 const roundSchema = z.object({
   block: z.string().min(1),
@@ -62,6 +62,9 @@ export interface SavedGameSummary extends GameMeta {
   visibility: Visibility
   /** The author's display name (never their email), or null. */
   authorName: string | null
+  /** The author's claimed @handle (lowercase), or null. Lets a card link to
+   *  /u/@handle; absent until the author claims a handle in /account. */
+  authorHandle: string | null
   createdAt: number
 }
 
@@ -134,20 +137,24 @@ interface SummaryRow {
 /** Map rows to summaries, crediting each game's author by display name (ownerId
  *  is resolved to a name here and never sent to the client). */
 async function toSummaries(rows: SummaryRow[]): Promise<SavedGameSummary[]> {
-  const names = await displayNamesFor(rows.map((r) => r.ownerId ?? ''))
-  return rows.map((r) => ({
-    id: r.id,
-    pluginId: r.pluginId,
-    title: r.title,
-    themeId: r.themeId,
-    visibility: r.visibility as Visibility,
-    authorName: r.ownerId ? (names.get(r.ownerId) ?? null) : null,
-    description: r.description,
-    tags: parseTags(r.tags),
-    coverImage: r.coverImage,
-    forkable: r.forkable,
-    createdAt: r.createdAt,
-  }))
+  const authors = await authorsFor(rows.map((r) => r.ownerId ?? ''))
+  return rows.map((r) => {
+    const author = r.ownerId ? authors.get(r.ownerId) : undefined
+    return {
+      id: r.id,
+      pluginId: r.pluginId,
+      title: r.title,
+      themeId: r.themeId,
+      visibility: r.visibility as Visibility,
+      authorName: author?.name ?? null,
+      authorHandle: author?.handle ?? null,
+      description: r.description,
+      tags: parseTags(r.tags),
+      coverImage: r.coverImage,
+      forkable: r.forkable,
+      createdAt: r.createdAt,
+    }
+  })
 }
 
 /**
@@ -293,6 +300,20 @@ export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> 
     .select(SUMMARY_COLUMNS)
     .from(games)
     .where(eq(games.visibility, 'public'))
+    .orderBy(desc(games.createdAt))
+    .limit(limit)
+  return toSummaries(rows as SummaryRow[])
+}
+
+/** A single owner's publicly listed games (for their /u/@handle profile page),
+ *  most recent first. Only `public` visibility, so a profile never exposes the
+ *  owner's private or unlisted games. */
+export async function listPublicGamesByOwner(ownerId: string, limit = 100): Promise<SavedGameSummary[]> {
+  const db = await useDb()
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(games)
+    .where(and(eq(games.ownerId, ownerId), eq(games.visibility, 'public')))
     .orderBy(desc(games.createdAt))
     .limit(limit)
   return toSummaries(rows as SummaryRow[])

@@ -266,6 +266,28 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+/* Stretched-link card: the card is a plain container with one full-bleed link
+   covering it (the primary target), so a secondary link (e.g. an author byline)
+   can sit ABOVE it without nesting anchors. Used where a card links to a game
+   but its byline links to /u/@handle. */
+.card-link {
+  position: relative;
+}
+.card-stretch {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.card-by-link {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
+}
+.card-by-link:hover {
+  text-decoration: underline;
+}
 
 /* ------------------------------------------------------------------ steps -- */
 .steps {

@@ -4,6 +4,34 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 
 _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; every push to `main` deploys via CI)._
 
+> **C11 user profiles + Circuit Cypher TTS fix (2026-06-01).** Two bodies of work:
+> - **C11 profiles (C11 in `docs/BACKLOG.md`).** Public creator identity via
+>   better-auth's `username` plugin: **`@handle` vanity URLs** (`/u/@handle`) + a new
+>   `bio` field. **Migration gotcha (burned real time):** SQLite can't `ALTER TABLE
+>   ADD COLUMN username` with the plugin's UNIQUE constraint on the existing prod
+>   `user` table, and `auth-migrate.ts` swallows migration errors, so the columns would
+>   silently never appear. Fixed with a manual additive ALTER (`username`,
+>   `displayUsername`, `bio` as **camelCase** columns + a separate `CREATE UNIQUE INDEX`)
+>   in `auth-migrate.ts` after `runMigrations`. There is **no `setUsername`** API in
+>   v1.6.12 — set the handle via `authClient.updateUser({ username, displayUsername })`;
+>   availability is `authClient.isUsernameAvailable`. New: `/account` editor, public
+>   `/u/[handle]` page, `GET /api/users/[handle]` (email-free), `listPublicGamesByOwner`,
+>   `authorsFor` returning `{name,handle}`; C10 bylines now link to `/u/@handle` via a
+>   stretched-link card pattern (a card can't nest an `<a>` in its `<a>`). Verified
+>   end-to-end on a running server.
+> - **Circuit Cypher: the second robot was silent + MC intros were cut off.** Root
+>   cause of the silence: the code gave each robot a *different platform voice by index*;
+>   the 2nd robot's voice (index 1) produced no audio on the host machine (proven: the MC
+>   spoke fine immediately before the silent verse, so it was the voice, not an engine
+>   wedge). Fix: speak the MC + both robots through **one** reliable voice
+>   (`reliableVoice()` in `packages/ui/src/audio/speech.ts`, prefers default/local),
+>   differentiated by **pitch/rate**, not by gambling on a 2nd voice existing. Also kept
+>   the one real hardening (Chrome drops a `speak()` issued the same tick as a `cancel()`
+>   of active speech, so defer the speak when interrupting). MC cutoff fixed by advancing
+>   talky steps on the announce's `onDone` (`sayThenAdvance`) instead of a fixed timer.
+>   Confirmed in a headed browser (`scripts/cypher-tts-verify.mjs`): both verses speak,
+>   MC lines complete, nothing dropped.
+>
 > **Quick-wins batch — SHIPPED + DEPLOYED (2026-06-01).** Four increments, each
 > verified (200 tests, full typecheck incl. `nuxi`, web build) and pushed to `main`:
 > - **Circuit Cypher visual polish** — verse-box overflow fix (one row per line,

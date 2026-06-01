@@ -10,7 +10,8 @@ export default defineEventHandler(async (event) => {
   // Non-owners never receive answer keys (withholding holds for the API too).
   // The owner gets the full config so they can host/edit it.
   if (!isOwner) game.config = redactConfigForViewer(game.config)
-  // Credit the author by display name (never their email).
-  const authorName = await displayNameFor(game.ownerId)
-  return { ...game, isOwner, authorName }
+  // Credit the author by display name (never their email), and surface their
+  // @handle so the byline can link to /u/@handle when they've claimed one.
+  const author = game.ownerId ? (await authorsFor([game.ownerId])).get(game.ownerId) : undefined
+  return { ...game, isOwner, authorName: author?.name ?? null, authorHandle: author?.handle ?? null }
 })
