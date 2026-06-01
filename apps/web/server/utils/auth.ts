@@ -11,8 +11,32 @@
 import { LibsqlDialect } from '@libsql/kysely-libsql'
 import { hash, verify } from '@node-rs/argon2'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { username } from 'better-auth/plugins'
 import { databaseUrl } from './db'
+
+/**
+ * Server-side bounds on the user-editable profile fields. The editor enforces
+ * these too, but a client could POST /api/auth/update-user directly with a
+ * multi-megabyte `bio`/`name` (durable-storage DoS) or a non-URL `image` that is
+ * then rendered as an `<img src>` on every public profile. Enforced here at the
+ * better-auth boundary so the editor's caps aren't the only line of defense.
+ */
+const PROFILE_MAX = { name: 60, bio: 280, displayUsername: 40, image: 2000 } as const
+const validateProfile = createAuthMiddleware(async (ctx) => {
+  if (ctx.path !== '/update-user' && ctx.path !== '/sign-up/email') return
+  const body = (ctx.body ?? {}) as Record<string, unknown>
+  for (const [field, max] of Object.entries(PROFILE_MAX)) {
+    const v = body[field]
+    if (typeof v === 'string' && v.length > max) {
+      throw new APIError('BAD_REQUEST', { message: `Your ${field} is too long.` })
+    }
+  }
+  // An avatar URL is rendered to every profile visitor; only allow http(s).
+  if (typeof body.image === 'string' && body.image.length > 0 && !/^https?:\/\//i.test(body.image)) {
+    throw new APIError('BAD_REQUEST', { message: 'Avatar must be an http(s) URL.' })
+  }
+})
 
 /**
  * Handles that collide with a top-level route (or are otherwise reserved) and so
@@ -85,6 +109,8 @@ export const authOptions: BetterAuthOptions = {
       bio: { type: 'string', required: false, input: true },
     },
   },
+  // Bound the user-editable profile fields server-side (length + avatar scheme).
+  hooks: { before: validateProfile },
   // Throttle auth endpoints (per IP) to blunt brute-force and signup spam.
   rateLimit: { enabled: true, window: 60, max: 20 },
 }

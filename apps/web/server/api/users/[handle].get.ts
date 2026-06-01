@@ -11,5 +11,8 @@ export default defineEventHandler(async (event) => {
   const profile = await getPublicProfileByHandle(handle)
   if (!profile) throw createError({ statusCode: 404, statusMessage: 'Profile not found' })
   const games = await listPublicGamesByOwner(profile.id)
-  return { profile, games }
+  // Don't expose the internal account id to the client; the @handle is the public
+  // key and the page doesn't need the id.
+  const { id: _id, ...publicProfile } = profile
+  return { profile: publicProfile, games }
 })

@@ -174,10 +174,12 @@ async function save() {
     bio: bio.value.trim(),
   }
   // Only send the handle when it actually changed (re-sending the same one is a
-  // needless uniqueness round-trip; the server validates either way).
+  // needless uniqueness round-trip; the server validates either way). Keep
+  // displayUsername equal to the normalized handle so it can never be set to an
+  // impersonating value (we only ever render the @handle anyway).
   if (handleChanged.value && normHandle.value) {
     body.username = normHandle.value
-    body.displayUsername = handle.value.trim()
+    body.displayUsername = normHandle.value
   }
   try {
     const res = await authClient.updateUser(body)

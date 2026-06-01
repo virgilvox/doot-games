@@ -9,7 +9,6 @@ import { GameCover } from '@doot-games/ui'
 import { computed, ref } from 'vue'
 
 interface PublicProfile {
-  id: string
   name: string | null
   handle: string
   image: string | null
@@ -117,11 +116,17 @@ useHead(() => ({ title: `${displayName.value} on Doot` }))
   font-weight: 800;
   color: var(--ink-soft);
 }
+/* The text column must be allowed to shrink below its content width, else a long
+   unbroken display name or handle forces horizontal overflow on a phone. */
+.profile-id {
+  min-width: 0;
+}
 .profile-name {
   font-size: clamp(26px, 5vw, 36px);
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0;
+  overflow-wrap: anywhere;
 }
 .profile-handle {
   margin: 2px 0 0;
@@ -129,9 +134,11 @@ useHead(() => ({ title: `${displayName.value} on Doot` }))
   color: var(--primary);
   font-weight: 600;
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 .profile-bio {
   grid-column: 2;
+  min-width: 0;
   margin: 8px 0 0;
   color: var(--ink-soft);
   font-size: 16px;
@@ -141,6 +148,7 @@ useHead(() => ({ title: `${displayName.value} on Doot` }))
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .card-cta {
   display: inline-block;
