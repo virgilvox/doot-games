@@ -603,7 +603,7 @@ function skip() {
 // delegate's phone shows ONE button for the current primary action and sends an
 // intent over `/x/drive` (validated by driverPid + nonce, like B9). `primaryDrive`
 // is the same action the host's main button performs, so write + battle both work.
-const firstToJoin = ref(false)
+const firstToJoin = ref(true)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {
@@ -1036,33 +1036,55 @@ onUnmounted(() => {
 .mute-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
 }
 .mute-row {
-  margin-top: 14px;
+  margin-top: 18px;
+}
+/* Big, easy-to-hit checkboxes + labels so the lobby is usable from across the
+   room on a TV. */
+.cap-row input[type='checkbox'],
+.mute-row input[type='checkbox'],
+.cohost-first input[type='checkbox'] {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.cap-row .kicker,
+.mute-row .kicker,
+.perform-pick > .kicker,
+.cohost-pick > .kicker {
+  font-size: 15px;
 }
 .perform-pick,
 .cohost-pick {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .seg {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .seg-btn {
   flex: 1 1 auto;
-  padding: 10px 14px;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: 12px;
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
@@ -1073,22 +1095,24 @@ onUnmounted(() => {
 }
 .cohost-select {
   width: 100%;
-  max-width: 260px;
-  padding: 9px 12px;
-  border-radius: 10px;
+  max-width: 320px;
+  padding: 13px 14px;
+  border-radius: 12px;
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+  font-size: 17px;
   font-weight: 700;
 }
 .cohost-first {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
-  font-size: 14px;
-  color: var(--ink-soft);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
 }
 .cap-input {
   display: block;
