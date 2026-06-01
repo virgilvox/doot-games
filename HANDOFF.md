@@ -2,9 +2,12 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; every push to `main` deploys via CI)._
+_Last updated: 2026-06-01. Branch: `main` (now the GitHub **default** branch, was
+`build/mvp-scaffold`; work on `main` or a branch off it; every push to `main` deploys via CI)._
 
-> **C11 user profiles + Circuit Cypher TTS fix (2026-06-01).** Two bodies of work:
+> **C11 user profiles + Circuit Cypher TTS fix — SHIPPED + DEPLOYED + AUDITED (2026-06-01).**
+> Three commits to `main`, all live on https://doot.games and verified in production
+> (`/api/health`, the profile endpoints, the validation hook, both robot verses).
 > - **C11 profiles (C11 in `docs/BACKLOG.md`).** Public creator identity via
 >   better-auth's `username` plugin: **`@handle` vanity URLs** (`/u/@handle`) + a new
 >   `bio` field. **Migration gotcha (burned real time):** SQLite can't `ALTER TABLE
@@ -31,6 +34,18 @@ _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; ev
 >   talky steps on the announce's `onDone` (`sayThenAdvance`) instead of a fixed timer.
 >   Confirmed in a headed browser (`scripts/cypher-tts-verify.mjs`): both verses speak,
 >   MC lines complete, nothing dropped.
+> - **Audit hardening (adversarial audit of the above).** Two MED issues found + fixed:
+>   (1) `name`/`bio`/`image`/`displayUsername` were only capped client-side, so a direct
+>   `POST /api/auth/update-user` could store a multi-MB bio/name (storage DoS) or a non-URL
+>   avatar rendered as `<img src>` on every public profile — now bounded by a better-auth
+>   `hooks.before` middleware (`validateProfile` in `server/utils/auth.ts`, http(s)-only
+>   avatar); (2) `/u/@handle` overflowed horizontally on a phone when a name/handle was long
+>   — fixed with `min-width:0` + `overflow-wrap`. Also: `displayUsername` is pinned to the
+>   normalized handle (no impersonation), the public API no longer returns the internal
+>   account id, and the Home-rail stretch-links got action-verb aria-labels. **Confirmed
+>   clean by the audit:** email never exposed, no SQL injection, visibility enforced
+>   (private games never on a profile), migration idempotent, the Cypher state machine
+>   can't stall. Verified live (oversized name/bio → 400, `javascript:` avatar → 400).
 >
 > **Quick-wins batch — SHIPPED + DEPLOYED (2026-06-01).** Four increments, each
 > verified (200 tests, full typecheck incl. `nuxi`, web build) and pushed to `main`:
