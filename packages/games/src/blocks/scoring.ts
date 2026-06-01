@@ -53,6 +53,17 @@ export function headToHeadPoints(votes: number, isWinner: boolean, win = BASE_PO
 }
 
 /**
+ * A live-crowd cheer bonus (Circuit Cypher's tap-to-cheer): a small, capped
+ * reward for the energy a performance drew. Deliberately small and bounded so it
+ * pads a performer's cash but can never out-weigh the head-to-head vote that
+ * decides the battle (`cap` < the head-to-head `show` payout). Zero for no cheers.
+ */
+export function cheerBonus(cheers: number, perCheer = 15, cap = 150): number {
+  if (cheers <= 0) return 0
+  return Math.min(Math.round(cheers) * perCheer, cap)
+}
+
+/**
  * Closeness-to-even score in [0, 1]: 1 at a perfect 50/50 split, 0 when
  * unanimous. `score = 1 − |yesFraction − 0.5| × 2`. This is Split the Room's
  * inverted objective (Jackbox publishes the principle, not a curve).

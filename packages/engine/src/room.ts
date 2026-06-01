@@ -632,21 +632,39 @@ export class RoomRuntime {
    * Subscribe to a custom channel; `keyPattern` may be multi-segment and contain
    * `*`. The callback gets the value and the key suffix (the part after `/x/`).
    * Tracked for teardown on dispose; the returned unsubscribe also removes it.
+   *
+   * Connection-safe: the relay drops a subscription made before the socket has
+   * connected (it is not replayed), and a custom-flow host registers its channels
+   * from a component `onMounted` that runs before the async `connect()` resolves.
+   * So if we aren't connected yet, defer the actual `relay.on` to the next connect
+   * (idempotently), instead of subscribing into the void.
    */
   onExtra(keyPattern: string, cb: (value: RelayValue, key: string) => void): Unsubscribe {
     const prefix = `${roomBase(this.room)}/x/`
-    const unsub = this.relay.on(addr.extra(this.room, keyPattern), (v, a) => {
-      cb(v, a.startsWith(prefix) ? a.slice(prefix.length) : a)
-    })
-    this.unsubs.push(unsub)
-    return () => {
-      const i = this.unsubs.indexOf(unsub)
-      if (i >= 0) this.unsubs.splice(i, 1)
+    let unsub: Unsubscribe | null = null
+    let cancelled = false
+    const subscribe = () => {
+      if (cancelled || unsub) return
+      unsub = this.relay.on(addr.extra(this.room, keyPattern), (v, a) => {
+        cb(v, a.startsWith(prefix) ? a.slice(prefix.length) : a)
+      })
+    }
+    if (this.relay.connected) subscribe()
+    else this.relay.onConnect(subscribe) // fires on the first (and every re)connect
+    const teardown: Unsubscribe = () => {
+      cancelled = true
       try {
-        unsub()
+        unsub?.()
       } catch {
         /* ignore */
       }
+      unsub = null
+    }
+    this.unsubs.push(teardown)
+    return () => {
+      const i = this.unsubs.indexOf(teardown)
+      if (i >= 0) this.unsubs.splice(i, 1)
+      teardown()
     }
   }
 

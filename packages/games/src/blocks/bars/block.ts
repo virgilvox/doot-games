@@ -31,6 +31,12 @@ export const barsContentSchema = z.object({
     .array(coupletSchema)
     .min(1)
     .describe('Each couplet is a robot lead line plus the line the player writes back. Two couplets make a four-line verse.'),
+  variants: z
+    .array(z.object({ couplets: z.array(coupletSchema).min(1) }))
+    .optional()
+    .describe(
+      'Optional alternate per-player scaffolds. A custom game (Circuit Cypher) assigns a DIFFERENT one to each player so everyone writes a different rap; the base `couplets` is the fallback when unset. The bars block itself ignores this.',
+    ),
   maxLength: z.number().int().positive().max(120).default(70).describe('Max characters per line the player writes.'),
   timer: z
     .number()

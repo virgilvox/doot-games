@@ -4,6 +4,46 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 
 _Last updated: 2026-05-31. Branch: `main` (work on `main` or a branch off it; every push to `main` deploys via CI)._
 
+> **D13b Circuit Cypher tournament + full animated 3D battle — SHIPPED + DEPLOYED (2026-05-31).**
+> Circuit Cypher is now a **custom-flow** game: `circuit-cypher.ts` ships
+> `components: { Host: CircuitCypherHost, Player: CircuitCypherPlayer }` + a single
+> `bars` write round. Everyone writes one verse; on the mic closing the host builds a
+> bracket (`buildBracket`) and runs **1v1 matchups** as custom relay state
+> (`publishExtra`/`onExtra` `/x/battle`), tallying votes (`tallyBattle`), paying cash
+> (`battleAward` = `headToHeadPoints` + capped `cheerBonus`), and crowning the MC
+> (`tournamentLeaderboard`). The performance is the **animated rap-battle mockup**
+> reimplemented in Vue: a reusable **`RapBattleStage`** (`@doot-games/ui`, lazy
+> **Three.js** [pinned `three` 0.184], client-only, SSR-guarded, kept out of the SSR
+> bundle) renders a neon **3D arena** (robots, crowd, EQ wall, light rig/beams, camera
+> presets) reacting to a new **procedural Web Audio engine** (`createArenaAudio`: beat
+> + analyser + SFX + ducking; replaced the earlier Tone.js beat). The host overlays the
+> mockup's **choreography** (round banner -> "on the mic" intro -> 3-2-1 countdown ->
+> **karaoke** with TTS word-sync + jaw -> "verse complete" -> vote -> crown + confetti)
+> with a distinct **MC/announcer TTS voice** (`announce`) narrating each beat, plus Skip
+> + mute and `prefers-reduced-motion`. Phones cheer + vote over the relay; reconnect-safe.
+> **Each performer gets a DIFFERENT verse scaffold** (the write round carries the
+> room-shuffled pool as bars `variants`; the host assigns a unique scaffold per pid and
+> publishes it on `/x/assign`), so every rap is completely different. **(d) Live-perform
+> mode** (lobby toggle: robots TTS vs players-perform-live with a per-performer countdown
+> over the beat) and **co-host/MC delegation** (the lobby picker hands driving to a phone;
+> a unified `/x/drive/*/*` channel lets the MC drive write + battle from their phone,
+> validated by driverPid + nonce) both ship.
+>
+> **Two critical bugs were found + fixed during verification** (would have made the game
+> unplayable): (1) **the engine dropped any `onExtra` subscription made before the relay
+> socket connected** — a custom-flow host subscribes from `onMounted` (pre-connect), so
+> the host received NO votes/cheers/drive at all; `RoomRuntime.onExtra` now defers the
+> real subscribe to `onConnect` (regression test added). (2) the host stored bare vote
+> choice **strings** while `tallyBattle` reads `{choice}` **objects**, so every vote
+> tallied 0; now stores objects. After both fixes a real winner is crowned.
+> **Verified:** 182 tests, full typecheck (incl. `nuxi`), web build, three.js absent from
+> SSR, and a 2-scenario real-browser smoke (`scripts/cypher-smoke.mjs`: host-driven robots
+> battle crowning a real winner from real votes + live-perform with a phone-driven MC,
+> zero console/page errors). **Deployed to `main` (CI).** STILL RECOMMENDED before heavy
+> use: a real **two-phone playtest** on devices (touch + on-device WebGL/audio/TTS).
+> Remaining polish: themed arena colors (currently the deliberate neon battle palette),
+> MC battle-step labels. Full detail: `docs/flagship-games.md` §8 "Build status".
+
 > **D13 Circuit Cypher tournament — started (2026-05-31).** Shipped + tested foundations (no user-facing change yet, all additive): **`buildBracket`** (round-robin pairing so everyone battles, capped for big rooms), **`tallyBattle`** + **`headToHeadPoints`** (1v1 matchup tally + Mad Verse City payout), a **`RobotBattle`** two-robot face-off view, and the **battle transport** the custom flow needs (`room.publishExtra`/`onExtra`, a `/<room>/x/<key>` custom relay channel with wildcards, also the cheer channel). **Remaining = D13b**, the custom tournament components (`CircuitCypherHost`/`Player`): wire the bracket + host-driven matchup sequencing (perform A -> perform B -> vote -> result) over the battle channel, then layer cheers/live-perform/Tone.js beat. Full plan in `docs/flagship-games.md` section 8 ("Build status").
 
 > **Author/host batch B6, B8, B9 shipped + deployed (2026-05-31).** (B6) guess/buzzer options gain an optional **subtitle** (e.g. a character's series), shown on the host board, the phone, and the reveal. (B8) the host can set an optional **player cap** from the lobby; the join screen counts the roster and turns a new player away with "This room is full" (a reconnecting name still gets in). (B9) the host can **delegate driving to a player (co-host/MC)**: pick from the roster or an off-by-default "first to join", and the delegate drives the round cycle from their phone while still playing; the host stays the sole authority (the delegate sends intents, the host validates + applies them) and can take back control. **B7 was reverted**: scoring is correct-only, a wrong answer never scores (the earlier "points for answering" mode was a misread and is gone). Plus two fixes found en route: the pre-join name probe no longer hangs ~2.5s on a fresh name, and **"Host now" after editing a game** works again (a structuredClone-on-reactive-proxy throw). **161 tests** pass; full typecheck + web build; 6/6 real-browser playtest incl. the co-host flow. Remaining: **D13** (Circuit Cypher tournament), then C / D14 / E.

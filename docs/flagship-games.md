@@ -473,30 +473,60 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
 - ✅ **Battle transport shipped + tested**: `room.publishExtra(key, value)` /
   `room.onExtra(keyPattern, cb)` (engine) for the custom battle state + the
   continuous cheer channel (the `/<room>/x/<key>` namespace, wildcards supported).
-- ⏳ **(b) the custom tournament flow — next.** Plan:
-  - `circuit-cypher.ts` gains `components: { Host: CircuitCypherHost, Player:
-    CircuitCypherPlayer }` and a **single** `bars` write round (no vote rounds in
-    the config). The engine stays in `active`/round-0 through the whole battle; the
-    battle is custom state layered on top via `publishExtra`/`onExtra` (NOT engine
-    rounds, since the matchup count is dynamic).
-  - **Write phase**: the custom Host reuses the generic open/lock for round 0 (or
-    embeds `BarsHost`/`BarsPlayer`); players submit verses to the round-0 input.
-  - **On lock**, the Host reads `room.inputsFor(0)` (verses), filters to authors who
-    wrote one, `buildBracket(pids)`, and starts the battle. It publishes battle
-    state to `publishExtra('battle', { matchupIndex, total, step, left:{pid,name,
-    verse}, right:{...}, result? })` where `step` walks `intro -> performA ->
-    performB -> vote -> result`. The Host drives the steps (TTS via `speakLines`
-    for the performances, a per-step button), tallies via `tallyBattle`
-    (reading `onExtra('vote/<i>/*')`), scores via `headToHeadPoints`, accumulates
-    cash, then `room.host.finish(summary)` after the last matchup.
-  - **Player**: `onExtra('battle', ...)` to render `RobotBattle` + a tap-to-cheer
-    button (`publishExtra('cheer/<i>/<pid>', t)`, rate-limited) during a perform
-    step and a 2-option A/B vote (`publishExtra('vote/<i>/<pid>', { choice })`)
-    during the vote step. The MC/co-host advance controls (B9) apply if delegated.
-  - **Reconnect**: battle state is a retained relay value, so a rejoining phone
-    reads the current matchup on subscribe; votes/cheers are keyed by pid so they
-    reclaim on reconnect.
-  - Then (c) cheer bonus, (d) live-perform timer mode, (e) Tone.js beat.
+- ✅ **(b) the custom tournament flow — SHIPPED (not yet deployed; see the gate
+  below).** `circuit-cypher.ts` now ships `components: { Host: CircuitCypherHost,
+  Player: CircuitCypherPlayer }` and a **single** `bars` write round. The engine
+  stays in `active`/round-0 through the whole battle; the battle is custom relay
+  state via `publishExtra`/`onExtra` (NOT engine rounds, since the matchup count is
+  dynamic). On the mic closing, the Host reads `room.inputsFor(0)`, renders each
+  verse, `buildBracket(pids)`, and runs the matchups; it tallies with `tallyBattle`,
+  pays out with `battleAward` (`headToHeadPoints` + capped `cheerBonus`), accumulates
+  cash, and `tournamentLeaderboard` crowns the MC at `room.host.finish(summary)`.
+  Players `onExtra('battle', ...)` to cheer (`cheer/<i>/<pid>`, rate-limited) during
+  a performance and cast the A/B vote (`vote/<i>/<pid>`) during the vote view.
+  Reconnect-safe (retained battle state; votes/cheers keyed by pid). Verified:
+  `pnpm test` (178), full typecheck incl. `nuxi`, web build, and a real-browser
+  smoke (`scripts/cypher-smoke.mjs`: host + 3 phones through write -> battle ->
+  vote -> crown with zero console/page errors).
+- ✅ **(c) live cheers + bonus — SHIPPED.** Tap-to-cheer streams over the relay
+  during a performance; a small **capped** bonus (`cheerBonus`, < the head-to-head
+  show payout) pads the performer's cash but can never flip who wins (the vote
+  decides). Crowd energy also drives the 3D crowd + lights.
+- ✅ **(e) generated beat — SHIPPED, and upgraded past Tone.js.** Adapting the
+  animated mockup (`robot-rap-battle.html`), the beat is now a richer **procedural
+  Web Audio engine** (`@doot-games/ui` `createArenaAudio`): a boom-bap
+  kick/snare/hat/bass/stab loop over a filtered pad, an **AnalyserNode** whose
+  bass/mid/overall levels drive the 3D stage (bob, lights, EQ wall, crowd hype),
+  music **ducking** under the rap, and SFX (airhorn / crowd cheer / countdown
+  beeps). Raw Web Audio, no dependency, lazy + SSR-guarded + mute-aware. (Tone.js
+  was dropped: the analyser-driven engine is lighter and does more.)
+- ✅ **The full animated performance (from the mockup) — SHIPPED.** A reusable
+  **`RapBattleStage`** (`@doot-games/ui`, lazy Three.js, client-only, SSR-guarded
+  like `DrawCanvas`; ~0.5MB client async chunk, **absent from the SSR bundle**)
+  renders a neon 3D arena (two robots with per-side accent colors, crowd, EQ wall,
+  lighting rig + volumetric beams, spotlights, camera focus presets) reacting to the
+  analyser. `CircuitCypherHost` overlays the mockup's **phase choreography** on top:
+  a round banner, a "NOW ON THE MIC" intro, a 3-2-1 "DROP IT" countdown, a
+  **karaoke** performance (TTS word-sync via `speakVerse` + a time fallback + a
+  jaw chomp), a "VERSE COMPLETE" hype card, the head-to-head vote panel, and a
+  crown + confetti, plus a **distinct MC/announcer voice** (`announce`, a separate
+  persona from the rapping robots) that narrates every beat. A host **Skip** +
+  **mute** control the show; `prefers-reduced-motion` damps motion and defaults
+  audio off.
+- ✅ **Per-player verse scaffolds — SHIPPED.** Each performer gets a DIFFERENT
+  couplet scaffold, so every rap is completely different. The write round carries
+  the whole room-shuffled pool as bars-content `variants`; the host hands each
+  joined player a unique, stable scaffold index (incremental, reconnect-safe) and
+  publishes the map (`/x/assign`); the phone writes against its assigned scaffold
+  and the host renders each verse with that performer's scaffold at lock. A pure
+  `scaffoldIndex(pid, n)` hash is the fallback before the assignment arrives.
+  Verified in the smoke (3/3 phones get distinct scaffolds).
+- ⏳ **Still to layer:** (d) the "players perform live" timer mode; MC/co-host
+  driving of the battle steps (B9 covers the write phase; battle steps are
+  host-only for now); optional per-game theme colors for the arena.
+- 🚦 **Deploy gate:** verified green + a headless smoke, but **not yet two-phone
+  playtested on real devices** (WebGL/audio/TTS + touch). Per the original D13b
+  rule, do that before this reaches players.
 
 ## 9. "What, You Didn't Know That?" — the trivia gameshow
 

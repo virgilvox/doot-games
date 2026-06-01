@@ -5,9 +5,11 @@ import { madLibs } from './madlibs'
 import { quipClash } from './quipclash'
 import { splitRoom } from './splitroom'
 
-// Each flagship pairs a make + judge round, so N items => 2N engine rounds.
+// Each of these flagships pairs a make + judge round, so N items => 2N engine
+// rounds. (Circuit Cypher is a custom-flow tournament with a single write round,
+// asserted separately below.)
 describe('flagship buildConfig honors the host-chosen round count', () => {
-  for (const game of [quipClash, madLibs, splitRoom, circuitCypher]) {
+  for (const game of [quipClash, madLibs, splitRoom]) {
     const opts = game.roundOptions!
     it(`${game.manifest.id}: respects opts.rounds, clamps to the pool, defaults`, () => {
       expect(game.buildConfig).toBeDefined()
@@ -26,19 +28,37 @@ describe('flagship buildConfig honors the host-chosen round count', () => {
   }
 })
 
-describe('Circuit Cypher composition', () => {
-  it('pairs each guided bars verse with a performing vote round', () => {
-    const rounds = circuitCypher.buildConfig!('seed', { rounds: 2 }).rounds as RoundInstance[]
-    expect(rounds.map((r) => r.block)).toEqual(['bars', 'vote', 'bars', 'vote'])
-    // The judge rounds opt into the robot performance (the rap-battle moment).
-    for (const r of rounds.filter((r) => r.block === 'vote')) {
-      expect((r.content as { perform?: boolean }).perform).toBe(true)
+describe('Circuit Cypher composition (custom-flow tournament)', () => {
+  it('is a single guided bars write round; the head-to-head battle is custom state', () => {
+    const rounds = circuitCypher.buildConfig!('seed').rounds as RoundInstance[]
+    // One write round, no engine vote rounds: the bracket of 1v1 battles runs as
+    // custom relay state driven by CircuitCypherHost, not as engine rounds.
+    expect(rounds.map((r) => r.block)).toEqual(['bars'])
+    const couplets = (rounds[0]!.content as { couplets?: Array<{ lead: string }> }).couplets ?? []
+    expect(couplets.length).toBeGreaterThanOrEqual(1)
+    expect(couplets.every((c) => c.lead.length > 0)).toBe(true)
+  })
+
+  it('ships a custom Host and Player (the generic renderer cannot sequence battles)', () => {
+    expect(circuitCypher.components?.Host).toBeDefined()
+    expect(circuitCypher.components?.Player).toBeDefined()
+  })
+
+  it('draws a different verse scaffold per room but is stable for one room', () => {
+    const a1 = circuitCypher.buildConfig!('ROOMA').rounds[0]!.content as { couplets: unknown }
+    const a2 = circuitCypher.buildConfig!('ROOMA').rounds[0]!.content as { couplets: unknown }
+    expect(a1).toEqual(a2) // same room => same scaffold (reconnect-safe)
+  })
+
+  it('carries the whole pool as per-player variants so every performer raps differently', () => {
+    const content = circuitCypher.buildConfig!('ROOMA').rounds[0]!.content as {
+      couplets: unknown[]
+      variants: Array<{ couplets: { lead: string }[] }>
     }
-    // Each bars round gives the player robot lead lines to rhyme back.
-    for (const r of rounds.filter((r) => r.block === 'bars')) {
-      const couplets = (r.content as { couplets?: Array<{ lead: string }> }).couplets ?? []
-      expect(couplets.length).toBeGreaterThanOrEqual(1)
-      expect(couplets.every((c) => c.lead.length > 0)).toBe(true)
-    }
+    // Many distinct scaffolds to assign from, and the base couplets is the first.
+    expect(content.variants.length).toBeGreaterThan(3)
+    expect(content.variants[0]!.couplets).toEqual(content.couplets)
+    const leads = content.variants.map((v) => v.couplets.map((c) => c.lead).join('|'))
+    expect(new Set(leads).size).toBe(leads.length) // every scaffold is distinct
   })
 })

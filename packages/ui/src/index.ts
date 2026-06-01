@@ -38,11 +38,24 @@ export { type GameVisual, type IconName, gameVisual } from './visuals'
 // Image uploads (capability the app injects; ImageField falls back to URL)
 export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'
 
-// Audio (client-only robot TTS for the rap-battle performance)
-export { type SpeakOptions, canSpeak, cancelSpeech, speakLines } from './audio/speech'
+// Audio (client-only robot TTS + MC announcer for the rap-battle performance)
+export {
+  type SpeakOptions,
+  type AnnounceOptions,
+  type VerseOptions,
+  canSpeak,
+  cancelSpeech,
+  speakLines,
+  announce,
+  speakVerse,
+} from './audio/speech'
 export { playDing } from './audio/sfx'
+// The procedural arena audio engine (beat + analyser + SFX; raw Web Audio, SSR-safe).
+export { type ArenaAudio, type ArenaLevels, canPlayArenaAudio, createArenaAudio } from './audio/arena'
 export { default as RobotRapper } from './components/RobotRapper.vue'
 export { default as RobotBattle } from './components/RobotBattle.vue'
+// The 3D rap-battle arena (lazy Three.js, client-only, SSR-safe).
+export { default as RapBattleStage } from './components/RapBattleStage.vue'
 
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'

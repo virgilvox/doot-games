@@ -406,9 +406,10 @@ describe('RoomRuntime co-host / MC delegation (B9)', () => {
 })
 
 describe('RoomRuntime custom channels (D13 battle transport)', () => {
-  it('publishes and reads a custom channel, with a wildcard and the key suffix', () => {
+  it('publishes and reads a custom channel, with a wildcard and the key suffix', async () => {
     const hub = new FakeHub()
     const host = makeHost(hub, () => 0)
+    await host.connect()
     const got: Array<{ v: unknown; key: string }> = []
     host.onExtra('cheer/*', (v, key) => got.push({ v, key }))
     host.publishExtra('cheer/p_1', 1)
@@ -420,15 +421,30 @@ describe('RoomRuntime custom channels (D13 battle transport)', () => {
     ])
   })
 
-  it('stops delivering after unsubscribe', () => {
+  it('stops delivering after unsubscribe', async () => {
     const hub = new FakeHub()
     const host = makeHost(hub, () => 0)
+    await host.connect()
     const got: unknown[] = []
     const off = host.onExtra('battle', (v) => got.push(v))
     host.publishExtra('battle', 1)
     off()
     host.publishExtra('battle', 2)
     expect(got).toEqual([1])
+  })
+
+  it('defers a subscription made before connect, then delivers once connected', async () => {
+    // The real relay drops a `.on()` made before the socket connects (it is not
+    // replayed), and a custom-flow host subscribes from `onMounted`, before its
+    // async connect resolves. So onExtra must defer the real subscribe until
+    // connected: subscribe BEFORE connect, then connect, then publish -> delivered.
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    const got: unknown[] = []
+    host.onExtra('drive/*/*', (v) => got.push(v)) // subscribed before connect()
+    await host.connect()
+    host.publishExtra('drive/p_1/cmd', 7)
+    expect(got).toEqual([7])
   })
 })
 

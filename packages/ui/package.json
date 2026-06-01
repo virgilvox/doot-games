@@ -4,7 +4,10 @@
   "description": "Doot's shared, theme-aware Vue component library and design-system styles.",
   "license": "MIT",
   "type": "module",
-  "sideEffects": ["*.css", "*.vue"],
+  "sideEffects": [
+    "*.css",
+    "*.vue"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./src/styles/index.css"
@@ -18,6 +21,7 @@
     "@doot-games/themes": "workspace:*",
     "pixi.js": "8.14.3",
     "qrcode": "^1.5.4",
+    "three": "0.184.0",
     "vue3-pixi": "^1.0.1"
   },
   "peerDependencies": {
@@ -25,6 +29,7 @@
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
+    "@types/three": "0.184.1",
     "zod": "^4.4.3"
   }
 }
