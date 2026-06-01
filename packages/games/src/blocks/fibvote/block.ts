@@ -70,11 +70,14 @@ export interface FibAnswer {
   authors: Record<string, string>
   names: Record<string, string>
 }
-/** The public reveal payload phones read for personal feedback. */
+/** The public reveal payload phones read for personal feedback. `authors` is the
+ *  option->author map, public only now (at reveal), so a phone can find its own
+ *  lie by id and show an accurate "you fooled N" even when two lies read alike. */
 export interface FibRevealSummary {
   prompt: string
   truthId: string
   truthText: string
+  authors: Record<string, string>
   options: Array<{ id: string; text: string; votes: number; author: string | null; isTruth: boolean }>
 }
 
@@ -180,7 +183,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
       isTruth: o.id === truthId,
     }))
     options.sort((a, b) => b.votes - a.votes)
-    return { prompt: ctx.content.prompt, truthId, truthText, options }
+    return { prompt: ctx.content.prompt, truthId, truthText, authors, options }
   },
 
   aggregate: (ctx: BlockResultsContext<FibContent, FibInput>): ResultsFragment => {
@@ -220,9 +223,13 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
         }
       }
       // A distribution row per round: the true answer and how many found it.
-      const found = truthId ? (counts.get(truthId) ?? 0) : 0
-      const truthText = round.content.options.find((o) => o.id === truthId)?.text ?? '(no answer)'
-      bars.push({ label: truthText, count: found, note: `The truth - ${found} found it` })
+      // Skip a truthless round (a custom game with a blank truth) rather than
+      // print a misleading "The truth" bar nobody could have found.
+      if (truthId) {
+        const found = counts.get(truthId) ?? 0
+        const truthText = round.content.options.find((o) => o.id === truthId)?.text ?? '(the answer)'
+        bars.push({ label: truthText, count: found, note: `The truth - ${found} found it` })
+      }
     })
 
     const pids = new Set<string>([...ctx.players.map((p) => p.id), ...scores.keys()])

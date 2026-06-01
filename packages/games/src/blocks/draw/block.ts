@@ -22,6 +22,13 @@ export const drawContentSchema = z.object({
     .describe('Seconds to draw. Turn off for an untimed round.'),
   /** Canvas aspect ratio (height / width). */
   aspect: z.number().positive().default(0.7).describe('Canvas shape (height ÷ width). 0.7 is landscape; 1 is square.'),
+  /** Show the drawings on the big screen live as they come in. Off for a draw
+   *  round that feeds a vote (e.g. Sketch & Spot), so the gallery stays a
+   *  surprise for the anonymized vote instead of spoiling it during drawing. */
+  liveGallery: z
+    .boolean()
+    .default(true)
+    .describe('Show drawings on the big screen as they arrive. Turn off when the drawings will be voted on next.'),
 })
 export type DrawContent = z.infer<typeof drawContentSchema>
 export type DrawInput = DrawValue
@@ -30,7 +37,7 @@ export const drawBlock = defineBlock<DrawContent, DrawInput>({
   kind: 'draw',
   name: 'Draw',
   contentSchema: drawContentSchema,
-  defaultContent: () => ({ prompt: 'Draw the secret word: PINEAPPLE 🍍', image: '', timer: 60, aspect: 0.7 }),
+  defaultContent: () => ({ prompt: 'Draw the secret word: PINEAPPLE', image: '', timer: 60, aspect: 0.7, liveGallery: true }),
   defaultTimer: 60,
   timerOf: (c) => c.timer,
   emptyInput: () => ({ strokes: [] }),

@@ -150,6 +150,7 @@ describe('fibvote revealSummary', () => {
     const ctx: RevealContext<FibContent, FibInput> = { content: publish, inputs: votes, answer, players }
     const summary = fibBlock.revealSummary!(ctx) as FibRevealSummary
     expect(summary.truthText).toBe('parliament')
+    expect(summary.authors).toEqual({ o0: 'A' }) // option->author map exposed at reveal
     const truth = summary.options.find((o) => o.isTruth)
     expect(truth).toMatchObject({ text: 'parliament', votes: 1, author: null })
     const lie = summary.options.find((o) => !o.isTruth)

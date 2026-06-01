@@ -36,17 +36,18 @@ function pick(id: string) {
     </p>
     <div v-else class="grid" role="radiogroup" aria-label="Drawings to vote on">
       <button
-        v-for="o in visible"
+        v-for="(o, i) in visible"
         :key="o.id"
         type="button"
         class="cell"
         :class="{ on: modelValue.choice === o.id }"
         role="radio"
         :aria-checked="modelValue.choice === o.id"
+        :aria-label="`Vote for drawing ${i + 1}`"
         :disabled="disabled"
         @click="pick(o.id)"
       >
-        <DrawThumb :value="o.drawing" :aspect="content.aspect" />
+        <DrawThumb :value="o.drawing" :aspect="content.aspect" :label="`Drawing ${i + 1}`" />
       </button>
     </div>
   </div>

@@ -26,14 +26,16 @@ describe('game catalog', () => {
     expect(isKnownPlugin('nope')).toBe(false)
   })
 
-  it('has an API redaction rule for every answer-bearing block', () => {
-    // A block with an `answerOf` carries a secret that must be stripped before
-    // serving its config to a non-owner. This guards against a new answer block
-    // leaking through /api/games/[id].
+  it('has an API redaction rule for every block that withholds content', () => {
+    // A block that strips content before publishing (`answerOf` for a static
+    // answer key, or `redactContent` for a derived secret like Fib Finder's
+    // truth) carries something that must also be stripped before serving its
+    // config to a non-owner. This guards against a new withholding block leaking
+    // through /api/games/[id].
     const seen = new Set<string>()
     for (const plugin of builtinPlugins) {
       for (const block of plugin.blocks) {
-        if (block.answerOf && !seen.has(block.kind)) {
+        if ((block.answerOf || block.redactContent) && !seen.has(block.kind)) {
           seen.add(block.kind)
           expect(REDACTION_RULES[block.kind], `${block.kind} needs a REDACTION_RULES entry`).toBeDefined()
         }

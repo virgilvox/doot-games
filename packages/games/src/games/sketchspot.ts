@@ -36,7 +36,9 @@ const ROUNDS_PER_GAME = 3
 
 function pair(prompt: string): RoundInstance[] {
   return [
-    { block: 'draw', content: { prompt, image: '', timer: 60, aspect: 0.7 } },
+    // liveGallery off: the drawings stay hidden on the big screen during drawing,
+    // then the gallery is revealed for the vote (no spoiler, blind vote).
+    { block: 'draw', content: { prompt, image: '', timer: 60, aspect: 0.7, liveGallery: false } },
     // The drawvote round derives its gallery from the draw round (the previous
     // round), so no `from` needed.
     { block: 'drawvote', content: { prompt: 'Which drawing wins?', options: [], aspect: 0.7, timer: 30 } },

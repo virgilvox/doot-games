@@ -13,12 +13,18 @@ const props = defineProps<{
   reveal?: DrawVoteRevealSummary | null
 }>()
 
-const winner = computed(() => props.reveal?.tallies?.[0] ?? null)
+// Only crown a winner when one actually drew votes (winnerId is null at 0 votes),
+// so the phone doesn't show a "winner" the host screen doesn't.
+const winner = computed(() => {
+  const r = props.reveal
+  if (!r?.winnerId) return null
+  return r.tallies.find((t) => t.id === r.winnerId) ?? null
+})
 const votedWinner = computed(() => !!winner.value && props.myInput?.choice === winner.value.id)
 </script>
 
 <template>
-  <div class="dv-reveal big">
+  <div class="dv-reveal big" role="status" aria-live="polite">
     <div v-if="winner" class="winner">
       <div class="kicker">Winning drawing</div>
       <div class="thumb"><DrawThumb :value="winner.drawing" :aspect="content.aspect" /></div>

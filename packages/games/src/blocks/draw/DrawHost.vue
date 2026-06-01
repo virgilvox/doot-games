@@ -18,6 +18,9 @@ const props = defineProps<{
 const drawings = computed(() =>
   [...props.inputs.values()].filter((v) => Array.isArray(v?.strokes) && v.strokes.length > 0),
 )
+// When this draw round feeds a vote (liveGallery off), keep the gallery hidden so
+// it stays a surprise for the anonymized vote; show only a count, like QuipHost.
+const showGallery = computed(() => props.content.liveGallery !== false)
 </script>
 
 <template>
@@ -26,9 +29,12 @@ const drawings = computed(() =>
       <span class="count">{{ drawings.length }}</span>
       <span class="count-label">{{ drawings.length === 1 ? 'drawing in' : 'drawings in' }}</span>
     </div>
-    <div v-if="drawings.length" class="gallery">
+    <div v-if="showGallery && drawings.length" class="gallery">
       <DrawThumb v-for="(d, i) in drawings" :key="i" :value="d" :aspect="content.aspect" />
     </div>
+    <p v-else-if="!showGallery" class="empty">
+      {{ drawings.length ? 'Drawings locked in. The gallery opens for the vote.' : 'Sketching on their phones...' }}
+    </p>
     <p v-else class="empty">
       {{ state === 'open' ? 'Waiting for the first strokes…' : 'Drawings will appear here.' }}
     </p>

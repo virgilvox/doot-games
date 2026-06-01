@@ -7,7 +7,10 @@
 import { computed } from 'vue'
 import { type DrawValue, strokePath } from '../draw'
 
-const props = withDefaults(defineProps<{ value: DrawValue; aspect?: number }>(), { aspect: 0.7 })
+const props = withDefaults(defineProps<{ value: DrawValue; aspect?: number; label?: string }>(), {
+  aspect: 0.7,
+  label: "A player's drawing",
+})
 const dots = computed(() => props.value.strokes.filter((s) => s.points.length === 2))
 const lines = computed(() => props.value.strokes.filter((s) => s.points.length > 2))
 </script>
@@ -18,7 +21,7 @@ const lines = computed(() => props.value.strokes.filter((s) => s.points.length >
     :viewBox="`0 0 1 ${aspect}`"
     preserveAspectRatio="xMidYMid meet"
     role="img"
-    aria-label="A player's drawing"
+    :aria-label="label"
   >
     <rect x="0" y="0" width="1" :height="aspect" fill="#ffffff" />
     <path

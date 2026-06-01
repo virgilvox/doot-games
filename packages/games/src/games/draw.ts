@@ -3,7 +3,7 @@ import { type RoundInstance, defineGame } from '@doot-games/sdk'
 import { drawBlock } from '../blocks/draw/block'
 
 const rounds: RoundInstance[] = [
-  { block: 'draw', content: { prompt: 'Draw the secret word: PINEAPPLE 🍍', image: '', timer: 60, aspect: 0.7 } },
+  { block: 'draw', content: { prompt: 'Draw the secret word: PINEAPPLE', image: '', timer: 60, aspect: 0.7 } },
   { block: 'draw', content: { prompt: 'Your pet as a superhero', image: '', timer: 90, aspect: 0.7 } },
   { block: 'draw', content: { prompt: 'The worst possible tattoo', image: '', timer: 60, aspect: 0.7 } },
 ]

@@ -15,21 +15,21 @@ const props = defineProps<{
 }>()
 
 const room = injectDootRoom()
-const myLie = computed(() => {
-  const prev = room.round.value.index - 1
-  const mine = prev >= 0 ? (room.inputFor(prev) as { text?: string } | undefined) : undefined
-  return mine?.text?.trim() ?? ''
-})
 const foundTruth = computed(() => !!props.reveal && props.myInput?.choice === props.reveal.truthId)
+// Find my own lie option by author id (authorship is public at reveal), so the
+// "you fooled N" count is right even if two players wrote the same lie text.
 const fooled = computed(() => {
-  if (!props.reveal || !myLie.value) return 0
-  const mine = props.reveal.options.find((o) => !o.isTruth && o.text.trim() === myLie.value)
-  return mine?.votes ?? 0
+  const r = props.reveal
+  const myId = room.me.value.id
+  if (!r || !myId) return 0
+  const myOptId = Object.entries(r.authors).find(([, pid]) => pid === myId)?.[0]
+  if (!myOptId) return 0
+  return r.options.find((o) => o.id === myOptId)?.votes ?? 0
 })
 </script>
 
 <template>
-  <div class="fib-reveal big">
+  <div class="fib-reveal big" role="status" aria-live="polite">
     <div v-if="reveal" class="truth">
       <div class="kicker">The truth was</div>
       <p class="ttext">&ldquo;{{ reveal.truthText }}&rdquo;</p>
