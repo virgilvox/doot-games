@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   closenessToHalf,
+  liarPoints,
   pityPoints,
   roundMultiplier,
   speedDecay,
   splitPoints,
   sweepBonus,
+  truthFinderPoints,
   voteSharePoints,
 } from './scoring'
 
@@ -53,6 +55,18 @@ describe('closenessToHalf / splitPoints (Split the Room)', () => {
   it('maps to points', () => {
     expect(splitPoints(5, 10, 1000)).toBe(1000)
     expect(splitPoints(0, 10, 1000)).toBe(0)
+  })
+})
+
+describe('Fib Finder dual-axis scoring', () => {
+  it('rewards finding the truth, nothing for missing it', () => {
+    expect(truthFinderPoints(true, 1000)).toBe(1000)
+    expect(truthFinderPoints(false, 1000)).toBe(0)
+  })
+  it('rewards a liar per player fooled', () => {
+    expect(liarPoints(0)).toBe(0)
+    expect(liarPoints(1, 500)).toBe(500)
+    expect(liarPoints(3, 500)).toBe(1500)
   })
 })
 

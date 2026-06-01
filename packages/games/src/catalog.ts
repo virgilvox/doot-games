@@ -26,6 +26,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer.' },
   { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill a story's blanks, then vote for the funniest tale." },
   { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Finish a divisive "would you?" then vote yes or no.' },
+  { id: 'fib-finder', name: 'Fib Finder', version: '0.1.0', flagship: true, description: 'Invent a believable lie to a trivia question, then spot the one true answer.' },
   { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.3.0', flagship: true, description: 'A robot rap battle: write rhyming bars, then the robots face off head to head and the crowd votes.' },
   { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow: rising stakes, hidden answers, first to buzz in wins.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
@@ -52,4 +53,7 @@ export function isKnownPlugin(id: string): boolean {
 export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   guess: { correct: -1 },
   buzzer: { correct: -1 },
+  // Fib Finder's truth is the answer key: strip it (and any derived options)
+  // before serving a saved fibvote-based game to a non-owner.
+  fibvote: { truth: '', options: [] },
 }

@@ -158,6 +158,7 @@ async function twoPhaseLoop(browser, { gameId, tag }) {
 }
 
 const quipClashLoop = (browser) => twoPhaseLoop(browser, { gameId: 'quip-clash', tag: 'quip-clash' })
+const fibFinderLoop = (browser) => twoPhaseLoop(browser, { gameId: 'fib-finder', tag: 'fib-finder' })
 const circuitCypherLoop = (browser) => twoPhaseLoop(browser, { gameId: 'circuit-cypher', tag: 'circuit-cypher' })
 
 // The gameshow: a single-block buzzer trivia run (open -> answer -> reveal -> next).
@@ -269,7 +270,10 @@ async function authEditorSave(browser) {
   results.push('auth-editor-save')
 }
 
-const scenarios = [corePlayLoop, quipClashLoop, circuitCypherLoop, gameshowLoop, drawCanvas, authEditorSave]
+const allScenarios = [corePlayLoop, quipClashLoop, fibFinderLoop, circuitCypherLoop, gameshowLoop, drawCanvas, authEditorSave]
+// Run a subset with ONLY=fibFinderLoop,quipClashLoop (comma-separated fn names).
+const only = process.env.ONLY?.split(',').map((s) => s.trim()).filter(Boolean)
+const scenarios = only?.length ? allScenarios.filter((s) => only.includes(s.name)) : allScenarios
 const browser = await chromium.launch()
 try {
   for (const scenario of scenarios) {

@@ -6,6 +6,7 @@ import type { GamePlugin } from '@doot-games/sdk'
 import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
 import { draw } from './games/draw'
+import { fibFinder } from './games/fibfinder'
 import { guess } from './games/guess'
 import { madLibs } from './games/madlibs'
 import { poll } from './games/poll'
@@ -26,6 +27,7 @@ export const builtinPlugins: GamePlugin[] = [
   quipClash,
   madLibs,
   splitRoom,
+  fibFinder,
   circuitCypher,
   whatYouDidntKnow,
   custom,

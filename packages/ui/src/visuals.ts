@@ -33,6 +33,7 @@ const VISUALS: Record<string, GameVisual> = {
   'quip-clash': { color: 'var(--primary)', icon: 'burst' },
   'mad-libs': { color: 'var(--c4)', icon: 'text' },
   'split-room': { color: 'var(--c1)', icon: 'rank' },
+  'fib-finder': { color: 'var(--c2)', icon: 'check' },
   'circuit-cypher': { color: 'var(--c5)', icon: 'mic' },
   'what-you-didnt-know': { color: 'var(--c1)', icon: 'bell' },
   quip: { color: 'var(--primary)', icon: 'text' },
@@ -41,6 +42,7 @@ const VISUALS: Record<string, GameVisual> = {
   buzzer: { color: 'var(--c1)', icon: 'bell' },
   fill: { color: 'var(--c4)', icon: 'text' },
   split: { color: 'var(--c1)', icon: 'rank' },
+  fibvote: { color: 'var(--c2)', icon: 'check' },
   custom: { color: 'var(--c1)', icon: 'grid' },
 }
 

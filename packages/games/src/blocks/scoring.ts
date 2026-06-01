@@ -80,6 +80,19 @@ export function splitPoints(yes: number, total: number, max = BASE_POINTS): numb
 }
 
 /**
+ * Fib Finder (Fibbage) dual-axis scoring. Two independent ways to earn:
+ *  - find the truth: a flat reward for voting the one true answer;
+ *  - fool the room: a reward for every player who voted your lie.
+ * Both are pure and scale with the round multiplier at the call site.
+ */
+export function truthFinderPoints(foundTruth: boolean, max = BASE_POINTS): number {
+  return foundTruth ? max : 0
+}
+export function liarPoints(fooled: number, per = 500): number {
+  return fooled > 0 ? Math.round(fooled) * per : 0
+}
+
+/**
  * Kahoot-style speed decay: `round((1 − (t/timer)/2) × max)`, clamped so a
  * correct answer never scores below half and an instant answer never above max.
  * `t` and `timer` are in the same unit (ms or s). A non-positive timer = full max.
