@@ -13,6 +13,7 @@ import { REDACTION_RULES, isKnownPlugin } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
 import { and, desc, eq } from 'drizzle-orm'
 import { type Visibility, games, useDb } from './db'
+import { displayNamesFor } from './users'
 
 const roundSchema = z.object({
   block: z.string().min(1),
@@ -59,6 +60,8 @@ export interface SavedGameSummary extends GameMeta {
   title: string
   themeId: string
   visibility: Visibility
+  /** The author's display name (never their email), or null. */
+  authorName: string | null
   createdAt: number
 }
 
@@ -106,6 +109,7 @@ const SUMMARY_COLUMNS = {
   title: games.title,
   themeId: games.themeId,
   visibility: games.visibility,
+  ownerId: games.ownerId,
   description: games.description,
   tags: games.tags,
   coverImage: games.coverImage,
@@ -119,6 +123,7 @@ interface SummaryRow {
   title: string
   themeId: string
   visibility: string
+  ownerId: string | null
   description: string | null
   tags: string | null
   coverImage: string | null
@@ -126,19 +131,23 @@ interface SummaryRow {
   createdAt: number
 }
 
-function toSummary(r: SummaryRow): SavedGameSummary {
-  return {
+/** Map rows to summaries, crediting each game's author by display name (ownerId
+ *  is resolved to a name here and never sent to the client). */
+async function toSummaries(rows: SummaryRow[]): Promise<SavedGameSummary[]> {
+  const names = await displayNamesFor(rows.map((r) => r.ownerId ?? ''))
+  return rows.map((r) => ({
     id: r.id,
     pluginId: r.pluginId,
     title: r.title,
     themeId: r.themeId,
     visibility: r.visibility as Visibility,
+    authorName: r.ownerId ? (names.get(r.ownerId) ?? null) : null,
     description: r.description,
     tags: parseTags(r.tags),
     coverImage: r.coverImage,
     forkable: r.forkable,
     createdAt: r.createdAt,
-  }
+  }))
 }
 
 /**
@@ -274,7 +283,7 @@ export async function listMyGames(ownerId: string, limit = 100): Promise<SavedGa
     .where(eq(games.ownerId, ownerId))
     .orderBy(desc(games.createdAt))
     .limit(limit)
-  return (rows as SummaryRow[]).map(toSummary)
+  return toSummaries(rows as SummaryRow[])
 }
 
 /** Publicly listed games (visibility = public), most recent first. */
@@ -286,7 +295,7 @@ export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> 
     .where(eq(games.visibility, 'public'))
     .orderBy(desc(games.createdAt))
     .limit(limit)
-  return (rows as SummaryRow[]).map(toSummary)
+  return toSummaries(rows as SummaryRow[])
 }
 
 /**

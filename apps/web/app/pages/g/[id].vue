@@ -19,6 +19,7 @@ interface SavedGame {
   coverImage: string | null
   forkable: boolean
   isOwner: boolean
+  authorName: string | null
   config: GameComposition
   createdAt: number
 }
@@ -110,6 +111,7 @@ async function remove() {
         <img v-if="game.coverImage" :src="game.coverImage" alt="" class="detail-cover" @error="game.coverImage = null" />
         <span class="kicker">Saved game</span>
         <h1 class="detail-title">{{ game.title }}</h1>
+        <p v-if="game.authorName" class="detail-by">by {{ game.authorName }}</p>
         <div class="detail-meta">
           <span class="badge type">{{ typeName }}</span>
           <span class="badge">{{ roundCount }} {{ roundCount === 1 ? 'round' : 'rounds' }}</span>
@@ -174,6 +176,12 @@ async function remove() {
   font-size: clamp(32px, 6vw, 48px);
   font-weight: 800;
   margin-top: 8px;
+}
+.detail-by {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 15px;
+  font-weight: 600;
 }
 .detail-meta {
   display: flex;

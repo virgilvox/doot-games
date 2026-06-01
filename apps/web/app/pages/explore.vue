@@ -10,6 +10,7 @@ interface SavedGameSummary {
   title: string
   themeId: string
   visibility: 'private' | 'unlisted' | 'public'
+  authorName: string | null
   createdAt: number
 }
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games')
@@ -111,6 +112,7 @@ const featured = computed(() => flagshipGames[0] ?? null)
                 <span class="badge type">{{ typeName(g.pluginId) }}</span>
                 <span class="badge">{{ g.themeId }}</span>
               </div>
+              <p v-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
               <span class="card-cta">View &amp; host &rarr;</span>
             </div>
           </NuxtLink>
@@ -270,6 +272,12 @@ const featured = computed(() => flagshipGames[0] ?? null)
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.card-by {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .card-cta {
   display: inline-block;

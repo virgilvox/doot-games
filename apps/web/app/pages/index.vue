@@ -14,6 +14,7 @@ interface SavedGameSummary {
   pluginId: string
   title: string
   themeId: string
+  authorName: string | null
   createdAt: number
 }
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
@@ -158,6 +159,7 @@ const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
+              <p v-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
             </div>
           </NuxtLink>
         </div>
@@ -190,6 +192,7 @@ const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
+              <p v-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
             </div>
           </NuxtLink>
         </div>
@@ -448,6 +451,12 @@ const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
 .rail-card {
   min-width: 248px;
   scroll-snap-align: start;
+}
+.card-by {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 .rail-desc {
   font-size: 14px;
