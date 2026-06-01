@@ -24,14 +24,19 @@ export function canSpeak(): boolean {
  * ready by the time the battle starts. Safe to call repeatedly; a no-op where
  * speech is unavailable.
  */
+let voicesWarmed = false
 export function warmUpSpeech(): void {
   if (!canSpeak()) return
   try {
     window.speechSynthesis.getVoices()
-    // Some engines need the event listener attached to populate the cache.
-    window.speechSynthesis.addEventListener?.('voiceschanged', () => {
-      window.speechSynthesis.getVoices()
-    })
+    // Attach the populate-on-change listener only once, ever (each host mount
+    // calls this; re-adding it per mount would leak a listener per navigation).
+    if (!voicesWarmed) {
+      voicesWarmed = true
+      window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+        window.speechSynthesis.getVoices()
+      })
+    }
   } catch {
     /* ignore */
   }
