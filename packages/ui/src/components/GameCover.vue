@@ -27,8 +27,25 @@ function hash(s: string): number {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619)
   return h >>> 0
 }
-// A stable, well-separated pair of accent vars per title.
+
+// Each "Game From Doot" gets an intentional palette + a bespoke motif so it's
+// instantly recognizable on a card. Community/base-type cards keep the
+// title-hashed gradient for variety. Colors are theme vars, so covers restyle
+// with the active theme.
+const FLAGSHIP: Record<string, { from: string; to: string; motif: string }> = {
+  'quip-clash': { from: '--primary', to: '--c4', motif: 'bubbles' },
+  'mad-libs': { from: '--c4', to: '--c3', motif: 'blanks' },
+  'split-room': { from: '--c1', to: '--c5', motif: 'split' },
+  'fib-finder': { from: '--c2', to: '--c1', motif: 'truth' },
+  'sketch-spot': { from: '--c3', to: '--c2', motif: 'sketch' },
+  'circuit-cypher': { from: '--c5', to: '--primary', motif: 'cypher' },
+  'what-you-didnt-know': { from: '--c1', to: '--c4', motif: 'buzzer' },
+}
+
+// A flagship's curated gradient, else a stable, well-separated accent pair per title.
 const grad = computed(() => {
+  const f = FLAGSHIP[props.type]
+  if (f) return `linear-gradient(135deg, var(${f.from}), var(${f.to}))`
   const h = hash(props.title || 'doot')
   const a = h % ACCENTS.length
   const b = (a + 2 + (h % 3)) % ACCENTS.length
@@ -36,13 +53,14 @@ const grad = computed(() => {
 })
 
 const motif = computed(() => {
+  const f = FLAGSHIP[props.type]
+  if (f) return f.motif
   const t = props.type
   if (t === 'guess') return 'q'
   if (t === 'rate' || t === 'votebox') return 'star'
   if (t === 'draw') return 'squiggle'
   if (t === 'poll') return 'bars'
   if (t === 'rank') return 'rank'
-  if (t === 'quip-clash') return 'burst'
   return 'grid'
 })
 const initial = computed(() => (props.title || '?').charAt(0).toUpperCase())
@@ -85,6 +103,81 @@ const SF = 'rgba(255,255,255,.32)'
         <line v-for="a in 10" :key="a" :x1="150 + Math.cos((a - 1) * 0.628) * 16" :y1="70 + Math.sin((a - 1) * 0.628) * 16" :x2="150 + Math.cos((a - 1) * 0.628) * 42" :y2="70 + Math.sin((a - 1) * 0.628) * 42" :stroke="a % 2 ? S : SF" stroke-width="7" stroke-linecap="round" />
         <circle cx="150" cy="70" r="14" :fill="S" />
       </template>
+
+      <!-- Quip Clash: two chat bubbles trading a quip. -->
+      <template v-else-if="motif === 'bubbles'">
+        <rect x="34" y="26" width="156" height="70" rx="20" :fill="SF" />
+        <path d="M70 94 l-2 28 30 -26 z" :fill="SF" />
+        <rect x="52" y="46" width="120" height="9" rx="4" :fill="S" />
+        <rect x="52" y="66" width="78" height="9" rx="4" :fill="S" />
+        <rect x="166" y="72" width="104" height="54" rx="16" fill="none" :stroke="S" stroke-width="6" />
+        <rect x="184" y="90" width="62" height="8" rx="4" :fill="S" />
+        <rect x="184" y="106" width="40" height="8" rx="4" :fill="S" />
+      </template>
+
+      <!-- Mad Libs: a paragraph with the blanks filled in (bright = a filled blank). -->
+      <template v-else-if="motif === 'blanks'">
+        <rect x="40" y="34" width="52" height="13" rx="5" :fill="SF" />
+        <rect x="98" y="34" width="34" height="13" rx="5" :fill="S" />
+        <rect x="138" y="34" width="58" height="13" rx="5" :fill="SF" />
+        <rect x="202" y="34" width="40" height="13" rx="5" :fill="SF" />
+        <rect x="40" y="58" width="40" height="13" rx="5" :fill="SF" />
+        <rect x="86" y="58" width="70" height="13" rx="5" :fill="S" />
+        <rect x="162" y="58" width="50" height="13" rx="5" :fill="SF" />
+        <rect x="40" y="82" width="62" height="13" rx="5" :fill="SF" />
+        <rect x="108" y="82" width="44" height="13" rx="5" :fill="S" />
+        <rect x="158" y="82" width="48" height="13" rx="5" :fill="SF" />
+        <rect x="40" y="106" width="50" height="13" rx="5" :fill="SF" />
+        <rect x="96" y="106" width="40" height="13" rx="5" :fill="S" />
+      </template>
+
+      <!-- Split the Room: a room split down the middle, two sides pulling apart. -->
+      <template v-else-if="motif === 'split'">
+        <rect x="18" y="26" width="118" height="98" rx="12" :fill="SF" />
+        <rect x="164" y="26" width="118" height="98" rx="12" fill="none" :stroke="S" stroke-width="5" />
+        <line x1="150" y1="12" x2="150" y2="138" :stroke="S" stroke-width="6" stroke-linecap="round" />
+        <path d="M104 75 l-30 0 m12 -12 l-14 12 14 12" fill="none" :stroke="S" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M196 75 l30 0 m-12 -12 l14 12 -14 12" fill="none" :stroke="S" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+      </template>
+
+      <!-- Fib Finder: a magnifying glass inspecting the truth (a checked card). -->
+      <template v-else-if="motif === 'truth'">
+        <rect x="150" y="34" width="58" height="72" rx="10" fill="none" :stroke="SF" stroke-width="5" />
+        <rect x="46" y="44" width="62" height="74" rx="10" :fill="SF" />
+        <path d="M60 82 l13 13 24 -30" fill="none" :stroke="S" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="194" cy="84" r="34" fill="none" :stroke="S" stroke-width="9" />
+        <line x1="218" y1="108" x2="244" y2="134" :stroke="S" stroke-width="11" stroke-linecap="round" />
+      </template>
+
+      <!-- Sketch & Spot: a framed doodle (the gallery the room votes on). -->
+      <template v-else-if="motif === 'sketch'">
+        <rect x="44" y="26" width="178" height="100" rx="12" fill="none" :stroke="S" stroke-width="6" />
+        <path d="M64 102 Q92 50 122 86 T182 70" fill="none" :stroke="SF" stroke-width="9" stroke-linecap="round" />
+        <circle cx="182" cy="70" r="8" :fill="SF" />
+        <circle cx="70" cy="46" r="6" :fill="SF" />
+        <line x1="232" y1="34" x2="262" y2="64" :stroke="S" stroke-width="9" stroke-linecap="round" />
+        <path d="M258 60 l10 10 -3 -14 z" :fill="S" />
+      </template>
+
+      <!-- Circuit Cypher: a mic flanked by an equalizer (the rap battle). -->
+      <template v-else-if="motif === 'cypher'">
+        <rect v-for="(hgt, i) in [34, 58, 80]" :key="`l${i}`" :x="22 + i * 22" :y="108 - hgt" width="14" :height="hgt" rx="5" :fill="SF" />
+        <rect v-for="(hgt, i) in [80, 58, 34]" :key="`r${i}`" :x="220 + i * 22" :y="108 - hgt" width="14" :height="hgt" rx="5" :fill="SF" />
+        <circle cx="150" cy="52" r="22" :fill="S" />
+        <circle cx="150" cy="52" r="11" :fill="SF" />
+        <path d="M124 52 a26 26 0 0 0 52 0" fill="none" :stroke="S" stroke-width="6" stroke-linecap="round" />
+        <line x1="150" y1="78" x2="150" y2="100" :stroke="S" stroke-width="7" stroke-linecap="round" />
+        <rect x="128" y="100" width="44" height="9" rx="4" :fill="S" />
+      </template>
+
+      <!-- What, You Didn't Know That?: a game-show buzzer under the lights. -->
+      <template v-else-if="motif === 'buzzer'">
+        <line v-for="a in 7" :key="`ray${a}`" :x1="150 + (a - 4) * 12" y1="6" :x2="150 + (a - 4) * 30" y2="34" :stroke="SF" stroke-width="4" stroke-linecap="round" />
+        <path d="M98 108 a52 46 0 0 1 104 0 z" :fill="S" />
+        <ellipse cx="150" cy="92" rx="34" ry="9" :fill="SF" />
+        <rect x="88" y="108" width="124" height="18" rx="8" :fill="SF" />
+      </template>
+
       <template v-else>
         <rect v-for="n in 15" :key="n" :x="46 + ((n - 1) % 5) * 44" :y="28 + Math.floor((n - 1) / 5) * 36" width="30" height="26" rx="6" :fill="(((n - 1) % 5) + Math.floor((n - 1) / 5)) % 3 === 0 ? S : SF" />
       </template>
