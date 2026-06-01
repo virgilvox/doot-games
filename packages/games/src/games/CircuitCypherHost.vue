@@ -38,6 +38,7 @@ import {
   cancelSpeech,
   createArenaAudio,
   speakVerse,
+  warmUpSpeech,
 } from '@doot-games/ui'
 import { type Ref, computed, inject, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { type BarsContent, type BarsInput, barsBlock, renderVerse } from '../blocks/bars/block'
@@ -66,11 +67,11 @@ const GOLD = '#ffd23f'
 const LIVE_PERFORM_MS = 30000
 // Pacing (ms). Deliberately unhurried so the show breathes like the mockup.
 const PACE = {
-  title: 4200, // opening title sequence hold
+  title: 6800, // opening title sequence hold (long enough for the kickoff line)
   banner: 2600, // "BATTLE n" card
-  intro: 2900, // "NOW ON THE MIC" card
-  countTick: 950, // each 3-2-1 beat
-  drop: 900, // the "DROP IT" beat
+  intro: 3200, // "NOW ON THE MIC" card (a beat longer so the callout lands)
+  countTick: 1150, // each 3-2-1 beat (a touch more time to get ready)
+  drop: 950, // the "DROP IT" beat
   complete: 2600, // "VERSE COMPLETE" card
   postPerform: 1000, // beat after a verse before the next card
 }
@@ -409,7 +410,7 @@ function performSide(left: boolean) {
   if (performMode.value === 'live') {
     setActive(count)
     performDeadline.value = now.value + LIVE_PERFORM_MS
-    mcSay(`${perf.name}, you're up. Perform!`)
+    mcSay(`Take it away, ${perf.name}! Sing it!`)
     schedule(finish, LIVE_PERFORM_MS)
     return
   }
@@ -458,7 +459,11 @@ function enter(step: Fine) {
       karaoke.value = null
       confetti.value = false
       audio.value?.airhorn()
-      mcSay('Welcome to the Circuit Cypher! Let the robots battle.')
+      mcSay(
+        performMode.value === 'live'
+          ? "Welcome to the Circuit Cypher! Tonight the humans hold the mic. Warm up those vocal cords, because in a moment you'll be spitting these bars live. Let's find out who runs this room!"
+          : `Welcome to the Circuit Cypher, where the bars are silicon and the beat is pure voltage! ${performerCount.value} MCs stepped to the mic, but only one runs the cypher. Power up, line them up, and let the robots battle!`,
+      )
       publishBattle()
       schedule(() => enter('banner'), PACE.title)
       break
@@ -475,7 +480,11 @@ function enter(step: Fine) {
     case 'introA':
       card.value = { kicker: 'NOW ON THE MIC', big: nameL, color: LEFT_COLOR }
       audio.value?.cheer()
-      mcSay(`On the mic... ${nameL}!`)
+      mcSay(
+        performMode.value === 'live'
+          ? `${nameL}, this verse is all yours. Grab the mic and get ready to sing it yourself!`
+          : `On the mic... ${nameL}!`,
+      )
       publishBattle()
       schedule(() => enter('countA'), PACE.intro)
       break
@@ -499,7 +508,11 @@ function enter(step: Fine) {
     case 'introB':
       card.value = { kicker: 'NOW ON THE MIC', big: nameR, color: RIGHT_COLOR }
       audio.value?.cheer()
-      mcSay(`And now... ${nameR}!`)
+      mcSay(
+        performMode.value === 'live'
+          ? `${nameR}, you're up next. Take the mic and get ready to sing your verse out loud!`
+          : `And now... ${nameR}!`,
+      )
       publishBattle()
       schedule(() => enter('countB'), PACE.intro)
       break
@@ -675,10 +688,12 @@ onMounted(() => {
     now.value = Date.now()
   }, 250)
   if (typeof window !== 'undefined' && window.matchMedia) {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    calm.value = reduce
-    muted.value = reduce
+    // prefers-reduced-motion is about MOTION, not sound: calm the animation but
+    // leave audio on by default (the robots still rap; the host can mute). Muting
+    // here used to silence the whole performance for reduced-motion users.
+    calm.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }
+  warmUpSpeech() // prime TTS voices so the first verse actually speaks
   audio.value = createArenaAudio()
   audio.value.setMuted(muted.value)
 

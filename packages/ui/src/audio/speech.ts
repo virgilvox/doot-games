@@ -16,6 +16,40 @@ export function canSpeak(): boolean {
   )
 }
 
+/**
+ * Prime the speech engine so the FIRST verse actually speaks. Chrome loads
+ * voices lazily and asynchronously: `getVoices()` is often empty on a fresh page
+ * until a `voiceschanged` event fires, and a `speak()` issued before then can be
+ * silently dropped. Calling this once on mount kicks the load so voices are
+ * ready by the time the battle starts. Safe to call repeatedly; a no-op where
+ * speech is unavailable.
+ */
+export function warmUpSpeech(): void {
+  if (!canSpeak()) return
+  try {
+    window.speechSynthesis.getVoices()
+    // Some engines need the event listener attached to populate the cache.
+    window.speechSynthesis.addEventListener?.('voiceschanged', () => {
+      window.speechSynthesis.getVoices()
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Chrome can wedge `speechSynthesis` into a paused state after a `cancel()`, so
+ * a following `speak()` produces no sound. Calling `resume()` right after speak
+ * unwedges it; it is a harmless no-op when nothing is paused.
+ */
+function kick(synth: SpeechSynthesis): void {
+  try {
+    synth.resume()
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Stop anything currently being spoken. */
 export function cancelSpeech(): void {
   if (canSpeak()) window.speechSynthesis.cancel()
@@ -106,6 +140,7 @@ export function speakLines(lines: string[], opts: SpeakOptions = {}): () => void
       speakNext()
     }
     synth.speak(u)
+    kick(synth)
   }
 
   speakNext()
@@ -151,6 +186,7 @@ export function announce(text: string, opts: AnnounceOptions = {}): () => void {
   }
   try {
     synth.speak(u)
+    kick(synth)
   } catch {
     opts.onDone?.()
   }
@@ -218,6 +254,7 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   }
   try {
     synth.speak(u)
+    kick(synth)
   } catch {
     opts.onDone?.()
   }

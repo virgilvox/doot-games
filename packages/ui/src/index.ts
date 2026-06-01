@@ -46,6 +46,7 @@ export {
   type VerseOptions,
   canSpeak,
   cancelSpeech,
+  warmUpSpeech,
   speakLines,
   announce,
   speakVerse,
