@@ -45,6 +45,16 @@ _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; ev
 > - **No-emoji sweep finished:** the last UI emoji (GameHost/GamePlayer controller, VoteHost
 >   mic, BarsPlayer robot, Buzzer bell) are now `Icon` glyphs (added a `bell` glyph).
 > - **Per-game covers:** each Game From Doot got a bespoke `GameCover` motif + palette.
+> - **E16 robustness (partial):** the host page gained a **"turn off round timers"** toggle
+>   and an **"advance as soon as everyone has answered"** toggle (auto-locks the round when
+>   all eligible players are in; host still controls reveal/next). Both on the generic
+>   `GameHost`, **on by default**, host-tick-driven; Circuit Cypher keeps its own timing.
+>   Also fixed a `warmUpSpeech` listener leak.
+>
+> **Two intentional default-ON behavior changes this round** (both toggleable in the lobby):
+> "Let the first to join drive" (the first player auto-drives) and "advance when everyone's
+> answered" (rounds auto-close on full submission). If either should be opt-in instead, flip
+> the `ref(true)` defaults in `GameHost.vue` / `CircuitCypherHost.vue`.
 >
 > **Audit pass (2026-06-01, follow-up).** Adversarial review of the new blocks confirmed
 > the withholding/anonymization/scoring/determinism invariants hold. Fixes applied: the
