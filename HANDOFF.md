@@ -28,6 +28,18 @@ _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; ev
 > Doot now ships **14 games incl. 7 flagships**. Both new flagships were verified end to
 > end in a real browser (`scripts/playtest.mjs` gained a `fib-finder` scenario + an
 > `ONLY=` filter; `scripts/sketch-smoke.mjs` is new) with host + phone screenshots.
+>
+> **Audit pass (2026-06-01, follow-up).** Adversarial review of the new blocks confirmed
+> the withholding/anonymization/scoring/determinism invariants hold. Fixes applied: the
+> draw block gained a `liveGallery` flag (default on) and **Sketch & Spot turns it off so
+> the make-round gallery is hidden on the big screen until the vote** (it was spoiling the
+> blind vote, since `DrawHost` shows drawings live for the standalone Draw game); FibReveal
+> now computes "you fooled N" by author id (correct for duplicate lies) via an `authors`
+> map added to the reveal summary; reveal verdicts got `aria-live`; draw-vote thumbnails
+> got distinguishing accessible names (`DrawThumb` `label` prop); the empty-truth
+> degenerate bar is suppressed; the draw-vote 0-vote "winner" is gated; the catalog
+> redaction-sync test now covers `redactContent` blocks (not just `answerOf`). Also:
+> **Games From Doot list alphabetically on Home + Explore.**
 > Next per `docs/BACKLOG.md`: robustness (E16), then D14 the gameshow.
 
 > **D13b Circuit Cypher tournament + full animated 3D battle — SHIPPED + DEPLOYED (2026-05-31).**

@@ -28,12 +28,15 @@ function textMatch(title: string, type: string) {
   return !q.value || title.toLowerCase().includes(q.value) || typeName(type).toLowerCase().includes(q.value)
 }
 
-// "Games From Doot": ready-to-play flagships, hosted directly.
+// "Games From Doot": ready-to-play flagships, hosted directly. Listed
+// alphabetically by name for a predictable, scannable grid.
 const doot = computed(() =>
   flagshipGames
     .filter((g) => typeFilter.value === 'all' || g.id === typeFilter.value)
     .filter((g) => themeFilter.value === 'all') // flagships are theme-agnostic
-    .filter((g) => textMatch(g.name, g.id)),
+    .filter((g) => textMatch(g.name, g.id))
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name)),
 )
 // Community: public games published by others.
 const community = computed(() =>

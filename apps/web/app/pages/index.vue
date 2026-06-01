@@ -32,6 +32,8 @@ const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? i
 // flagship "Games From Doot" are remixable too (and live in their own rail + on
 // /create), so we keep this row to just the primitives for a clean, uniform grid.
 const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
+// Games From Doot, listed alphabetically by name for a predictable, scannable rail.
+const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b.name))
 </script>
 
 <template>
@@ -99,7 +101,7 @@ const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')
           <NuxtLink class="more" to="/explore">See all &rarr;</NuxtLink>
         </div>
         <div class="rail">
-          <NuxtLink v-for="g in flagshipGames" :key="g.id" :to="`/host/${g.id}`" class="card rail-card">
+          <NuxtLink v-for="g in flagshipsSorted" :key="g.id" :to="`/host/${g.id}`" class="card rail-card">
             <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
               <div class="card-title">{{ g.name }}</div>
