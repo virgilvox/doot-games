@@ -396,11 +396,13 @@ function buildSpeakers() {
 }
 
 type Pres = { pos: [number, number, number]; tgt: [number, number, number] }
+// Pulled back from the mockup's tight perform shots so the whole robot frames
+// with headroom (the close shots cropped it on a big screen).
 const PRES: Record<'wide' | 'left' | 'right' | 'vote', Pres> = {
-  wide: { pos: [0, 5.0, 17], tgt: [0, 3.0, 0] },
-  left: { pos: [-2.6, 4.0, 9.5], tgt: [-5.2, 3.4, 0] },
-  right: { pos: [2.6, 4.0, 9.5], tgt: [5.2, 3.4, 0] },
-  vote: { pos: [0, 4.6, 15], tgt: [0, 3.2, 0] },
+  wide: { pos: [0, 5.2, 18], tgt: [0, 3.0, 0] },
+  left: { pos: [-1.8, 4.6, 12], tgt: [-5.0, 3.1, 0] },
+  right: { pos: [1.8, 4.6, 12], tgt: [5.0, 3.1, 0] },
+  vote: { pos: [0, 4.8, 16], tgt: [0, 3.2, 0] },
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: three object
@@ -456,7 +458,11 @@ function frame() {
   raf = requestAnimationFrame(frame)
   const dt = Math.min(clock.getDelta(), 0.05)
   const lv = props.audio?.levels() ?? { bass: 0, mid: 0, all: 0, freq: null }
-  const beat = props.audio?.beatPhase() ?? performance.now() * (90 / 60) * 0.001
+  // The bob/sway run off an always-advancing local clock (90 BPM) so the robots
+  // keep grooving even when the audio engine is muted or not started; the
+  // analyser's bass only adds the kick punch on top. (Reading beatPhase() here
+  // would freeze the robots at 0 when audio isn't running.)
+  const beat = (performance.now() / 1000) * (90 / 60)
   const bass = lv.bass
 
   // camera framing
@@ -562,9 +568,9 @@ async function build(el: HTMLDivElement) {
   camTarget = new THREE.Vector3(0, 2.6, 0)
   camera.position.copy(camPos)
 
-  scene.add(new THREE.HemisphereLight(0x4a3a7a, 0x05030a, 0.5))
-  scene.add(new THREE.AmbientLight(0x202030, 0.5))
-  const key = new THREE.DirectionalLight(0x8888ff, 0.35)
+  scene.add(new THREE.HemisphereLight(0x6a5a9a, 0x07050f, 0.7))
+  scene.add(new THREE.AmbientLight(0x2a2a3c, 0.7))
+  const key = new THREE.DirectionalLight(0x9999ff, 0.5)
   key.position.set(0, 12, 10)
   scene.add(key)
 

@@ -11,6 +11,7 @@
 export { default as ThemeProvider } from './components/ThemeProvider.vue'
 export { default as DootLogo } from './components/DootLogo.vue'
 export { default as DButton } from './components/DButton.vue'
+export { default as Icon } from './components/Icon.vue'
 export { default as QrCode } from './components/QrCode.vue'
 export { default as RoomTicket } from './components/RoomTicket.vue'
 

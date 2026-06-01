@@ -29,6 +29,7 @@ import {
   ControlBar,
   CountdownRing,
   DButton,
+  Icon,
   RapBattleStage,
   RoomTicket,
   RosterChips,
@@ -63,6 +64,18 @@ const RIGHT_COLOR = '#ff2d9b'
 const GOLD = '#ffd23f'
 /** Seconds (ms) a human gets to perform their verse live in players-perform mode. */
 const LIVE_PERFORM_MS = 30000
+// Pacing (ms). Deliberately unhurried so the show breathes like the mockup.
+const PACE = {
+  title: 4200, // opening title sequence hold
+  banner: 2600, // "BATTLE n" card
+  intro: 2900, // "NOW ON THE MIC" card
+  countTick: 950, // each 3-2-1 beat
+  drop: 900, // the "DROP IT" beat
+  complete: 2600, // "VERSE COMPLETE" card
+  postPerform: 1000, // beat after a verse before the next card
+}
+/** A slightly slower, more deliberate robot-rap cadence. */
+const PERFORM_RATE = 0.9
 
 // ── Config / write phase ───────────────────────────────────────────────────
 const config = computed<GameComposition | null>(
@@ -161,6 +174,7 @@ function mcSay(text: string) {
 
 // ── Battle state ───────────────────────────────────────────────────────────
 type Fine =
+  | 'title'
   | 'banner'
   | 'introA'
   | 'countA'
@@ -190,7 +204,29 @@ const tick = ref(0)
 // Show overlays
 const card = ref<{ kicker?: string; big: string; sub?: string; color: string } | null>(null)
 const countNum = ref<number | null>(null)
-const karaoke = ref<{ words: string[]; active: number } | null>(null)
+// The performed verse, kept as LINES (so the couplet structure shows and wraps in
+// its box) plus a flat word count / current word for the karaoke highlight.
+interface Karaoke {
+  lines: Array<{ words: string[]; start: number }>
+  count: number
+  active: number
+}
+const karaoke = ref<Karaoke | null>(null)
+/** Build the line/word structure from a verse (the bars block joins lines with \n). */
+function buildKaraoke(verse: string): Karaoke {
+  let start = 0
+  const lines = verse
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const words = l.split(/\s+/).filter(Boolean)
+      const entry = { words, start }
+      start += words.length
+      return entry
+    })
+  return { lines, count: start, active: 0 }
+}
 const confetti = ref(false)
 // Live-perform countdown (players-perform mode): the deadline drives a ring.
 const performDeadline = ref<number | null>(null)
@@ -228,6 +264,12 @@ const cur = computed(() => matchups.value[matchupIndex.value] ?? null)
 const curLeft = computed(() => (cur.value ? performerOf(cur.value.a) : null))
 const curRight = computed(() => (cur.value ? performerOf(cur.value.b) : null))
 const isLastMatchup = computed(() => matchupIndex.value >= matchups.value.length - 1)
+// verses is a plain Map; matchups (reactive) is set right after it in beginBattle,
+// so depend on it to recompute once the lineup is known.
+const performerCount = computed(() => {
+  void matchups.value.length
+  return verses.size
+})
 
 const performing = computed<'left' | 'right' | null>(() =>
   fine.value === 'performA' ? 'left' : fine.value === 'performB' ? 'right' : null,
@@ -239,6 +281,7 @@ const winnerSide = computed<'left' | 'right' | 'tie' | null>(() => {
 })
 const focus = computed<'wide' | 'left' | 'right' | 'vote'>(() => {
   switch (fine.value) {
+    case 'title':
     case 'banner':
       return 'wide'
     case 'introA':
@@ -297,7 +340,7 @@ function publishBattle() {
   const m = cur.value
   if (!m) return
   const view: BattleView =
-    fine.value === 'banner' || fine.value === 'introA' || fine.value === 'countA'
+    fine.value === 'title' || fine.value === 'banner' || fine.value === 'introA' || fine.value === 'countA'
       ? 'intro'
       : fine.value === 'vote'
         ? 'vote'
@@ -325,12 +368,12 @@ function runCountdown(side: 'A' | 'B') {
       audio.value?.countBeep(false)
       countNum.value = n
       n--
-      schedule(step, 850)
+      schedule(step, PACE.countTick)
     } else {
       countNum.value = null
       audio.value?.countBeep(true)
       card.value = { big: 'DROP IT', color: side === 'A' ? LEFT_COLOR : RIGHT_COLOR }
-      schedule(() => enter(side === 'A' ? 'performA' : 'performB'), 700)
+      schedule(() => enter(side === 'A' ? 'performA' : 'performB'), PACE.drop)
     }
   }
   step()
@@ -342,24 +385,29 @@ function performSide(left: boolean) {
     schedule(() => enter(left ? 'completeA' : 'completeB'), 400)
     return
   }
-  const words = perf.verse.replace(/\s+/g, ' ').trim().split(' ')
+  const kara = buildKaraoke(perf.verse)
+  const count = kara.count
+  const setActive = (k: number) => {
+    karaoke.value = { lines: kara.lines, count, active: Math.max(0, Math.min(k, count)) }
+  }
+  setActive(0)
   let finished = false
   const finish = () => {
     if (finished) return
     finished = true
     stopKaraoke()
     performDeadline.value = null
-    karaoke.value = { words, active: words.length }
+    setActive(count) // the whole verse lands "done"
     audio.value?.duck(false)
     cancelSpeech()
-    schedule(() => enter(left ? 'completeA' : 'completeB'), 700)
+    schedule(() => enter(left ? 'completeA' : 'completeB'), PACE.postPerform)
   }
   pending.value = finish
 
   // Players-perform-live mode: show the whole verse, run a timer over the beat
   // (no TTS), and let the human rap it out loud. Skip ends it early.
   if (performMode.value === 'live') {
-    karaoke.value = { words, active: words.length }
+    setActive(count)
     performDeadline.value = now.value + LIVE_PERFORM_MS
     mcSay(`${perf.name}, you're up. Perform!`)
     schedule(finish, LIVE_PERFORM_MS)
@@ -367,17 +415,16 @@ function performSide(left: boolean) {
   }
 
   // Robots-perform mode: karaoke + the robot voice over a ducked beat.
-  karaoke.value = { words, active: 0 }
   audio.value?.duck(true)
   // Time-based fallback that drives the karaoke + guarantees completion even if
   // the browser emits no speech-boundary events (or speech is muted/absent).
-  const est = (words.length / (2.2 * 0.95)) * 1000 + 1200
+  const est = (count / (2.2 * PERFORM_RATE)) * 1000 + 1600
   const startT = performance.now()
   const tickKar = () => {
     if (finished) return
     const t = performance.now() - startT
-    const byTime = Math.min(words.length - 1, Math.floor((t / est) * words.length))
-    if (karaoke.value && byTime > karaoke.value.active) karaoke.value = { words, active: byTime }
+    const byTime = Math.min(count - 1, Math.floor((t / est) * count))
+    if (byTime > (karaoke.value?.active ?? 0)) setActive(byTime)
     karRAF = requestAnimationFrame(tickKar)
   }
   tickKar()
@@ -385,13 +432,14 @@ function performSide(left: boolean) {
     speakVerse(perf.verse, {
       voiceIndex: left ? 0 : 1,
       pitch: left ? 0.5 : 0.4,
+      rate: PERFORM_RATE,
       onWord: (k) => {
-        if (!finished && karaoke.value) karaoke.value = { words, active: k }
+        if (!finished) setActive(k)
       },
       onDone: finish,
     })
   }
-  schedule(finish, est + 1500)
+  schedule(finish, est + 1800)
 }
 
 function enter(step: Fine) {
@@ -404,6 +452,16 @@ function enter(step: Fine) {
   const nameL = curLeft.value?.name ?? ''
   const nameR = curRight.value?.name ?? ''
   switch (step) {
+    case 'title':
+      card.value = null
+      countNum.value = null
+      karaoke.value = null
+      confetti.value = false
+      audio.value?.airhorn()
+      mcSay('Welcome to the Circuit Cypher! Let the robots battle.')
+      publishBattle()
+      schedule(() => enter('banner'), PACE.title)
+      break
     case 'banner':
       card.value = { kicker: 'NOW BATTLING', big: `BATTLE ${matchupIndex.value + 1}`, sub: `${nameL} VS ${nameR}`, color: GOLD }
       countNum.value = null
@@ -412,14 +470,14 @@ function enter(step: Fine) {
       audio.value?.airhorn()
       mcSay(`Matchup ${matchupIndex.value + 1}. ${nameL} versus ${nameR}!`)
       publishBattle()
-      schedule(() => enter('introA'), 2200)
+      schedule(() => enter('introA'), PACE.banner)
       break
     case 'introA':
       card.value = { kicker: 'NOW ON THE MIC', big: nameL, color: LEFT_COLOR }
       audio.value?.cheer()
       mcSay(`On the mic... ${nameL}!`)
       publishBattle()
-      schedule(() => enter('countA'), 2300)
+      schedule(() => enter('countA'), PACE.intro)
       break
     case 'countA':
       card.value = null
@@ -436,14 +494,14 @@ function enter(step: Fine) {
       card.value = hypeCard(LEFT_COLOR)
       audio.value?.cheer()
       publishBattle()
-      schedule(() => enter('introB'), 2100)
+      schedule(() => enter('introB'), PACE.complete)
       break
     case 'introB':
       card.value = { kicker: 'NOW ON THE MIC', big: nameR, color: RIGHT_COLOR }
       audio.value?.cheer()
       mcSay(`And now... ${nameR}!`)
       publishBattle()
-      schedule(() => enter('countB'), 2300)
+      schedule(() => enter('countB'), PACE.intro)
       break
     case 'countB':
       card.value = null
@@ -460,7 +518,7 @@ function enter(step: Fine) {
       card.value = hypeCard(RIGHT_COLOR)
       audio.value?.cheer()
       publishBattle()
-      schedule(() => enter('vote'), 2100)
+      schedule(() => enter('vote'), PACE.complete)
       break
     case 'vote':
       card.value = null
@@ -579,7 +637,7 @@ function beginBattle() {
     return
   }
   if (!muted.value) void audio.value?.start()
-  enter('banner')
+  enter('title') // open with the cinematic title sequence, then the first battle
 }
 
 function finishTournament() {
@@ -741,7 +799,7 @@ onUnmounted(() => {
             :aria-pressed="performMode === 'robots'"
             @click="performMode = 'robots'"
           >
-            🤖 The robots
+            <Icon name="cpu" :size="18" /> The robots
           </button>
           <button
             type="button"
@@ -750,7 +808,7 @@ onUnmounted(() => {
             :aria-pressed="performMode === 'live'"
             @click="performMode = 'live'"
           >
-            🎤 Players, live
+            <Icon name="mic" :size="18" /> Players, live
           </button>
         </div>
       </div>
@@ -808,6 +866,16 @@ onUnmounted(() => {
     />
     <ConfettiBurst v-if="confetti" class="arena-confetti" />
     <div class="overlays">
+      <!-- opening title sequence -->
+      <div v-if="fine === 'title'" class="title-seq">
+        <div class="t-big">CIRCUIT CYPHER</div>
+        <div class="t-vs">// ROBOT RAP BATTLE //</div>
+        <div class="t-sub">
+          {{ performerCount }} {{ performerCount === 1 ? 'MC steps' : 'MCs step' }} to the mic.
+          {{ matchups.length }} {{ matchups.length === 1 ? 'battle' : 'battles' }}. One champion.
+        </div>
+      </div>
+
       <!-- top HUD -->
       <div class="hud-top">
         <span class="tag round-tag">BATTLE {{ matchupIndex + 1 }} / {{ matchups.length }}</span>
@@ -831,20 +899,22 @@ onUnmounted(() => {
       <!-- karaoke verse -->
       <div v-if="karaoke" class="perform">
         <div class="pf-name" :style="{ color: performing === 'left' ? LEFT_COLOR : RIGHT_COLOR }">
-          <span aria-hidden="true">🎤</span>
+          <Icon name="mic" :size="26" />
           <b>{{ performing === 'left' ? curLeft.name : curRight.name }}</b>
           <span v-if="performRing" class="live-tag">PERFORM LIVE</span>
           <CountdownRing v-if="performRing" :remaining="performRing.remaining" :total="performRing.total" />
         </div>
         <div class="verse-box" :style="{ borderColor: performing === 'left' ? LEFT_COLOR : RIGHT_COLOR, color: performing === 'left' ? LEFT_COLOR : RIGHT_COLOR }">
-          <p class="verse">
-            <span
-              v-for="(w, i) in karaoke.words"
-              :key="i"
-              class="w"
-              :class="{ on: i === karaoke.active, done: i < karaoke.active }"
-            >{{ w }} </span>
-          </p>
+          <div class="verse">
+            <div v-for="(line, li) in karaoke.lines" :key="li" class="vline">
+              <span
+                v-for="(w, wi) in line.words"
+                :key="wi"
+                class="w"
+                :class="{ on: line.start + wi === karaoke.active, done: line.start + wi < karaoke.active }"
+              >{{ w }}</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -868,17 +938,21 @@ onUnmounted(() => {
 
       <!-- driving note (a delegated MC drives from their phone) -->
       <div v-if="driverName" class="driving-note">
-        <span><span aria-hidden="true">🎮</span> {{ driverName }} is driving</span>
+        <span class="dn-label"><Icon name="mc" :size="16" /> {{ driverName }} is driving</span>
         <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
       </div>
 
       <!-- controls -->
       <div class="ctrls">
-        <button class="ctrl" type="button" aria-label="Mute" @click="setMuted(!muted)">{{ muted ? '🔇' : '🔊' }}</button>
-        <button v-if="pending && fine !== 'vote'" class="ctrl" type="button" aria-label="Skip" @click="skip">⏭</button>
-        <DButton v-if="fine === 'vote'" variant="primary" @click="resolveVote">Reveal the winner →</DButton>
+        <button class="ctrl" type="button" :aria-label="muted ? 'Unmute' : 'Mute'" @click="setMuted(!muted)">
+          <Icon :name="muted ? 'mute' : 'volume'" :size="20" />
+        </button>
+        <button v-if="pending && fine !== 'vote'" class="ctrl" type="button" aria-label="Skip" @click="skip">
+          <Icon name="skip" :size="20" />
+        </button>
+        <DButton v-if="fine === 'vote'" variant="primary" @click="resolveVote">Reveal the winner</DButton>
         <DButton v-else-if="fine === 'result'" variant="primary" @click="advanceMatchup">
-          {{ isLastMatchup ? 'Crown the MC 👑' : 'Next battle →' }}
+          <span class="btn-ico"><template v-if="isLastMatchup"><Icon name="crown" :size="18" /> Crown the MC</template><template v-else>Next battle</template></span>
         </DButton>
       </div>
     </div>
@@ -1170,6 +1244,69 @@ onUnmounted(() => {
   height: 9px;
   border-radius: 50%;
 }
+/* opening title sequence */
+.title-seq {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 20px;
+  background: radial-gradient(ellipse at 50% 42%, rgba(40, 10, 70, 0.5), rgba(5, 2, 14, 0.85));
+  animation: title-in 0.7s ease both;
+}
+.t-big {
+  font-family: var(--font-display, sans-serif);
+  font-weight: 900;
+  font-size: clamp(40px, 12vw, 130px);
+  line-height: 0.92;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, var(--p1), #fff 50%, var(--p2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 26px rgba(22, 224, 255, 0.4));
+}
+.t-vs {
+  font-family: var(--font-display, sans-serif);
+  font-weight: 900;
+  font-size: clamp(20px, 5vw, 44px);
+  color: var(--gold);
+  letter-spacing: 2px;
+  filter: drop-shadow(0 0 18px rgba(255, 210, 63, 0.5));
+}
+.t-sub {
+  max-width: 36ch;
+  font-size: clamp(13px, 2.6vw, 18px);
+  line-height: 1.6;
+  opacity: 0.85;
+  letter-spacing: 0.5px;
+}
+@keyframes title-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.08);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+.dn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ico {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
 .stage-card {
   position: absolute;
   inset: 0;
@@ -1300,21 +1437,37 @@ onUnmounted(() => {
   text-decoration: underline;
 }
 .verse-box {
-  max-width: 840px;
+  width: min(840px, calc(100% - 32px));
   margin: 0 auto;
   background: rgba(12, 6, 28, 0.72);
   border: 2px solid;
   border-radius: 10px;
   padding: 18px 22px;
   backdrop-filter: blur(8px);
+  box-sizing: border-box;
+  overflow: hidden;
 }
+/* One row per verse line, words wrapped with real gaps so spaces always show and
+   nothing spills outside the box (a long token still breaks). */
 .verse {
-  font-size: clamp(15px, 3.4vw, 24px);
-  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28em;
+  font-size: clamp(15px, 3.2vw, 23px);
+  line-height: 1.35;
+}
+.vline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.12em 0.4em;
+  max-width: 100%;
 }
 .verse .w {
   opacity: 0.32;
-  transition: opacity 0.12s, text-shadow 0.12s;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  transition: opacity 0.14s, text-shadow 0.14s;
 }
 .verse .w.on {
   opacity: 1;

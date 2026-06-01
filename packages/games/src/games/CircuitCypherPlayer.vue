@@ -12,6 +12,7 @@
  */
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin } from '@doot-games/sdk'
+import { Icon } from '@doot-games/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 import { type BarsContent, type BarsInput, barsBlock } from '../blocks/bars/block'
 import { type BattleState, scaffoldIndex } from './cypher-bracket'
@@ -149,7 +150,7 @@ watch([() => battle.value?.i, () => battle.value?.view, () => battle.value?.perf
 <template>
   <div class="cc-player" aria-live="polite">
     <div v-if="driveLabel" class="drive-bar">
-      <span class="drive-tag"><span aria-hidden="true">🎮</span> You're the MC</span>
+      <span class="drive-tag"><Icon name="mc" :size="15" /> You're the MC</span>
       <button class="btn btn-primary drive-go" @click="drive">{{ driveLabel }} →</button>
     </div>
 
@@ -178,9 +179,9 @@ watch([() => battle.value?.i, () => battle.value?.view, () => battle.value?.perf
       <!-- perform: cheer the bot on the mic -->
       <template v-else-if="battle.view === 'perform'">
         <div class="big mic-now">
-          <p class="onmic" :class="battle.performing">🎤 {{ onMic ? onMic.name : 'Next up…' }}</p>
+          <p class="onmic" :class="battle.performing"><Icon name="mic" :size="22" /> {{ onMic ? onMic.name : 'Next up…' }}</p>
           <button v-if="onMic" class="cheer" type="button" @click="cheer">
-            <span aria-hidden="true">🔥</span>
+            <Icon name="cheer" :size="24" />
             <span>Cheer{{ cheerCount > 0 ? ` ×${cheerCount}` : '' }}</span>
           </button>
           <p class="hint">{{ onMic ? 'Hype up the bot on the mic!' : 'Here comes the next verse.' }}</p>
