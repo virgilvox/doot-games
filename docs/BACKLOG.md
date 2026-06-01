@@ -52,9 +52,11 @@ each group; `[size]` is a rough effort hint.
   palette; could derive from theme accents). `[small]`
 
 ## E. Roadmap
-- [ ] **E16. Robustness** (`docs/flagship-games.md` §6) — none wired:
-  - untimed **"advance when everyone has submitted"** host toggle (only per-round
-    timer-off exists in the editor today);
+- [ ] **E16. Robustness** (`docs/flagship-games.md` §6) — partially wired:
+  - [x] a host **"turn off round timers"** toggle (nulls every round timer) and an
+    **"advance as soon as everyone has answered"** toggle (auto-locks the round when
+    all eligible players are in; host still controls reveal/next). Both on the generic
+    host page (GameHost); Circuit Cypher keeps its own choreographed timing.
   - **timeout safety net**: auto-fill an unsubmitted free-text round at 50% (no dead air);
   - **content-filter tiers** (off / moderate / strict) + family/adult prompt tracks;
   - **audience-as-discounted-bloc** voting (`audienceWeight` exists in `scoring.ts` but is

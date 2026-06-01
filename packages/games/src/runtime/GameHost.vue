@@ -37,6 +37,11 @@ const playerCap = inject<Ref<number | null>>('dootPlayerCap', ref(null))
 // default; checking the box nulls every round's timer so nothing auto-locks and
 // the host (or the driver) advances each round by hand.
 const timersOff = inject<Ref<boolean>>('dootTimersOff', ref(false))
+// Auto-advance: close a round the moment every eligible player has answered, so
+// there's no dead air waiting on a timer (or, with timers off, no manual lock).
+// On by default; the host can turn it off to control the pacing themselves. It
+// only locks the round; the host/driver still chooses when to reveal and move on.
+const autoAdvance = ref(true)
 function toggleCap(on: boolean) {
   playerCap.value = on ? 20 : null
 }
@@ -51,6 +56,7 @@ onMounted(() => {
   now.value = Date.now()
   ticker = setInterval(() => {
     now.value = Date.now()
+    maybeAutoLock()
   }, 250)
 })
 onUnmounted(() => {
@@ -129,6 +135,21 @@ const lockCount = computed(() => {
   return { locked, total }
 })
 const answering = computed(() => state.value === 'open' || state.value === 'locked')
+
+// Auto-lock the round once every eligible player has answered (host-side; the
+// host runtime is the authority even when driving is delegated). Checked on the
+// host tick (like the engine's own timer auto-lock) rather than a watcher, so it
+// reliably picks up roster/input changes. Fires only while the round is open and
+// at least one player is in, so an empty room or a non-submitting late joiner
+// can't trip it (the timer or the host still cover those). Never auto-reveals or
+// advances: the host keeps the reveal beat.
+function maybeAutoLock() {
+  if (!autoAdvance.value) return
+  if (state.value !== 'open') return
+  const { locked, total } = lockCount.value
+  if (total < 1 || locked < total) return
+  if (room.host.can('lock')) room.host.lock()
+}
 
 function finish() {
   const cfg = config.value
@@ -290,6 +311,14 @@ watch(
           @change="timersOff = ($event.target as HTMLInputElement).checked"
         />
         <span class="kicker">Turn off round timers</span>
+      </label>
+      <label class="cap-row timers-row">
+        <input
+          type="checkbox"
+          :checked="autoAdvance"
+          @change="autoAdvance = ($event.target as HTMLInputElement).checked"
+        />
+        <span class="kicker">Advance as soon as everyone has answered</span>
       </label>
       <div class="cohost-pick">
         <span class="kicker">Who drives the game</span>
