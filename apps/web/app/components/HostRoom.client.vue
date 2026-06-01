@@ -74,11 +74,30 @@ watch(playerCap, (cap) => {
   if (room.phase.value === 'lobby') room.host.setPlayerCap(cap)
 })
 
+// Optional "turn off timers" toggle, set from the lobby. Timers are on by default;
+// when off, every round's timer is nulled so nothing auto-locks and the host (or
+// the delegated driver) advances each round by hand.
+const timersOff = ref(false)
+provide('dootTimersOff', timersOff)
+
+/** Null out every round's timer when the host turned timers off. */
+function applyTimers(config: GameComposition): GameComposition {
+  if (!timersOff.value) return config
+  return {
+    ...config,
+    rounds: config.rounds.map((r) => ({
+      ...r,
+      content: { ...(r.content as Record<string, unknown>), timer: null },
+    })),
+  }
+}
+
 function resolveConfig(): GameComposition {
-  if (props.config) return props.config
-  if (fromDraft?.config) return fromDraft.config
-  if (game.buildConfig) return game.buildConfig(roomCode, roundConfig ? { rounds: roundConfig.value } : undefined)
-  return game.defaultConfig
+  if (props.config) return applyTimers(props.config)
+  if (fromDraft?.config) return applyTimers(fromDraft.config)
+  if (game.buildConfig)
+    return applyTimers(game.buildConfig(roomCode, roundConfig ? { rounds: roundConfig.value } : undefined))
+  return applyTimers(game.defaultConfig)
 }
 
 function load() {
@@ -110,6 +129,8 @@ function load() {
 load()
 // Re-sample when the host changes the round count in the lobby (before start only).
 if (roundConfig) watch(() => roundConfig.value, () => { if (room.phase.value === 'lobby') load() })
+// Re-load with/without timers when the host toggles them (lobby only).
+watch(timersOff, () => { if (room.phase.value === 'lobby') load() })
 
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)

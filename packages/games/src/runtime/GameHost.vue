@@ -7,7 +7,7 @@
 import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
-import { ControlBar, CountdownRing, DButton, RoomTicket, RosterChips } from '@doot-games/ui'
+import { ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips } from '@doot-games/ui'
 import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, scoreGame } from './derive'
@@ -33,6 +33,10 @@ const roundChoices = computed(() => {
 
 // Optional soft player cap, set from the lobby. A reconnecting name still gets in.
 const playerCap = inject<Ref<number | null>>('dootPlayerCap', ref(null))
+// Optional "turn off timers" toggle (provided by HostRoom). Timers are ON by
+// default; checking the box nulls every round's timer so nothing auto-locks and
+// the host (or the driver) advances each round by hand.
+const timersOff = inject<Ref<boolean>>('dootTimersOff', ref(false))
 function toggleCap(on: boolean) {
   playerCap.value = on ? 20 : null
 }
@@ -181,9 +185,10 @@ function startVote() {
 }
 
 // ── Co-host / MC delegation ────────────────────────────────────────────────
-// The host can hand the advance controls to a joined player. Default: the host
-// drives. An optional "first to join" auto-picks the first player.
-const firstToJoin = ref(false)
+// The host can hand the advance controls to a joined player. Default on: the
+// first player to join drives from their phone (handy when hosting off a TV
+// where the big screen has no easy input); the host can switch back to "Just me".
+const firstToJoin = ref(true)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {
@@ -278,6 +283,14 @@ watch(
           @input="setCap(($event.target as HTMLInputElement).value)"
         />
       </div>
+      <label class="cap-row timers-row">
+        <input
+          type="checkbox"
+          :checked="timersOff"
+          @change="timersOff = ($event.target as HTMLInputElement).checked"
+        />
+        <span class="kicker">Turn off round timers</span>
+      </label>
       <div class="cohost-pick">
         <span class="kicker">Who drives the game</span>
         <select
@@ -342,7 +355,7 @@ watch(
     </div>
 
     <div v-if="driverName" class="driving-note">
-      <span><span aria-hidden="true">🎮</span> {{ driverName }} is driving from their phone</span>
+      <span class="dn-label"><Icon name="mc" :size="16" /> {{ driverName }} is driving from their phone</span>
       <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
     </div>
 
@@ -439,8 +452,26 @@ watch(
 .cap-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
+}
+.timers-row {
+  margin-top: 16px;
+}
+/* Big, easy-to-hit checkboxes + labels so the lobby works from across the room
+   on a TV. */
+.cap-row input[type='checkbox'],
+.cohost-first input[type='checkbox'] {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.cap-row .kicker,
+.cohost-pick > .kicker,
+.round-pick > .kicker {
+  font-size: 15px;
 }
 .cap-input {
   display: block;
@@ -462,22 +493,29 @@ watch(
 }
 .cohost-select {
   width: 100%;
-  max-width: 260px;
-  padding: 9px 12px;
-  border-radius: 10px;
+  max-width: 320px;
+  padding: 13px 14px;
+  border-radius: 12px;
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
   color: var(--ink);
   font: inherit;
+  font-size: 17px;
   font-weight: 700;
 }
 .cohost-first {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   cursor: pointer;
-  font-size: 14px;
-  color: var(--ink-soft);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.dn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .driving-note {
   margin-top: 14px;
