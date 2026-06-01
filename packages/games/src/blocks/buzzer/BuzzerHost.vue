@@ -8,6 +8,7 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { BuzzerContent, BuzzerInput, BuzzerRevealSummary } from './block'
 
@@ -71,7 +72,7 @@ const firstName = computed(() => {
       <span class="dot" aria-hidden="true" /> {{ lockedCount }} locked in
     </div>
     <div v-else class="spotlight">
-      <template v-if="firstName">🔔 First buzz: <b>{{ firstName }}</b>!</template>
+      <template v-if="firstName"><Icon name="bell" :size="18" /> First buzz: <b>{{ firstName }}</b>!</template>
       <template v-else>Nobody got it. The answer stays a mystery to them.</template>
     </div>
   </div>

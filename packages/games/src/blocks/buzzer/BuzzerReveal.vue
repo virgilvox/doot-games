@@ -6,7 +6,7 @@
  * the team can spot who it was in the room.
  */
 import { injectDootRoom } from '@doot-games/engine/vue'
-import { playDing } from '@doot-games/ui'
+import { Icon, playDing } from '@doot-games/ui'
 import { computed, onMounted } from 'vue'
 import type { BuzzerContent, BuzzerInput, BuzzerRevealSummary } from './block'
 
@@ -36,7 +36,7 @@ onMounted(() => {
 <template>
   <div class="buzzer-reveal big">
     <template v-if="iBuzzedFirst">
-      <div class="bell" aria-hidden="true">🔔</div>
+      <div class="bell"><Icon name="bell" :size="48" /></div>
       <h2>You buzzed in first!</h2>
       <p>Fastest correct answer in the room. Take a bow.</p>
     </template>

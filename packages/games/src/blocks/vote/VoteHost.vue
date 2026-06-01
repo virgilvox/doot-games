@@ -6,7 +6,7 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import { RobotRapper, cancelSpeech, speakLines } from '@doot-games/ui'
+import { Icon, RobotRapper, cancelSpeech, speakLines } from '@doot-games/ui'
 import { computed, onUnmounted, ref } from 'vue'
 import type { VoteContent, VoteInput, VoteRevealSummary } from './block'
 
@@ -123,7 +123,7 @@ onUnmounted(() => cancelSpeech())
         <span v-else>&#9632; Stop</span>
       </button>
       <span v-if="performing" class="beat" aria-hidden="true"><i /><i /><i /><i /></span>
-      <span class="perform-hint">{{ performing ? '🎤 On the mic now…' : 'Let the robots rap each verse, then vote.' }}</span>
+      <span class="perform-hint"><Icon v-if="performing" name="mic" :size="15" />{{ performing ? ' On the mic now…' : 'Let the robots rap each verse, then vote.' }}</span>
     </div>
     <!-- The animated robot performing the current verse. -->
     <div v-if="canPerform && performing" class="stage">

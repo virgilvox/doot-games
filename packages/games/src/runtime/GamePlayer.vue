@@ -7,6 +7,7 @@
 import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin } from '@doot-games/sdk'
+import { Icon } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock } from './derive'
@@ -107,7 +108,7 @@ function reloadPage() {
   <div class="player" aria-live="polite">
     <!-- MC controls: the host delegated driving to this player. -->
     <div v-if="driverAction" class="drive-bar">
-      <span class="drive-tag"><span aria-hidden="true">🎮</span> You're the MC · {{ index + 1 }}/{{ rounds.length }}</span>
+      <span class="drive-tag"><Icon name="mc" :size="15" /> You're the MC · {{ index + 1 }}/{{ rounds.length }}</span>
       <button class="btn btn-primary drive-go" @click="room.sendControl(driverAction.type)">
         {{ driverAction.label }} →
       </button>

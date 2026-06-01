@@ -4,6 +4,7 @@
  * writes the line that rhymes back. One row per couplet; a rhyme hint nudges
  * (but never enforces) the rhyme.
  */
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { BarsContent, BarsInput } from './block'
 
@@ -22,7 +23,7 @@ function onInput(i: number, e: Event) {
 <template>
   <div class="bars">
     <div v-for="(cp, i) in (content.couplets ?? [])" :key="i" class="couplet">
-      <p class="lead"><span class="bot-tag" aria-hidden="true">🤖</span>{{ cp.lead }}</p>
+      <p class="lead"><span class="bot-tag"><Icon name="cpu" :size="16" /></span>{{ cp.lead }}</p>
       <label class="resp">
         <span class="resp-label">
           Your line<span v-if="cp.rhymeWith">, rhyme with “{{ cp.rhymeWith }}”</span>

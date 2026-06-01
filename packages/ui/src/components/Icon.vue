@@ -8,7 +8,7 @@ import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{ name: IconName; size?: number | string }>(), { size: 20 })
 
-type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc'
+type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc' | 'bell'
 
 interface Glyph {
   inner: string
@@ -20,6 +20,10 @@ const ICONS: Record<IconName, Glyph> = {
   mic: {
     inner:
       '<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/>',
+  },
+  bell: {
+    inner:
+      '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
   },
   volume: {
     inner:
