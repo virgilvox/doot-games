@@ -29,6 +29,23 @@ _Last updated: 2026-06-01. Branch: `main` (work on `main` or a branch off it; ev
 > end in a real browser (`scripts/playtest.mjs` gained a `fib-finder` scenario + an
 > `ONLY=` filter; `scripts/sketch-smoke.mjs` is new) with host + phone screenshots.
 >
+> **Consumer-polish round (2026-06-01).** Shipped + deployed after the audit:
+> - **Circuit Cypher robots went silent for reduced-motion users** (the host conflated
+>   `prefers-reduced-motion` with muted). Reduced motion now only calms animation; audio
+>   stays on. Also hardened TTS (`warmUpSpeech` primes voices; a `resume()` kick guards
+>   Chrome's paused bug), gave a longer, mode-aware opening title line, and live-perform
+>   mode now calls the human to the mic in the announcer voice with a slightly longer count.
+> - **Host lobby, TV-friendly:** bigger checkboxes/labels/selects; **"Let the first to join
+>   drive" now defaults on** (Circuit Cypher and the generic GameHost); a new **"turn off
+>   round timers" checkbox** on the generic host page (timers on by default; off nulls every
+>   round timer so nothing auto-locks, host/driver advances by hand). Wired in
+>   `HostRoom.client.vue` via a `dootTimersOff` provide/inject + config reshape.
+> - **Sketch & Spot:** draw timer 120s; the vote gallery scales tile size to the crowd
+>   (down to a small min for 20+) and caps height with scroll so a full room fits.
+> - **No-emoji sweep finished:** the last UI emoji (GameHost/GamePlayer controller, VoteHost
+>   mic, BarsPlayer robot, Buzzer bell) are now `Icon` glyphs (added a `bell` glyph).
+> - **Per-game covers:** each Game From Doot got a bespoke `GameCover` motif + palette.
+>
 > **Audit pass (2026-06-01, follow-up).** Adversarial review of the new blocks confirmed
 > the withholding/anonymization/scoring/determinism invariants hold. Fixes applied: the
 > draw block gained a `liveGallery` flag (default on) and **Sketch & Spot turns it off so
