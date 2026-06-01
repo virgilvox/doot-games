@@ -66,6 +66,16 @@ const cells = computed<Cell[]>(() => {
     winner: false,
   }))
 })
+// Scale tile size to the crowd so a roomful of drawings still fits the screen at
+// once (a 20-person gallery shouldn't need heavy scrolling).
+const tileMin = computed(() => {
+  const n = cells.value.length
+  if (n <= 4) return 260
+  if (n <= 9) return 190
+  if (n <= 16) return 150
+  if (n <= 25) return 118
+  return 96
+})
 </script>
 
 <template>
@@ -80,7 +90,7 @@ const cells = computed<Cell[]>(() => {
           {{ showLive ? 'Hide votes' : 'Peek at votes' }}
         </button>
       </div>
-      <div class="gallery">
+      <div class="gallery" :style="{ '--tile-min': `${tileMin}px` }">
         <figure v-for="c in cells" :key="c.id" class="tile" :class="{ winner: revealed && c.winner }">
           <DrawThumb :value="c.drawing" :aspect="content.aspect" />
           <figcaption class="cap">
@@ -120,8 +130,12 @@ const cells = computed<Cell[]>(() => {
 }
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 180px), 1fr));
+  gap: 12px;
+  align-content: start;
+  /* Fit a big gallery on screen; scroll only as a last resort for huge rooms. */
+  max-height: 74vh;
+  overflow: auto;
 }
 .tile {
   margin: 0;
