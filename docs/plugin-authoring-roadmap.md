@@ -157,10 +157,12 @@ Maps onto `external-plugins.md` phases 0–4; each step is the smallest safe inc
 
 1. **Plugin origin (done/in-flight).** `plugins.doot.games` DNS ✅; Caddy locked-down
    static origin staged in `docker/Caddyfile` (goes live on next deploy, auto-cert).
-2. **Graduate the harness → packages.** `examples/external-plugin/{bridge.ts,
-   dev-host.html,...}` (already a working mock host + bridge inspector) becomes
-   `@doot-games/plugin-bridge` (protocol + host iframe manager + `connectToHost`) and
-   `@doot-games/plugin-dev` + `create-doot-game`. ← external-plugins.md Phase 0–1.
+2. **Graduate the harness → packages.** ✅ `@doot-games/plugin-bridge` shipped — the
+   Zod protocol + host/plugin transport cores (`createPluginHost`/`connectToHost`,
+   plus `createPortHost`/`attachPluginPort` for tests), unit-tested (handshake,
+   submit round-trip, answer-withholding, off-protocol rejection). Still to do:
+   `@doot-games/plugin-dev` + `create-doot-game` (the scaffold + CLI harness; the
+   working reference is `examples/external-plugin/`). ← external-plugins.md Phase 0–1.
 3. **First-party blocks through the iframe.** Render built-in games via the bridge
    from the `plugins.doot.games` shell. Proves the boundary with trusted code.
 4. **In-app tiered editor.** `@vue/repl` + CodeMirror, dual player/host preview
@@ -193,5 +195,3 @@ Maps onto `external-plugins.md` phases 0–4; each step is the smallest safe inc
 - **Schema-driven editor:** `GameEditor.client.vue` + `SchemaForm.vue`.
 - **The authoring contract:** `@doot-games/sdk` (`defineBlock`/`defineGame`).
 - **The full security design:** `docs/external-plugins.md`.
-</content>
-</invoke>

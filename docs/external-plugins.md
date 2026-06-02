@@ -144,10 +144,12 @@ contained, zero core bloat) and graduate to real packages when Phase 1 lands.
   Doot's auth cookies are host-only (no `crossSubDomainCookies`, no `.doot.games`
   cookie domain). DNS A record → the `doot-prod` droplet is **live**; `docker/Caddyfile`
   serves it as a static, locked-down origin (the CSP above), never proxied to the app.
-- ⏳ Phase 0–1: graduate `bridge.ts` → `@doot-games/plugin-bridge`; serve the real host
-  shell from the origin (`file_server`, swapping today's placeholder `respond`).
+- ✅ `bridge.ts` graduated to `@doot-games/plugin-bridge` (Zod protocol + host/plugin
+  transport cores, unit-tested). The `examples/external-plugin/` harness stays the
+  standalone, copy-pasteable reference.
+- ⏳ Phase 0–1 remaining: serve the real host shell from the origin (`file_server`,
+  swapping today's placeholder `respond`) + `@doot-games/plugin-dev` + `create-doot-game`.
 - ⏳ Phases 2–4 (registration, registry, review) follow.
 
 The full authoring picture (tiers 0–3, the `@vue/repl` editor, the canvas block, the
 SDK MCP server, build order) is in [`plugin-authoring-roadmap.md`](./plugin-authoring-roadmap.md).
-</content>
