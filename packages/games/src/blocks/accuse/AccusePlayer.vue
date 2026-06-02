@@ -25,7 +25,7 @@ function pick(pid: string, name: string) {
 <template>
   <div class="accuse">
     <p v-if="!clues.length" class="empty" aria-live="polite">Waiting for the clues...</p>
-    <ul v-else class="clue-list" role="listbox" aria-label="Pick the faker">
+    <ul v-else class="clue-list" role="group" aria-label="Pick the faker">
       <li v-for="c in clues" :key="c.pid">
         <button
           type="button"

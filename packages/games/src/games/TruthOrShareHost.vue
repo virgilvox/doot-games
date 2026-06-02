@@ -105,22 +105,27 @@ function publishTurn(extra: Partial<TurnState> = {}) {
   room.publishExtra('turn', base as unknown as RelayValue)
 }
 
+/** The picker for turn `i`: the rotation slot, or the next PRESENT player in the
+ *  rotation if that one has left, so a departed picker is substituted WITHOUT
+ *  consuming a turn (the turn counter stays bounded by `turns`). '' if the room is
+ *  empty. */
+function presentPickerFor(i: number): string {
+  const present = new Set(room.players.value.map((p) => p.id))
+  for (let k = 0; k < order.value.length; k++) {
+    const pid = pickerFor(order.value, i + k) ?? ''
+    if (pid && present.has(pid)) return pid
+  }
+  return ''
+}
+
 function startTurn(i: number) {
   if (i >= turns.value) {
     finish()
     return
   }
-  // Skip a picker who has left; if nobody is left, end early.
-  const present = new Set(room.players.value.map((p) => p.id))
-  let attempts = 0
-  let pickerPid = pickerFor(order.value, i) ?? ''
-  while (pickerPid && !present.has(pickerPid) && attempts < order.value.length) {
-    i++
-    pickerPid = pickerFor(order.value, i) ?? ''
-    attempts++
-  }
-  if (!pickerPid || !present.has(pickerPid)) {
-    finish()
+  const pickerPid = presentPickerFor(i)
+  if (!pickerPid) {
+    finish() // nobody left to pick
     return
   }
   turnIndex.value = i

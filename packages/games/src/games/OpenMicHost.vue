@@ -342,7 +342,9 @@ watch([firstToJoin, () => room.players.value.length], () => {
 function primaryDrive() {
   if (room.phase.value !== 'active') return
   if (isVoteRound.value) {
-    if (step.value === 'voting' && state.value === 'open') revealFunniest()
+    // `!== 'reveal'` not `=== 'open'`: the engine auto-locks a timed vote at its
+    // deadline, and the driver must still be able to reveal from 'locked'.
+    if (step.value === 'voting' && state.value !== 'reveal') revealFunniest()
     else if (state.value === 'reveal') (isLast.value ? finish() : nextSet())
     else if (pending.value) skip()
   } else {
@@ -548,7 +550,10 @@ onUnmounted(() => {
           <Icon name="skip" :size="20" />
         </button>
         <CountdownRing v-if="step === 'voting' && state === 'open' && countdown" :remaining="countdown.remaining" :total="countdown.total" />
-        <DButton v-if="step === 'voting' && state === 'open'" variant="primary" @click="revealFunniest">Reveal the funniest</DButton>
+        <!-- Show the reveal control for any non-reveal voting state, NOT just `open`:
+             the engine auto-locks a timed vote at its deadline (open -> locked), so
+             gating on `open` alone would strand the host with no button. -->
+        <DButton v-if="step === 'voting' && state !== 'reveal'" variant="primary" @click="revealFunniest">Reveal the funniest</DButton>
         <template v-else-if="state === 'reveal'">
           <DButton v-if="!isLast" variant="primary" @click="nextSet">Next premise</DButton>
           <DButton v-else variant="primary" @click="finish">Final results</DButton>
