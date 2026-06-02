@@ -602,17 +602,17 @@ watch(
   gap: 22px;
   align-items: stretch;
 }
-/* Each column fills the stage height and centers its content, but stays
-   contained: a paragraph-length prompt scrolls inside its own column rather
-   than spilling over the answers or the control bar. "safe center" keeps the
-   top of overflowing content reachable instead of clipping it. */
+/* Each column fills the stage height and centers its content. The prompt font
+   scales down by length (see promptStyle) so even a paragraph-length question
+   fits without overflow, so we DON'T clip here: an `overflow` on either axis
+   would also clip the answer cards' glow/shadow. "safe center" keeps the top of
+   tall content reachable rather than centering it out of view. */
 .left,
 .right {
   display: flex;
   flex-direction: column;
   justify-content: safe center;
   min-height: 0;
-  overflow-y: auto;
 }
 .subject {
   align-self: flex-start;

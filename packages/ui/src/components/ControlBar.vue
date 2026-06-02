@@ -18,6 +18,13 @@ const dots = computed(() =>
     current: d === props.roundIndex,
   })),
 )
+// A row of dots is great for a short game but runs very wide past ~16 rounds,
+// which on the host bar shoves the timer + actions onto a second row. Past that,
+// switch to a slim progress track that stays a fixed, compact width.
+const manyRounds = computed(() => props.roundCount > 16)
+const progressPct = computed(() =>
+  props.roundCount > 0 ? Math.round(((props.roundIndex + 1) / props.roundCount) * 100) : 0,
+)
 const showCount = computed(() => props.total != null && props.total > 0)
 const allIn = computed(() => showCount.value && (props.lockedIn ?? 0) >= (props.total ?? 0))
 </script>
@@ -26,8 +33,11 @@ const allIn = computed(() => showCount.value && (props.lockedIn ?? 0) >= (props.
   <div class="controlbar panel">
     <div class="progress">
       <span class="pnum mono">Round {{ roundIndex + 1 }} / {{ roundCount }}</span>
-      <span class="dotbar">
+      <span v-if="!manyRounds" class="dotbar">
         <i v-for="(d, i) in dots" :key="i" :class="{ done: d.done, cur: d.current }" />
+      </span>
+      <span v-else class="track" role="progressbar" :aria-valuenow="roundIndex + 1" :aria-valuemax="roundCount">
+        <span class="track-fill" :style="{ width: `${progressPct}%` }" />
       </span>
       <span class="state-pill mono">{{ stateLabel }}</span>
       <span v-if="showCount" class="lockpill" :class="{ allin: allIn }" aria-live="polite">
@@ -82,6 +92,20 @@ const allIn = computed(() => showCount.value && (props.lockedIn ?? 0) >= (props.
   background: var(--c1);
   border-color: var(--c1);
   transform: scale(1.25);
+}
+.track {
+  width: 140px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.track-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.3s ease;
 }
 .state-pill {
   text-transform: uppercase;
