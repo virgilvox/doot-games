@@ -30,8 +30,20 @@ pushed" notes in the entries below are superseded._
 >   an assigned answer is kept host-side (for the judge round + scoring) and **never** auto-
 >   published at the make round's own reveal; the judge round unmasks it at its own reveal.
 >   New engine regression test; the two integration tests assert the answer stays off the relay.
-> - **NEXT in this run: Truth or Share (G1)**, the directed/spotlight primitive + text dares
->   (photos deferred), then keep going.
+> - **Truth or Share (G1) shipped (text dares):** the directed/spotlight game, a custom-flow
+>   game over the proven `/x/` transport (no new engine state). Each turn rotates a **picker**
+>   who puts another player on the spot with a dealt prompt; the **target** answers in text or
+>   passes (always free); the host **moderation gate** vets the answer before it hits the big
+>   screen; the room **reacts**; and the picker takes a **cut** of the reactions, so the
+>   optimal play is entertaining, not cruel. New `spotlight` parked block + `TruthOrShareHost`/
+>   `TruthOrSharePlayer` + pure tested `truthshare.ts` (rotation, dealing, reaction tally,
+>   reaction-cut scoring, and `redactTurnForPublish`, the moderation gate as a pure tested
+>   rule so an unvetted answer can't reach the public turn state). Mild/spicy tiers in the
+>   lobby. Registered (registry/catalog/visuals/index). **Deferred:** phone photos over the
+>   ephemeral relay (with TTL + the same gate). **Known v1 limits (owner playtest):** a host
+>   reload mid-show loses the in-memory turn order/scores (custom-flow, like Circuit Cypher);
+>   the raw `/x/response` address is soft-readable (the gate governs what the room SEES, not
+>   cryptographic secrecy).
 >
 > **START HERE (fresh session, 2026-06-02).** The last session's work is **pushed to `main`
 > and deploying to prod via CI** (confirm the deploy is healthy, then do the Circuit Cypher

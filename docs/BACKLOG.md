@@ -126,11 +126,17 @@ To/Ballpark) shipped first. These need new primitives, so they're real builds, n
 compositions. (**Open Mic** was later reworked from the thin `quip->vote(perform)` composition
 into the same composition with a custom 3D standup-club host: `ComedyStage.vue` +
 `OpenMicHost.vue` + hardened TTS. Committed local, not yet pushed.)
-- [ ] **G1. Truth or Share** — the owner's headline idea. A new **directed/spotlight**
-  engine primitive (picker → target(s) → respond → react), photo-share over the
-  **ephemeral relay with TTL** (never S3), a **host moderation gate**, passes + spice
-  tiers, and reaction-cut scoring (the picker earns a cut of the room's reactions so the
-  optimal play is entertaining, not cruel). Consent is a feature, not a bolt-on. `[large]`
+- [~] **G1. Truth or Share** — the owner's headline idea. **TEXT DARES SHIPPED** (committed
+  local, not yet pushed): the **directed/spotlight** game as a custom-flow game over the
+  proven `/x/` transport (picker → target → respond → react), a **host moderation gate**
+  (the target's answer is vetted before it reaches the big screen, enforced by the pure tested
+  `redactTurnForPublish`), passes (always free) + mild/spicy tiers, and **reaction-cut
+  scoring** (the picker takes a cut of the room's reactions so the optimal play is
+  entertaining, not cruel). New `spotlight` parked block + `TruthOrShareHost`/`Player` + pure
+  tested `truthshare.ts`. **Still deferred:** photo-share over the **ephemeral relay with TTL**
+  (never S3) with the same gate. **Known v1 limits:** host-reload mid-show loses in-memory
+  turn state (custom-flow, like Circuit Cypher); the raw `/x/response` is soft-readable (the
+  gate governs what the room sees, not cryptographic secrecy).
 - [x] **G2. Faker** (social deduction). **SHIPPED** (committed local, not yet pushed): a
   `faker` make block (`assignContent` picks the imposter, `redactContent` + REDACTION_RULES
   hide the word, host screen never shows it) + an `accuse` judge block (derived from the faker

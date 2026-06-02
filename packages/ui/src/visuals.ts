@@ -43,6 +43,7 @@ const VISUALS: Record<string, GameVisual> = {
   'most-likely': { color: 'var(--c1)', icon: 'check' },
   ballpark: { color: 'var(--c4)', icon: 'bars' },
   faker: { color: 'var(--c2)', icon: 'question' },
+  'truth-or-share': { color: 'var(--c5)', icon: 'mic' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },
@@ -53,6 +54,7 @@ const VISUALS: Record<string, GameVisual> = {
   drawvote: { color: 'var(--c2)', icon: 'squiggle' },
   mostlikely: { color: 'var(--c1)', icon: 'check' },
   accuse: { color: 'var(--c5)', icon: 'check' },
+  spotlight: { color: 'var(--c5)', icon: 'mic' },
   custom: { color: 'var(--c1)', icon: 'grid' },
 }
 

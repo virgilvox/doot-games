@@ -21,6 +21,7 @@ export { mostLikelyBlock } from './blocks/mostlikely/block'
 export { ballparkBlock } from './blocks/ballpark/block'
 export { fakerBlock } from './blocks/faker/block'
 export { accuseBlock } from './blocks/accuse/block'
+export { spotlightBlock } from './blocks/spotlight/block'
 export * from './blocks/scoring'
 
 // Games (block compositions)
@@ -39,4 +40,5 @@ export { hivemind } from './games/hivemind'
 export { mostLikely } from './games/mostlikely'
 export { ballpark } from './games/ballpark'
 export { faker } from './games/faker'
+export { truthOrShare } from './games/truth-or-share'
 export { custom } from './games/custom'

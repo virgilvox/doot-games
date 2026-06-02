@@ -21,6 +21,7 @@ import { rank } from './games/rank'
 import { rate } from './games/rate'
 import { sketchSpot } from './games/sketchspot'
 import { splitRoom } from './games/splitroom'
+import { truthOrShare } from './games/truth-or-share'
 import { voteBox } from './games/votebox'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
 
@@ -44,6 +45,7 @@ export const builtinPlugins: GamePlugin[] = [
   mostLikely,
   ballpark,
   faker,
+  truthOrShare,
   custom,
 ]
 
