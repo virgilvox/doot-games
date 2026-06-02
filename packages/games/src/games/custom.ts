@@ -6,6 +6,7 @@
  */
 import { defineGame } from '@doot-games/sdk'
 import { drawBlock } from '../blocks/draw/block'
+import { drawVoteBlock } from '../blocks/drawvote/block'
 import { guessBlock } from '../blocks/guess/block'
 import { pollBlock } from '../blocks/poll/block'
 import { rankBlock } from '../blocks/rank/block'
@@ -21,7 +22,11 @@ export const custom = defineGame({
     capabilities: ['timer', 'drawing'],
     minPlayers: 1,
   },
-  blocks: [guessBlock, rateBlock, pollBlock, rankBlock, drawBlock],
+  // drawvote is here so a markdown/MCP draw-then-vote game (a `## draw` round
+  // with `vote: true` expands to draw + drawvote) can host and edit as a Custom
+  // game. It is derived (built from the prior draw round), so the editor's
+  // add-round menu hides it; it is only created by the markdown expansion.
+  blocks: [guessBlock, rateBlock, pollBlock, rankBlock, drawBlock, drawVoteBlock],
   defaultConfig: {
     title: 'Custom Game',
     rounds: [

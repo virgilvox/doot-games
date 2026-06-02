@@ -91,7 +91,10 @@ const uploadReason = computed(() =>
 )
 provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload(), reason: uploadReason })
 
-const blockChoices = computed(() => plugin.blocks)
+// Derived blocks (e.g. drawvote) only make sense paired with the make round that
+// feeds them, so they are not offered as a standalone "add round" option; they
+// still render/host when present (created by the markdown draw-vote expansion).
+const blockChoices = computed(() => plugin.blocks.filter((b) => !b.derive))
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
   return getBlock(plugin!, inst.block)
 }
@@ -249,7 +252,7 @@ Then one or more rounds. Each round is a "## type" heading, then "key: value" li
 ## poll   - opinion, no right answer. Fields: prompt. List 2+ "- choice".
 ## rank   - players put items in order. Fields: prompt. List 2+ "- item".
 ## rate   - score things on a scale. Fields: prompt, "categories: A, B, C", "scale: 1-5" (or letters like "F, D, C, B, A").
-## draw   - players sketch it. Fields: prompt, timer.
+## draw   - players sketch it. Fields: prompt, timer. Add "vote: true" to make it draw-then-vote: the room draws, then votes on the gallery and the best drawing wins.
 
 Now make a game about: <YOUR TOPIC HERE>, with about 5 rounds. Mix the round types for variety.`
 
@@ -487,7 +490,7 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <li><b>poll</b>: opinion, no right answer. Just list the choices.</li>
               <li><b>rank</b>: players drag items into order. List the items.</li>
               <li><b>rate</b>: score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
-              <li><b>draw</b>: players sketch the prompt.</li>
+              <li><b>draw</b>: players sketch the prompt. Add <code>vote: true</code> to draw then vote on the gallery (best drawing wins).</li>
             </ul>
             <p class="ed-import-tip">
               Unknown lines are ignored; rounds that need attention are flagged below once imported.
