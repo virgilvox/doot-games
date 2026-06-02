@@ -6,6 +6,38 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` deploys to prod via CI, no staging). All of the work below went straight to `main`
 and is live on https://doot.games, verified after each deploy._
 
+> **UX pass after the first real Claude-built games (2026-06-02, SHIPPED + DEPLOYED).**
+> Fixes from hosting and publishing real MCP-authored games:
+>
+> - **Host screen fits long prompts.** A paragraph-length prompt no longer overflows
+>   the stage: the prompt font scales down by length and each stage column is
+>   height-contained (`GameHost.vue`), so the question image is not clipped and the
+>   control bar is not overlapped. Verified at 1920x1080.
+> - **Results carousel.** The host results screen pages one section at a time with a
+>   tab bar (and left/right arrow keys), adapting to however many sections there are,
+>   so a game with several breakdowns still fits the screen (`GameResults.vue`). The
+>   phone (`compact`) view still stacks and scrolls. Verified at host resolution.
+> - **Cover images on cards.** `GameCover` gained an optional `image` prop; explore,
+>   Your Games, and the home rails now show a game's uploaded cover (dead URL falls
+>   back to the gradient art). The detail-page cover shows the whole banner (contain on
+>   a neutral backdrop) instead of cropping. Verified live on the Tuvix game card.
+> - **Bylines never leak the email-derived name.** Once an author claims an `@handle`,
+>   the saved-game list/detail payloads drop the display name entirely
+>   (`games-repo.ts`, `[id].get.ts`), so a gmail-derived name can't appear in a public
+>   byline.
+> - **Draw rounds can vote.** A markdown/MCP `## draw` round with `vote: true` expands
+>   to draw-then-vote (draw with the gallery hidden, then a `drawvote` round derived
+>   from it); best drawing wins points and tops the leaderboard. Reuses the existing
+>   `drawvote` block. Parser + tests + MCP `doot_format_guide` + `docs/markdown-games.md`
+>   updated.
+> - **Create page:** ready-made games use the GameCover art cards; the blocks/Custom
+>   row keeps its compact `GameTypeIcon` cards (owner preference).
+> - **MCP now also has `list_my_games` + `update_game`** (owner-checked) so Claude can
+>   list and edit games it saved, not only create them.
+>
+> Still open from this pass: privacy-policy page + favicon/logo (the Claude connector
+> directory submission hard gate).
+
 > **Connect with Claude (MCP) + the plugin-authoring foundation. SHIPPED + DEPLOYED +
 > AUDITED (2026-06-02).** A long session. Full plan in
 > [`docs/plugin-authoring-roadmap.md`](./docs/plugin-authoring-roadmap.md); the
