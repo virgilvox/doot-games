@@ -5,3 +5,30 @@ doot.games {
 	encode zstd gzip
 	reverse_proxy app:3000
 }
+
+# Untrusted-plugin origin. A deliberately SEPARATE ORIGIN from doot.games so a
+# sandboxed plugin lands on a cookieless, session-less host (the Sandpack/itch.io
+# lesson; see docs/external-plugins.md + docs/plugin-authoring-roadmap.md). This
+# is safe as a subdomain only because Doot's auth cookies are host-only — never
+# set a `.doot.games` cookie or enable better-auth crossSubDomainCookies.
+#
+# It is static ONLY and MUST NOT reverse_proxy to `app` (which holds the session,
+# DB, and relay). Today it serves a locked-down placeholder so the origin + cert +
+# CSP go live; Phase 1 swaps `respond` for `file_server` over the built plugin
+# host shell + bridge. Self-hosters: use a `plugins.` subdomain of your own
+# domain (or a separate domain) and keep these headers.
+plugins.doot.games {
+	encode zstd gzip
+	header {
+		# connect-src 'none' is the load-bearing control: a malicious plugin
+		# cannot phone home or exfiltrate the room. frame-ancestors lets only
+		# Doot embed it. Reviewed plugins may later widen connect-src per manifest.
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://media.doot.games; connect-src 'none'; frame-ancestors https://doot.games; base-uri 'none'; form-action 'none'"
+		X-Content-Type-Options "nosniff"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-site"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	respond "Doot plugin origin — untrusted game plugins run sandboxed here. See https://doot.games" 200
+}

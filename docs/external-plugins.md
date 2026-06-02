@@ -140,7 +140,14 @@ contained, zero core bloat) and graduate to real packages when Phase 1 lands.
 
 - ✅ This design + the security model (deep research).
 - ✅ A standalone template + dev-harness sketch in `examples/external-plugin/`.
-- ⏳ Phases 0–1 (the bridge package + the `plugins.doot.games` origin + CSP) need the
-  second-origin infra decision; recommended before any external code runs.
+- ✅ The second-origin decision: a **subdomain** (`plugins.doot.games`), sound because
+  Doot's auth cookies are host-only (no `crossSubDomainCookies`, no `.doot.games`
+  cookie domain). DNS A record → the `doot-prod` droplet is **live**; `docker/Caddyfile`
+  serves it as a static, locked-down origin (the CSP above), never proxied to the app.
+- ⏳ Phase 0–1: graduate `bridge.ts` → `@doot-games/plugin-bridge`; serve the real host
+  shell from the origin (`file_server`, swapping today's placeholder `respond`).
 - ⏳ Phases 2–4 (registration, registry, review) follow.
+
+The full authoring picture (tiers 0–3, the `@vue/repl` editor, the canvas block, the
+SDK MCP server, build order) is in [`plugin-authoring-roadmap.md`](./plugin-authoring-roadmap.md).
 </content>

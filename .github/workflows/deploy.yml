@@ -89,6 +89,11 @@ jobs:
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker compose pull
             docker compose up -d
+            # Caddy bind-mounts the Caddyfile but does not watch it, so `up -d`
+            # alone won't apply Caddyfile changes (e.g. a new vhost). Reload it:
+            # graceful (no dropped connections) and fail-safe — an invalid config
+            # is rejected and the already-running config keeps serving.
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
             docker image prune -f
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
