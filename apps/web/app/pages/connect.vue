@@ -15,8 +15,8 @@ useHead({ title: 'Connect with Claude' })
         <span class="kicker">Build with Claude</span>
         <h1>Connect with Claude</h1>
         <p class="lead">
-          Point your own Claude at Doot and it builds games for you. You use your Claude, so it stays free, and Doot
-          never sees your account or your chats. Doot runs no AI of its own.
+          Link your Doot account inside Claude and it builds games for you, then saves them straight to your account.
+          You use your own Claude, so it stays free, and Doot runs no AI of its own.
         </p>
       </div>
 
@@ -24,38 +24,39 @@ useHead({ title: 'Connect with Claude' })
         <li>
           <span class="step-n">1</span>
           <div class="step-b">
-            <h3>Add Doot to Claude</h3>
-            <p>In <b>Claude Code</b>, run this once:</p>
-            <pre class="cmd">{{ claudeCodeCmd }}</pre>
-            <p>In the <b>Claude desktop app</b>, open Settings, add a custom connector, and paste this URL:</p>
+            <h3>Add Doot as a connector</h3>
+            <p>In <b>claude.ai</b>, open Settings, then Connectors, then Add custom connector, and paste this URL:</p>
             <pre class="cmd">{{ endpoint }}</pre>
+            <p>In <b>Claude Code</b>, run this once instead:</p>
+            <pre class="cmd">{{ claudeCodeCmd }}</pre>
+            <p>Claude opens Doot in your browser. Sign in and click <b>Allow</b>. That links your account, once.</p>
           </div>
         </li>
         <li>
           <span class="step-n">2</span>
           <div class="step-b">
-            <h3>Ask for a game</h3>
+            <h3>Ask Claude to build a game</h3>
             <p>
-              Tell Claude what you want, for example: <i>"Make me a Doot trivia game about 90s movies, five rounds,
-              mix the types."</i> Claude reads Doot's format, writes the game, and checks it.
+              Say what you want, for example: <i>"Make a Doot trivia game about 90s movies, five rounds, mix the
+              types, and save it to my account."</i> Claude reads Doot's format, writes the game, and checks it.
             </p>
           </div>
         </li>
         <li>
           <span class="step-n">3</span>
           <div class="step-b">
-            <h3>Drop it into Doot</h3>
+            <h3>It saves to your account</h3>
             <p>
-              Claude hands you the game as a short markdown spec. Open <NuxtLink to="/create">Create</NuxtLink>, pick
-              the <b>Custom</b> game type, click <b>Import from Markdown</b>, paste, and host it.
+              Claude saves the game to your account and gives you a link. Open it (or find it under
+              <NuxtLink to="/mine">your games</NuxtLink>) to pick a theme, tweak anything, and host it.
             </p>
           </div>
         </li>
       </ol>
 
       <div class="note">
-        Your Claude does the work, against Doot's real game format, so what it builds imports cleanly. The tools it
-        uses are read-only: list the game types, read the format guide, and check a draft.
+        Your Claude does the work against Doot's real game format, so what it builds is ready to host. You can remove
+        Doot's access any time from your account settings or from Claude.
       </div>
     </div>
   </main>

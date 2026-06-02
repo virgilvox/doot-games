@@ -4,33 +4,42 @@ import { authOptions } from '../utils/auth'
 import { databaseUrl } from '../utils/db'
 
 /**
- * Create/extend better-auth's tables at startup so the app stays zero-config
- * (no separate migration step). `getMigrations` diffs the schema and
- * `runMigrations` applies only what's missing, so it's idempotent.
+ * Create/extend better-auth's tables at startup so the app stays zero-config (no
+ * separate migration step). Idempotent and additive.
  *
- * The username plugin + the `bio` additionalField need three columns on `user`.
- * On a FRESH database `runMigrations` adds them as part of CREATE TABLE. On an
- * EXISTING `user` table (every deployed instance), SQLite rejects
- * `ALTER TABLE ... ADD COLUMN username` because the plugin marks it UNIQUE
- * ("Cannot add a UNIQUE column"), so `runMigrations` throws and the columns are
- * never added. We follow it with a manual, SQLite-safe additive migration:
- * plain columns plus a separate UNIQUE INDEX. Both run every boot and are
- * idempotent. Column names match better-auth's camelCase convention
- * (`displayUsername`, not snake_case).
+ * We run better-auth's generated schema STATEMENT BY STATEMENT rather than via
+ * `runMigrations()`. `runMigrations()` executes the whole batch and aborts on the
+ * first failure, and on an EXISTING `user` table the username UNIQUE-column ALTER
+ * always fails (SQLite "Cannot add a UNIQUE column"). That abort would otherwise
+ * stop every later statement, including the CREATE TABLEs for the oidc/mcp plugin
+ * (the "Connect with Claude" OAuth provider). Running each statement in its own
+ * try/catch lets the new tables be created even though one ALTER fails, on both
+ * fresh and already-deployed databases.
+ *
+ * The username/bio columns the UNIQUE ALTER can't add are then added by the manual
+ * fallback below: plain columns plus a separate UNIQUE INDEX. Column names match
+ * better-auth's camelCase convention (`displayUsername`, not snake_case).
  */
 export default defineNitroPlugin(async () => {
+  const client = createClient({ url: databaseUrl() })
+
   try {
-    const { runMigrations } = await getMigrations(authOptions)
-    await runMigrations()
+    const { compileMigrations } = await getMigrations(authOptions)
+    const sql = await compileMigrations()
+    for (const stmt of sql.split(';').map((s) => s.trim()).filter(Boolean)) {
+      try {
+        await client.execute(stmt)
+      } catch (err) {
+        // Existing table/column, or the UNIQUE-column ALTER on `user`; safe to skip.
+        console.warn('[doot] auth migration statement skipped:', err instanceof Error ? err.message : err)
+      }
+    }
   } catch (err) {
-    // Expected on an existing table (the UNIQUE-column add); the fallback below
-    // adds the profile columns. Log at a low level so a real failure is visible.
-    console.warn('[doot] auth runMigrations reported:', err instanceof Error ? err.message : err)
+    console.error('[doot] auth migration compile failed:', err)
   }
 
   // Manual fallback: add the profile columns the username plugin / bio field need.
   try {
-    const client = createClient({ url: databaseUrl() })
     for (const ddl of [
       'ALTER TABLE user ADD COLUMN username TEXT',
       'ALTER TABLE user ADD COLUMN displayUsername TEXT',
@@ -39,7 +48,7 @@ export default defineNitroPlugin(async () => {
       try {
         await client.execute(ddl)
       } catch {
-        // Column already exists (fresh DB, or a prior boot) — ignore.
+        // Column already exists (fresh DB, or a prior boot), so ignore.
       }
     }
     // The uniqueness guard the plugin can't add via ALTER on an existing table.

@@ -1,24 +1,27 @@
 /**
- * "Connect with Claude": a Model Context Protocol (MCP) server at /mcp.
+ * "Connect with Claude": an OAuth-protected Model Context Protocol (MCP) server.
  *
- * A user connects their own Claude (Claude Code or the desktop app) to this
- * endpoint and Claude builds a Doot game for them. Doot runs NO inference and
- * stores no API keys; it only exposes deterministic, read-only tools over the
- * server-safe markdown format. The user's Claude writes a spec, validates it
- * here, and the user pastes it into the editor's Import box.
+ * A user links their Doot account inside claude.ai (or Claude Code) and Claude
+ * builds games for them. Doot runs NO inference; it exposes deterministic tools
+ * over the server-safe markdown format, and a `save_game` tool that writes the
+ * game straight to the signed-in user's account. Auth is OAuth 2.1 via the
+ * better-auth `mcp` plugin (see server/utils/auth.ts and the /.well-known routes);
+ * `withMcpAuth` validates the bearer token and hands us the user. No keys stored,
+ * no inference billed.
  *
- * Transport: stateless Streamable HTTP (JSON-RPC 2.0 over POST, one JSON
- * response per request). No sessions, no server-initiated SSE, no auth in v1.
- * An OAuth-protected `save_game` tool can come later (see
- * docs/plugin-authoring-roadmap.md), which is the only part that needs auth.
+ * Transport: stateless Streamable HTTP (JSON-RPC 2.0 over POST). An unauthenticated
+ * POST gets a 401 with a WWW-Authenticate pointing at the protected-resource
+ * metadata, which is how Claude discovers the OAuth flow.
  */
 import { gameCatalog } from '@doot-games/games/catalog'
 import { parseMarkdownGame } from '@doot-games/games/markdown'
+import { withMcpAuth } from 'better-auth/plugins'
 
 const SERVER_INFO = { name: 'doot', title: 'Doot', version: '0.1.0' }
 const DEFAULT_PROTOCOL = '2025-06-18'
+const BASE = process.env.PUBLIC_BASE_URL || 'http://localhost:3000'
 
-const FORMAT_GUIDE = `Write a Doot party game as a Markdown spec. The user pastes it into Doot's editor: open Create, pick the Custom game type, click "Import from Markdown", paste, Import. Output ONLY the spec, no commentary, no code fences.
+const FORMAT_GUIDE = `Write a Doot party game as a Markdown spec, then call save_game to add it to the user's Doot account. Output ONLY the spec when you show it, no code fences.
 
 # Game Title
 theme: doot            (optional, before the first round; one of: doot, cutesie, cyber, professional, playful)
@@ -48,34 +51,41 @@ prompt: Rate tonight's playlist
 categories: Energy, Variety
 scale: 1-10
 
-## poll
-prompt: Where to next?
-- The bar down the street
-- Stay here
-- Call it a night
-
-Mix the round types for variety. After writing a spec, call validate_doot_game to check it, then give the user the final spec to paste into Doot.`
+Mix the round types for variety. Validate with validate_doot_game, then save_game.`
 
 const TOOLS = [
   {
     name: 'list_game_types',
     description:
-      'List the Doot game types. Some are ready-made games the user can remix; others are simple building blocks to fill with your own content.',
+      'List the Doot game types. Some are ready-made games to remix; others are simple building blocks to fill with your own content.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'doot_format_guide',
-    description:
-      'Get the Doot markdown game format. Read this, then write a game as markdown and check it with validate_doot_game.',
+    description: 'Get the Doot markdown game format. Read this, then write a game and check it with validate_doot_game.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'validate_doot_game',
     description:
-      'Validate a Doot game written in the markdown format. Returns the parsed title, theme, rounds, and any warnings to fix. Call this until there are no warnings, then give the user the spec to paste into Doot.',
+      'Validate a Doot game written in the markdown format. Returns the parsed title, theme, rounds, and any warnings to fix. Call until clean, then save_game.',
     inputSchema: {
       type: 'object',
       properties: { markdown: { type: 'string', description: 'The game spec in Doot markdown format.' } },
+      required: ['markdown'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'save_game',
+    description:
+      "Save a Doot game (in the markdown format) to the signed-in user's account and return a link to open it. Validate it first.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        markdown: { type: 'string', description: 'The game spec in Doot markdown format.' },
+        title: { type: 'string', description: 'Optional title override.' },
+      },
       required: ['markdown'],
       additionalProperties: false,
     },
@@ -85,7 +95,7 @@ const TOOLS = [
 type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: boolean }
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: t }], isError })
 
-function callTool(name: string, args: Record<string, unknown>): ToolResult {
+async function callTool(name: string, args: Record<string, unknown>, userId: string): Promise<ToolResult> {
   if (name === 'list_game_types') {
     const types = gameCatalog.map((g) => ({
       id: g.id,
@@ -95,31 +105,49 @@ function callTool(name: string, args: Record<string, unknown>): ToolResult {
     }))
     return text(JSON.stringify(types, null, 2))
   }
-  if (name === 'doot_format_guide') {
-    return text(FORMAT_GUIDE)
-  }
-  if (name === 'validate_doot_game') {
+  if (name === 'doot_format_guide') return text(FORMAT_GUIDE)
+  if (name === 'validate_doot_game' || name === 'save_game') {
     const md = typeof args.markdown === 'string' ? args.markdown : ''
     if (!md.trim()) return text('Provide the game as markdown in the "markdown" argument.', true)
     if (md.length > 50_000) return text('Spec too long (50000 character limit).', true)
     const parsed = parseMarkdownGame(md)
-    const rounds = parsed.rounds.map((r, i) => {
-      const c = r.content as Record<string, unknown>
-      return { n: i + 1, block: r.block, prompt: typeof c.prompt === 'string' ? c.prompt : '' }
-    })
-    const ok = parsed.warnings.length === 0
+    if (name === 'validate_doot_game') {
+      const rounds = parsed.rounds.map((r, i) => {
+        const c = r.content as Record<string, unknown>
+        return { n: i + 1, block: r.block, prompt: typeof c.prompt === 'string' ? c.prompt : '' }
+      })
+      const ok = parsed.warnings.length === 0
+      return text(
+        JSON.stringify(
+          {
+            ok,
+            title: parsed.title,
+            theme: parsed.themeId ?? null,
+            roundCount: parsed.rounds.length,
+            rounds,
+            warnings: parsed.warnings,
+            next: ok ? 'Valid. Call save_game to add it to the account.' : 'Fix the warnings, then validate again.',
+          },
+          null,
+          2,
+        ),
+      )
+    }
+    // save_game
+    if (!parsed.rounds.length) {
+      return text(`No valid rounds were parsed. ${parsed.warnings.join(' ')}`, true)
+    }
+    const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : parsed.title
+    const rounds = parsed.rounds.map((r) => ({ block: r.block, content: r.content as Record<string, unknown> }))
+    const { id } = await createGame({ pluginId: 'custom', visibility: 'private', config: { title, rounds } }, userId)
     return text(
       JSON.stringify(
         {
-          ok,
-          title: parsed.title,
-          theme: parsed.themeId ?? null,
-          roundCount: parsed.rounds.length,
-          rounds,
+          saved: true,
+          gameId: id,
+          openUrl: `${BASE}/editor/g/${id}`,
           warnings: parsed.warnings,
-          next: ok
-            ? 'Valid. Give the user this exact markdown to paste into Doot (Create, Custom game type, Import from Markdown).'
-            : 'Fix the warnings, then call validate_doot_game again.',
+          message: 'Saved to the account (private). Open the link to review, theme, and host it.',
         },
         null,
         2,
@@ -131,7 +159,7 @@ function callTool(name: string, args: Record<string, unknown>): ToolResult {
 
 type RpcMessage = { jsonrpc?: string; id?: string | number | null; method?: string; params?: Record<string, unknown> }
 
-function handleRpc(msg: RpcMessage): object | null {
+async function handleRpc(msg: RpcMessage, userId: string): Promise<object | null> {
   if (!msg || typeof msg !== 'object') {
     return { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } }
   }
@@ -147,7 +175,7 @@ function handleRpc(msg: RpcMessage): object | null {
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
         instructions:
-          'Build a Doot party game: call doot_format_guide, write a markdown spec, check it with validate_doot_game, then give the user the spec to paste into Doot.',
+          'Build a Doot party game: call doot_format_guide, write a markdown spec, validate it, then save_game to add it to the account.',
       })
     case 'notifications/initialized':
     case 'notifications/cancelled':
@@ -161,7 +189,7 @@ function handleRpc(msg: RpcMessage): object | null {
       const args = (params?.arguments ?? {}) as Record<string, unknown>
       if (typeof name !== 'string') return fail(-32602, 'Invalid params: missing tool name')
       try {
-        return ok(callTool(name, args))
+        return ok(await callTool(name, args, userId))
       } catch (e) {
         return ok(text(`Tool error: ${e instanceof Error ? e.message : String(e)}`, true))
       }
@@ -171,33 +199,31 @@ function handleRpc(msg: RpcMessage): object | null {
   }
 }
 
-export default defineEventHandler(async (event) => {
-  if (event.method === 'GET' || event.method === 'DELETE') {
-    // Stateless tools server: no server-initiated SSE stream, no sessions.
-    setResponseStatus(event, 405)
-    setResponseHeader(event, 'Allow', 'POST')
-    return { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'POST-only MCP endpoint (stateless).' } }
-  }
-  if (event.method !== 'POST') {
-    setResponseStatus(event, 405)
-    return ''
-  }
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
 
+// withMcpAuth validates the OAuth bearer token; an unauthenticated request gets a
+// 401 + WWW-Authenticate pointing Claude at the protected-resource metadata.
+const mcpHandler = withMcpAuth(useAuth(), async (req, session) => {
   let body: unknown
   try {
-    body = await readBody(event)
+    body = await req.json()
   } catch {
-    return { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }
+    return json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } })
   }
-
+  const userId = session.userId
   const messages = Array.isArray(body) ? (body as RpcMessage[]) : [body as RpcMessage]
-  const responses = messages.map(handleRpc).filter((r): r is object => r !== null)
+  const settled = await Promise.all(messages.map((m) => handleRpc(m, userId)))
+  const responses = settled.filter((r): r is object => r !== null)
+  if (responses.length === 0) return new Response(null, { status: 202 })
+  return json(Array.isArray(body) ? responses : responses[0])
+})
 
-  if (responses.length === 0) {
-    // The batch was only notifications/responses: acknowledge with no body.
-    setResponseStatus(event, 202)
+export default defineEventHandler((event) => {
+  if (event.method !== 'POST') {
+    setResponseStatus(event, 405)
+    setResponseHeader(event, 'Allow', 'POST')
     return ''
   }
-  setResponseHeader(event, 'Content-Type', 'application/json')
-  return Array.isArray(body) ? responses : responses[0]
+  return mcpHandler(toWebRequest(event))
 })

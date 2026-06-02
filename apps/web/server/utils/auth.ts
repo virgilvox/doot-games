@@ -12,7 +12,7 @@ import { LibsqlDialect } from '@libsql/kysely-libsql'
 import { hash, verify } from '@node-rs/argon2'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
-import { username } from 'better-auth/plugins'
+import { mcp, username } from 'better-auth/plugins'
 import { databaseUrl } from './db'
 
 /**
@@ -46,7 +46,7 @@ const validateProfile = createAuthMiddleware(async (ctx) => {
 export const RESERVED_HANDLES = new Set([
   'account', 'login', 'logout', 'signup', 'explore', 'create', 'host', 'play',
   'g', 'u', 'mine', 'support', 'api', 'editor', 'admin', 'doot', 'help', 'about',
-  'connect', 'mcp',
+  'connect', 'mcp', 'oauth',
 ])
 
 /** Handle (username) shape: 3-24 chars, lowercase letters/digits/underscore. */
@@ -76,7 +76,7 @@ const trustedOrigins = [
   'http://localhost:3000',
 ].filter((o): o is string => !!o)
 
-export const authOptions: BetterAuthOptions = {
+export const authOptions = {
   appName: 'Doot',
   database: { dialect: new LibsqlDialect({ url: databaseUrl() }), type: 'sqlite' },
   secret,
@@ -103,6 +103,20 @@ export const authOptions: BetterAuthOptions = {
       validationOrder: { username: 'post-normalization' },
       usernameValidator: (u) => isValidHandle(u),
     }),
+    // "Connect with Claude": make Doot an OAuth provider for MCP so a user can link
+    // their account inside claude.ai (or Claude Code) and have Claude save games
+    // straight to their account. Adds the oidc tables (created at startup) plus the
+    // authorize / token / consent / dynamic-client-registration endpoints under
+    // /api/auth. The protected resource is the /mcp endpoint (see server/routes/mcp.ts).
+    mcp({
+      loginPage: '/login',
+      resource: `${baseURL || 'http://localhost:3000'}/mcp`,
+      oidcConfig: {
+        loginPage: '/login',
+        consentPage: '/oauth/consent',
+        allowDynamicClientRegistration: true,
+      },
+    }),
   ],
   // A short public bio. Auto-migrated as an additional `user` column.
   user: {
@@ -114,12 +128,20 @@ export const authOptions: BetterAuthOptions = {
   hooks: { before: validateProfile },
   // Throttle auth endpoints (per IP) to blunt brute-force and signup spam.
   rateLimit: { enabled: true, window: 60, max: 20 },
-}
+  // `satisfies` (not a `: BetterAuthOptions` annotation) so the plugin-augmented
+  // api types (e.g. the mcp plugin's getMcpSession) survive inference for callers
+  // like withMcpAuth and the /.well-known discovery routes.
+} satisfies BetterAuthOptions
 
-let instance: ReturnType<typeof betterAuth> | null = null
+/** Build the instance once; the inferred return type carries the plugin api
+ *  (e.g. the mcp plugin's getMcpSession) so typed callers like withMcpAuth work. */
+function createAuth() {
+  return betterAuth(authOptions)
+}
+let instance: ReturnType<typeof createAuth> | null = null
 
 /** The shared better-auth instance. */
-export function useAuth() {
-  if (!instance) instance = betterAuth(authOptions)
+export function useAuth(): ReturnType<typeof createAuth> {
+  if (!instance) instance = createAuth()
   return instance
 }
