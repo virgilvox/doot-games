@@ -41,11 +41,15 @@ function isBlockedIp(ip: string): boolean {
 }
 
 async function assertPublicHost(hostname: string): Promise<void> {
-  if (net.isIP(hostname)) {
-    if (isBlockedIp(hostname)) throw new Error('blocked')
+  // A URL's hostname for an IPv6 literal arrives bracketed (e.g. "[::1]"), and
+  // net.isIP rejects the bracketed form, so strip the brackets first or the
+  // literal-IP block below never runs (it would fall through to a DNS lookup).
+  const host = hostname.replace(/^\[/, '').replace(/\]$/, '')
+  if (net.isIP(host)) {
+    if (isBlockedIp(host)) throw new Error('blocked')
     return
   }
-  const resolved = await dnsPromises.lookup(hostname, { all: true })
+  const resolved = await dnsPromises.lookup(host, { all: true })
   if (!resolved.length) throw new Error('unresolvable')
   for (const { address } of resolved) if (isBlockedIp(address)) throw new Error('blocked')
 }
