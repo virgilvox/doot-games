@@ -30,8 +30,16 @@ export default defineNitroPlugin(async () => {
       try {
         await client.execute(stmt)
       } catch (err) {
-        // Existing table/column, or the UNIQUE-column ALTER on `user`; safe to skip.
-        console.warn('[doot] auth migration statement skipped:', err instanceof Error ? err.message : err)
+        const msg = err instanceof Error ? err.message : String(err)
+        // Benign + expected on a redeploy: the table/column/index already exists, or
+        // it's the username UNIQUE-column ALTER SQLite rejects (handled by the manual
+        // fallback below). Anything else is a real failure, so log it LOUDLY (not
+        // silently) rather than booting "fine" and 500ing at runtime.
+        if (/already exists|duplicate column|cannot add a unique column|duplicate index/i.test(msg)) {
+          // expected, ignore quietly
+        } else {
+          console.error('[doot] auth migration statement FAILED (investigate):', msg)
+        }
       }
     }
   } catch (err) {

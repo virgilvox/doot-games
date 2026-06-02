@@ -20,6 +20,24 @@ import { withMcpAuth } from 'better-auth/plugins'
 const SERVER_INFO = { name: 'doot', title: 'Doot', version: '0.1.0' }
 const DEFAULT_PROTOCOL = '2025-06-18'
 const BASE = process.env.PUBLIC_BASE_URL || 'http://localhost:3000'
+const KNOWN_THEMES = new Set(['doot', 'cutesie', 'cyber', 'professional', 'playful'])
+
+// Per-user write throttle for the write tools (save_game/upload_image). /mcp is
+// not covered by the per-IP middleware, and per-user is the right key here since
+// all Claude traffic can share egress IPs. In-memory fixed window, fine for the
+// single-instance deploy. Reads are cheap and stay unthrottled.
+const writeWindow = new Map<string, { count: number; resetAt: number }>()
+function writeAllowed(userId: string): boolean {
+  const now = Date.now()
+  const b = writeWindow.get(userId)
+  if (!b || b.resetAt <= now) {
+    if (writeWindow.size > 5000) for (const [k, v] of writeWindow) if (v.resetAt <= now) writeWindow.delete(k)
+    writeWindow.set(userId, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  b.count++
+  return b.count <= 30
+}
 
 const FORMAT_GUIDE = `Write a Doot party game as a Markdown spec, then call save_game to add it to the user's Doot account. Output ONLY the spec when you show it, no code fences.
 
@@ -53,17 +71,22 @@ scale: 1-10
 
 Mix the round types for variety. Validate with validate_doot_game, then save_game.`
 
+// Each tool carries `annotations` (title + readOnlyHint). Reads and writes are
+// separate tools and writes are flagged not-read-only, which the Claude connector
+// directory requires (see docs/connect-claude.md).
 const TOOLS = [
   {
     name: 'list_game_types',
     description:
       'List the Doot game types. Some are ready-made games to remix; others are simple building blocks to fill with your own content.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'List Doot game types', readOnlyHint: true },
   },
   {
     name: 'doot_format_guide',
     description: 'Get the Doot markdown game format. Read this, then write a game and check it with validate_doot_game.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'Read the Doot game format', readOnlyHint: true },
   },
   {
     name: 'validate_doot_game',
@@ -75,6 +98,7 @@ const TOOLS = [
       required: ['markdown'],
       additionalProperties: false,
     },
+    annotations: { title: 'Validate a Doot game', readOnlyHint: true },
   },
   {
     name: 'save_game',
@@ -89,6 +113,19 @@ const TOOLS = [
       required: ['markdown'],
       additionalProperties: false,
     },
+    annotations: { title: 'Save a Doot game to the account', readOnlyHint: false },
+  },
+  {
+    name: 'upload_image',
+    description:
+      'Fetch an image from a public https URL and host it on Doot, returning a Doot image URL to use as the "image:" field on a round (guess, poll, rate, or draw). PNG, JPEG, GIF, or WebP, up to 5MB.',
+    inputSchema: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'A public https URL of a PNG, JPEG, GIF, or WebP image.' } },
+      required: ['url'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Upload an image to Doot', readOnlyHint: false },
   },
 ]
 
@@ -134,24 +171,60 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
       )
     }
     // save_game
+    if (!writeAllowed(userId)) return text('Too many saves in a short time. Wait a minute and try again.', true)
     if (!parsed.rounds.length) {
       return text(`No valid rounds were parsed. ${parsed.warnings.join(' ')}`, true)
     }
-    const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : parsed.title
-    const rounds = parsed.rounds.map((r) => ({ block: r.block, content: r.content as Record<string, unknown> }))
-    const { id } = await createGame({ pluginId: 'custom', visibility: 'private', config: { title, rounds } }, userId)
+    const rawTitle = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : parsed.title
+    const allRounds = parsed.rounds.map((r) => ({ block: r.block, content: r.content as Record<string, unknown> }))
+    const rounds = allRounds.slice(0, 50)
+    const themeId = parsed.themeId && KNOWN_THEMES.has(parsed.themeId) ? parsed.themeId : undefined
+    // Validate through the same schema the web route uses (title<=120, rounds<=50,
+    // etc.) so the MCP path can't store an oversized or malformed game.
+    const input = gameInputSchema.safeParse({
+      pluginId: 'custom',
+      visibility: 'private',
+      themeId,
+      config: { title: rawTitle.slice(0, 120), rounds },
+    })
+    if (!input.success) {
+      return text(`Could not save: ${input.error.issues.map((i) => i.message).join('; ')}`, true)
+    }
+    const { id } = await createGame(input.data, userId)
     return text(
       JSON.stringify(
         {
           saved: true,
           gameId: id,
           openUrl: `${BASE}/editor/g/${id}`,
+          theme: themeId ?? 'doot',
+          roundsSaved: rounds.length,
+          droppedRounds: allRounds.length - rounds.length,
           warnings: parsed.warnings,
           message: 'Saved to the account (private). Open the link to review, theme, and host it.',
         },
         null,
         2,
       ),
+    )
+  }
+  if (name === 'upload_image') {
+    if (!writeAllowed(userId)) return text('Too many uploads in a short time. Wait a minute and try again.', true)
+    if (!isStorageConfigured()) return text('Image upload is not set up on this Doot instance.', true)
+    const src = typeof args.url === 'string' ? args.url.trim() : ''
+    if (!src) return text('Provide an image URL in the "url" argument.', true)
+    let img: { contentType: string; bytes: Uint8Array }
+    try {
+      img = await fetchImage(src)
+    } catch (e) {
+      return text(e instanceof Error ? e.message : 'Could not fetch the image.', true)
+    }
+    const ext = extensionFor(img.contentType)
+    if (!ext) return text('Unsupported image type.', true)
+    const key = `uploads/${userId}/${crypto.randomUUID()}.${ext}`
+    const imageUrl = await uploadObject(key, img.contentType, img.bytes)
+    return text(
+      JSON.stringify({ uploaded: true, imageUrl, message: 'Use this URL as the "image:" field on a round.' }, null, 2),
     )
   }
   return text(`Unknown tool: ${name}`, true)

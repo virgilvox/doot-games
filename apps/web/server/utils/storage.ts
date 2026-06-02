@@ -51,18 +51,40 @@ export interface PresignedUpload {
   headers: Record<string, string>
 }
 
-/** Presign a direct browser PUT for `objectKey`. */
-export async function presignUpload(objectKey: string, contentType: string): Promise<PresignedUpload> {
-  const cfg = readConfig()
-  if (!cfg) throw createError({ statusCode: 501, statusMessage: 'Uploads are not configured.' })
-  const client = new AwsClient({
+function awsClient(cfg: StorageConfig): AwsClient {
+  return new AwsClient({
     accessKeyId: cfg.accessKey,
     secretAccessKey: cfg.secretKey,
     region: cfg.region,
     service: 's3',
   })
+}
+
+/** Presign a direct browser PUT for `objectKey`. */
+export async function presignUpload(objectKey: string, contentType: string): Promise<PresignedUpload> {
+  const cfg = readConfig()
+  if (!cfg) throw createError({ statusCode: 501, statusMessage: 'Uploads are not configured.' })
   const objectUrl = `${cfg.endpoint}/${cfg.bucket}/${objectKey}`
   const headers = { 'content-type': contentType, 'x-amz-acl': 'public-read' }
-  const signed = await client.sign(objectUrl, { method: 'PUT', headers, aws: { signQuery: true } })
+  const signed = await awsClient(cfg).sign(objectUrl, { method: 'PUT', headers, aws: { signQuery: true } })
   return { uploadUrl: signed.url, publicUrl: `${cfg.publicBase}/${objectKey}`, headers }
+}
+
+/**
+ * Server-side upload: sign and PUT the bytes ourselves (used by the MCP
+ * `upload_image` tool, which fetches an image and re-hosts it). Returns the public
+ * URL. Browsers use {@link presignUpload} instead so bytes never pass through us.
+ */
+export async function uploadObject(objectKey: string, contentType: string, body: Uint8Array): Promise<string> {
+  const cfg = readConfig()
+  if (!cfg) throw createError({ statusCode: 501, statusMessage: 'Uploads are not configured.' })
+  const objectUrl = `${cfg.endpoint}/${cfg.bucket}/${objectKey}`
+  const res = await awsClient(cfg).fetch(objectUrl, {
+    method: 'PUT',
+    headers: { 'content-type': contentType, 'x-amz-acl': 'public-read' },
+    // Uint8Array is a valid fetch body at runtime; cast past the lib's stricter BodyInit.
+    body: body as unknown as BodyInit,
+  })
+  if (!res.ok) throw createError({ statusCode: 502, statusMessage: `Storage upload failed (${res.status}).` })
+  return `${cfg.publicBase}/${objectKey}`
 }
