@@ -40,6 +40,11 @@ export interface DeriveSource {
   content: unknown
   inputs: Map<string, unknown>
   render: (input: unknown) => string
+  /** The source round's withheld answer key, if it has one (a runtime-derived or
+   *  assigned key like the faker round's `{ fakerPid, word }`, or a static
+   *  `answerOf`). Lets a judge round learn a hidden fact about its make round (who
+   *  the imposter is) without it ever reaching the relay. Undefined for most. */
+  answer?: unknown
 }
 
 /**

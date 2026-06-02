@@ -48,6 +48,32 @@ describe('buildDeriveContent', () => {
     const derive = buildDeriveContent(plugin, config, 'seed', players)
     expect(derive(0, () => new Map())).toBeUndefined() // round 0 is a quip (no derive)
   })
+  it('threads the source round answer key into the derive context (faker -> accuse)', () => {
+    // A 'probe' block whose derive echoes back the source answer it was handed, to
+    // prove the getAnswerKey accessor reaches sources[i].answer.
+    const probe = {
+      kind: 'probe',
+      name: 'Probe',
+      contentSchema: quipBlock.contentSchema,
+      defaultContent: () => ({}),
+      emptyInput: () => ({ text: '' }),
+      PlayerInput: {} as never,
+      HostDisplay: {} as never,
+      derive: (ctx: { sources: Array<{ answer?: unknown }> }) => ({ publish: {}, answer: ctx.sources[0]?.answer }),
+    } as never
+    const probePlugin = { ...(plugin as object), blocks: [quipBlock, probe] } as never
+    const probeConfig: GameComposition = {
+      title: 'T',
+      rounds: [
+        { block: 'quip', content: { prompt: 'P', placeholder: '', maxLength: 80, timer: null } },
+        { block: 'probe', content: {} },
+      ],
+    }
+    const derive = buildDeriveContent(probePlugin, probeConfig, 'seed', players, (i) =>
+      i === 0 ? { fakerPid: 'A', word: 'Banana' } : undefined,
+    )
+    expect(derive(1, () => new Map())?.answer).toEqual({ fakerPid: 'A', word: 'Banana' })
+  })
 })
 
 describe('buildRevealSummary', () => {

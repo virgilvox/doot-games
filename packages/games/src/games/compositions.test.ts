@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { getBlock } from '../runtime/derive'
 import { backronym } from './backronym'
 import { ballpark } from './ballpark'
+import { faker } from './faker'
 import { hivemind } from './hivemind'
 import { mostLikely } from './mostlikely'
 import { openMic } from './openmic'
@@ -77,6 +78,17 @@ describe('cheap-wins batch shapes', () => {
       expect(rounds.every((r) => r.block === kind)).toBe(true)
     })
   }
+
+  it('Faker builds faker -> accuse pairs and withholds the secret word', () => {
+    const rounds = faker.buildConfig!('seed', { rounds: 2 }).rounds
+    expect(rounds.map((r) => r.block)).toEqual(['faker', 'accuse', 'faker', 'accuse'])
+    const block = getBlock(faker, 'faker')!
+    const makeContent = rounds[0]!.content as { word: string }
+    // The authored content carries the secret word...
+    expect(makeContent.word.length).toBeGreaterThan(0)
+    // ...but the redacted (published) content strips it.
+    expect((block.redactContent!(makeContent) as { word: string }).word).toBe('')
+  })
 
   it('Ballpark withholds the answer in published content but keeps it in the pool', () => {
     const round = ballpark.buildConfig!('seed', { rounds: 1 }).rounds[0]!

@@ -42,6 +42,7 @@ const VISUALS: Record<string, GameVisual> = {
   hivemind: { color: 'var(--c3)', icon: 'grid' },
   'most-likely': { color: 'var(--c1)', icon: 'check' },
   ballpark: { color: 'var(--c4)', icon: 'bars' },
+  faker: { color: 'var(--c2)', icon: 'question' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },
@@ -51,6 +52,7 @@ const VISUALS: Record<string, GameVisual> = {
   fibvote: { color: 'var(--c2)', icon: 'check' },
   drawvote: { color: 'var(--c2)', icon: 'squiggle' },
   mostlikely: { color: 'var(--c1)', icon: 'check' },
+  accuse: { color: 'var(--c5)', icon: 'check' },
   custom: { color: 'var(--c1)', icon: 'grid' },
 }
 

@@ -5,9 +5,11 @@
  * composition at once.
  */
 import { defineGame } from '@doot-games/sdk'
+import { accuseBlock } from '../blocks/accuse/block'
 import { ballparkBlock } from '../blocks/ballpark/block'
 import { drawBlock } from '../blocks/draw/block'
 import { drawVoteBlock } from '../blocks/drawvote/block'
+import { fakerBlock } from '../blocks/faker/block'
 import { guessBlock } from '../blocks/guess/block'
 import { hivemindBlock } from '../blocks/hivemind/block'
 import { mostLikelyBlock } from '../blocks/mostlikely/block'
@@ -29,6 +31,8 @@ export const custom = defineGame({
   // with `vote: true` expands to draw + drawvote) can host and edit as a Custom
   // game. It is derived (built from the prior draw round), so the editor's
   // add-round menu hides it; it is only created by the markdown expansion.
+  // faker + accuse are the hidden-role pair: `faker` assigns the secret roles,
+  // `accuse` is derived from it (so the add-round menu hides accuse like drawvote).
   blocks: [
     guessBlock,
     rateBlock,
@@ -39,6 +43,8 @@ export const custom = defineGame({
     hivemindBlock,
     mostLikelyBlock,
     ballparkBlock,
+    fakerBlock,
+    accuseBlock,
   ],
   defaultConfig: {
     title: 'Custom Game',

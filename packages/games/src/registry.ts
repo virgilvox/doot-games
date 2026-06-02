@@ -8,6 +8,7 @@ import { ballpark } from './games/ballpark'
 import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
 import { draw } from './games/draw'
+import { faker } from './games/faker'
 import { fibFinder } from './games/fibfinder'
 import { guess } from './games/guess'
 import { hivemind } from './games/hivemind'
@@ -42,6 +43,7 @@ export const builtinPlugins: GamePlugin[] = [
   hivemind,
   mostLikely,
   ballpark,
+  faker,
   custom,
 ]
 

@@ -177,6 +177,12 @@ export function buildDeriveContent(
   config: GameComposition,
   seed: string,
   getPlayers: () => ScorePlayer[],
+  /** Read a round's withheld answer key (host-side), so a judge round can learn a
+   *  hidden fact about its make round (e.g. who the faker is). The host passes
+   *  `room.answerKeyFor`, which returns a runtime-assigned/derived key if present.
+   *  Omitted by callers that have no answer keys; sources then carry `answer:
+   *  undefined`, which the common judge blocks (vote) ignore. */
+  getAnswerKey?: (i: number) => unknown,
 ): (
   index: number,
   inputsFor: (i: number) => Map<string, unknown>,
@@ -196,6 +202,10 @@ export function buildDeriveContent(
           index: i,
           content: srcInst.content,
           inputs: inputsFor(i),
+          // The source round's withheld answer key (e.g. the faker round's
+          // { fakerPid, word }), read host-side so a judge round can use a hidden
+          // fact without it ever reaching the relay. Undefined when there is none.
+          answer: getAnswerKey?.(i),
           // Render a source submission to votable text via its block's toVoteText
           // (e.g. Mad Libs fills its template), else fall back to a `.text` field.
           render: (input: unknown) =>

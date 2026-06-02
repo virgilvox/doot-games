@@ -35,6 +35,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'hivemind', name: 'Hivemind', version: '0.1.0', flagship: true, description: 'Answer the prompt like everyone else; matching the crowd is the whole game.' },
   { id: 'most-likely', name: 'Most Likely To', version: '0.1.0', flagship: true, description: "Vote a player for each 'most likely to...' prompt; the room's pick is revealed." },
   { id: 'ballpark', name: 'Ballpark', version: '0.1.0', flagship: true, description: 'Numeric trivia where the closest guess wins. Get in the ballpark.' },
+  { id: 'faker', name: 'Faker', version: '0.1.0', flagship: true, description: 'Everyone gets a secret word except one faker. Give a clue, then sniff out who is bluffing.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -64,4 +65,7 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   fibvote: { truth: '', options: [] },
   // Ballpark's true number is the answer key: null it before serving to a non-owner.
   ballpark: { answer: null },
+  // Faker's secret word is delivered privately per-player; strip it from the public
+  // config so a non-owner (or a spectator) never reads the word from a saved game.
+  faker: { word: '' },
 }

@@ -8,7 +8,7 @@ import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{ name: IconName; size?: number | string }>(), { size: 20 })
 
-type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc' | 'bell'
+type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc' | 'bell' | 'eye' | 'mask'
 
 interface Glyph {
   inner: string
@@ -54,6 +54,15 @@ const ICONS: Record<IconName, Glyph> = {
     // broadcast / on-air, for the delegated MC
     inner:
       '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M7.76 16.24a6 6 0 0 1 0-8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/>',
+  },
+  eye: {
+    // spotting / accusing, for Faker's accuse round
+    inner: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>',
+  },
+  mask: {
+    // incognito glasses, for the faker role
+    inner:
+      '<path d="M2 11h20"/><circle cx="7" cy="13.5" r="3.2"/><circle cx="17" cy="13.5" r="3.2"/><path d="M10.2 13a2 2 0 0 1 3.6 0"/>',
   },
 }
 

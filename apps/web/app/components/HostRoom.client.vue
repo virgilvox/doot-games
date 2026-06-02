@@ -117,7 +117,7 @@ function load() {
     answerKeys: gameAnswerKeys(game, config) as unknown as Record<number, RelayValue>,
     // Two-phase wiring: derive a round's content from earlier inputs at runtime,
     // and publish a public reveal summary so phones can show personal feedback.
-    deriveContent: buildDeriveContent(game, config, roomCode, getPlayers) as never,
+    deriveContent: buildDeriveContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
     assignContent: buildAssignContent(game, config, roomCode, getPlayers) as never,
     revealSummary: buildRevealSummary(
       game,
