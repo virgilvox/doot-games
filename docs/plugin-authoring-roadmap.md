@@ -272,8 +272,10 @@ to a party host now. The sandbox/coder tiers follow.
 1. **Tier 0/1 — the primary surface (do first; no sandbox/bridge/editor/MCP needed):**
    1a. ✅ **Big-screen `HostDisplay` preview** in the editor — Phone/Big-screen toggle,
        host views rendered through a scoped mock-room provider.
-   1b. **Template/remix gallery** (kill the blank page; reuses the clone API). ← next
-   1c. **In-app AI content generation** (topic → filled rounds; markdown round-trip).
+   1b. ✅ **Template gallery** on Create (Remix a ready-made game vs Build from blocks),
+       reusing the catalog split + editor seeding. (Remix of community games on Explore
+       is still a follow-up; most public games default to forkable=off.)
+   1c. **In-app AI content generation** (topic → filled rounds; markdown round-trip). ← next
    1d. **Custom-renderer registry** + authoring quality/a11y guardrails.
 2. **Harden the shipped sandbox.** Origin live ✅, `@doot-games/plugin-bridge` shipped ✅;
    apply the security hardening above (source-pin, rate/size/phase caps, protocol
