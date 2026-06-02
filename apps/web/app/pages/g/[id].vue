@@ -19,6 +19,7 @@ interface SavedGame {
   coverImage: string | null
   forkable: boolean
   isOwner: boolean
+  bookmarked: boolean
   authorName: string | null
   authorHandle: string | null
   config: GameComposition
@@ -41,6 +42,28 @@ const session = authClient.useSession()
 const loggedIn = computed(() => !!session.value?.data?.user)
 const isOwner = computed(() => !!game.value?.isOwner)
 const canFork = computed(() => !isOwner.value && !!game.value?.forkable)
+
+// Bookmark ("save") this game so it shows up under /saved. Logged-out users are
+// sent to log in first; the toggle is optimistic with a rollback on failure.
+const bookmarked = ref(!!game.value?.bookmarked)
+const bmBusy = ref(false)
+async function toggleBookmark() {
+  if (!game.value || bmBusy.value) return
+  if (!loggedIn.value) {
+    await navigateTo(`/login?redirect=${encodeURIComponent(`/g/${game.value.id}`)}`)
+    return
+  }
+  const next = !bookmarked.value
+  bookmarked.value = next // optimistic
+  bmBusy.value = true
+  try {
+    await $fetch(`/api/games/${game.value.id}/bookmark`, { method: next ? 'POST' : 'DELETE' })
+  } catch {
+    bookmarked.value = !next // roll back on failure
+  } finally {
+    bmBusy.value = false
+  }
+}
 
 // Copy this game into a new one I own (your own game, or a forkable one), then
 // open the copy in the editor. The server copies the full config (answers
@@ -138,6 +161,14 @@ async function remove() {
             {{ cloning ? 'Copying…' : loggedIn ? 'Fork this game' : 'Log in to fork' }}
           </button>
           <NuxtLink v-else :to="`/editor/${game.pluginId}`" class="btn btn-ghost btn-lg">Build your own</NuxtLink>
+          <button
+            class="btn btn-ghost btn-lg"
+            :disabled="bmBusy"
+            :aria-pressed="bookmarked"
+            @click="toggleBookmark"
+          >
+            {{ bookmarked ? 'Saved' : loggedIn ? 'Save' : 'Log in to save' }}
+          </button>
         </div>
         <p v-if="cloneError" class="sf-error" role="alert">{{ cloneError }}</p>
 

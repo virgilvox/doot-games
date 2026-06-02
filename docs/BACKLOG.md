@@ -41,7 +41,13 @@ each group; `[size]` is a rough effort hint.
   now link to `/u/@handle` (stretched-link cards); nav shows Account + a "finish your
   profile" nudge. Verified end-to-end on a running server (handle claim/normalize,
   reserved/length rejection, public games shown, private excluded, no email leak, 404).
-- [ ] **C12. Bookmark / save games** so a logged-in user can find them again. `[small-medium]`
+- [x] **C12. Bookmark / save games** so a logged-in user can find them again. Shipped (local,
+  not yet pushed): a `bookmarks` table (user_id, game_id), repo CRUD
+  (`addBookmark`/`removeBookmark`/`isBookmarked`/`listBookmarkedGames`, the listing
+  visibility-filtered so a now-private game drops out), `POST`/`DELETE
+  /api/games/[id]/bookmark` + `GET /api/me/bookmarks`, a `bookmarked` flag on the `/g/[id]`
+  payload, a Save toggle on the detail page (optimistic, login-gated), a `/saved` page and a
+  nav link. Anon endpoints 401; typecheck + build green (authed flow owner-verified on deploy).
 
 ## D. Flagship depth / more content
 - [ ] **D14. The full "What, You Didn't Know That?" gameshow** (`docs/flagship-games.md`

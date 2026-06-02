@@ -13,11 +13,14 @@ export default defineEventHandler(async (event) => {
   // Credit the author by display name (never their email), and surface their
   // @handle so the byline can link to /u/@handle when they've claimed one.
   const author = game.ownerId ? (await authorsFor([game.ownerId])).get(game.ownerId) : undefined
+  // Whether the signed-in viewer has this game bookmarked (drives the save toggle).
+  const bookmarked = user ? await isBookmarked(user.id, id) : false
   // Show the @handle when claimed; only fall back to the display name otherwise
   // (never expose the email-derived name once a handle exists).
   return {
     ...game,
     isOwner,
+    bookmarked,
     authorName: author?.handle ? null : (author?.name ?? null),
     authorHandle: author?.handle ?? null,
   }

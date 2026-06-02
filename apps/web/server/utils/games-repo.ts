@@ -11,8 +11,8 @@
  */
 import { REDACTION_RULES, isKnownPlugin } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
-import { and, desc, eq } from 'drizzle-orm'
-import { type Visibility, games, useDb } from './db'
+import { and, desc, eq, inArray, or } from 'drizzle-orm'
+import { type Visibility, bookmarks, games, useDb } from './db'
 import { authorsFor } from './users'
 
 const roundSchema = z.object({
@@ -358,4 +358,51 @@ export async function getGame(id: string, requesterId: string | null): Promise<S
     config,
     createdAt: row.createdAt,
   }
+}
+
+// ── Bookmarks (C12: save a game to find it again) ───────────────────────────
+
+/** Save a game to a user's bookmarks (idempotent). */
+export async function addBookmark(userId: string, gameId: string): Promise<void> {
+  const db = await useDb()
+  await db.insert(bookmarks).values({ userId, gameId, createdAt: Date.now() }).onConflictDoNothing()
+}
+
+/** Remove a game from a user's bookmarks (idempotent). */
+export async function removeBookmark(userId: string, gameId: string): Promise<void> {
+  const db = await useDb()
+  await db.delete(bookmarks).where(and(eq(bookmarks.userId, userId), eq(bookmarks.gameId, gameId)))
+}
+
+/** Whether the user has this game bookmarked. */
+export async function isBookmarked(userId: string, gameId: string): Promise<boolean> {
+  const db = await useDb()
+  const rows = await db
+    .select({ gameId: bookmarks.gameId })
+    .from(bookmarks)
+    .where(and(eq(bookmarks.userId, userId), eq(bookmarks.gameId, gameId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
+ * A user's bookmarked games, newest save first. Only games still visible to them
+ * (public/unlisted, or their own) are returned, so a game that later went private
+ * drops out of the saved list instead of leaking its title.
+ */
+export async function listBookmarkedGames(userId: string, limit = 100): Promise<SavedGameSummary[]> {
+  const db = await useDb()
+  const rows = await db
+    .select(SUMMARY_COLUMNS)
+    .from(bookmarks)
+    .innerJoin(games, eq(games.id, bookmarks.gameId))
+    .where(
+      and(
+        eq(bookmarks.userId, userId),
+        or(inArray(games.visibility, ['public', 'unlisted']), eq(games.ownerId, userId)),
+      ),
+    )
+    .orderBy(desc(bookmarks.createdAt))
+    .limit(limit)
+  return toSummaries(rows as SummaryRow[])
 }

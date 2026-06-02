@@ -6,11 +6,11 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` deploys to prod via CI, no staging). All of the work below went straight to `main`
 and is live on https://doot.games, verified after each deploy._
 
-> **NOTE (2026-06-02):** the three entries below (games batch, Circuit Cypher TTS fix, phone
-> reveals) are **committed to `main` locally as 3 commits but NOT yet pushed** — prod still
+> **NOTE (2026-06-02):** the entries below (games batch, Circuit Cypher TTS fix, phone
+> reveals, C12 bookmarks) are **committed to `main` locally but NOT yet pushed** — prod still
 > runs the prior code until the owner pushes. Do the real-device TTS listen after pushing.
 > Commits: `games: add Backronym…` / `games,ui: fix Circuit Cypher TTS…` / `games: phone
-> reveal feedback…`.
+> reveal feedback…` / `docs: …` / `web: bookmark/save games (C12)`.
 
 > **Circuit Cypher TTS — true root cause finally found + fixed (2026-06-02, COMMITTED to
 > `main` locally, not yet pushed).** After several prior "fixes" that didn't
@@ -38,6 +38,15 @@ and is live on https://doot.games, verified after each deploy._
 >   headless/short-line conditions that never hit the >15s stall or a device's bad voice.
 > - **Still owner-side:** a real two-device on-device playtest (the audio itself can't be
 >   asserted headlessly), then deploy. Dev server picks up the fix via HMR (reload the host).
+
+> **C12 bookmark / save games (2026-06-02, COMMITTED to `main` locally, not yet pushed).**
+> Logged-in users can save a game and find it again. New `bookmarks` table (user_id,
+> game_id, created_at), repo CRUD (`listBookmarkedGames` is visibility-filtered so a game
+> that later goes private drops out instead of leaking its title), `POST`/`DELETE
+> /api/games/[id]/bookmark` + `GET /api/me/bookmarks`, a `bookmarked` flag on the `/g/[id]`
+> GET, a login-gated optimistic **Save** toggle on the detail page, a **/saved** page and a
+> nav link. Anon endpoints 401 (smoke-checked); typecheck + build green. The authenticated
+> add/list flow is owner-verified on deploy (no headless auth/DB harness here), as with C10/C11.
 
 > **E18 phone-reveal feedback (2026-06-02, COMMITTED to `main` locally, not yet pushed).**
 > Closed the backlog gap where poll/rank/rate/draw showed only a generic "check the big

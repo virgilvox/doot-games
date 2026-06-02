@@ -12,7 +12,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { type Client, createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // Accounts/sessions are owned by better-auth (its own tables); this store holds
 // only game definitions. See server/utils/auth.ts.
@@ -40,6 +40,18 @@ export const games = sqliteTable('games', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
+
+/** A user's bookmark ("save") of a game, so they can find it again. One row per
+ *  (user, game); the user id is better-auth's account id. */
+export const bookmarks = sqliteTable(
+  'bookmarks',
+  {
+    userId: text('user_id').notNull(),
+    gameId: text('game_id').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.gameId] }) }),
+)
 
 /** Game visibility levels. */
 export type Visibility = 'private' | 'unlisted' | 'public'
@@ -91,6 +103,16 @@ async function ensureSchema(c: Client): Promise<void> {
   // Indexes for the listing queries (owner's games, public games).
   await c.execute('CREATE INDEX IF NOT EXISTS games_owner_idx ON games(owner_id)')
   await c.execute('CREATE INDEX IF NOT EXISTS games_visibility_idx ON games(visibility)')
+  // Bookmarks (a user "saving" a game to find later); one row per (user, game).
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      user_id TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, game_id)
+    )
+  `)
+  await c.execute('CREATE INDEX IF NOT EXISTS bookmarks_user_idx ON bookmarks(user_id)')
 }
 
 async function init(): Promise<LibSQLDatabase> {
