@@ -2,9 +2,76 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-01. Branch: `main` (now the GitHub **default** branch, was
-`build/mvp-scaffold`; work on `main` or a branch off it; every push to `main` deploys via CI)._
+_Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every push to
+`main` deploys to prod via CI, no staging). All of the work below went straight to `main`
+and is live on https://doot.games, verified after each deploy._
 
+> **Connect with Claude (MCP) + the plugin-authoring foundation — SHIPPED + DEPLOYED +
+> AUDITED (2026-06-02).** A long session. Full plan in
+> [`docs/plugin-authoring-roadmap.md`](./docs/plugin-authoring-roadmap.md); the
+> Claude integration in [`docs/connect-claude.md`](./docs/connect-claude.md).
+>
+> - **Connect with Claude (the AI rail; owner decision: no Doot-paid AI, no heavy "AI"
+>   copy).** Doot runs a Model Context Protocol server at `https://doot.games/mcp`. v1
+>   was no-auth read-only tools; it is now **OAuth account-linked**: a user adds the
+>   connector in claude.ai (or `claude mcp add`), links their Doot account, and Claude
+>   builds a game and **saves it straight to the account**. Doot runs no inference and
+>   stores no keys. Built on better-auth's **`mcp` plugin** (oidc provider: authorize/
+>   token/consent/DCR) in `server/utils/auth.ts`; discovery at the two `/.well-known/`
+>   routes; the endpoint in `server/routes/mcp.ts` wrapped in `withMcpAuth`; consent
+>   screen at `/oauth/consent`. Tools: `list_game_types`, `doot_format_guide`,
+>   `validate_doot_game` (reads), `save_game`, `upload_image` (writes), all annotated.
+>   **Verified in prod:** existing email/password auth still works (bad creds 401 not
+>   500), oidc tables created on the real DB, discovery + dynamic client registration +
+>   401-challenge all work. **The full claude.ai connect+save handshake needs the owner
+>   to test** (sign in, Allow, ask Claude to build+save); I can't drive claude.ai.
+> - **Migration gotcha (again, the same family as C11).** `auth-migrate.ts` ran
+>   better-auth's schema as one `runMigrations()` batch that **aborts on the first
+>   failure**, and the username UNIQUE-column ALTER always fails on the existing prod
+>   `user` table, so the new **oidc tables would never be created in prod** (dev worked
+>   only because it is a fresh DB). Fixed: run `compileMigrations()` **statement by
+>   statement**, each in try/catch; benign errors (already exists / UNIQUE ALTER) are
+>   ignored, anything else is logged loudly. Proven on a simulated prod DB (drop oidc
+>   tables, keep `user`, restart: tables come back, signin still works).
+> - **`upload_image` is SSRF-guarded** (`server/utils/fetch-image.ts`): Claude hands an
+>   https image URL, Doot fetches it (https only; blocks private/loopback/link-local/
+>   metadata/CGNAT/NAT64/6to4, re-checked per redirect; image content-type; 5MB streamed
+>   cap) and re-hosts it to Spaces via the new `storage.uploadObject`. Returns a media
+>   URL for a round's `image:` field. SSRF rejections unit-verified.
+> - **`/mcp` write throttle.** The per-IP middleware does not cover `/mcp` and Claude
+>   shares egress IPs, so `save_game`/`upload_image` are throttled **per user** (30/min)
+>   in `mcp.ts`. `save_game` also validates through `gameInputSchema` (title<=120,
+>   rounds<=50) and passes the parsed theme through.
+> - **Claude connector directory.** Custom-connector-by-URL works today. To be *listed*
+>   in the in-app directory: a free form submission, ~2 weeks. Doot already meets the
+>   hard parts (OAuth/PRM/DCR/PKCE, Streamable HTTP, tool annotations, read/write split).
+>   **Still needed:** a **privacy policy** page (hard gate), ToS, a square logo + favicon
+>   on doot.games, public docs with examples, a test account. See `docs/connect-claude.md`.
+> - **Plugin sandbox foundation (untrusted external plugins; not wired to users yet).**
+>   `plugins.doot.games` is a live, locked-down static origin (separate origin, strict
+>   CSP, `connect-src 'none'`; safe as a subdomain only because auth cookies are
+>   host-only, see [[doot-plugin-origin-cookie-coupling]]). `@doot-games/plugin-bridge`
+>   is the shipped, hardened, unit-tested host<->plugin postMessage bridge (source-pinned
+>   handshake, flood/size/phase caps, protocol version). The standalone dev harness in
+>   `examples/external-plugin/` **now actually runs** (`npx vite` -> `/dev-host.html`);
+>   it had two latent blockers (zod not resolvable from the folder, null-origin frame
+>   CORS) that are fixed. Design: `docs/external-plugins.md`.
+> - **Tier 0 authoring (the non-coder primary user).** (1) Big-screen **host preview** in
+>   the editor (a Phone / Big screen toggle; host views render through a scoped mock-room
+>   provider, `HostPreview.client.vue`, because they inject the room). (2) **Create is a
+>   template gallery** now: "Remix a ready-made game" (flagships, pre-filled) vs "Build
+>   from blocks" vs "Build it with Claude" -> `/connect`. Both reuse the existing catalog
+>   split + editor seeding; no server changes.
+> - **Style rule from the owner: NO em dashes, no AI-sounding copy** (UI and replies).
+>   See [[doot-no-emdash-no-ai-voice]].
+> - **Remaining roadmap work** (in `docs/plugin-authoring-roadmap.md`, build order):
+>   wire the bridge into the app + serve a real plugin shell on the origin; first-party
+>   blocks through the iframe (needs protocol extension); Tier 2 `CanvasBlock` (Pixi/
+>   Three rounds); Tier 3 in-app `@vue/repl` editor; Tier 1 custom-renderer registry;
+>   external registration/registry. Smaller follow-ups: one-click "Remix" on Explore
+>   (most public games are `forkable: false`); richer block starter content; the
+>   consent-screen client name + an expired-token/unused-DCR-client sweep (audit notes).
+>
 > **C11 user profiles + Circuit Cypher TTS fix — SHIPPED + DEPLOYED + AUDITED (2026-06-01).**
 > Three commits to `main`, all live on https://doot.games and verified in production
 > (`/api/health`, the profile endpoints, the validation hook, both robot verses).
