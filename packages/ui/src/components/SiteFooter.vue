@@ -31,6 +31,7 @@ import DootLogo from './DootLogo.vue'
           <a href="https://github.com/virgilvox/doot-games#deploy" target="_blank" rel="noopener">Self-host</a>
           <a href="https://clasp.to" target="_blank" rel="noopener">Built on CLASP</a>
           <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
         </div>
         <div class="fcol">
           <h5>Support</h5>

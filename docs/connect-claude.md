@@ -75,16 +75,19 @@ To be *listed* in the in-app directory so users find Doot without pasting a URL:
   `/.well-known/oauth-protected-resource`, dynamic client registration, PKCE S256),
   the `https://claude.ai/api/mcp/auth_callback` redirect, tool annotations, separate
   read/write tools, tool names <= 64 chars.
+- **Done:**
+  - A **privacy policy** at `/privacy` (the hard gate) and **terms of service** at
+    `/terms`, both linked from the footer.
+  - A **favicon** at `/favicon.svg` (the doot mark), registered in `nuxt.config.ts`.
 - **Still to prepare:**
-  - A **privacy policy** URL on doot.games (a hard gate; missing/incomplete policy is
-    an immediate rejection) and terms of service; accept the Anthropic Software
-    Directory Terms + Policy.
-  - A **square logo** (SVG or URL) and a matching **favicon** on doot.games; every
-    "allowed link URI" listed must be a doot.games origin.
+  - Accept the Anthropic Software Directory Terms + Policy at submission time.
+  - A dedicated **square logo** asset for the submission form (the favicon covers the
+    browser tab; the directory wants a larger square logo too). Every "allowed link
+    URI" listed must be a doot.games origin.
   - **Public docs** with 3+ usage examples; a **test account** with step-by-step setup
     for reviewers.
   - If shipping an interactive in-chat UI ("Claude App"): MCP App resources + 3 to 5
     PNG screenshots >= 1000px, cropped to the app response (no GIF/video).
 - **Review criteria:** https://claude.com/docs/connectors/building/review-criteria
   (the top rejection causes are missing tool annotations, which we have, and a
-  missing privacy policy, which we do not yet have).
+  missing privacy policy, which we now have).
