@@ -37,6 +37,7 @@ import {
   canSpeak,
   cancelSpeech,
   createArenaAudio,
+  primeSpeech,
   speakVerse,
   warmUpSpeech,
 } from '@doot-games/ui'
@@ -165,9 +166,13 @@ const performMode = ref<'robots' | 'live'>('robots')
 function setMuted(m: boolean) {
   muted.value = m
   audio.value?.setMuted(m)
-  if (m) cancelSpeech()
-  // Unmuting mid-battle: make sure the beat is actually running.
-  else if (mode.value === 'battle') void audio.value?.start()
+  if (m) {
+    cancelSpeech()
+  } else {
+    // Unmuting is a gesture: re-activate speech, and make sure the beat is running.
+    primeSpeech()
+    if (mode.value === 'battle') void audio.value?.start()
+  }
 }
 function mcSay(text: string, onDone?: () => void, onStart?: () => void) {
   if (!muted.value && canSpeak()) announce(text, { onDone, onStart })
@@ -250,10 +255,15 @@ function clearTimers() {
   for (const t of timers) clearTimeout(t)
   timers = []
 }
-/** Hard ceiling on waiting for an MC line, so a muted/failed/never-ending voice
- *  can't stall the show. Generous enough that the long opening welcome line
- *  (~12s of speech) finishes before the cap rather than being cut off. */
-const SPEECH_CAP_MS = 18000
+/** Hard ceiling on waiting for an MC line that STARTED but never reports its end,
+ *  so a wedged voice can't stall the show. Scaled to the line's length (generous,
+ *  ~11 chars/sec) so a short callout advances in a few seconds instead of sitting
+ *  on a flat ~18s ceiling, while the long opening welcome line still finishes
+ *  before the cap rather than being cut off. Clamped both ways. */
+function speechCapMs(text: string, minHold: number): number {
+  const est = Math.min(20000, Math.max(2500, text.length * 90 + 1500))
+  return Math.max(minHold, est)
+}
 /**
  * Speak an MC line, then advance to `next` only once the line FINISHES, so intros
  * are never cut off mid-sentence. The card holds at least `minHold` ms (a visual
@@ -286,7 +296,7 @@ function sayThenAdvance(text: string, next: Fine, minHold: number) {
     }, Math.max(minHold, 1600)),
   )
   // Safety cap in case a voice that DID start never fires onDone.
-  timers.push(setTimeout(go, minHold + SPEECH_CAP_MS))
+  timers.push(setTimeout(go, speechCapMs(text, minHold)))
   mcSay(
     text,
     () => {
@@ -726,8 +736,12 @@ function finishTournament() {
 }
 
 function startGame() {
-  // A user gesture: prime/resume the audio context now so the beat is ready.
+  // A user gesture: prime/resume the audio context AND the speech engine now so
+  // the beat and the robot voices actually play when the battle starts later (the
+  // first real line is fired from a timer, which some browsers would otherwise
+  // drop unless speech was activated within an interaction).
   audio.value?.setMuted(muted.value)
+  primeSpeech()
   room.host.start()
 }
 

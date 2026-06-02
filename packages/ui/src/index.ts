@@ -47,6 +47,7 @@ export {
   canSpeak,
   cancelSpeech,
   warmUpSpeech,
+  primeSpeech,
   speakLines,
   announce,
   speakVerse,
@@ -55,7 +56,6 @@ export { playDing } from './audio/sfx'
 // The procedural arena audio engine (beat + analyser + SFX; raw Web Audio, SSR-safe).
 export { type ArenaAudio, type ArenaLevels, canPlayArenaAudio, createArenaAudio } from './audio/arena'
 export { default as RobotRapper } from './components/RobotRapper.vue'
-export { default as RobotBattle } from './components/RobotBattle.vue'
 // The 3D rap-battle arena (lazy Three.js, client-only, SSR-safe).
 export { default as RapBattleStage } from './components/RapBattleStage.vue'
 

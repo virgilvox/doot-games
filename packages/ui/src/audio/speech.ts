@@ -53,6 +53,28 @@ export function warmUpSpeech(): void {
 }
 
 /**
+ * Activate the speech engine from inside a user gesture (e.g. the host pressing
+ * "Start"). Some browsers drop the FIRST `speak()` of a session unless it follows
+ * a real interaction; speaking a near-silent, near-empty utterance now means the
+ * first real robot line later (fired from a timer) actually plays. Safe no-op
+ * where speech is unavailable.
+ */
+export function primeSpeech(): void {
+  if (!canSpeak()) return
+  try {
+    const synth = window.speechSynthesis
+    synth.getVoices()
+    const u = new window.SpeechSynthesisUtterance(' ')
+    u.volume = 0
+    synth.cancel()
+    synth.speak(u)
+    synth.resume()
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * Chrome can wedge `speechSynthesis` into a paused state after a `cancel()`, so a
  * following `speak()` produces no sound. Calling `resume()` unwedges it; harmless
  * no-op when nothing is paused.
@@ -76,14 +98,24 @@ export function cancelSpeech(): void {
  * voices are the reliable ones; network voices can fail silently. The MC and the
  * two robots are differentiated by pitch/rate, not by choosing different voices.
  */
+// Well-known female voice names across macOS / Windows / Chrome / Android, plus an
+// explicit "female" marker. The Circuit Cypher MC has always been a female voice
+// (on macOS the default is "Samantha"); we pick one explicitly rather than trusting
+// the platform `default` flag, which Chrome does not reliably set, so it would
+// otherwise fall back to whatever local voice sorts first (often a male one).
+const FEMALE_VOICE =
+  /(samantha|victoria|karen|moira|tessa|fiona|serena|allison|ava|susan|zoe|nicky|female|zira|aria|jenny|michelle|hazel|eva|sonia|clara|nora)/i
+
 function reliableVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices()
   if (!voices.length) return undefined
   const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang))
   const pool = en.length ? en : voices
   return (
+    pool.find((v) => v.localService && FEMALE_VOICE.test(v.name)) ?? // reliable + female (e.g. Samantha)
     pool.find((v) => v.default && v.localService) ??
     pool.find((v) => v.localService) ??
+    pool.find((v) => FEMALE_VOICE.test(v.name)) ?? // a female voice even if network-backed
     pool.find((v) => v.default) ??
     pool[0]
   )
