@@ -131,11 +131,16 @@ describe('secret per-player content (hidden-role primitive)', () => {
     expect(hub.store.get(addr.roundContentForPlayer(room, 0, ada.me.id))).toBeTruthy()
     expect(hub.store.get(addr.roundContentForPlayer(room, 0, bo.me.id))).toBeTruthy()
 
-    // At reveal, the answer key is published (the faker is unmasked).
+    // A hidden-role assignment answer stays HOST-SIDE even at reveal: it is not
+    // auto-published to the relay, because a game built on this primitive (Faker)
+    // unmasks the role in a later judge round, not at the make round's own reveal.
+    // Publishing it here would leak the imposter early. The host still holds it
+    // locally for that judge round and for scoring.
     host.openVoting()
     host.lock()
     host.reveal()
     await flush()
-    expect((hub.store.get(addr.roundAnswer(room, 0)) as { fakerPid: string }).fakerPid).toBe(fakerId)
+    expect(hub.store.get(addr.roundAnswer(room, 0))).toBeUndefined()
+    expect((host.answerKeyFor(0) as { fakerPid: string }).fakerPid).toBe(fakerId)
   })
 })

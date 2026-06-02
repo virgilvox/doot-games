@@ -165,6 +165,13 @@ export class RoomRuntime {
   /** Host-only: the withheld answer key a runtime derivation produced (e.g. the
    *  author map for a vote round), so end-of-game scoring can read it. */
   private derivedAnswers = new Map<number, RelayValue>()
+  /** Host-only: rounds whose answer came from a hidden-role `assignContent` (e.g.
+   *  who the faker is). Such an answer is kept host-side for the consuming judge
+   *  round + scoring, but is NEVER auto-published at this round's own reveal: the
+   *  whole point of a hidden role is that it stays secret until the judge round
+   *  chooses to unmask it (by republishing it as its own answer). Without this, the
+   *  make round's reveal would leak the imposter before the accusation. */
+  private assignedRounds = new Set<number>()
   private config: RelayValue | undefined
   private meta: RoomMeta | undefined
   private results: RelayValue | undefined
@@ -863,7 +870,11 @@ export class RoomRuntime {
     for (const [pid, content] of Object.entries(assigned.perPlayer)) {
       this.publish(addr.roundContentForPlayer(this.room, index, pid), content)
     }
-    if (assigned.answer !== undefined) this.derivedAnswers.set(index, assigned.answer)
+    if (assigned.answer !== undefined) {
+      this.derivedAnswers.set(index, assigned.answer)
+      // Mark this as an assigned (hidden-role) answer so reveal() keeps it host-side.
+      this.assignedRounds.add(index)
+    }
     this.emit()
   }
 
@@ -888,7 +899,10 @@ export class RoomRuntime {
   reveal(): void {
     this.assertHost()
     const i = this.state.round.index
-    const answer = this.answerKeyFor(i)
+    // A hidden-role assignment answer (who the imposter is) stays host-side: the
+    // judge round that consumes it unmasks it at its own reveal. Publishing it here
+    // would leak the role before the accusation. A normal answer key still publishes.
+    const answer = this.assignedRounds.has(i) ? undefined : this.answerKeyFor(i)
     if (answer !== undefined) this.publish(addr.roundAnswer(this.room, i), answer)
     // Publish a public reveal summary (vote tallies, the winner) so phones can
     // show personal feedback, not just the big screen.

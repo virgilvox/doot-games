@@ -88,10 +88,12 @@ describe('accuse derive', () => {
     expect((answer as AccuseAnswer).names).toMatchObject({ p_a: 'Ada', p_b: 'Bo', p_c: 'Cy' })
   })
 
-  it('skips empty clues', () => {
-    const ctx = fakerSource({ p_a: '', p_b: 'yellow' }, { fakerPid: 'p_b', word: 'Banana' })
+  it('keeps a silent player as an accusable candidate (no auto-escape for staying quiet)', () => {
+    // p_a (the faker) wrote no clue; they must still be a candidate, shown "(no clue)".
+    const ctx = fakerSource({ p_a: '', p_b: 'yellow', p_c: 'peel' }, { fakerPid: 'p_a', word: 'Banana' })
     const { publish } = accuseBlock.derive!(ctx)
-    expect(publish.clues.map((c) => c.pid)).toEqual(['p_b'])
+    expect(publish.clues.map((c) => c.pid).sort()).toEqual(['p_a', 'p_b', 'p_c'])
+    expect(publish.clues.find((c) => c.pid === 'p_a')?.clue).toBe('')
   })
 })
 

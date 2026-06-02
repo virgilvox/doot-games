@@ -579,6 +579,39 @@ describe('RoomRuntime runtime-derived content (the two-phase pattern)', () => {
   })
 })
 
+describe('RoomRuntime hidden-role assignment (the faker pattern)', () => {
+  // A round 0 that assigns a secret role and withholds WHO the imposter is.
+  const ASSIGNED = {
+    meta: { pluginId: 'faker', pluginVersion: '0.0.0', title: 'Hidden role', themeId: 'doot' },
+    config: { title: 'Hidden role', rounds: [{}] } as RelayValue,
+    rounds: [{ timer: null }],
+    assignContent: (index: number) => {
+      if (index !== 0) return undefined
+      return { perPlayer: {}, answer: { fakerPid: 'p_x', word: 'Banana' } as RelayValue }
+    },
+  }
+
+  it('keeps an assigned answer host-side and does NOT publish it at the round reveal', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(ASSIGNED)
+    host.start() // assigns + stores the answer host-side
+
+    // The host knows the imposter locally...
+    expect(host.answerKeyFor(0)).toEqual({ fakerPid: 'p_x', word: 'Banana' })
+    // ...but it is never on the relay, even after the round's reveal (a later judge
+    // round would unmask it; auto-publishing here would leak the role early).
+    host.openVoting()
+    host.lock()
+    host.reveal()
+    expect(hub.store.get(addr.roundAnswer('ABCD', 0))).toBeUndefined()
+    // Still held host-side for the judge round + scoring.
+    expect(host.answerKeyFor(0)).toEqual({ fakerPid: 'p_x', word: 'Banana' })
+  })
+})
+
 describe('RoomRuntime host + player over a shared relay', () => {
   it('registers a late joiner, restores eligibility, and routes inputs', async () => {
     const hub = new FakeHub()

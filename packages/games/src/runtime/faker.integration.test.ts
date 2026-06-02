@@ -156,8 +156,11 @@ describe('Faker (hidden-role) end to end', () => {
     host.lock()
     host.reveal()
     await flush()
-    // Faker round reveal publishes who the faker was (the answer key).
-    expect((hub.store.get(addr.roundAnswer(room, 0)) as { fakerPid: string }).fakerPid).toBe(fakerPid)
+    // The faker round's reveal must NOT leak who the faker is: a hidden-role
+    // assignment stays host-side until the accuse round unmasks it. The host still
+    // knows it locally (for the accuse derive + scoring), but it is not on the relay.
+    expect(hub.store.get(addr.roundAnswer(room, 0))).toBeUndefined()
+    expect((host.answerKeyFor(0) as { fakerPid: string }).fakerPid).toBe(fakerPid)
 
     // Round 1 (accuse judge): derived from the faker round.
     host.next()

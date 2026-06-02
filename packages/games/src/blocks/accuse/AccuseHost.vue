@@ -74,7 +74,7 @@ const maxVotes = computed(() => Math.max(1, ...tallies.value.map((t) => t.votes)
       <ul class="clue-grid">
         <li v-for="c in content.clues" :key="c.pid" class="clue">
           <span class="c-author">{{ c.name }}</span>
-          <span class="c-word">{{ c.clue }}</span>
+          <span class="c-word" :class="{ quiet: !c.clue }">{{ c.clue || '(no clue)' }}</span>
         </li>
       </ul>
       <p class="hint">{{ votesIn }} {{ votesIn === 1 ? 'vote' : 'votes' }} in. Talk it out, then point a finger.</p>
@@ -131,6 +131,11 @@ const maxVotes = computed(() => Math.max(1, ...tallies.value.map((t) => t.votes)
   font-weight: 800;
   font-size: clamp(20px, 3.2vw, 30px);
   color: var(--ink);
+}
+.c-word.quiet {
+  color: var(--ink-soft);
+  font-style: italic;
+  font-weight: 600;
 }
 .hint {
   color: var(--ink-soft);

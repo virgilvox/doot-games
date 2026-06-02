@@ -131,16 +131,16 @@ export const accuseBlock = defineBlock<AccuseContent, AccuseInput>({
     const fakerContent = source?.content as FakerContent | undefined
     const srcAnswer = source?.answer as FakerAnswer | undefined
     const names: Record<string, string> = {}
-    const entries: AccuseClue[] = []
-    if (source) {
-      for (const [pid, input] of source.inputs) {
-        const clue = normalizeClue((input as FakerInput).clue)
-        if (!clue) continue
-        const name = ctx.players.find((p) => p.id === pid)?.name ?? 'Someone'
-        names[pid] = name
-        entries.push({ pid, name, clue })
-      }
-    }
+    // Candidates are everyone who was eligible for the make round, NOT only those
+    // who wrote a clue, so a faker who stays silent is still accusable (otherwise
+    // not submitting would be an auto-escape). A non-submitter shows "(no clue)".
+    const srcIndex = source?.index ?? 0
+    const eligible = ctx.players.filter((p) => p.joinedAtIndex <= srcIndex)
+    const entries: AccuseClue[] = eligible.map((p) => {
+      const clue = normalizeClue((source?.inputs.get(p.id) as FakerInput | undefined)?.clue ?? '')
+      names[p.id] = p.name
+      return { pid: p.id, name: p.name, clue }
+    })
     const clues = ctx.shuffle(entries)
     const fakerPid = srcAnswer?.fakerPid ?? ''
     const word = srcAnswer?.word ?? fakerContent?.word ?? ''

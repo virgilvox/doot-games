@@ -123,21 +123,24 @@ each group; `[size]` is a rough effort hint.
 ## G. Adapted game ideas (remaining, ranked behind the cheap-wins batch)
 From an external idea dump; the cheap-wins batch (Backronym/Open Mic/Hivemind/Most Likely
 To/Ballpark) shipped first. These need new primitives, so they're real builds, not
-compositions:
+compositions. (**Open Mic** was later reworked from the thin `quip->vote(perform)` composition
+into the same composition with a custom 3D standup-club host: `ComedyStage.vue` +
+`OpenMicHost.vue` + hardened TTS. Committed local, not yet pushed.)
 - [ ] **G1. Truth or Share** — the owner's headline idea. A new **directed/spotlight**
   engine primitive (picker → target(s) → respond → react), photo-share over the
   **ephemeral relay with TTL** (never S3), a **host moderation gate**, passes + spice
   tiers, and reaction-cut scoring (the picker earns a cut of the room's reactions so the
   optimal play is entertaining, not cruel). Consent is a feature, not a bolt-on. `[large]`
-- [~] **G2. Faker** (social deduction). The **secret per-player content primitive is DONE**
-  (committed local: `assignContent` block hook + `addr.roundContentForPlayer` + the player's
-  private subscription + `buildAssignContent` + HostRoom wiring + integration test). It
-  supersedes the old reserved `assignment`/`promptFor` idea (roster-aware + truly secret).
-  **Remaining = the Faker game itself:** a `faker` make block (`assignContent` picks the
-  imposter, `redactContent` hides the word, REDACTION_RULES `faker:{word:''}`) + an `accuse`
-  judge block (needs a small derive extension to pass the source round's answer key into
-  `DeriveContext.sources[i].answer`) + scoring + a word pool. Full design in HANDOFF. The
-  same primitive then unlocks **Hot Seat** and **Spectrum**. `[medium]`
+- [x] **G2. Faker** (social deduction). **SHIPPED** (committed local, not yet pushed): a
+  `faker` make block (`assignContent` picks the imposter, `redactContent` + REDACTION_RULES
+  hide the word, host screen never shows it) + an `accuse` judge block (derived from the faker
+  round via the new additive derive extension `DeriveSource.answer` +
+  `buildDeriveContent(getAnswerKey)`; scores catchers + the escaping faker; ties favor the
+  faker; self-votes excluded; a silent player stays accusable) + a `[faker, accuse]` word-pool
+  composition. Registered everywhere + Custom palette + Icon glyphs. Pure tests + a FakeHub
+  end-to-end test. **Audit fix:** an assigned hidden-role answer is kept host-side and never
+  auto-published at the make round's reveal (the judge round unmasks it), closing an imposter
+  leak. The same primitive still unlocks **Hot Seat** and **Spectrum**.
 - [ ] **G3. Closeness family extensions** — reuse the new `ballpark` block for **Over/Under**
   (streak) and **Spectrum** (Wavelength; needs the per-player clue-giver role from G2). `[medium]`
 - [ ] **G4. Doodle Chain** (Gartic Phone) — a new **pipeline** primitive (each player's

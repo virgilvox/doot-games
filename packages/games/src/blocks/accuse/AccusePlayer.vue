@@ -36,7 +36,7 @@ function pick(pid: string, name: string) {
           @click="pick(c.pid, c.name)"
         >
           <span class="author">{{ c.name }}<span v-if="c.pid === myId" class="you"> (you)</span></span>
-          <span class="word">{{ c.clue }}</span>
+          <span class="word" :class="{ quiet: !c.clue }">{{ c.clue || '(no clue)' }}</span>
         </button>
       </li>
     </ul>
@@ -99,5 +99,10 @@ function pick(pid: string, name: string) {
   font-weight: 800;
   font-size: clamp(18px, 5vw, 22px);
   color: var(--ink);
+}
+.word.quiet {
+  color: var(--mute);
+  font-style: italic;
+  font-weight: 600;
 }
 </style>

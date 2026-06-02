@@ -7,6 +7,32 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
+> **Faker + Open Mic rework + audit (2026-06-02, COMMITTED to `main` locally, not yet
+> pushed).** Three commits on top of the per-player primitive. All green: typecheck (incl.
+> `nuxi`), the full suite (301 tests), and the web build. NOT pushed (the owner pushes).
+> - **Faker (G2) shipped**, the hidden-imposter flagship on the secret per-player primitive:
+>   a `faker` make block (`assignContent` picks the imposter seeded/reconnect-safe, delivers
+>   the word only to each non-faker's private address, `redactContent` strips it from the
+>   public config, the host screen never shows it) + an `accuse` judge block (derived from the
+>   faker round; learns the faker from the make round's withheld answer via a new additive
+>   derive extension `DeriveSource.answer` + `buildDeriveContent(getAnswerKey)`; scores
+>   catchers + the escaping faker; ties favor the faker; self-votes excluded; a silent player
+>   is still accusable). Word pool, `[faker, accuse]` pairs, registered everywhere + Custom
+>   palette + two Icon glyphs. Pure tests + a FakeHub end-to-end test.
+> - **Open Mic reworked** from the thin `quip->vote(perform)` composition into the SAME
+>   composition with a custom **`OpenMicHost.vue`** (a 3D standup club: new `ComedyStage.vue`
+>   lazy-Three.js brick-wall stage + warm spotlight; the robot performs each anonymized bit
+>   over the hardened TTS, the crowd laughs, then the room votes). New `arena.ts` `beat:false`
+>   mode + `laugh()`/`rimshot()` SFX. Engine machinery reused; the generic player still drives
+>   phones. TTS/WebGL need an owner on-device listen (can't assert headless).
+> - **Audit fix (real withholding bug):** the engine's `reveal()` would publish a hidden-role
+>   make round's `{ fakerPid, word }` answer, leaking the imposter before the accusation. Fixed:
+>   an assigned answer is kept host-side (for the judge round + scoring) and **never** auto-
+>   published at the make round's own reveal; the judge round unmasks it at its own reveal.
+>   New engine regression test; the two integration tests assert the answer stays off the relay.
+> - **NEXT in this run: Truth or Share (G1)**, the directed/spotlight primitive + text dares
+>   (photos deferred), then keep going.
+>
 > **START HERE (fresh session, 2026-06-02).** The last session's work is **pushed to `main`
 > and deploying to prod via CI** (confirm the deploy is healthy, then do the Circuit Cypher
 > TTS real-device listen once it is live). It shipped: the cheap-wins game batch (Backronym /
