@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { flagshipGames, templateGames } from '@doot-games/games/catalog'
-import { GameCover } from '@doot-games/ui'
+import { GameCover, GameTypeIcon } from '@doot-games/ui'
 
 // Two on-ramps so you never start from nothing. Remix a ready-made game (it opens
 // in the editor with example rounds already in place), or build from a single block
-// and add your own content. Both route to /editor/{id}. The cards match the ones on
-// the home and explore pages (GameCover art + title + description).
+// and add your own content. Both route to /editor/{id}. The ready-made games use the
+// same GameCover art cards as the home/explore pages; the blocks keep their compact
+// icon cards (a clean, uniform grid for the primitives).
 </script>
 
 <template>
@@ -54,13 +55,14 @@ import { GameCover } from '@doot-games/ui'
           <h2>Blocks and Custom</h2>
           <p>Pick a round type and add your own content. Custom mixes any blocks in one game, or paste a markdown spec to build a whole game at once.</p>
         </div>
-        <div class="grid">
-          <NuxtLink v-for="t in templateGames" :key="t.id" :to="`/editor/${t.id}`" class="card">
-            <GameCover :title="t.name" :type="t.id" />
-            <div class="card-body">
-              <div class="card-title">{{ t.name }}</div>
-              <p class="card-desc">{{ t.description }}</p>
-              <span class="card-cta">Start building &rarr;</span>
+        <div class="typegrid">
+          <NuxtLink v-for="t in templateGames" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
+            <GameTypeIcon :type="t.id" :size="48" />
+            <h3>{{ t.name }}</h3>
+            <p>{{ t.description }}</p>
+            <div class="tfoot">
+              <span class="cap mono">v{{ t.version }}</span>
+              <span class="btn btn-ghost btn-sm">Start building</span>
             </div>
           </NuxtLink>
         </div>
@@ -159,6 +161,52 @@ import { GameCover } from '@doot-games/ui'
   color: var(--primary);
   font-weight: 800;
   font-size: 14px;
+}
+/* Blocks keep their compact icon cards (the primitives read best as a uniform,
+   art-free grid). */
+.typegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 16px 0 32px;
+}
+.typecard {
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s, box-shadow 0.12s;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.typecard:hover {
+  transform: translate(-2px, -3px);
+  box-shadow: var(--shadow);
+}
+.typecard h3 {
+  font-size: 23px;
+  font-weight: 800;
+  margin: 16px 0 7px;
+}
+.typecard p {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 18px;
+  min-height: 62px;
+}
+.tfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tfoot .cap {
+  font-size: 11px;
+  color: var(--mute);
+  letter-spacing: 0.04em;
 }
 .foot-note {
   text-align: center;
