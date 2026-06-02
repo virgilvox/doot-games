@@ -46,6 +46,7 @@ const validateProfile = createAuthMiddleware(async (ctx) => {
 export const RESERVED_HANDLES = new Set([
   'account', 'login', 'logout', 'signup', 'explore', 'create', 'host', 'play',
   'g', 'u', 'mine', 'support', 'api', 'editor', 'admin', 'doot', 'help', 'about',
+  'connect', 'mcp',
 ])
 
 /** Handle (username) shape: 3-24 chars, lowercase letters/digits/underscore. */

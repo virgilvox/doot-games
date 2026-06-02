@@ -40,7 +40,7 @@ make the escape hatches continuous.
 | **1 — Rich schema controls** | power authors, designers | Same forms, friendlier + custom field renderers (answer-key editor, media, color/theme, conditional fields) | Partial — extend `SchemaForm` |
 | **2 — Paste-in canvas round** | JS-comfortable creators | A sandboxed `CanvasBlock` (a Pixi/Three/2D scene against a tiny helper API) | New build |
 | **3 — Full code editor** | coders | In-browser multi-file editor + compile + dual preview, full `defineGame` | New build |
-| **AI assist** | all tiers | Generate → preview → iterate, layered across 0–3 | New build (two rails ↓) |
+| **Connect with Claude** | anyone with Claude | The user's own Claude builds a game via the MCP server; Doot pays nothing | Building (MCP v1) |
 
 **Engineering invariants that hold at every tier:** live preview is constant; Zod
 validation is constant; the same `defineBlock`/`defineGame` contract is the target;
@@ -80,11 +80,10 @@ bridge, `@vue/repl`, or MCP** — it's plain product work on the existing editor
   `VoteHost`, …) render their open, no-answers-yet state without a relay. (Finding:
   `HostDisplay` views inject the room — they can't be mounted on props alone, which
   the original "just reuse the contract" estimate missed.)
-- **In-app AI content generation.** Today's "AI" is a copy-prompt-to-ChatGPT clipboard
-  hack. Turn it into "type a topic → filled-in rounds appear in the editor → tweak,"
-  built on the existing markdown round-trip (`parseMarkdownGame`). Runs in **trusted
-  app chrome** (never the plugin frame — the plugin origin's `connect-src 'none'`
-  forbids network there). Key custody per AI rails below.
+- **Generating content.** Doot does not pay for AI. The path is "Connect with Claude"
+  (the MCP server, below): a user's own Claude writes a markdown spec against Doot's
+  format and they Import it. The editor keeps its copy-a-prompt plus Import flow as the
+  no-setup fallback.
 - **Authoring guardrails.** Validation today is correctness-only. Add quality nudges
   ("3 rounds is short," "mix up your round types," "no timer anywhere — add one or mark
   it untimed") and the a11y affordances above. Sane non-blank defaults; undo.
@@ -153,25 +152,29 @@ SHA-pinned.
 play (a hard invariant) and better-auth OAuth popups. If QuickJS-WASM is ever adopted,
 it uses the non-SAB interrupt path or runs on the already-isolated plugin origin.
 
-## AI assist — two rails
+## Connect with Claude (the only AI rail, and it costs Doot nothing)
 
-1. **Doot SDK MCP server (the powerful rail).** A remote OAuth 2.1 MCP server exposing
-   `list_blocks` / `get_block_schema` / `scaffold_game` / `validate_manifest` /
-   `preview_url`, so a user's *own* Claude builds plugins against the **real** schemas —
-   **zero API-key custody**, user pays their own tokens, grounded generation. Pattern
-   shipped by Vercel/Cloudflare/Salesforce.
-   **Correction (audit): this is NOT "no infra coupling."** It is the largest new server
-   component here: a stateful OAuth *authorization server* (RFC 9728 metadata, PKCE,
-   RFC 8707 audience-bound tokens, dynamic client registration + consent + token
-   rotation), which better-auth does **not** provide. It needs durable token/client
-   storage (SQLite ok — but TTL-GC anonymous DCR clients and rate-limit registration),
-   and likely its **own origin** (`mcp.doot.games`). **Adopt a vetted MCP-OAuth
-   library**, don't hand-roll the spec; sequence it **after** the editor, not in
-   parallel, unless a second owner takes it.
-2. **In-app assistant (the friendly rail — higher primary-user value).** "Describe your
-   game → preview → iterate" in trusted app chrome (Tier-0 content gen above). If BYOK,
-   **never store the key in the DB** — secret manager / gateway with scoped virtual
-   keys; prefer platform-metered. The clipboard hack is the zero-custody fallback today.
+Owner decision: no in-app, Doot-paid AI, and no heavy "AI" copy on the site. Doot is
+free, so it must never pay for inference. Instead Doot ships a **Model Context Protocol
+(MCP) server** that a user connects their own Claude to (Claude Code or the desktop app).
+Claude does all the generation against Doot's real format; Doot only exposes deterministic
+tools. Zero inference cost, no API keys to store, no metering. Brand it **"Connect with
+Claude"** (people trust Claude). Never say "AI-powered" or lean on generic AI language.
+
+**v1 needs no auth and no cost.** The useful tools are deterministic and read-only, built
+on the server-safe `parseMarkdownGame` plus the catalog:
+- `list_game_types`: the catalog (what to build, which are ready-made to remix).
+- `doot_format_guide`: the markdown authoring format, so Claude writes a valid game.
+- `validate_doot_game(markdown)`: parse and return the rounds plus any warnings, so Claude
+  iterates to a valid spec.
+
+The user's Claude returns a markdown spec; the user pastes it into the editor's Import (a
+deep link can come later). No OAuth, no durable storage, no inference on Doot's side.
+
+**Later, optional:** an OAuth-protected `save_game` tool so Claude can write straight to
+the user's Doot account. Only that part needs a real OAuth authorization server (better-auth
+does not provide one) and probably its own origin (`mcp.doot.games`); defer it. The old
+"in-app assistant / BYOK / metered" rail is dropped: the owner does not want it.
 
 ## Trust & moderation UX (for the non-coder host)
 
@@ -275,7 +278,8 @@ to a party host now. The sandbox/coder tiers follow.
    1b. ✅ **Template gallery** on Create (Remix a ready-made game vs Build from blocks),
        reusing the catalog split + editor seeding. (Remix of community games on Explore
        is still a follow-up; most public games default to forkable=off.)
-   1c. **In-app AI content generation** (topic → filled rounds; markdown round-trip). ← next
+   1c. ~~In-app AI content generation~~ **dropped** (owner: no Doot-paid AI). The AI path
+       is "Connect with Claude" (the MCP server), see step 6, now prioritized.
    1d. **Custom-renderer registry** + authoring quality/a11y guardrails.
 2. **Harden the shipped sandbox.** Origin live ✅, `@doot-games/plugin-bridge` shipped ✅;
    apply the security hardening above (source-pin, rate/size/phase caps, protocol
@@ -287,8 +291,10 @@ to a party host now. The sandbox/coder tiers follow.
    scoring, vendored-pinned pixi/three, required `a11yLabel`.
 5. **Tier 3 in-app editor** — `@vue/repl` compiler + custom null-origin preview harness;
    desktop-only, code-split off the play surface.
-6. **Doot SDK MCP server** — new authenticated service (own origin + durable token store);
-   adopt an MCP-OAuth library; after the editor.
+6. **Connect with Claude (MCP server).** ← building now. v1 is deterministic, no-auth,
+   no-cost tools (`list_game_types`, `doot_format_guide`, `validate_doot_game`) over the
+   server-safe `parseMarkdownGame`, plus a "Connect with Claude" page. The OAuth-protected
+   `save_game` (own origin + token store) is a later add-on.
 7. **External registration + registry tiers** + trust/moderation UX.
 
 ## Open decisions

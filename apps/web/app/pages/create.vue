@@ -25,6 +25,10 @@ import { GameTypeIcon } from '@doot-games/ui'
           <span class="path-t">Build from blocks</span>
           <span class="path-d">Pick one round type and add your own content, or mix several in Custom.</span>
         </a>
+        <NuxtLink to="/connect" class="path">
+          <span class="path-t">Build it with Claude</span>
+          <span class="path-d">Connect your own Claude and it writes the game for you, free.</span>
+        </NuxtLink>
       </div>
 
       <section id="ready" class="cg-section">
@@ -89,7 +93,7 @@ import { GameTypeIcon } from '@doot-games/ui'
 }
 .paths {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
   gap: 16px;
   margin: 18px 0 30px;
 }
