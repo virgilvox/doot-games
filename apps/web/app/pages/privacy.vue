@@ -24,7 +24,7 @@ const updated = 'June 2, 2026'
           <li>Nothing about a game in progress is written to our database. Live game state lives on the
             relay and expires on its own (8 hours by default).</li>
           <li>An account is optional and only used to save games you can share and host again.</li>
-          <li>We do not sell your data, run ads, or load third-party tracking.</li>
+          <li>We do not sell your data.</li>
         </ul>
       </section>
 
@@ -75,7 +75,6 @@ const updated = 'June 2, 2026'
         <h2>What we never do</h2>
         <ul>
           <li>We do not sell or rent your personal data.</li>
-          <li>We do not show ads or embed third-party advertising or analytics trackers.</li>
           <li>We do not write your in-room gameplay to a long-term database.</li>
         </ul>
       </section>
@@ -84,8 +83,9 @@ const updated = 'June 2, 2026'
         <h2>Your choices</h2>
         <p>
           Delete any saved game yourself from Your Games. To delete your whole account and the games tied to
-          it, or to ask what we hold about you, email
-          <a href="mailto:hackbuildvideo@gmail.com">hackbuildvideo@gmail.com</a> and we will take care of it.
+          it, or to ask what we hold about you, open an issue on our
+          <a href="https://github.com/virgilvox/doot-games/issues" target="_blank" rel="noopener">GitHub</a>
+          and we will take care of it.
         </p>
       </section>
 
@@ -98,7 +98,8 @@ const updated = 'June 2, 2026'
       </section>
 
       <p class="contact">
-        Questions: <a href="mailto:hackbuildvideo@gmail.com">hackbuildvideo@gmail.com</a>.
+        Questions: open an issue on our
+        <a href="https://github.com/virgilvox/doot-games/issues" target="_blank" rel="noopener">GitHub</a>.
       </p>
     </div>
   </main>
