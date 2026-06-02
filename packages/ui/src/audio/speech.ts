@@ -186,6 +186,10 @@ export interface AnnounceOptions {
   rate?: number
   /** Voice pitch (default 1.15, brighter than the deadpan performers). */
   pitch?: number
+  /** Fired when the line actually begins speaking. Lets a caller tell a working
+   *  voice from one the browser silently dropped (which never starts), so the
+   *  show can keep pace instead of waiting out a long fallback cap. */
+  onStart?: () => void
   onDone?: () => void
 }
 
@@ -207,6 +211,9 @@ export function announce(text: string, opts: AnnounceOptions = {}): () => void {
   u.rate = opts.rate ?? 1.06
   u.pitch = opts.pitch ?? 1.15
   if (voice) u.voice = voice
+  u.onstart = () => {
+    if (!cancelled) opts.onStart?.()
+  }
   u.onend = () => {
     if (!cancelled) opts.onDone?.()
   }

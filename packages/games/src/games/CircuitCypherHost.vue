@@ -169,8 +169,8 @@ function setMuted(m: boolean) {
   // Unmuting mid-battle: make sure the beat is actually running.
   else if (mode.value === 'battle') void audio.value?.start()
 }
-function mcSay(text: string, onDone?: () => void) {
-  if (!muted.value && canSpeak()) announce(text, { onDone })
+function mcSay(text: string, onDone?: () => void, onStart?: () => void) {
+  if (!muted.value && canSpeak()) announce(text, { onDone, onStart })
   else onDone?.()
 }
 
@@ -274,12 +274,29 @@ function sayThenAdvance(text: string, next: Fine, minHold: number) {
     schedule(go, minHold)
     return
   }
-  // Safety cap in case onDone never fires for this voice.
+  // If the voice never actually STARTS (Chrome/macOS silently drops some voices,
+  // especially network ones), don't sit on the long safety cap waiting for an
+  // onDone that will never come, which froze the whole show for ~18s a beat.
+  // Advance at the normal written pace instead; a working voice fires onStart
+  // first, which cancels this and we wait for the real end of the line.
+  let started = false
+  timers.push(
+    setTimeout(() => {
+      if (!started) go()
+    }, Math.max(minHold, 1600)),
+  )
+  // Safety cap in case a voice that DID start never fires onDone.
   timers.push(setTimeout(go, minHold + SPEECH_CAP_MS))
-  mcSay(text, () => {
-    // Speech finished: advance, but keep the card up for the rest of minHold.
-    timers.push(setTimeout(go, Math.max(0, minHold - (performance.now() - start))))
-  })
+  mcSay(
+    text,
+    () => {
+      // Speech finished: advance, but keep the card up for the rest of minHold.
+      timers.push(setTimeout(go, Math.max(0, minHold - (performance.now() - start))))
+    },
+    () => {
+      started = true
+    },
+  )
 }
 function stopKaraoke() {
   if (karRAF) cancelAnimationFrame(karRAF)
