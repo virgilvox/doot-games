@@ -102,6 +102,19 @@ prompt: Draw your pet as a superhero
 timer: 90
 ```
 
+Add `vote: true` to make it draw-then-vote: everyone draws, then the room votes
+on the anonymized gallery and the best drawing wins points and tops the results
+leaderboard. With voting on, the live gallery is hidden during drawing so the
+vote stays a surprise. Optional extra fields: `voteprompt` (the vote question)
+and `votetimer` (seconds to vote, default 30).
+
+```markdown
+## draw
+prompt: Draw your spirit animal
+vote: true
+votetimer: 30
+```
+
 ## A full example (mixed blocks)
 
 ```markdown

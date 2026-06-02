@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { drawBlock } from './blocks/draw/block'
+import { drawVoteBlock } from './blocks/drawvote/block'
 import { guessBlock } from './blocks/guess/block'
 import { pollBlock } from './blocks/poll/block'
 import { rankBlock } from './blocks/rank/block'
@@ -12,6 +13,7 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
   draw: drawBlock.contentSchema,
+  drawvote: drawVoteBlock.contentSchema,
 }
 
 const SAMPLE = `# Movie Night
@@ -87,6 +89,28 @@ describe('parseMarkdownGame', () => {
     const rate = rounds[0]!.content as { scale: { kind: string; levels?: Array<{ label: string; value: number }> } }
     expect(rate.scale.kind).toBe('levels')
     expect(rate.scale.levels?.map((l) => l.label)).toEqual(['F', 'D', 'C', 'B', 'A'])
+  })
+
+  it('expands a draw round with vote:true into draw + drawvote', () => {
+    const { rounds, warnings } = parseMarkdownGame(
+      '## draw\nprompt: Draw your nemesis\nvote: true\nvotetimer: 25',
+    )
+    expect(rounds.map((r) => r.block)).toEqual(['draw', 'drawvote'])
+    // The draw round hides its live gallery so the vote gallery is a surprise.
+    expect((rounds[0]!.content as { liveGallery: boolean }).liveGallery).toBe(false)
+    // The drawvote derives from the prior round (no explicit `from` needed).
+    expect(rounds[1]!.from).toBeUndefined()
+    expect((rounds[1]!.content as { timer: number | null }).timer).toBe(25)
+    // Both rounds validate against their block schemas.
+    expect(drawBlock.contentSchema.safeParse(rounds[0]!.content).success).toBe(true)
+    expect(drawVoteBlock.contentSchema.safeParse(rounds[1]!.content).success).toBe(true)
+    expect(warnings).toEqual([])
+  })
+
+  it('leaves a plain draw round (no vote) with its live gallery on', () => {
+    const { rounds } = parseMarkdownGame('## draw\nprompt: Draw a cat')
+    expect(rounds.map((r) => r.block)).toEqual(['draw'])
+    expect((rounds[0]!.content as { liveGallery: boolean }).liveGallery).toBe(true)
   })
 
   it('warns on unknown blocks and empty input', () => {

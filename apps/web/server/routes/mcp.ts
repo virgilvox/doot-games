@@ -52,7 +52,7 @@ Block kinds:
 * "## poll": opinion, no right answer. Fields: prompt, image, timer (default none). List 2 or more "- choice".
 * "## rank": players put items in order. Fields: prompt, image, timer (default none). List 2 or more "- item".
 * "## rate": score subjects on a scale. Fields: subject, prompt, image, timer, "categories: A, B, C", and "scale:" (a numeric range like "1-10", or comma-separated labels like "F, D, C, B, A").
-* "## draw": players sketch the prompt. Fields: prompt, image, timer (default 60).
+* "## draw": players sketch the prompt. Fields: prompt, image, timer (default 60). Add "vote: true" to make it draw-then-vote: everyone draws, then the room votes on the anonymized gallery and the best drawing wins points and tops the results. Optional with vote: "voteprompt:" (the vote question) and "votetimer:" (seconds to vote, default 30).
 
 Example:
 # Trivia and Vibes Night
@@ -68,6 +68,11 @@ prompt: What year did the first iPhone launch?
 prompt: Rate tonight's playlist
 categories: Energy, Variety
 scale: 1-10
+
+## draw
+prompt: Draw your spirit animal
+vote: true
+votetimer: 30
 
 Mix the round types for variety. Validate with validate_doot_game, then save_game.`
 
