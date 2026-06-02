@@ -1,5 +1,5 @@
 /**
- * Tiny client-only sound effects synthesized with the Web Audio API — no assets,
+ * Tiny client-only sound effects synthesized with the Web Audio API - no assets,
  * SSR-guarded, and a clean no-op where audio is unavailable or blocked. Used for
  * the gameshow "you buzzed in first!" ding. Audio only plays after a user
  * gesture (the player has tapped to answer by the time the ding fires).
@@ -19,7 +19,7 @@ export function playDing(): void {
   try {
     const ctx = new Ctor()
     const t0 = ctx.currentTime
-    // A5 then E6 — a quick rising "ta-da".
+    // A5 then E6 - a quick rising "ta-da".
     ;[880, 1318.5].forEach((freq, i) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()

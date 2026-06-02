@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Phone reveal for a gameshow question. Tells the player whether they were right
- * (and how many points), and — the gameshow moment — if THEY were the fastest
+ * (and how many points), and - the gameshow moment - if THEY were the fastest
  * correct answerer, their phone DINGS and celebrates "you buzzed in first!" so
  * the team can spot who it was in the room.
  */

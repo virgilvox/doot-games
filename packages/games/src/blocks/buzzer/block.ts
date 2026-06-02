@@ -2,7 +2,7 @@
  * Buzzer block: the gameshow trivia round. Multiple choice with one right answer
  * (withheld until the dramatic reveal), a per-question point VALUE (so stakes can
  * escalate), and SPEED: each phone reports how long it took to lock in, so the
- * fastest correct answerer "buzzes in" — they get a bonus and their phone dings.
+ * fastest correct answerer "buzzes in" - they get a bonus and their phone dings.
  *
  * Scoring per question: a correct answer earns the question's `points`, plus up
  * to +50% for speed (faster = more), plus a flat +25% "buzz bonus" for the single

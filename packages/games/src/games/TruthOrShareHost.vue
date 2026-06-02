@@ -140,6 +140,7 @@ function startTurn(i: number) {
     phase: 'pick',
     pickerPid,
     pickerName: rosterName(pickerPid),
+    roster: room.players.value.map((p) => ({ pid: p.id, name: p.name })),
     choices: dealPrompts(deck.value, room.runtime.room, i),
     target: null,
     prompt: null,
@@ -225,11 +226,14 @@ function playAgain() {
 }
 
 onMounted(() => {
-  // Picker chose a target + prompt.
+  // Picker chose a target + prompt. The channel key is `pick/<i>/<pid>`, so the
+  // pid is segment [2] (segment [1] is the turn index).
   room.onExtra('pick/*/*', (v, key) => {
-    const pid = key.split('/')[1]
+    const parts = key.split('/')
+    const i = Number(parts[1])
+    const pid = parts[2]
     const t = turn.value
-    if (!t || t.phase !== 'pick' || pid !== t.pickerPid) return
+    if (!t || t.phase !== 'pick' || i !== t.i || pid !== t.pickerPid) return
     const pick = v as { targetPid?: string; promptIndex?: number } | null
     const targetPid = pick?.targetPid
     const pi = pick?.promptIndex
@@ -239,11 +243,14 @@ onMounted(() => {
     names.set(targetPid, rosterName(targetPid))
     publishTurn({ phase: 'respond', target: { pid: targetPid, name: rosterName(targetPid) }, prompt, choices: undefined })
   })
-  // Target answered (or passed). Held host-side until approved.
+  // Target answered (or passed). Held host-side until approved. Key is
+  // `response/<i>/<pid>`, so the pid is segment [2].
   room.onExtra('response/*/*', (v, key) => {
-    const pid = key.split('/')[1]
+    const parts = key.split('/')
+    const i = Number(parts[1])
+    const pid = parts[2]
     const t = turn.value
-    if (!t || t.phase !== 'respond' || pid !== t.target?.pid) return
+    if (!t || t.phase !== 'respond' || i !== t.i || pid !== t.target?.pid) return
     const r = v as { text?: string; passed?: boolean } | null
     if (!r) return
     if (r.passed) {

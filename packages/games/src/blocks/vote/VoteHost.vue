@@ -144,7 +144,7 @@ onUnmounted(() => cancelSpeech())
         <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner, performing: r.id === currentId }">
           <span v-if="showDistribution" class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
           <span class="text">
-            <span v-if="r.winner" class="crown" aria-label="winner">&#127942;</span>{{ r.text }}
+            <span v-if="r.winner" class="crown" aria-label="winner"><Icon name="crown" :size="18" /></span>{{ r.text }}
           </span>
           <span class="meta">
             <span v-if="revealed && r.author" class="author">{{ r.author }}</span>

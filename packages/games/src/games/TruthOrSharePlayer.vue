@@ -33,7 +33,11 @@ const amTarget = computed(() => !!turn.value && turn.value.target?.pid === myId.
 const REACTION_LABELS: Record<ReactionKind, string> = { laugh: 'Ha!', love: 'Love', wow: 'Whoa', oof: 'Oof' }
 
 // ── Picker: choose a target + a prompt ──────────────────────────────────────
-const roster = computed(() => room.players.value.filter((p) => p.id !== myId.value).map((p) => ({ id: p.id, name: p.name })))
+// Targets come from the host-authoritative roster in the turn state (so the picker
+// never depends on its own presence snapshot, which can lag behind the host's).
+const roster = computed(() =>
+  (turn.value?.roster ?? []).filter((r) => r.pid !== myId.value).map((r) => ({ id: r.pid, name: r.name })),
+)
 const chosenTarget = ref('')
 const chosenPrompt = ref<number | null>(null)
 const pickSent = ref(false)

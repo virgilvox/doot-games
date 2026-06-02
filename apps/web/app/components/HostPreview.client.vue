@@ -4,8 +4,8 @@
  * views inject the live room (`injectDootRoom`) for reveal/answer data, so we
  * provide a READ-ONLY mock room scoped to this component: it reports the open
  * ('active') phase, no answers, no reveal, and an empty input map. That makes
- * every host view render its pre-reveal, no-answers-yet state — exactly what the
- * room sees the moment a round opens — without a relay and without leaking an
+ * every host view render its pre-reveal, no-answers-yet state - exactly what the
+ * room sees the moment a round opens - without a relay and without leaking an
  * answer (there is none to leak). Client-only: these views aren't SSR-safe.
  */
 import { type DootRoom, provideDootRoom } from '@doot-games/engine/vue'
@@ -20,7 +20,7 @@ const props = defineProps<{
 const emptyInputs = new Map<string, unknown>()
 
 // A permissive, inert room: reactive reads return benign defaults; reveal/answer
-// reads return undefined; actions are no-ops. Cast through `unknown` — we only
+// reads return undefined; actions are no-ops. Cast through `unknown` - we only
 // need the subset host views touch, never the full runtime.
 const mockRoom = {
   round: computed(() => ({ index: props.index, state: 'open', deadline: null })),

@@ -31,7 +31,7 @@ import { DootLogo } from '@doot-games/ui'
         <p class="madeby">
           Built by <b>Moheeb Zara</b> and <b>Danielle Marie Pereira</b> at
           <a href="https://hack.build" target="_blank" rel="noopener" class="hl-link">hack.build</a>.
-          Thank you for being here. &#10084;
+          Thank you for being here.
         </p>
         <NuxtLink to="/explore" class="back">&larr; Back to the games</NuxtLink>
       </div>

@@ -3,6 +3,7 @@
  * Phone reveal for a Hivemind round: tells the player on THEIR screen how well
  * they read the room, instead of only pointing at the big screen.
  */
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import { type HivemindContent, type HivemindInput, type HivemindRevealSummary, normalizeAnswer } from './block'
 
@@ -41,7 +42,7 @@ const withHive = computed(() => answered.value && normalizeAnswer(top.value) ===
       <p v-else>The hive said <b>{{ top }}</b>.</p>
     </template>
     <template v-else>
-      <div class="badge no" aria-hidden="true">&#129302;</div>
+      <div class="badge no" aria-hidden="true"><Icon name="cpu" :size="32" /></div>
       <h2>Lone wolf</h2>
       <p>Nobody else said that. The hive said <b>{{ top }}</b>.</p>
     </template>

@@ -69,7 +69,7 @@ async function logout() {
           />
         </div>
         <NuxtLink to="/support" class="support-btn" title="Support Doot">
-          <span class="heart" aria-hidden="true">&#10084;</span> Support
+          Support
         </NuxtLink>
       </div>
     </header>

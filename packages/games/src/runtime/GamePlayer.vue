@@ -104,7 +104,7 @@ function submit() {
 
 // The config names this round's block, but this client doesn't have it. That
 // almost always means the page was loaded before this game type shipped a new
-// round kind (a stale tab on a phone) — so a reload pulls the current code.
+// round kind (a stale tab on a phone) - so a reload pulls the current code.
 // Without this, the player would silently stall on a "getting ready" screen.
 const unknownBlock = computed(() => !!instance.value && !block.value)
 function reloadPage() {

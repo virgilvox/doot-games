@@ -32,6 +32,10 @@ export interface TurnState {
   phase: TurnPhase
   pickerPid: string
   pickerName: string
+  /** The current roster (host-authoritative), so the picker can choose a target
+   *  from the host's view of the room rather than its own presence snapshot (which
+   *  can lag). The picker's UI excludes itself. */
+  roster?: Array<{ pid: string; name: string }>
   /** The prompts dealt to the picker to choose from (shown only to the picker). */
   choices?: string[]
   target?: { pid: string; name: string } | null

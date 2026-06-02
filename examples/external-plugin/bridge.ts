@@ -4,14 +4,14 @@
  * This is the ONLY channel between Doot (the host) and an untrusted plugin running
  * in a sandboxed, null-origin iframe. Every message is schema-validated; the host
  * trusts nothing from the plugin. The plugin never sees cookies, the session, the
- * DB, the host DOM, or the raw relay — it only receives redacted round state and may
+ * DB, the host DOM, or the raw relay - it only receives redacted round state and may
  * `submit` one input.
  *
  * Mirrors `@doot-games/plugin-bridge` (the production package), kept self-contained
  * so the dev harness needs no platform packages. The production package additionally
  * enforces inbound flood/size limits and phase-gates `submit`; the security-critical
- * parts — null-origin sandbox, the source-pinned handshake, answer-withholding, and
- * protocol versioning — are shown here. See docs/external-plugins.md.
+ * parts - null-origin sandbox, the source-pinned handshake, answer-withholding, and
+ * protocol versioning - are shown here. See docs/external-plugins.md.
  */
 // Zero-install: the dev harness loads zod from a CDN so `vite` needs no
 // node_modules in this folder and the import works inside the null-origin plugin
@@ -49,7 +49,7 @@ export type PluginToHost = z.infer<typeof pluginToHost>
  * Source-pinned: the bootstrap is accepted ONLY from the embedding host
  * (`e.source === window.parent`) and ONLY on the typed BOOTSTRAP message. Without
  * this, any context that can post a MessagePort into this window could race the real
- * host, win the channel, and forge messages — including a fake `answer` key.
+ * host, win the channel, and forge messages - including a fake `answer` key.
  */
 export function connectToHost(handlers: {
   onInit?: (m: Extract<HostToPlugin, { t: 'init' }>) => void
@@ -117,7 +117,7 @@ export function createPluginHost(
   }
   const send = (m: HostToPlugin) => channel.port1.postMessage(m)
   // Bootstrap: hand the plugin its port. targetOrigin '*' is unavoidable for a
-  // null-origin sandboxed frame and gives no peer authentication — the plugin side
+  // null-origin sandboxed frame and gives no peer authentication - the plugin side
   // pinning `e.source === window.parent` is the control. The port makes later
   // traffic private.
   function bootstrap() {

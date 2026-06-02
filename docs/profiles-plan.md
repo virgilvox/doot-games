@@ -1,6 +1,6 @@
 # Plan: user profiles + profile editor (C11), with bookmarks (C12) as a follow-on
 
-Status: **planned, not built — on hold pending go-ahead.** Decisions locked
+Status: **planned, not built - on hold pending go-ahead.** Decisions locked
 (2026-06-01): use **@handle vanity URLs** (not bare `/u/<id>`); the user opted to
 keep this plan for review rather than build yet. Pairs with `HANDOFF.md` and
 `docs/BACKLOG.md` (C11/C12).
@@ -14,7 +14,7 @@ default for `user.name`), because users can finally set a real display name.
 - **Auth**: better-auth `^1.6.12` over libSQL. Its `user` table already has `id`,
   `name` (display name), `email`, `image` (avatar URL), `createdAt`, `updatedAt`.
   Migrations run at startup via `getMigrations(authOptions)` + `runMigrations()`
-  (`server/plugins/auth-migrate.ts`), idempotent — **adding an `additionalFields`
+  (`server/plugins/auth-migrate.ts`), idempotent - **adding an `additionalFields`
   column to `authOptions` auto-creates it** at next boot.
 - **Editing the user**: better-auth's client exposes `authClient.updateUser({ name,
   image, ...additionalFields })` (same-origin, session-gated). No custom write
@@ -27,11 +27,11 @@ default for `user.name`), because users can finally set a real display name.
 - **Game listing**: `games-repo.ts` has `listPublicGames()` and `listMyGames()`;
   the summary already carries `authorName`. We add a public-games-by-owner query.
 - **Author byline (C10)**: `/g/<id>`, Explore, and Home rails already render
-  "by <name>" — we make that a link to the profile.
+  "by <name>" - we make that a link to the profile.
 
 ## Decisions (locked)
 
-1. **Profile URL: `@handle` vanity URLs** — `/u/@jane`. Each account claims a unique
+1. **Profile URL: `@handle` vanity URLs** - `/u/@jane`. Each account claims a unique
    handle; the profile and shareable link use it. Implications: a unique handle field,
    a claim/validation step, reserved-name guarding, and a backfill path for existing
    accounts (no handle yet → no public profile link until claimed). **Strongly prefer
@@ -40,12 +40,12 @@ default for `user.name`), because users can finally set a real display name.
 2. **Bio** is a new better-auth `additionalField` (`bio`, string, optional, ≤280).
    Auto-migrates. Validated on write.
 3. **Editing uses `authClient.updateUser`** (and the username plugin's set-username
-   call) from the editor page — no new write route. Public reads go through a new
+   call) from the editor page - no new write route. Public reads go through a new
    read endpoint that never leaks email.
 4. **C12 bookmarks is a separate phase** (own table + endpoints + a Save button).
    Plan it here but ship C11 first.
 
-## Phase 1 — C11 profiles + editor
+## Phase 1 - C11 profiles + editor
 
 ### Data
 - **Handles**: add better-auth's `username` plugin (server `plugins: [username()]`
@@ -83,19 +83,19 @@ default for `user.name`), because users can finally set a real display name.
 ### Client
 - `app/pages/u/[handle].vue` (public profile): the route param is the `@handle`
   (strip the `@` for lookup). Avatar (fallback to a generated initial monogram when
-  `image` is empty — reuse the `GameCover` initial style), display name, `@handle`,
+  `image` is empty - reuse the `GameCover` initial style), display name, `@handle`,
   bio, and a grid of their public games (reuse the Explore community-card markup +
   `GameCover`). Empty state when they have no public games yet. SSR-friendly
   (`useFetch`); 404 page for an unknown handle.
 - `app/pages/account.vue` (owner-only; redirect to `/login` if not signed in): edit
-  **display name**, **@handle** (claim/change — live availability check via the
+  **display name**, **@handle** (claim/change - live availability check via the
   username plugin's `isUsernameAvailable`, slug rules + reserved-name guard, inline
   error), **avatar** (upload via the existing uploader, else URL paste, else a
   monogram), and **bio** (textarea, ≤280, live count). Submits via
   `authClient.updateUser(...)` + `setUsername(...)`. Optimistic + error toast. A
   "View my public profile" link to `/u/@<handle>` (shown once a handle is claimed).
 - **Wire C10 → C11**: make the "by <name>" byline on `/g/<id>`, Explore, and Home
-  link to `/u/@<handle>` — but only when the author has claimed a handle (else render
+  link to `/u/@<handle>` - but only when the author has claimed a handle (else render
   plain text). Requires the author `handle` on the public game summary/detail (add it
   via the extended `authorsFor` resolver above).
 - Add an "Account" / "Profile" entry to the top-right nav when signed in (near the
@@ -107,7 +107,7 @@ default for `user.name`), because users can finally set a real display name.
 - Avatar `<img>` has alt = display name; monogram fallback is `aria-hidden` with an
   adjacent visible name. Honor broken-image fallback (hide → monogram).
 - Validation (Zod where there's a server boundary): `name` 1–40 trimmed; `bio` ≤280
-  trimmed; `image` URL ≤2000. The display name is the only public identifier — never
+  trimmed; `image` URL ≤2000. The display name is the only public identifier - never
   render the email anywhere.
 
 ### Tests / verify
@@ -125,7 +125,7 @@ cleanly on the libSQL/Kysely adapter and its client API works as documented; (2)
 `bio` additionalField column is added at boot (manual-ALTER fallback is cheap). Do a
 throwaway spike on both before building the UI.
 
-## Phase 2 — C12 bookmarks (separate ship)
+## Phase 2 - C12 bookmarks (separate ship)
 - Table `bookmarks(user_id, game_id, created_at)` in `db.ts` (PK `(user_id, game_id)`),
   additive-migrated like `games`.
 - `games-repo`: `addBookmark/removeBookmark/listBookmarkedGames(userId)`.
@@ -135,10 +135,10 @@ throwaway spike on both before building the UI.
 - UI: a "Save" toggle on `/g/<id>` and on cards (logged-in only; logged-out → login
   CTA). A "Saved" rail on `/mine` (and/or the profile's own view).
 
-## Phase 3 — optional polish (defer)
+## Phase 3 - optional polish (defer)
 - Sign-in by handle (the username plugin supports it) as an alternative to email.
 - Profile theme accent; "creator since"; public game counts/plays (needs stats, not
-  built — durable-stats is out of scope per the relay-only rule for live state).
+  built - durable-stats is out of scope per the relay-only rule for live state).
 
 ## Out of scope / guardrails
 - No following/social graph, no DMs, no public activity feed (not a social network).

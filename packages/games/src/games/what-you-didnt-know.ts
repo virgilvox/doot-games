@@ -1,9 +1,9 @@
 /**
- * "What, You Didn't Know That?" — a trivia gameshow, the fifth flagship. The big
+ * "What, You Didn't Know That?" - a trivia gameshow, the fifth flagship. The big
  * screen is the stage; everyone in the room plays along on their phones (so it
  * works at a convention panel AND at home). Obscure pop-culture multiple choice,
  * with the point value rising each question. The answer is withheld until the
- * dramatic reveal, and the fastest correct answerer "buzzes in" — their phone
+ * dramatic reveal, and the fastest correct answerer "buzzes in" - their phone
  * dings and the stage spotlights them.
  *
  * Pure composition of `buzzer` rounds; a fresh, shuffled set is drawn from a pool

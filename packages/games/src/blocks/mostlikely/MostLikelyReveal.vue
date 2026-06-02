@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** Phone reveal for Most Likely To: who the room landed on, and who you picked. */
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { MostLikelyContent, MostLikelyInput, MostLikelyRevealSummary } from './block'
 
@@ -16,11 +17,11 @@ const agreed = computed(() => !!myPick.value && myPick.value === winner.value)
 
 <template>
   <div class="ml-reveal big" aria-live="polite">
-    <div class="badge" aria-hidden="true">&#128072;</div>
+    <div class="badge" aria-hidden="true"><Icon name="crown" :size="34" /></div>
     <h2 v-if="winner">The room says {{ winner }}</h2>
     <h2 v-else>It's a wash</h2>
     <p v-if="myPick">
-      You pointed at <b>{{ myPick }}</b><template v-if="agreed"> — same as the room.</template>
+      You pointed at <b>{{ myPick }}</b><template v-if="agreed"> - same as the room.</template>
     </p>
     <p v-else>You didn't vote this round.</p>
   </div>

@@ -37,7 +37,7 @@ npx vite           # serves this folder with TS + HMR (zero install)
 > `Access-Control-Allow-Origin: *` so the **null-origin** plugin frame may load its
 > modules, and `bridge.ts` imports `zod` from a CDN. (Production serves the bundle
 > same-origin from `plugins.doot.games` under the strict CSP instead.) The handshake
-> is source-pinned and protocol-versioned — see the comments in `bridge.ts`.
+> is source-pinned and protocol-versioned - see the comments in `bridge.ts`.
 
 The harness loads your plugin in the **same sandboxed iframe** production uses, then
 lets you:

@@ -2,7 +2,7 @@
 /**
  * Big-screen gameshow stage for a buzzer question: a glowing point-value tag, the
  * answer board (lettered, illuminated panels), a live "locked in" count while
- * answering (never the distribution — that would tip the on-stage contestants),
+ * answering (never the distribution - that would tip the on-stage contestants),
  * and a dramatic reveal: the correct panel lights up, the rest dim, and a
  * spotlight crowns the first buzz-in. Answer + counts arrive only at reveal.
  */

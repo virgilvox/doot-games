@@ -1,4 +1,4 @@
-# Doot — production image. Multi-stage: build the Nuxt app, then run the Nitro
+# Doot - production image. Multi-stage: build the Nuxt app, then run the Nitro
 # server output on a slim Node image. The same image runs locally and on a
 # droplet; only environment variables differ.
 

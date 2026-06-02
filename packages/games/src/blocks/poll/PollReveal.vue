@@ -25,7 +25,6 @@ const withCrowd = computed(
 
 <template>
   <div class="poll-reveal big" aria-live="polite">
-    <div class="badge" aria-hidden="true">&#128202;</div>
     <template v-if="myChoice == null">
       <h2>No vote</h2>
       <p v-if="topLabel">The room went with <b>{{ topLabel }}</b>.</p>

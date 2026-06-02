@@ -160,7 +160,7 @@ export type VoiceRole = 'mc' | 'robotA' | 'robotB'
  * macOS premium voice, a network voice offline), so giving robot A and robot B
  * their own voices makes one go quiet. Instead:
  *  - BOTH robots share ONE reliable voice (the platform default / first LOCAL
- *    one — the voice most likely to actually play), told apart by pitch/rate. If
+ *    one - the voice most likely to actually play), told apart by pitch/rate. If
  *    one robot is audible, the other is too.
  *  - The MC takes a DIFFERENT local voice (female-leaning for character), or falls
  *    back to the robot voice on a one-voice device (a working shared voice beats a

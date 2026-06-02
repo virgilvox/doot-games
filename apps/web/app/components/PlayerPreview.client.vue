@@ -28,7 +28,7 @@ const samplePlayers = [
 const emptyInputs = new Map<string, unknown>()
 
 // A permissive, inert room: reactive reads return benign defaults; reveal/answer
-// reads return undefined; actions are no-ops. Cast through `unknown` — we only
+// reads return undefined; actions are no-ops. Cast through `unknown` - we only
 // need the subset player views touch, never the full runtime.
 const mockRoom = {
   round: computed(() => ({ index: 0, state: 'open', deadline: null })),

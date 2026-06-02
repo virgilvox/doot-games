@@ -3,7 +3,7 @@
  * The lobby join ticket. This is the single most important thing on the big
  * screen: a room full of strangers has to figure out how to get in, fast, from
  * across the room. So it spells out the WHERE (the domain), the WHAT (the code),
- * and the shortcut (scan the QR) — plus a Copy link button for remote rooms
+ * and the shortcut (scan the QR) - plus a Copy link button for remote rooms
  * (Discord/Zoom) where nobody can scan a shared screen.
  */
 import { computed, ref } from 'vue'

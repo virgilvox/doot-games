@@ -325,7 +325,7 @@ renderer (extended only to read `runtimeContent`/`roundReveal` and render
      assembles the verse for the judge round.
    - **Animated robot performance**: the `vote` round carries an opt-in **`perform`**
      flag; when set, `VoteHost` shows a **"Perform the bars"** control and an
-     animated **`RobotRapper`** (new `@doot-games/ui` component — CSS robot that
+     animated **`RobotRapper`** (new `@doot-games/ui` component - CSS robot that
      bobs to a beat with a running equalizer "mouth") that raps each verse aloud
      via `speechSynthesis` (client-only, SSR-guarded, a clean no-op where TTS is
      missing). The vote flow never depends on it.
@@ -426,7 +426,7 @@ filter chips (functional), a "Featured this week" hero (newest public game, else
 Quip Clash flagship), an optional "Your games" row, and a cover-card grid of public
 games + game-type templates.
 
-## 8. Circuit Cypher tournament (the full battle — design for the next build)
+## 8. Circuit Cypher tournament (the full battle - design for the next build)
 
 v2 shipped the guided couplet writing + the animated `RobotRapper` performance +
 field vote. The full Mad Verse City experience adds a head-to-head tournament and
@@ -442,7 +442,7 @@ the `bars` write round and the engine's relay/roster/reconnect.
   publishing the current matchup (the two robots + their verses) to the relay.
   "Keep going until everyone has battled" => round-robin for small rooms, capped at
   ~3 pairing rounds for large ones (log what's dropped). For each matchup:
-  1. **Robot A performs** player A's verse — the `RobotRapper` for A raps (TTS or
+  1. **Robot A performs** player A's verse - the `RobotRapper` for A raps (TTS or
      live, see below) while B's robot reacts; then **robot B performs** B's verse.
      Two robots face off on the big screen (`facing="left"`/`"right"`).
   2. **Live cheers** during each performance: phones show a tap-to-cheer button;
@@ -453,7 +453,7 @@ the `bars` write round and the engine's relay/roster/reconnect.
      reserved `head-to-head` mode tallies the winner. Both performers earn cash
      (Mad Verse City: unless you got zero votes); the winner earns more.
 - **Perform-mode toggle** (host, in the lobby): **Robots** (speechSynthesis, as
-  today) or **Players perform live** — the beat plays and a per-performer countdown
+  today) or **Players perform live** - the beat plays and a per-performer countdown
   runs while that human reads their verse aloud IRL; cheers happen during, vote
   after. `prefers-reduced-motion` / a mute toggle govern audio either way.
 - **Beat**: a CSS beat visual today; add the **Tone.js generated loop** (§3.6) so
@@ -473,7 +473,7 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
 - ✅ **Battle transport shipped + tested**: `room.publishExtra(key, value)` /
   `room.onExtra(keyPattern, cb)` (engine) for the custom battle state + the
   continuous cheer channel (the `/<room>/x/<key>` namespace, wildcards supported).
-- ✅ **(b) the custom tournament flow — SHIPPED (not yet deployed; see the gate
+- ✅ **(b) the custom tournament flow - SHIPPED (not yet deployed; see the gate
   below).** `circuit-cypher.ts` now ships `components: { Host: CircuitCypherHost,
   Player: CircuitCypherPlayer }` and a **single** `bars` write round. The engine
   stays in `active`/round-0 through the whole battle; the battle is custom relay
@@ -488,11 +488,11 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
   `pnpm test` (178), full typecheck incl. `nuxi`, web build, and a real-browser
   smoke (`scripts/cypher-smoke.mjs`: host + 3 phones through write -> battle ->
   vote -> crown with zero console/page errors).
-- ✅ **(c) live cheers + bonus — SHIPPED.** Tap-to-cheer streams over the relay
+- ✅ **(c) live cheers + bonus - SHIPPED.** Tap-to-cheer streams over the relay
   during a performance; a small **capped** bonus (`cheerBonus`, < the head-to-head
   show payout) pads the performer's cash but can never flip who wins (the vote
   decides). Crowd energy also drives the 3D crowd + lights.
-- ✅ **(e) generated beat — SHIPPED, and upgraded past Tone.js.** Adapting the
+- ✅ **(e) generated beat - SHIPPED, and upgraded past Tone.js.** Adapting the
   animated mockup (`robot-rap-battle.html`), the beat is now a richer **procedural
   Web Audio engine** (`@doot-games/ui` `createArenaAudio`): a boom-bap
   kick/snare/hat/bass/stab loop over a filtered pad, an **AnalyserNode** whose
@@ -500,7 +500,7 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
   music **ducking** under the rap, and SFX (airhorn / crowd cheer / countdown
   beeps). Raw Web Audio, no dependency, lazy + SSR-guarded + mute-aware. (Tone.js
   was dropped: the analyser-driven engine is lighter and does more.)
-- ✅ **The full animated performance (from the mockup) — SHIPPED.** A reusable
+- ✅ **The full animated performance (from the mockup) - SHIPPED.** A reusable
   **`RapBattleStage`** (`@doot-games/ui`, lazy Three.js, client-only, SSR-guarded
   like `DrawCanvas`; ~0.5MB client async chunk, **absent from the SSR bundle**)
   renders a neon 3D arena (two robots with per-side accent colors, crowd, EQ wall,
@@ -513,7 +513,7 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
   persona from the rapping robots) that narrates every beat. A host **Skip** +
   **mute** control the show; `prefers-reduced-motion` damps motion and defaults
   audio off.
-- ✅ **Per-player verse scaffolds — SHIPPED.** Each performer gets a DIFFERENT
+- ✅ **Per-player verse scaffolds - SHIPPED.** Each performer gets a DIFFERENT
   couplet scaffold, so every rap is completely different. The write round carries
   the whole room-shuffled pool as bars-content `variants`; the host hands each
   joined player a unique, stable scaffold index (incremental, reconnect-safe) and
@@ -528,21 +528,21 @@ Tone.js beat. Ship (a)+(b) first (a real 1v1 tourney), then layer crowd energy.
   playtested on real devices** (WebGL/audio/TTS + touch). Per the original D13b
   rule, do that before this reaches players.
 
-## 9. "What, You Didn't Know That?" — the trivia gameshow
+## 9. "What, You Didn't Know That?" - the trivia gameshow
 
-v1 (shipped): a first-party flagship built on a new **`buzzer` block** — multiple
+v1 (shipped): a first-party flagship built on a new **`buzzer` block** - multiple
 choice with one withheld answer, a per-question **point value** that escalates
 across the round, and **speed**: each phone reports its own time-to-answer (Kahoot
-style, clock-skew-immune), so the fastest correct answerer "buzzes in" — their
+style, clock-skew-immune), so the fastest correct answerer "buzzes in" - their
 phone **dings** (`@doot-games/ui playDing`, Web Audio, SSR-guarded) and the stage
 spotlights them. Scoring = value + up to +50% speed + a +25% buzz bonus for first.
 The **`BuzzerHost`** big screen is the stage: a glowing value tag, lettered answer
-panels, a live "N locked in" count (never the distribution — that would tip the
+panels, a live "N locked in" count (never the distribution - that would tip the
 on-stage contestants), and a dramatic reveal (correct panel lights up, the rest
 dim, the buzz-in is crowned). Everyone plays on phones, so it works at a panel and
 at home. Pool of pop-culture questions, host-pickable question count.
 
-The full gameshow (designed, next — a **custom-flow** feature like the rap
+The full gameshow (designed, next - a **custom-flow** feature like the rap
 tournament):
 - **The 4-contestant panel + audience steal** (the signature rule). A host-judged
   mode: 4 named contestants answer (orally at a panel, or on their phones at home);
@@ -550,16 +550,16 @@ tournament):
   opens and the first audience member to buzz in correct (the ding identifies them)
   **takes the lowest contestant's seat and their points** for the rest of the two
   rounds. Needs a contestant/audience role split, a host "judge each contestant
-  right/wrong" panel, and the seat-swap + point-transfer logic — a custom
+  right/wrong" panel, and the seat-swap + point-transfer logic - a custom
   `components` game, not the generic renderer.
-- **Quick-draw tiebreaker**: reuse the `draw` block — a contestant draws a given
+- **Quick-draw tiebreaker**: reuse the `draw` block - a contestant draws a given
   title; a random audience member guesses; first correct wins the tie.
 - **Final lightning round**: 16 equal-value questions; sudden-death on a tie.
 - **The specialty rounds** as `buzzer`/new-block content packs: Hey I Know That Guy
-  (actor photos — `image` options), Poorly Described Plots, Theme Songs (needs an
+  (actor photos - `image` options), Poorly Described Plots, Theme Songs (needs an
   audio-clip block), Macguffins, Go Figure (toy photos), Those Aren't The Words,
-  Well Technically (correct-the-host — a new "rebuttal" input), A Rock In The Jungle,
-  and Six Degrees of Kevin Bacon (free-form connection chains — host-judged).
+  Well Technically (correct-the-host - a new "rebuttal" input), A Rock In The Jungle,
+  and Six Degrees of Kevin Bacon (free-form connection chains - host-judged).
 - **Audio/visual cues**: image clues ship today (`image` on the question/options);
   audio-clip questions need a small clip block + host playback.
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** Phone reveal for Ballpark: the answer, your guess, and how close you were. */
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { BallparkContent, BallparkInput, BallparkRevealSummary } from './block'
 
@@ -29,14 +30,13 @@ const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2))
 
 <template>
   <div class="bp-reveal big" aria-live="polite">
-    <div v-if="wasClosest" class="badge ok" aria-hidden="true">&#127919;</div>
-    <div v-else class="badge no" aria-hidden="true">&#128202;</div>
+    <div v-if="wasClosest" class="badge ok" aria-hidden="true"><Icon name="crown" :size="34" /></div>
     <h2 v-if="answer != null">{{ fmt(answer) }}<small v-if="unit"> {{ unit }}</small></h2>
     <h2 v-else>Answer in</h2>
     <p v-if="!guessed">You didn't lock in a number.</p>
     <p v-else-if="wasClosest"><b>Closest guess!</b> You said {{ fmt(myValue as number) }}.</p>
     <p v-else>
-      You said {{ fmt(myValue as number) }} — off by <b>{{ myError != null ? fmt(myError) : '?' }}</b>.
+      You said {{ fmt(myValue as number) }} - off by <b>{{ myError != null ? fmt(myError) : '?' }}</b>.
     </p>
   </div>
 </template>

@@ -1,11 +1,11 @@
 /**
- * Host side of the bridge — runs in the TRUSTED Doot app. Owns the iframe, creates
+ * Host side of the bridge - runs in the TRUSTED Doot app. Owns the iframe, creates
  * the private MessageChannel, and is the only path by which a plugin's `submit` can
  * reach the relay. The plugin is hostile, so enforcement lives HERE, not in the
  * caller: every inbound message is flood-limited, size-capped, schema-validated,
  * version-checked, and (for `submit`) phase-gated before a callback ever fires.
  * The host must STILL re-validate `submit.input` against the block's own schema
- * before publishing — passing the bridge schema is necessary, not sufficient.
+ * before publishing - passing the bridge schema is necessary, not sufficient.
  */
 import { BRIDGE_LIMITS, BOOTSTRAP, type HostToPlugin, PROTOCOL_VERSION, pluginToHost } from './protocol'
 
@@ -53,14 +53,14 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
   let ready = false
   // The phase the host last told the plugin it was in; used to gate `submit`.
   let currentPhase: string | undefined
-  // Per-second flood counter — a cheap fixed window (resets on the first message
+  // Per-second flood counter - a cheap fixed window (resets on the first message
   // >=1s after it opened). Approximate: a steady stream straddling boundaries can
   // pass up to ~2x the rate over a sliding second, which is fine for a DoS backstop.
   let windowStart = 0
   let inWindow = 0
 
   port.onmessage = (ev: MessageEvent) => {
-    // 1) Flood guard — a runaway plugin must not be able to spam the host/relay.
+    // 1) Flood guard - a runaway plugin must not be able to spam the host/relay.
     const now = Date.now()
     if (now - windowStart >= 1000) {
       windowStart = now
@@ -71,7 +71,7 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
       return
     }
 
-    // 2) Size backstop — a single giant payload must not reach the relay/DB.
+    // 2) Size backstop - a single giant payload must not reach the relay/DB.
     // Measured in real UTF-8 bytes; an unstringifiable payload (BigInt, circular)
     // is malformed, so it's dropped as a schema failure, not an oversize.
     let serialized: string | undefined
@@ -96,7 +96,7 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
 
     switch (m.t) {
       case 'ready':
-        // 4) Version negotiation — a pinned, immutable plugin can't be patched in
+        // 4) Version negotiation - a pinned, immutable plugin can't be patched in
         // lockstep with the host, so refuse an incompatible major loudly.
         if (Math.trunc(m.protocolVersion) !== Math.trunc(ourVersion)) {
           cb.onIncompatible?.(m.protocolVersion)
@@ -107,7 +107,7 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
         cb.onReady?.({ protocolVersion: m.protocolVersion })
         break
       case 'submit':
-        // 5) Phase gate — drop submits outside the open phase (and before any round).
+        // 5) Phase gate - drop submits outside the open phase (and before any round).
         if (currentPhase === undefined || !acceptPhases.includes(currentPhase)) {
           cb.onInvalid?.(ev.data, 'phase')
           return
@@ -151,7 +151,7 @@ export function createPluginHost(
     ...handle,
     bootstrap: () => {
       // targetOrigin '*' is unavoidable for a null-origin sandboxed frame and
-      // provides NO peer authentication — the load-bearing control is the plugin
+      // provides NO peer authentication - the load-bearing control is the plugin
       // side pinning `e.source === window.parent` (see plugin.ts). The body carries
       // no secret, only the transferred port, which makes later traffic private.
       iframe.contentWindow?.postMessage({ t: BOOTSTRAP }, '*', [channel.port2])

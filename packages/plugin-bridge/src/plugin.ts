@@ -1,5 +1,5 @@
 /**
- * Plugin side of the bridge — runs INSIDE the sandboxed iframe. The plugin never
+ * Plugin side of the bridge - runs INSIDE the sandboxed iframe. The plugin never
  * touches cookies, the session, the DB, the host DOM, or the raw relay; it only
  * receives validated, already-redacted state and may `submit` one input.
  */
@@ -9,7 +9,7 @@ export interface PluginHandlers {
   onInit?: (m: Extract<HostToPlugin, { t: 'init' }>) => void
   onRound?: (m: Extract<HostToPlugin, { t: 'round' }>) => void
   onState?: (m: Extract<HostToPlugin, { t: 'state' }>) => void
-  /** Sent only at reveal — this is the first time the plugin can see the answer. */
+  /** Sent only at reveal - this is the first time the plugin can see the answer. */
   onAnswer?: (m: Extract<HostToPlugin, { t: 'answer' }>) => void
 }
 
@@ -68,7 +68,7 @@ export function attachPluginPort(port: MessagePort, handlers: PluginHandlers): P
  * embedding host (`e.source === window.parent`) and ONLY on the typed `BOOTSTRAP`
  * message. Without this, any context that can post a `MessagePort` into this window
  * (a frame the plugin itself nests, an opener, a sibling that grabbed a handle)
- * could race the real host, win the channel, and forge host messages — including a
+ * could race the real host, win the channel, and forge host messages - including a
  * fake `answer` key. `targetOrigin '*'` on the host side gives zero peer
  * authentication, so this check is the load-bearing control.
  */

@@ -7,6 +7,7 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { MostLikelyContent, MostLikelyInput, MostLikelyRevealSummary } from './block'
 
@@ -51,7 +52,7 @@ const total = computed(() => (summary.value?.tallies ?? []).reduce((n, t) => n +
         >
           <span class="fill" :style="{ width: `${(t.votes / total) * 100}%` }" aria-hidden="true" />
           <span class="text">
-            <span v-if="i === 0 && t.votes > 0" class="crown" aria-label="winner">&#128081;</span>{{ t.name }}
+            <span v-if="i === 0 && t.votes > 0" class="crown" aria-label="winner"><Icon name="crown" :size="16" /></span>{{ t.name }}
           </span>
           <span class="votes mono">{{ t.votes }}</span>
         </li>

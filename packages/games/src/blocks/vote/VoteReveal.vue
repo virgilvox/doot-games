@@ -4,6 +4,7 @@
  * the big one (closing the "answers are up, look at the big screen" gap). Shows
  * the winner and what the player voted for.
  */
+import { Icon } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { VoteContent, VoteInput, VoteRevealSummary } from './block'
 
@@ -24,7 +25,7 @@ const myVoteText = computed(() => {
   <div class="vote-reveal big">
     <div v-if="winner" class="winner">
       <div class="kicker">Winner</div>
-      <p class="wtext">&#127942; &ldquo;{{ winner.text }}&rdquo;</p>
+      <p class="wtext"><Icon name="crown" :size="20" /> &ldquo;{{ winner.text }}&rdquo;</p>
       <p class="wauthor">by {{ winner.author }} &middot; {{ winner.votes }} vote{{ winner.votes === 1 ? '' : 's' }}</p>
     </div>
     <p v-if="myVoteText" class="myvote">You voted for &ldquo;{{ myVoteText }}&rdquo;</p>

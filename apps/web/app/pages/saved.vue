@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** The signed-in user's saved (bookmarked) games — C12. Mirrors the "Your games"
+/** The signed-in user's saved (bookmarked) games - C12. Mirrors the "Your games"
  *  list, but driven by /api/me/bookmarks. Bookmarks are added from a game's
  *  detail page (/g/[id]). */
 import { gameCatalog } from '@doot-games/games/catalog'

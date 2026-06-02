@@ -7,9 +7,35 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
-> **Faker + Open Mic rework + audit (2026-06-02, COMMITTED to `main` locally, not yet
-> pushed).** Three commits on top of the per-player primitive. All green: typecheck (incl.
-> `nuxi`), the full suite (301 tests), and the web build. NOT pushed (the owner pushes).
+> **Faker + Open Mic + Truth or Share + audits + copy/em-dash sweep (2026-06-02, PUSHED to
+> `main`, deploying via CI).** A large batch: three new flagships, two adversarial audit
+> rounds, a real-browser smoke, a project-wide em-dash removal, and a pictographic-emoji
+> cleanup in game reveals. All green: typecheck (incl. `nuxi`), the full suite (315 tests),
+> the web build, and a 3-game real-browser smoke (`scripts/new-games-smoke.mjs`).
+> - **Truth or Share (G1) shipped (text dares):** see its own entry below. Custom-flow over
+>   the `/x/` transport; host-authoritative roster pushed in the turn state (so the picker
+>   never depends on its own presence snapshot); moderation gate enforced by the pure tested
+>   `redactTurnForPublish`.
+> - **Browser smoke caught a real bug** the unit suite/build could not (custom-flow
+>   orchestration lives in the Vue host): the Truth or Share `pick`/`response` `onExtra`
+>   handlers parsed the wrong channel-key segment (turn index vs pid), so the picker check
+>   always failed and the turn never advanced. Fixed + the smoke now drives all three games
+>   end to end, including live withholding checks (Faker word stays off the big screen; the
+>   Truth or Share answer is hidden until the host approves).
+> - **Open Mic auto-lock fix:** the engine auto-locks a timed vote at its deadline, which had
+>   stranded the host with no reveal control at `locked`; the control now shows for any
+>   non-reveal voting state.
+> - **Copy + em dashes:** all em dashes removed repo-wide (0 remaining); pictographic emoji
+>   (trophy/crown/robot/chart/heart) removed from game reveals + the app shell in favor of the
+>   `Icon` component or plain text (the monochrome check/x marks are kept as text symbols).
+> - **Known presence caveat (verify on device):** in the headless multi-context smoke,
+>   player-to-player presence does not propagate, so a player's own `room.players` roster can
+>   lag. Truth or Share is now robust to this (host pushes the roster). **Most Likely To reads
+>   `room.players` directly for its roster vote and would be affected by the same lag** if it
+>   is real on devices, worth a real two-phone check.
+>
+> **Earlier in this batch (now part of the pushed set):** Three commits on top of the
+> per-player primitive. All green: typecheck (incl. `nuxi`), the full suite, and the web build.
 > - **Faker (G2) shipped**, the hidden-imposter flagship on the secret per-player primitive:
 >   a `faker` make block (`assignContent` picks the imposter seeded/reconnect-safe, delivers
 >   the word only to each non-faker's private address, `redactContent` strips it from the
@@ -59,7 +85,7 @@ pushed" notes in the entries below are superseded._
 > "Generated with"); no em dashes and no AI-sounding copy in UI or replies; gate "done" on
 > typecheck + tests + build; push to deploy when the owner asks.
 
-> **Secret per-player content primitive — the hidden-role foundation (2026-06-02, COMMITTED
+> **Secret per-player content primitive - the hidden-role foundation (2026-06-02, COMMITTED
 > to `main` locally, not yet pushed).** The reusable engine capability that unlocks Faker /
 > Hot Seat / (eventually) Truth or Share. The host can give each player DIFFERENT content
 > for a round, delivered to each player's own private relay address so another player's UI
@@ -70,28 +96,28 @@ pushed" notes in the entries below are superseded._
 > - SDK: a roster-aware `assignContent(ctx) -> { perPlayer, answer }` block hook; runtime
 >   `buildAssignContent`; `HostRoom` wires it. Additive (rounds without it are unchanged).
 > - **Soft-secrecy caveat (documented, accepted):** the per-player address is derivable, so a
->   devtools user could read others' — the same trade-off as the existing soft two-phase
+>   devtools user could read others' - the same trade-off as the existing soft two-phase
 >   anonymity. Fine for casual play; not a defense against a determined cheater.
 > - Integration test (`runtime/perplayer.integration.test.ts`) proves each player gets only
 >   their own content and the answer is withheld until reveal.
 > - **NEXT: build Faker on it** (deliberately not rushed into this session). Concrete design:
->   (1) a `faker` make block — content `{ category, word }`; `redactContent` strips `word`
+>   (1) a `faker` make block - content `{ category, word }`; `redactContent` strips `word`
 >   from the public config; `assignContent` picks one imposter (seeded), gives non-fakers the
 >   word and the faker a blank + "you're the faker", `answer = { fakerPid, word }`; players
 >   submit a one-word clue; the HostDisplay shows only the category + a count (never the word,
 >   since the faker watches the big screen). (2) an `accuse` judge block deriving from the
->   faker round — needs a small **derive extension: pass the source round's answer key into
+>   faker round - needs a small **derive extension: pass the source round's answer key into
 >   `DeriveContext.sources[i].answer`** (so `accuse` learns `fakerPid`); shows the attributed
 >   clues + a roster vote; scores accusers who picked the real faker and the faker if it
 >   escaped (not top-voted); reveal unmasks the faker + word. (3) `faker` game = a word pool
 >   via `buildConfig`. Plus REDACTION_RULES `faker: { word: '' }` (catalog test enforces it).
 
-> **Circuit Cypher TTS — true root cause finally found + fixed (2026-06-02, COMMITTED to
+> **Circuit Cypher TTS - true root cause finally found + fixed (2026-06-02, COMMITTED to
 > `main` locally, not yet pushed).** After several prior "fixes" that didn't
 > hold, I reproduced it in a real headed browser (`scripts/tts-probe.mjs` + the instrumented
 > `scripts/cypher-tts-verify.mjs`) and the per-utterance timeline showed the actual bugs:
 > - **The "stuck on the title card" freeze = a single over-long utterance stalling.** The MC
->   welcome line (~194 chars) `start@21.7s … end@71.7s` — a **50-second hang**. Chrome/macOS
+>   welcome line (~194 chars) `start@21.7s … end@71.7s` - a **50-second hang**. Chrome/macOS
 >   silently STOPS an utterance that speaks longer than ~15s; it goes quiet and `onend` fires
 >   tens of seconds late, so the show sits frozen on one card. The short robot verses (~7s)
 >   were unaffected, which is why earlier scripted checks looked "PASS". **Fix:** `chunkText`
@@ -101,7 +127,7 @@ pushed" notes in the entries below are superseded._
 > - **"Silent second robot" (Sparky quiet, Drive fine) = a per-robot voice that produces no
 >   audio on the device** (an undownloaded macOS premium voice, or a network voice). Giving
 >   robot A and robot B their *own* voices reintroduces this. **Fix:** both robots now SHARE
->   one reliable voice (the platform default / first LOCAL voice — most likely to actually
+>   one reliable voice (the platform default / first LOCAL voice - most likely to actually
 >   play), told apart by pitch/rate; if one robot is audible, both are. The **MC** takes a
 >   *different* local voice (female-leaning), so rappers ≠ host (the owner's ask). Selection
 >   is **local-only** (never the silent network "Google …" voices) and by language +
@@ -124,14 +150,14 @@ pushed" notes in the entries below are superseded._
 
 > **E18 phone-reveal feedback (2026-06-02, COMMITTED to `main` locally, not yet pushed).**
 > Closed the backlog gap where poll/rank/rate/draw showed only a generic "check the big
-> screen" at reveal. Added a `revealSummary` + `PlayerReveal` to each (purely additive — the
+> screen" at reveal. Added a `revealSummary` + `PlayerReveal` to each (purely additive - the
 > engine already publishes any block's `revealSummary` and the generic player renderer mounts
 > its `PlayerReveal`): **poll** = you-vs-room top pick; **rate** = your score vs the room
 > average per category (on the round's own scale); **rank** = the consensus order with your #1
 > called out; **draw** = your own drawing back on your phone (`DrawThumb`). Pure summaries
 > unit-tested (`blocks/reveals.test.ts`). 279 tests, typecheck (incl. `nuxi`), build all green.
 
-> **Cheap-wins game batch — five new flagships (2026-06-02, COMMITTED to `main` locally,
+> **Cheap-wins game batch - five new flagships (2026-06-02, COMMITTED to `main` locally,
 > not yet pushed).** Adapted from an external idea dump; the brief was the
 > highest games-per-effort set with no engine changes. Verified with `pnpm typecheck`
 > (incl. `nuxi`), the full suite (**225 tests**, +14 new), and the web build.
@@ -335,7 +361,7 @@ pushed" notes in the entries below are superseded._
 >   (most public games are `forkable: false`); richer block starter content; the
 >   consent-screen client name + an expired-token/unused-DCR-client sweep (audit notes).
 >
-> **C11 user profiles + Circuit Cypher TTS fix — SHIPPED + DEPLOYED + AUDITED (2026-06-01).**
+> **C11 user profiles + Circuit Cypher TTS fix - SHIPPED + DEPLOYED + AUDITED (2026-06-01).**
 > Three commits to `main`, all live on https://doot.games and verified in production
 > (`/api/health`, the profile endpoints, the validation hook, both robot verses).
 > - **C11 profiles (C11 in `docs/BACKLOG.md`).** Public creator identity via
@@ -346,7 +372,7 @@ pushed" notes in the entries below are superseded._
 >   silently never appear. Fixed with a manual additive ALTER (`username`,
 >   `displayUsername`, `bio` as **camelCase** columns + a separate `CREATE UNIQUE INDEX`)
 >   in `auth-migrate.ts` after `runMigrations`. There is **no `setUsername`** API in
->   v1.6.12 — set the handle via `authClient.updateUser({ username, displayUsername })`;
+>   v1.6.12 - set the handle via `authClient.updateUser({ username, displayUsername })`;
 >   availability is `authClient.isUsernameAvailable`. New: `/account` editor, public
 >   `/u/[handle]` page, `GET /api/users/[handle]` (email-free), `listPublicGamesByOwner`,
 >   `authorsFor` returning `{name,handle}`; C10 bylines now link to `/u/@handle` via a
@@ -367,33 +393,33 @@ pushed" notes in the entries below are superseded._
 > - **Audit hardening (adversarial audit of the above).** Two MED issues found + fixed:
 >   (1) `name`/`bio`/`image`/`displayUsername` were only capped client-side, so a direct
 >   `POST /api/auth/update-user` could store a multi-MB bio/name (storage DoS) or a non-URL
->   avatar rendered as `<img src>` on every public profile — now bounded by a better-auth
+>   avatar rendered as `<img src>` on every public profile - now bounded by a better-auth
 >   `hooks.before` middleware (`validateProfile` in `server/utils/auth.ts`, http(s)-only
 >   avatar); (2) `/u/@handle` overflowed horizontally on a phone when a name/handle was long
->   — fixed with `min-width:0` + `overflow-wrap`. Also: `displayUsername` is pinned to the
+>   - fixed with `min-width:0` + `overflow-wrap`. Also: `displayUsername` is pinned to the
 >   normalized handle (no impersonation), the public API no longer returns the internal
 >   account id, and the Home-rail stretch-links got action-verb aria-labels. **Confirmed
 >   clean by the audit:** email never exposed, no SQL injection, visibility enforced
 >   (private games never on a profile), migration idempotent, the Cypher state machine
 >   can't stall. Verified live (oversized name/bio → 400, `javascript:` avatar → 400).
 >
-> **Quick-wins batch — SHIPPED + DEPLOYED (2026-06-01).** Four increments, each
+> **Quick-wins batch - SHIPPED + DEPLOYED (2026-06-01).** Four increments, each
 > verified (200 tests, full typecheck incl. `nuxi`, web build) and pushed to `main`:
-> - **Circuit Cypher visual polish** — verse-box overflow fix (one row per line,
+> - **Circuit Cypher visual polish** - verse-box overflow fix (one row per line,
 >   flex-wrapped), a new `Icon` component in `@doot-games/ui` replacing every emoji
 >   (**standing rule: use `Icon`, never emoji**), slower mockup-matched pacing (`PACE`
 >   table), the robot-freeze-when-muted fix (motion now runs off a local clock, not
 >   `audio.beatPhase()` which is `0` when muted), camera pulled back, and an opening
 >   "CIRCUIT CYPHER" title sequence. (Headless Playwright throttles background-tab
 >   `setTimeout`, so verify timing-sensitive UI on a real foreground browser.)
-> - **C10 author display name** — community games + `/g/<id>` credit the author by
+> - **C10 author display name** - community games + `/g/<id>` credit the author by
 >   display name (better-auth `user.name`, never the email). New `server/utils/users.ts`
 >   batch-resolves owner ids to names; shown on `/g/<id>`, Explore, and the Home rails.
-> - **Fib Finder** (Fibbage flagship) — new `fibvote` block: a `quip` make round of lies
+> - **Fib Finder** (Fibbage flagship) - new `fibvote` block: a `quip` make round of lies
 >   plus an injected, withheld `truth`, dual-axis scoring (find the truth + fool the
 >   room). 20-fact brand-free pool. The truth is an answer key (stripped via
 >   `redactContent` + `REDACTION_RULES`).
-> - **Sketch & Spot** (Drawful flagship) — new `drawvote` block: vote on a gallery of the
+> - **Sketch & Spot** (Drawful flagship) - new `drawvote` block: vote on a gallery of the
 >   room's drawings (Draw block in the two-phase loop), derived from the prior draw
 >   round's strokes. 16-prompt pool. `scripts/sketch-smoke.mjs` drives the Pixi canvas +
 >   gallery vote end to end.
@@ -442,7 +468,7 @@ pushed" notes in the entries below are superseded._
 > **Games From Doot list alphabetically on Home + Explore.**
 > Next per `docs/BACKLOG.md`: robustness (E16), then D14 the gameshow.
 
-> **D13b Circuit Cypher tournament + full animated 3D battle — SHIPPED + DEPLOYED (2026-05-31).**
+> **D13b Circuit Cypher tournament + full animated 3D battle - SHIPPED + DEPLOYED (2026-05-31).**
 > Circuit Cypher is now a **custom-flow** game: `circuit-cypher.ts` ships
 > `components: { Host: CircuitCypherHost, Player: CircuitCypherPlayer }` + a single
 > `bars` write round. Everyone writes one verse; on the mic closing the host builds a
@@ -469,7 +495,7 @@ pushed" notes in the entries below are superseded._
 >
 > **Two critical bugs were found + fixed during verification** (would have made the game
 > unplayable): (1) **the engine dropped any `onExtra` subscription made before the relay
-> socket connected** — a custom-flow host subscribes from `onMounted` (pre-connect), so
+> socket connected** - a custom-flow host subscribes from `onMounted` (pre-connect), so
 > the host received NO votes/cheers/drive at all; `RoomRuntime.onExtra` now defers the
 > real subscribe to `onConnect` (regression test added). (2) the host stored bare vote
 > choice **strings** while `tallyBattle` reads `{choice}` **objects**, so every vote
@@ -482,7 +508,7 @@ pushed" notes in the entries below are superseded._
 > Remaining polish: themed arena colors (currently the deliberate neon battle palette),
 > MC battle-step labels. Full detail: `docs/flagship-games.md` §8 "Build status".
 
-> **D13 Circuit Cypher tournament — started (2026-05-31).** Shipped + tested foundations (no user-facing change yet, all additive): **`buildBracket`** (round-robin pairing so everyone battles, capped for big rooms), **`tallyBattle`** + **`headToHeadPoints`** (1v1 matchup tally + Mad Verse City payout), a **`RobotBattle`** two-robot face-off view, and the **battle transport** the custom flow needs (`room.publishExtra`/`onExtra`, a `/<room>/x/<key>` custom relay channel with wildcards, also the cheer channel). **Remaining = D13b**, the custom tournament components (`CircuitCypherHost`/`Player`): wire the bracket + host-driven matchup sequencing (perform A -> perform B -> vote -> result) over the battle channel, then layer cheers/live-perform/Tone.js beat. Full plan in `docs/flagship-games.md` section 8 ("Build status").
+> **D13 Circuit Cypher tournament - started (2026-05-31).** Shipped + tested foundations (no user-facing change yet, all additive): **`buildBracket`** (round-robin pairing so everyone battles, capped for big rooms), **`tallyBattle`** + **`headToHeadPoints`** (1v1 matchup tally + Mad Verse City payout), a **`RobotBattle`** two-robot face-off view, and the **battle transport** the custom flow needs (`room.publishExtra`/`onExtra`, a `/<room>/x/<key>` custom relay channel with wildcards, also the cheer channel). **Remaining = D13b**, the custom tournament components (`CircuitCypherHost`/`Player`): wire the bracket + host-driven matchup sequencing (perform A -> perform B -> vote -> result) over the battle channel, then layer cheers/live-perform/Tone.js beat. Full plan in `docs/flagship-games.md` section 8 ("Build status").
 
 > **Author/host batch B6, B8, B9 shipped + deployed (2026-05-31).** (B6) guess/buzzer options gain an optional **subtitle** (e.g. a character's series), shown on the host board, the phone, and the reveal. (B8) the host can set an optional **player cap** from the lobby; the join screen counts the roster and turns a new player away with "This room is full" (a reconnecting name still gets in). (B9) the host can **delegate driving to a player (co-host/MC)**: pick from the roster or an off-by-default "first to join", and the delegate drives the round cycle from their phone while still playing; the host stays the sole authority (the delegate sends intents, the host validates + applies them) and can take back control. **B7 was reverted**: scoring is correct-only, a wrong answer never scores (the earlier "points for answering" mode was a misread and is gone). Plus two fixes found en route: the pre-join name probe no longer hangs ~2.5s on a fresh name, and **"Host now" after editing a game** works again (a structuredClone-on-reactive-proxy throw). **161 tests** pass; full typecheck + web build; 6/6 real-browser playtest incl. the co-host flow. Remaining: **D13** (Circuit Cypher tournament), then C / D14 / E.
 

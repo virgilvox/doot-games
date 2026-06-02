@@ -5,7 +5,7 @@
  *
  * Design + threat model: docs/external-plugins.md. Two invariants live here:
  *   - The plugin only ever learns the answer key via the `answer` message, which
- *     the host sends ONLY at reveal — so a plugin cannot read answers early.
+ *     the host sends ONLY at reveal - so a plugin cannot read answers early.
  *   - The plugin's only actionable verb is `submit`; its `input` is re-validated
  *     by the host against the block's own schema before anything reaches the relay.
  */
@@ -60,6 +60,6 @@ export const BRIDGE_LIMITS = {
   /** Phases in which a `submit` is accepted (last-write-wins until the host locks).
    *  Defaults to the engine's open RoundState ('open'); a host that sends a different
    *  phase vocabulary must override this. The host MUST keep round/state `phase`
-   *  truthful — the gate trusts it to decide when submissions close. */
+   *  truthful - the gate trusts it to decide when submissions close. */
   acceptSubmitPhases: ['open'] as readonly string[],
 } as const

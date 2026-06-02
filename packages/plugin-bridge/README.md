@@ -15,7 +15,7 @@ the broader authoring plan: [`docs/plugin-authoring-roadmap.md`](../../docs/plug
   the `answer` message, which the host sends *only* at reveal. There is no earlier
   path to it.
 - **Submit-only.** The plugin's single actionable verb is `submit`. Passing the
-  bridge schema is necessary but not sufficient — the host **must** re-validate
+  bridge schema is necessary but not sufficient - the host **must** re-validate
   `input` against the block's own schema before publishing to the relay.
 - **Validated both ways.** Every inbound message is `safeParse`d; off-protocol
   messages are dropped (and, on the host, surfaced via `onInvalid`).

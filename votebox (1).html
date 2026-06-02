@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>VoteBox — party voting &amp; guessing</title>
+<title>VoteBox - party voting &amp; guessing</title>
 
 <!-- Real-time layer: CLASP core (pinned). The relay stores nothing about "games"; it is all pub/sub. -->
 <script src="https://cdn.jsdelivr.net/npm/@clasp-to/core@4.3.2/dist/index.global.js" crossorigin="anonymous"></script>
@@ -14,7 +14,7 @@
 
 <style>
 /* ============================================================
-   VoteBox — "risograph game night": warm dark ink, fluoro inks,
+   VoteBox - "risograph game night": warm dark ink, fluoro inks,
    hard offset shadows, paper grain, chunky tactile components.
    ============================================================ */
 :root{
@@ -368,7 +368,7 @@ textarea.input{min-height:140px;resize:vertical;font-family:"Space Mono",monospa
     </div>
     <label class="fld"><span>Game title</span><input class="input" id="ed-title" maxlength="60"></label>
     <div class="ed-section">
-      <div class="kicker">Rating categories <span class="muted" style="text-transform:none;letter-spacing:0">— shared axes used by Rate slides. The results screen gives a "Top Rated ___" award per category.</span></div>
+      <div class="kicker">Rating categories <span class="muted" style="text-transform:none;letter-spacing:0">- shared axes used by Rate slides. The results screen gives a "Top Rated ___" award per category.</span></div>
       <div class="cats" id="ed-cats"></div>
     </div>
     <div class="ed-section">
@@ -633,7 +633,7 @@ function renderHostLobby(){
   var url=location.origin+location.pathname+"#"+S.room;
   var players=recentPlayers();
   var roster=players.length? players.map(function(p){return '<span class="player-pill"><span class="ava" style="background:'+avaColor(p.pid)+'">'+esc(initials(p.name))+'</span>'+esc(p.name)+'</span>';}).join("")
-    : '<span class="empty-roster">No one has joined yet — share the code!</span>';
+    : '<span class="empty-roster">No one has joined yet - share the code!</span>';
   $("#host-body").innerHTML=''
    +'<div class="lobby">'
    +  '<div class="panel join-card dots">'
@@ -653,7 +653,7 @@ function renderHostLobby(){
    +      '<button class="btn btn-ghost" id="lobby-edit">Edit game ('+(S.deck?S.deck.slides.length:0)+' slides)</button>'
    +      '<button class="btn btn-primary btn-lg" id="lobby-start">Start game</button>'
    +    '</div>'
-   +    '<p class="muted" style="font-size:13px;margin-top:12px">Players who join after you start can only vote on rounds from when they joined — past rounds stay locked.</p>'
+   +    '<p class="muted" style="font-size:13px;margin-top:12px">Players who join after you start can only vote on rounds from when they joined - past rounds stay locked.</p>'
    +  '</div>'
    +'</div>';
   $("#copy-url").onclick=function(){var t=this;if(navigator.clipboard)navigator.clipboard.writeText(url).then(function(){t.textContent="Copied!";setTimeout(function(){t.textContent="Copy link";},1500);});};
@@ -700,7 +700,7 @@ function rateRight(sl){
   return cats.map(function(c){
     var a=avgs[c.id]; var show=S.round.state!=="ready"&&a.n>0;
     return '<div class="meter-row">'
-      +'<div class="mtop"><span class="mlabel">'+esc(c.label)+'</span><span class="mval">'+(show?a.avg.toFixed(1):"—")+'<small> /10</small></span></div>'
+      +'<div class="mtop"><span class="mlabel">'+esc(c.label)+'</span><span class="mval">'+(show?a.avg.toFixed(1):"-")+'<small> /10</small></span></div>'
       +'<div class="meter"><span class="mf" data-meter="'+c.id+'"></span></div>'
       +'<span class="mn">'+(a.n>0?(a.n+(a.n===1?" rating":" ratings")):"waiting for ratings")+'</span></div>';
   }).join("");
@@ -771,7 +771,7 @@ function renderHostResults(){
       +'<span class="sc">'+p.correct+' <small>/ '+p.eligible+'</small></span></div>';
   }).join("") || '<p class="muted">No guesses were recorded.</p>';
   var trCards=(r.categories||[]).map(function(c){var t=r.topRated[c.id];
-    return '<div class="tr-card"><div><div class="trl">Top rated '+esc(c.label)+'</div><div class="trs">'+(t?esc(t.subject):"—")+'</div></div><div class="trv">'+(t?t.avg.toFixed(1):"—")+'</div></div>';
+    return '<div class="tr-card"><div><div class="trl">Top rated '+esc(c.label)+'</div><div class="trs">'+(t?esc(t.subject):"-")+'</div></div><div class="trv">'+(t?t.avg.toFixed(1):"-")+'</div></div>';
   }).join("");
   var fave=r.favorite? '<div class="panel fave"><div class="kicker k">Crowd favorite overall</div><div class="big">'+esc(r.favorite.subject)+'</div><div class="v">'+r.favorite.avg.toFixed(1)+' / 10 average</div></div>' : "";
   $("#host-body").innerHTML=''
@@ -786,7 +786,7 @@ function renderHostResults(){
    +    '<div class="panel stat"><div class="sv">'+r.totalRatings+'</div><div class="sl">Ratings cast</div></div>'
    +  '</div>'
    +'</div>'
-   +'<div class="controlbar" style="margin-top:18px"><div class="progress"><span class="pnum">Game over — new game uses a fresh code</span></div><div class="ctl-actions"><button class="btn btn-primary" id="res-new">New game (same deck)</button></div></div>';
+   +'<div class="controlbar" style="margin-top:18px"><div class="progress"><span class="pnum">Game over - new game uses a fresh code</span></div><div class="ctl-actions"><button class="btn btn-primary" id="res-new">New game (same deck)</button></div></div>';
   $("#res-new").onclick=hostNewGame;
 }
 
@@ -827,7 +827,7 @@ function renderPlayer(){
   var sl=currentSlide();
   if(!sl){body.innerHTML=waiting("Get ready…","");return;}
   if(S.round.index<S.myJoinedAtIndex){body.innerHTML=waiting("You joined mid-game","You can vote on this round and the ones after it. Watch the big screen!");return;}
-  if(S.round.state==="ready"){body.innerHTML=playerHeader(sl)+'<div class="bigmsg" style="flex:0;margin-top:8px"><div class="waitdots"><i></i><i></i><i></i></div><p>Get ready — voting opens in a moment.</p></div>';return;}
+  if(S.round.state==="ready"){body.innerHTML=playerHeader(sl)+'<div class="bigmsg" style="flex:0;margin-top:8px"><div class="waitdots"><i></i><i></i><i></i></div><p>Get ready - voting opens in a moment.</p></div>';return;}
   if(S.round.state==="voting" && !S.locked){renderPlayerVote(sl);return;}
   if(S.round.state==="voting" && S.locked){renderPlayerLocked(sl);return;}
   if(S.round.state==="locked"){renderPlayerClosed(sl);return;}
@@ -960,7 +960,7 @@ function renderSlideEditor(sl,idx){
         +'<input class="input img" data-opt-img="'+idx+'" data-oi="'+oi+'" value="'+esc(o.image||"")+'" placeholder="image url (optional)">'
         +'<button class="icon-btn del" data-opt-del="'+idx+'" data-oi="'+oi+'">×</button></div>';
     }).join("");
-    typeUI='<div class="kicker" style="margin:6px 0">Options <span class="muted" style="text-transform:none;letter-spacing:0">— select the correct one</span></div>'+opts
+    typeUI='<div class="kicker" style="margin:6px 0">Options <span class="muted" style="text-transform:none;letter-spacing:0">- select the correct one</span></div>'+opts
       +'<button class="btn btn-ghost" data-opt-add="'+idx+'" style="padding:8px 14px;margin-top:4px">+ Option</button>';
   } else {
     var chk=(S.deck.categories||[]).map(function(c){var on=(sl.categories||[]).indexOf(c.id)>=0;
