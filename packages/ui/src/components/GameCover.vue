@@ -6,7 +6,7 @@
  * optional "N live" badge. Colors come from theme CSS variables, so covers
  * restyle with the active theme.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -27,6 +27,14 @@ const props = withDefaults(
 // Show the uploaded image only if it actually loads; otherwise keep the
 // generated gradient art so a dead URL never leaves an empty box.
 const imageFailed = ref(false)
+// A reused card instance can get a new image (e.g. filtered lists); clear the
+// failed flag so the new URL gets a fair chance to load.
+watch(
+  () => props.image,
+  () => {
+    imageFailed.value = false
+  },
+)
 const showImage = computed(() => !!props.image && !imageFailed.value)
 
 const ACCENTS = ['--c1', '--c2', '--c3', '--c4', '--c5', '--primary']

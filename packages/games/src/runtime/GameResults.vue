@@ -2,10 +2,12 @@
 /**
  * Generic results page: renders whatever fragments the blocks contributed.
  *
- * On a phone (`compact`) the sections stack and the page scrolls. On the host
- * big screen there is no scroll, so the sections become a carousel: one section
- * at a time, paged by a tab bar / arrow keys, so a game with many breakdowns
- * still fits the screen instead of running off the bottom.
+ * On a phone (`compact`) the sections stack and the page scrolls. On the host big
+ * screen there is no scroll, so the sections become a carousel: arrows on each
+ * side page one section at a time, the current section's title sits in a pill at
+ * the top, and the run's stat strip is pinned at the bottom (always visible). The
+ * leaderboard (the winners) is the first page when the game scores; poll/rank
+ * games have no scored winner, so they open on the first breakdown.
  */
 import type { StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, Leaderboard, StatStrip, VoteBars } from '@doot-games/ui'
@@ -26,21 +28,20 @@ type Slide =
   | { kind: 'leaderboard'; label: string }
   | { kind: 'awards'; label: string }
   | { kind: 'dist'; label: string; dist: Distribution }
-  | { kind: 'stats'; label: string }
 
-// One slide per section, in narration order: standings first (the payoff), then
-// highlights, then per-question breakdowns, then the run's tally.
+// One page per major section, in narration order: standings first (the payoff),
+// then highlights, then per-question breakdowns. Stats are NOT a page; they stay
+// pinned at the bottom so the run's tally is always in view.
 const slides = computed<Slide[]>(() => {
   const out: Slide[] = []
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
   if (hasAwards.value) out.push({ kind: 'awards', label: 'Top rated' })
-  for (const d of props.results.distributions ?? []) out.push({ kind: 'dist', label: d.title ?? 'Breakdown', dist: d })
-  if (hasStats.value) out.push({ kind: 'stats', label: 'By the numbers' })
+  for (const d of props.results.distributions ?? [])
+    out.push({ kind: 'dist', label: d.title ?? 'Breakdown', dist: d })
   return out
 })
 
 const current = ref(0)
-// Keep the index valid if results arrive/change after first render.
 watch(slides, (s) => {
   if (current.value >= s.length) current.value = Math.max(0, s.length - 1)
 })
@@ -48,6 +49,7 @@ watch(slides, (s) => {
 const currentSlide = computed(() => slides.value[current.value] ?? null)
 const currentKind = computed(() => currentSlide.value?.kind ?? null)
 const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? currentSlide.value.dist : null))
+const currentLabel = computed(() => currentSlide.value?.label ?? '')
 const onLeaderboard = computed(() => currentKind.value === 'leaderboard')
 
 function go(delta: number) {
@@ -98,54 +100,65 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <h3>{{ d.title }}</h3>
         <VoteBars :bars="distributionToBars(d)" />
       </section>
+
+      <StatStrip v-if="hasStats" :stats="results.stats ?? []" />
     </div>
 
-    <!-- Host big screen: one section at a time so it always fits. -->
+    <!-- Host big screen: arrows on the sides, title pill on top, one section in
+         view, stats pinned at the bottom so everything fits the screen. -->
     <template v-else>
-      <div class="cstage">
-        <Transition name="slide" mode="out-in">
-          <section :key="current" class="panel slide">
-            <template v-if="currentKind === 'leaderboard'">
-              <h3>Leaderboard</h3>
-              <Leaderboard :entries="results.leaderboard ?? []" :highlight="me" :max="10" />
-            </template>
-            <template v-else-if="currentKind === 'awards'">
-              <h3>Top rated</h3>
-              <div v-for="(a, i) in results.awards" :key="i" class="award">
-                <div>
-                  <div class="al">{{ a.label }}</div>
-                  <div class="as">{{ a.subject }}</div>
-                </div>
-                <div v-if="a.value != null" class="av">{{ a.value }}</div>
-              </div>
-            </template>
-            <template v-else-if="currentDist">
-              <h3>{{ currentDist.title }}</h3>
-              <VoteBars :bars="distributionToBars(currentDist)" />
-            </template>
-            <template v-else-if="currentKind === 'stats'">
-              <h3>By the numbers</h3>
-              <StatStrip :stats="results.stats ?? []" />
-            </template>
-          </section>
-        </Transition>
+      <div v-if="slides.length" class="ccarousel">
+        <button
+          v-if="slides.length > 1"
+          type="button"
+          class="cside"
+          aria-label="Previous section"
+          @click="go(-1)"
+        >
+          &lsaquo;
+        </button>
+
+        <div class="cmain">
+          <div class="cpill">
+            <span class="cpill-label">{{ currentLabel }}</span>
+            <span v-if="slides.length > 1" class="cpos">{{ current + 1 }} / {{ slides.length }}</span>
+          </div>
+          <div class="cstage">
+            <Transition name="slide" mode="out-in">
+              <section :key="current" class="panel slide">
+                <Leaderboard
+                  v-if="currentKind === 'leaderboard'"
+                  :entries="results.leaderboard ?? []"
+                  :highlight="me"
+                  :max="10"
+                />
+                <template v-else-if="currentKind === 'awards'">
+                  <div v-for="(a, i) in results.awards" :key="i" class="award">
+                    <div>
+                      <div class="al">{{ a.label }}</div>
+                      <div class="as">{{ a.subject }}</div>
+                    </div>
+                    <div v-if="a.value != null" class="av">{{ a.value }}</div>
+                  </div>
+                </template>
+                <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" />
+              </section>
+            </Transition>
+          </div>
+        </div>
+
+        <button
+          v-if="slides.length > 1"
+          type="button"
+          class="cside"
+          aria-label="Next section"
+          @click="go(1)"
+        >
+          &rsaquo;
+        </button>
       </div>
 
-      <nav v-if="slides.length > 1" class="cnav" aria-label="Results sections">
-        <button type="button" class="cbtn" aria-label="Previous section" @click="go(-1)">&lsaquo;</button>
-        <button
-          v-for="(s, i) in slides"
-          :key="i"
-          type="button"
-          class="ctab"
-          :class="{ on: i === current }"
-          :aria-current="i === current ? 'true' : undefined"
-          @click="current = i"
-        >
-          {{ s.label }}
-        </button>
-        <button type="button" class="cbtn" aria-label="Next section" @click="go(1)">&rsaquo;</button>
-      </nav>
+      <StatStrip v-if="hasStats" :stats="results.stats ?? []" class="cstats" />
     </template>
   </div>
 </template>
@@ -155,7 +168,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 /* Fill the host stage and never grow past it, so the carousel pages instead of
    pushing the screen taller. */
@@ -167,7 +180,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   text-align: center;
 }
 .rhead h1 {
-  font-size: clamp(32px, 7vw, 60px);
+  font-size: clamp(28px, 5vw, 48px);
   font-weight: 800;
 }
 .rgrid {
@@ -183,6 +196,54 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 }
 
 /* Carousel ---------------------------------------------------------------- */
+.ccarousel {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.cmain {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cpill {
+  align-self: center;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border: var(--bd) solid color-mix(in srgb, var(--primary) 35%, var(--line));
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-weight: 800;
+}
+.cpill-label {
+  /* A distribution's title is the question prompt, which can be long; keep the
+     pill to two lines so it never grows the layout. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-align: center;
+  line-height: 1.25;
+}
+.cpos {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
 .cstage {
   flex: 1;
   min-height: 0;
@@ -190,59 +251,32 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   place-items: center;
 }
 .slide {
-  width: min(920px, 100%);
+  width: min(900px, 100%);
   max-height: 100%;
   overflow-y: auto;
-  padding: 28px;
+  padding: 24px 26px;
 }
-.slide h3 {
-  text-align: center;
-}
-.cnav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.ctab {
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 9px 16px;
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.12s;
-}
-.ctab:hover {
-  border-color: var(--line);
-  color: var(--ink);
-}
-.ctab.on {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--line);
-}
-.cbtn {
-  width: 44px;
-  height: 44px;
+.cside {
+  width: 56px;
+  height: 56px;
   flex: none;
   border: var(--bd) solid var(--line);
   background: var(--surface);
   border-radius: 50%;
-  font-size: 24px;
+  font-size: 30px;
   line-height: 1;
   font-weight: 800;
   color: var(--ink);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.1s;
+  transition: transform 0.1s, box-shadow 0.1s;
 }
-.cbtn:hover {
+.cside:hover {
   transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.cstats {
+  flex: none;
 }
 .slide-enter-active,
 .slide-leave-active {
@@ -272,11 +306,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .dist h3 {
   font-size: 20px;
   margin-bottom: 14px;
-  color: var(--primary);
-}
-.slide h3 {
-  font-size: 24px;
-  margin-bottom: 18px;
   color: var(--primary);
 }
 .award {
