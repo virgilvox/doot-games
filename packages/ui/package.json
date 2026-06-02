@@ -21,8 +21,7 @@
     "@doot-games/themes": "workspace:*",
     "pixi.js": "8.14.3",
     "qrcode": "^1.5.4",
-    "three": "0.184.0",
-    "vue3-pixi": "^1.0.1"
+    "three": "0.184.0"
   },
   "peerDependencies": {
     "vue": "^3.5.0"

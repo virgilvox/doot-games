@@ -149,9 +149,6 @@ importers:
       vue:
         specifier: ^3.5.0
         version: 3.5.35(typescript@5.9.3)
-      vue3-pixi:
-        specifier: ^1.0.1
-        version: 1.0.1(pixi-filters@6.1.5(pixi.js@8.14.3))(pixi.js@8.14.3)(vue@3.5.35(typescript@5.9.3))
     devDependencies:
       '@types/qrcode':
         specifier: ^1.5.5
@@ -164,9 +161,6 @@ importers:
         version: 4.4.3
 
 packages:
-
-  '@antfu/utils@0.7.10':
-    resolution: {integrity: sha512-+562v9k4aI80m1+VuMHehNJWLOFjBnXn3tdOitzD0il5b7smkSBal4+a3oKiQTbrwMmN/TBUMDvbdoWDehgOww==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1830,9 +1824,6 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
-  '@types/gradient-parser@0.1.5':
-    resolution: {integrity: sha512-r7K3NkJz3A95WkVVmjs0NcchhHstC2C/VIYNX4JC6tieviUNo774FFeOHjThr3Vw/WCeMP9kAT77MKbIRlO/4w==}
-
   '@types/jsesc@2.5.1':
     resolution: {integrity: sha512-9VN+6yxLOPLOav+7PwjZbxiID2bVaeq0ED4qSQmdQTdjnXJSaCVKTR58t15oqH1H5t8Ng2ZX1SabJVoN9Q34bw==}
 
@@ -1850,9 +1841,6 @@ packages:
 
   '@types/three@0.184.1':
     resolution: {integrity: sha512-6q4VdiqVsrTRqmk62/BnlcAvIrnDM0zf2ZDVKI5kZiniWrSaOHaQzmbp+BNzoggc/8tgW412pL//wZIxu2PPTA==}
-
-  '@types/web-bluetooth@0.0.20':
-    resolution: {integrity: sha512-g9gZnnXVq7gM7v3tJCWV/qw7w+KeOlSHAhgF9RytFyifW6AF61hdT2ucrYhPq9hLs5JIryeupHV3qGk95dH9ow==}
 
   '@types/webxr@0.5.24':
     resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
@@ -2000,15 +1988,6 @@ packages:
 
   '@vue/shared@3.5.35':
     resolution: {integrity: sha512-zSbjL7gRXwks2ZQLRGCajBtBXEOXW9Ddhn/HvSdrGkE2dqGnumzW8XtusRrxrE9LvqtiqDXQ+A60Hp6mvdYxfA==}
-
-  '@vueuse/core@10.11.1':
-    resolution: {integrity: sha512-guoy26JQktXPcz+0n3GukWIy/JDNKti9v6VEMu6kV2sYBsWuGiTU8OWdg+ADfUbHg3/3DlqySDe7JmdHrktiww==}
-
-  '@vueuse/metadata@10.11.1':
-    resolution: {integrity: sha512-IGa5FXd003Ug1qAZmyE8wF3sJ81xGLSqTqtQ6jaVfkeZ4i5kS2mwQF61yhVqojRnenVew5PldLyRgvdl4YYuSw==}
-
-  '@vueuse/shared@10.11.1':
-    resolution: {integrity: sha512-LHpC8711VFZlDaYUXEBbFBCQ7GS3dVU9mjOhhMhXP6txTV4EhYQg/KGnQuvt/sPAtoUKq7VVUnL6mVtFoL42sA==}
 
   '@webgpu/types@0.1.70':
     resolution: {integrity: sha512-LFiNHHKMvmAEvwVew3JLJmTdShhbdwRFSImUshGhE2mGE8ybQzIo63l5uRp+YKnNx+8Qno8Kf6gN+DKMreIJCA==}
@@ -3094,7 +3073,6 @@ packages:
 
   libsql@0.5.29:
     resolution: {integrity: sha512-8lMP8iMgiBzzoNbAPQ59qdVcj6UaE/Vnm+fiwX4doX4Narook0a4GPKWBEv+CR8a1OwbfkgL18uBfBjWdF0Fzg==}
-    cpu: [x64, arm64, wasm32, arm]
     os: [darwin, linux, win32]
 
   lilconfig@3.1.3:
@@ -3224,11 +3202,6 @@ packages:
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nanoid@4.0.2:
-    resolution: {integrity: sha512-7ZtY5KTCNheRGfEFxnedV5zFiORN1+Y1N6zvPTnHQd8ENUvfaDBeuJDZb2bN/oXwXxu3qkTXDzy57W5vAmDTBw==}
-    engines: {node: ^14 || ^16 || >=18}
     hasBin: true
 
   nanostores@1.3.0:
@@ -3438,11 +3411,6 @@ packages:
   picomatch@4.0.4:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
-
-  pixi-filters@6.1.5:
-    resolution: {integrity: sha512-Ewb/J+kxAbaNN+0/ATJbglAJG+skGJfh7BIDP3ILIDdD6wWk1p0pGa25pVf1T8hGBOQSUNVAmwwJBwkj+cyLLA==}
-    peerDependencies:
-      pixi.js: '>=8.0.0-0'
 
   pixi.js@8.14.3:
     resolution: {integrity: sha512-6xGYARV8D9E/fO1c2NmYn+k2dQ5oZldVm5tNlLQJ8obTlOQXdL5QpMc217qTpRyHVDFaw5eoFCLF1gr6p5ZcjQ==}
@@ -4331,17 +4299,6 @@ packages:
   vue-bundle-renderer@2.2.0:
     resolution: {integrity: sha512-sz/0WEdYH1KfaOm0XaBmRZOWgYTEvUDt6yPYaUzl4E52qzgWLlknaPPTTZmp6benaPTlQAI/hN1x3tAzZygycg==}
 
-  vue-demi@0.14.10:
-    resolution: {integrity: sha512-nMZBOwuzabUO0nLgIcc6rycZEebF6eeUfaiQx9+WSk8e29IbLvPU9feI6tqW4kTo3hvoYAJkMh8n8D0fuISphg==}
-    engines: {node: '>=12'}
-    hasBin: true
-    peerDependencies:
-      '@vue/composition-api': ^1.0.0-rc.1
-      vue: ^3.0.0-0 || ^2.6.0
-    peerDependenciesMeta:
-      '@vue/composition-api':
-        optional: true
-
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
 
@@ -4368,12 +4325,6 @@ packages:
     hasBin: true
     peerDependencies:
       typescript: '>=5.0.0'
-
-  vue3-pixi@1.0.1:
-    resolution: {integrity: sha512-FeFRFFsWmZhGzjS4vTvIqLdn+ss+RGs3GUepqiFh+DWFRIjmaDp92Jj3g/QBWKIqUGI9o4eDymLDV6+oIlsK3A==}
-    peerDependencies:
-      pixi-filters: 6.1.5
-      pixi.js: 8.14.3
 
   vue@3.5.35:
     resolution: {integrity: sha512-cx89fnr+0kVGHiNFG6y6s0bdjypJRFNZn6x3WPstNdQR1bi1mbB7h4v5IBGTsPJU3nK1+0Iqj3Zf+hZWMieR4Q==}
@@ -4491,8 +4442,6 @@ packages:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
-
-  '@antfu/utils@0.7.10': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -5933,8 +5882,6 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
-  '@types/gradient-parser@0.1.5': {}
-
   '@types/jsesc@2.5.1': {}
 
   '@types/node@25.9.1':
@@ -5957,8 +5904,6 @@ snapshots:
       '@types/webxr': 0.5.24
       fflate: 0.8.3
       meshoptimizer: 1.1.1
-
-  '@types/web-bluetooth@0.0.20': {}
 
   '@types/webxr@0.5.24': {}
 
@@ -6192,25 +6137,6 @@ snapshots:
       vue: 3.5.35(typescript@5.9.3)
 
   '@vue/shared@3.5.35': {}
-
-  '@vueuse/core@10.11.1(vue@3.5.35(typescript@5.9.3))':
-    dependencies:
-      '@types/web-bluetooth': 0.0.20
-      '@vueuse/metadata': 10.11.1
-      '@vueuse/shared': 10.11.1(vue@3.5.35(typescript@5.9.3))
-      vue-demi: 0.14.10(vue@3.5.35(typescript@5.9.3))
-    transitivePeerDependencies:
-      - '@vue/composition-api'
-      - vue
-
-  '@vueuse/metadata@10.11.1': {}
-
-  '@vueuse/shared@10.11.1(vue@3.5.35(typescript@5.9.3))':
-    dependencies:
-      vue-demi: 0.14.10(vue@3.5.35(typescript@5.9.3))
-    transitivePeerDependencies:
-      - '@vue/composition-api'
-      - vue
 
   '@webgpu/types@0.1.70': {}
 
@@ -7259,8 +7185,6 @@ snapshots:
 
   nanoid@3.3.12: {}
 
-  nanoid@4.0.2: {}
-
   nanostores@1.3.0: {}
 
   nanotar@0.3.0: {}
@@ -7698,11 +7622,6 @@ snapshots:
   picomatch@2.3.2: {}
 
   picomatch@4.0.4: {}
-
-  pixi-filters@6.1.5(pixi.js@8.14.3):
-    dependencies:
-      '@types/gradient-parser': 0.1.5
-      pixi.js: 8.14.3
 
   pixi.js@8.14.3:
     dependencies:
@@ -8580,10 +8499,6 @@ snapshots:
     dependencies:
       ufo: 1.6.4
 
-  vue-demi@0.14.10(vue@3.5.35(typescript@5.9.3)):
-    dependencies:
-      vue: 3.5.35(typescript@5.9.3)
-
   vue-devtools-stub@0.1.0: {}
 
   vue-router@5.1.0(@vue/compiler-sfc@3.5.35)(vite@7.3.3(@types/node@25.9.1)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))(vue@3.5.35(typescript@5.9.3)):
@@ -8615,18 +8530,6 @@ snapshots:
       '@volar/typescript': 2.4.15
       '@vue/language-core': 2.2.12(typescript@5.9.3)
       typescript: 5.9.3
-
-  vue3-pixi@1.0.1(pixi-filters@6.1.5(pixi.js@8.14.3))(pixi.js@8.14.3)(vue@3.5.35(typescript@5.9.3)):
-    dependencies:
-      '@antfu/utils': 0.7.10
-      '@vueuse/core': 10.11.1(vue@3.5.35(typescript@5.9.3))
-      nanoid: 4.0.2
-      pixi-filters: 6.1.5(pixi.js@8.14.3)
-      pixi.js: 8.14.3
-      vue-demi: 0.14.10(vue@3.5.35(typescript@5.9.3))
-    transitivePeerDependencies:
-      - '@vue/composition-api'
-      - vue
 
   vue@3.5.35(typescript@5.9.3):
     dependencies:
