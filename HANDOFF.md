@@ -6,7 +6,7 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` deploys to prod via CI, no staging). All of the work below went straight to `main`
 and is live on https://doot.games, verified after each deploy._
 
-> **Connect with Claude (MCP) + the plugin-authoring foundation — SHIPPED + DEPLOYED +
+> **Connect with Claude (MCP) + the plugin-authoring foundation. SHIPPED + DEPLOYED +
 > AUDITED (2026-06-02).** A long session. Full plan in
 > [`docs/plugin-authoring-roadmap.md`](./docs/plugin-authoring-roadmap.md); the
 > Claude integration in [`docs/connect-claude.md`](./docs/connect-claude.md).
