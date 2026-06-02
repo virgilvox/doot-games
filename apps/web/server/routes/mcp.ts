@@ -116,6 +116,28 @@ const TOOLS = [
     annotations: { title: 'Save a Doot game to the account', readOnlyHint: false },
   },
   {
+    name: 'list_my_games',
+    description: "List the games in the signed-in user's account (newest first), with the gameId needed to update one.",
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'List the account games', readOnlyHint: true },
+  },
+  {
+    name: 'update_game',
+    description:
+      "Replace the rounds (and optionally title/theme) of one of the user's existing games, by gameId, with a new markdown spec. Get the gameId from list_my_games or a prior save_game.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        gameId: { type: 'string', description: 'The id of the game to update (from list_my_games or save_game).' },
+        markdown: { type: 'string', description: 'The full new game spec in Doot markdown format.' },
+        title: { type: 'string', description: 'Optional title override.' },
+      },
+      required: ['gameId', 'markdown'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Update a game in the account', readOnlyHint: false },
+  },
+  {
     name: 'upload_image',
     description:
       'Fetch an image from a public https URL and host it on Doot, returning a Doot image URL to use as the "image:" field on a round (guess, poll, rate, or draw). PNG, JPEG, GIF, or WebP, up to 5MB.',
@@ -202,6 +224,60 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
           droppedRounds: allRounds.length - rounds.length,
           warnings: parsed.warnings,
           message: 'Saved to the account (private). Open the link to review, theme, and host it.',
+        },
+        null,
+        2,
+      ),
+    )
+  }
+  if (name === 'list_my_games') {
+    const games = await listMyGames(userId)
+    return text(
+      JSON.stringify(
+        games.map((g) => ({
+          gameId: g.id,
+          title: g.title,
+          type: g.pluginId,
+          visibility: g.visibility,
+          openUrl: `${BASE}/editor/g/${g.id}`,
+        })),
+        null,
+        2,
+      ),
+    )
+  }
+  if (name === 'update_game') {
+    if (!writeAllowed(userId)) return text('Too many updates in a short time. Wait a minute and try again.', true)
+    const gameId = typeof args.gameId === 'string' ? args.gameId.trim() : ''
+    const md = typeof args.markdown === 'string' ? args.markdown : ''
+    if (!gameId) return text('Provide the gameId of the game to update (from list_my_games).', true)
+    if (!md.trim()) return text('Provide the new game as markdown in the "markdown" argument.', true)
+    if (md.length > 50_000) return text('Spec too long (50000 character limit).', true)
+    const parsed = parseMarkdownGame(md)
+    if (!parsed.rounds.length) return text(`No valid rounds were parsed. ${parsed.warnings.join(' ')}`, true)
+    const rawTitle = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : parsed.title
+    const allRounds = parsed.rounds.map((r) => ({ block: r.block, content: r.content as Record<string, unknown> }))
+    const rounds = allRounds.slice(0, 50)
+    const themeId = parsed.themeId && KNOWN_THEMES.has(parsed.themeId) ? parsed.themeId : undefined
+    const input = gameInputSchema.safeParse({
+      pluginId: 'custom',
+      themeId,
+      config: { title: rawTitle.slice(0, 120), rounds },
+    })
+    if (!input.success) {
+      return text(`Could not update: ${input.error.issues.map((i) => i.message).join('; ')}`, true)
+    }
+    const ok = await updateGame(gameId, userId, input.data)
+    if (!ok) return text('No game with that id is owned by this account, so nothing was updated.', true)
+    return text(
+      JSON.stringify(
+        {
+          updated: true,
+          gameId,
+          openUrl: `${BASE}/editor/g/${gameId}`,
+          roundsSaved: rounds.length,
+          droppedRounds: allRounds.length - rounds.length,
+          message: 'Updated. Open the link to review and host it.',
         },
         null,
         2,

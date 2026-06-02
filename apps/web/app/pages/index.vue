@@ -163,7 +163,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
-              <NuxtLink v-if="g.authorHandle" :to="`/u/@${g.authorHandle}`" class="card-by card-by-link">by {{ g.authorName }}</NuxtLink>
+              <NuxtLink v-if="g.authorHandle" :to="`/u/@${g.authorHandle}`" class="card-by card-by-link">by @{{ g.authorHandle }}</NuxtLink>
               <p v-else-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
             </div>
           </div>
@@ -198,7 +198,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
-              <NuxtLink v-if="g.authorHandle" :to="`/u/@${g.authorHandle}`" class="card-by card-by-link">by {{ g.authorName }}</NuxtLink>
+              <NuxtLink v-if="g.authorHandle" :to="`/u/@${g.authorHandle}`" class="card-by card-by-link">by @{{ g.authorHandle }}</NuxtLink>
               <p v-else-if="g.authorName" class="card-by">by {{ g.authorName }}</p>
             </div>
           </div>

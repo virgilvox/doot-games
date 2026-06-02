@@ -114,7 +114,7 @@ async function remove() {
         <h1 class="detail-title">{{ game.title }}</h1>
         <p v-if="game.authorName" class="detail-by">
           by
-          <NuxtLink v-if="game.authorHandle" :to="`/u/@${game.authorHandle}`" class="detail-by-link">{{ game.authorName }}</NuxtLink>
+          <NuxtLink v-if="game.authorHandle" :to="`/u/@${game.authorHandle}`" class="detail-by-link">@{{ game.authorHandle }}</NuxtLink>
           <template v-else>{{ game.authorName }}</template>
         </p>
         <div class="detail-meta">
