@@ -16,7 +16,7 @@
 // Zero-install: the dev harness loads zod from a CDN so `vite` needs no
 // node_modules in this folder and the import works inside the null-origin plugin
 // frame. The production package (@doot-games/plugin-bridge) imports the npm `zod`.
-import { z } from 'https://esm.sh/zod@4'
+import { z } from 'https://esm.sh/zod@4.4.3'
 
 /** Bump the major on any breaking message change. Both sides exchange it so a
  *  pinned (immutable) plugin and a newer host can detect incompatibility. */
