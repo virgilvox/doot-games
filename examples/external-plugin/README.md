@@ -29,9 +29,15 @@ reveal, so it can't peek.
 
 ```bash
 cd examples/external-plugin
-npx vite           # serves this folder with TS + HMR
+npx vite           # serves this folder with TS + HMR (zero install)
 # open the printed URL at /dev-host.html
 ```
+
+> Two details make this run as a zero-install standalone: a `vite.config.ts` sends
+> `Access-Control-Allow-Origin: *` so the **null-origin** plugin frame may load its
+> modules, and `bridge.ts` imports `zod` from a CDN. (Production serves the bundle
+> same-origin from `plugins.doot.games` under the strict CSP instead.) The handshake
+> is source-pinned and protocol-versioned — see the comments in `bridge.ts`.
 
 The harness loads your plugin in the **same sandboxed iframe** production uses, then
 lets you:
@@ -57,4 +63,3 @@ will play the same way inside Doot, because the harness speaks the identical bri
 > plugin) is being built in phases, see `docs/external-plugins.md`. This harness is
 > the contract it will honor, so a plugin you build today against the harness keeps
 > working when the runtime lands.
-</content>

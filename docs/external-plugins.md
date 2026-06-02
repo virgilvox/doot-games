@@ -150,8 +150,11 @@ contained, zero core bloat) and graduate to real packages when Phase 1 lands.
   cookie domain). DNS A record → the `doot-prod` droplet is **live**; `docker/Caddyfile`
   serves it as a static, locked-down origin (the CSP above), never proxied to the app.
 - ✅ `bridge.ts` graduated to `@doot-games/plugin-bridge` (Zod protocol + host/plugin
-  transport cores, unit-tested). The `examples/external-plugin/` harness stays the
-  standalone, copy-pasteable reference.
+  transport cores, unit-tested, hardened: source-pinned handshake, flood/size/phase
+  enforcement, protocol versioning). The `examples/external-plugin/` harness is synced
+  to the hardened bridge and now **actually runs** end-to-end (`npx vite` →
+  `/dev-host.html`) — it had two latent blockers (zod not resolvable from the folder,
+  and the null-origin frame couldn't load modules without CORS), both fixed.
 - ⏳ Phase 0–1 remaining: serve the real host shell from the origin (`file_server`,
   swapping today's placeholder `respond`) + `@doot-games/plugin-dev` + `create-doot-game`.
 - ⏳ Phases 2–4 (registration, registry, review) follow.

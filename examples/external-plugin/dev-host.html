@@ -39,7 +39,7 @@
     </div>
 
     <script type="module">
-      import { createPluginHost } from './bridge.ts'
+      import { BOOTSTRAP, PROTOCOL_VERSION, createPluginHost } from './bridge.ts'
 
       const iframe = document.getElementById('plugin')
       const log = document.getElementById('log')
@@ -51,7 +51,7 @@
       const inputs = new Map() // pid -> { choice }
 
       const host = createPluginHost(iframe, {
-        onReady: () => { line('← ready'); host.send({ t: 'init', block: 'trivia', role: 'player', theme: {} }) },
+        onReady: () => { line('← ready'); host.send({ t: 'init', block: 'trivia', role: 'player', theme: {}, protocolVersion: PROTOCOL_VERSION }) },
         onSubmit: (input) => {
           // In production the host re-validates `input` against the block's schema here.
           line('← submit ' + JSON.stringify(input))
@@ -68,7 +68,7 @@
       document.getElementById('reveal').onclick = () => { line('→ answer (reveal)'); host.send({ t: 'answer', key: answerKey }) }
 
       // Catch any off-protocol message the plugin tries to send to the window.
-      window.addEventListener('message', (e) => { if (e.source === iframe.contentWindow && e.data?.t !== '__port') line('⚠ off-channel message ignored: ' + JSON.stringify(e.data), true) })
+      window.addEventListener('message', (e) => { if (e.source === iframe.contentWindow && e.data?.t !== BOOTSTRAP) line('⚠ off-channel message ignored: ' + JSON.stringify(e.data), true) })
     </script>
   </body>
 </html>
