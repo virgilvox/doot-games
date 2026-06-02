@@ -21,7 +21,7 @@ const INSTRUMENT = () => {
   const t0 = performance.now()
   const ms = () => Math.round(performance.now() - t0)
   synth.speak = (u) => {
-    const e = { text: String(u.text).replace(/\s+/g, ' ').slice(0, 50), spoke: ms(), start: 0, end: 0, error: null }
+    const e = { text: String(u.text).replace(/\s+/g, ' ').slice(0, 44), voice: (u.voice && u.voice.name) || '?', spoke: ms(), start: 0, end: 0, error: null }
     window.__tts.push(e)
     u.addEventListener('start', () => { e.start = ms() })
     u.addEventListener('end', () => { e.end = ms() })
@@ -94,7 +94,7 @@ try {
   const tts = await host.evaluate(() => window.__tts)
   console.log('=== TTS utterances spoken on host (ms timeline) ===')
   for (const e of tts) {
-    console.log(`  spoke@${e.spoke} start@${e.start || '-'} end@${e.end || '-'} err=${e.error ?? '-'}  "${e.text}"`)
+    console.log(`  [${e.voice}] spoke@${e.spoke} start@${e.start || '-'} end@${e.end || '-'} err=${e.error ?? '-'}  "${e.text}"`)
   }
   const verseUtt = tts.filter((e) => e.text.toLowerCase().includes('circuit') || /processor|voltage|memory|hands/i.test(e.text))
   const mcUtt = tts.filter((e) => /welcome|matchup|on the mic|and now/i.test(e.text))

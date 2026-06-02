@@ -496,8 +496,12 @@ function performSide(left: boolean) {
     // pitch + rate. Left = deeper/slower, right = brighter/quicker. Both clearly
     // robotic, and neither depends on a second platform voice existing.
     speakVerse(perf.verse, {
-      pitch: left ? 0.55 : 0.95,
-      rate: left ? PERFORM_RATE : PERFORM_RATE + 0.08,
+      // Both robots share one reliable voice (distinct from the MC); the deep/slow
+      // left vs bright/quick right pitch+rate tell the two performers apart without
+      // risking a silent side on a voice the device can't actually play.
+      side: left ? 'a' : 'b',
+      pitch: left ? 0.5 : 1.0,
+      rate: left ? PERFORM_RATE : PERFORM_RATE + 0.1,
       onWord: (k) => {
         if (!finished) setActive(k)
       },

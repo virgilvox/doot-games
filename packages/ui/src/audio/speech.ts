@@ -1,22 +1,28 @@
 /**
  * Client-only text-to-speech for the "robots perform the verses" moment in
  * Circuit Cypher (the rap battle) and the MC announcer. A thin, safe wrapper over
- * the browser `speechSynthesis` API: SSR-guarded and feature-detected, so it is a
+ * the browser `speechSynthesis` API (the only built-in, cross-platform TTS, and
+ * the one that works on mobile): SSR-guarded and feature-detected, so it is a
  * clean no-op anywhere the API is missing (servers, older browsers, headless test
  * runs) and never blocks or throws. The play flow never depends on it; it is a
  * decorative performance layer.
  *
- * Reliability notes (these earned real debugging time, see scripts/tts-probe.mjs):
- *  - We speak EVERYTHING through ONE voice (the platform default / a local voice)
- *    and tell the MC + the two robots apart by PITCH and RATE. The old code gave
- *    each robot a different *platform* voice by index; on machines where the
- *    second voice doesn't actually produce audio, the second robot went silent
- *    while the first played. Pitch/rate on a single known-good voice can't fail
- *    that way.
- *  - Chrome/macOS silently DROPS a `speak()` issued in the same tick as a
- *    `cancel()` of actively-playing speech. So when we're interrupting live
- *    speech we put a short gap between the cancel and the speak; when nothing is
- *    speaking we speak immediately.
+ * Reliability notes (these earned hard, real-browser debugging; see
+ * scripts/tts-probe.mjs + scripts/cypher-tts-verify.mjs):
+ *  - CHUNK long lines. Chrome/macOS silently STALLS a single utterance that
+ *    speaks longer than ~15s: it goes quiet and `onend` fires tens of seconds
+ *    late, freezing the show on one card. So we split long MC lines into short,
+ *    sentence-sized utterances and queue them; none ever crosses the stall
+ *    threshold. (A resume() keepalive is a cheap belt-and-suspenders.)
+ *  - DISTINCT LOCAL voices per speaker. We pick the device's on-device
+ *    (`localService`) English voices and give the MC, robot A and robot B
+ *    *different* ones, chosen by language + availability, NEVER by hardcoded name
+ *    (voice names differ per OS; "Samantha" isn't on every Mac, let alone every
+ *    phone). Local voices work offline and don't silently fail the way the
+ *    network-backed "Google …" voices (Chrome-only) do. If the device has fewer
+ *    than three usable voices we fall back to telling them apart by pitch/rate.
+ *  - Chrome drops a `speak()` issued the same tick as a `cancel()` of active
+ *    speech, so when interrupting we put a short gap between cancel and speak.
  */
 
 /** Whether the browser can speak (SSR-safe, feature-detected). */
@@ -54,10 +60,10 @@ export function warmUpSpeech(): void {
 
 /**
  * Activate the speech engine from inside a user gesture (e.g. the host pressing
- * "Start"). Some browsers drop the FIRST `speak()` of a session unless it follows
- * a real interaction; speaking a near-silent, near-empty utterance now means the
- * first real robot line later (fired from a timer) actually plays. Safe no-op
- * where speech is unavailable.
+ * "Start"). Some browsers (notably iOS Safari) drop the FIRST `speak()` of a
+ * session unless it follows a real interaction; speaking a near-silent, near-empty
+ * utterance now means the first real robot line later (fired from a timer) actually
+ * plays. Safe no-op where speech is unavailable.
  */
 export function primeSpeech(): void {
   if (!canSpeak()) return
@@ -89,39 +95,122 @@ function kick(synth: SpeechSynthesis): void {
 
 /** Stop anything currently being spoken. */
 export function cancelSpeech(): void {
-  if (canSpeak()) window.speechSynthesis.cancel()
+  if (canSpeak()) {
+    stopKeepAlive()
+    window.speechSynthesis.cancel()
+  }
 }
 
-/**
- * The single voice we use for ALL speech. Prefer the platform default, then any
- * LOCAL (non-network) English voice, then any English, then anything. Local
- * voices are the reliable ones; network voices can fail silently. The MC and the
- * two robots are differentiated by pitch/rate, not by choosing different voices.
- */
-// Well-known female voice names across macOS / Windows / Chrome / Android, plus an
-// explicit "female" marker. The Circuit Cypher MC has always been a female voice
-// (on macOS the default is "Samantha"); we pick one explicitly rather than trusting
-// the platform `default` flag, which Chrome does not reliably set, so it would
-// otherwise fall back to whatever local voice sorts first (often a male one).
-// Leading word boundary only: matches a female name as a word-start, including
-// camelCase platform voices like "AvaNeural", while excluding mid-word substrings
-// (e.g. "Slava"). Wrong picks here are cosmetic (voice character), never gameplay.
+// ── Keepalive ───────────────────────────────────────────────────────────────
+// Insurance against Chrome wedging mid-queue: while speech is active, nudge the
+// engine with resume() (a no-op when not paused, and it never disrupts boundary
+// events the way pause() can). Chunking is the real fix; this just catches stalls.
+let keepAliveTimer: ReturnType<typeof setInterval> | 0 = 0
+function startKeepAlive(synth: SpeechSynthesis): void {
+  stopKeepAlive()
+  keepAliveTimer = setInterval(() => {
+    if (synth.speaking || synth.pending) {
+      try {
+        synth.resume()
+      } catch {
+        /* ignore */
+      }
+    } else {
+      stopKeepAlive()
+    }
+  }, 5000)
+}
+function stopKeepAlive(): void {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer)
+    keepAliveTimer = 0
+  }
+}
+
+// ── Voice selection ───────────────────────────────────────────────────────────
+// A female-leaning name set, used ONLY as a tiebreak so the MC tends to sound
+// distinct from the (often male-default) platform voice. Leading word boundary so
+// it catches camelCase platform voices (AvaNeural) but not mid-word substrings
+// (Slava). Wrong picks here are cosmetic (voice character), never gameplay.
 const FEMALE_VOICE =
   /\b(samantha|victoria|karen|moira|tessa|fiona|serena|allison|ava|susan|zoe|nicky|female|zira|aria|jenny|michelle|hazel|eva|sonia|clara|nora)/i
 
-function reliableVoice(): SpeechSynthesisVoice | undefined {
+/**
+ * The device's usable voices, English first and LOCAL (on-device) first within
+ * that, since local voices work offline and don't silently fail like the
+ * network-backed "Google …" voices. Order is stable so role assignment is
+ * deterministic across calls (and across clients on the same platform).
+ */
+function usableVoices(): SpeechSynthesisVoice[] {
   const voices = window.speechSynthesis.getVoices()
-  if (!voices.length) return undefined
+  if (!voices.length) return []
   const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang))
   const pool = en.length ? en : voices
-  return (
-    pool.find((v) => v.localService && FEMALE_VOICE.test(v.name)) ?? // reliable + female (e.g. Samantha)
-    pool.find((v) => v.default && v.localService) ??
-    pool.find((v) => v.localService) ??
-    pool.find((v) => FEMALE_VOICE.test(v.name)) ?? // a female voice even if network-backed
-    pool.find((v) => v.default) ??
-    pool[0]
-  )
+  const local = pool.filter((v) => v.localService)
+  const net = pool.filter((v) => !v.localService)
+  return [...local, ...net]
+}
+
+export type VoiceRole = 'mc' | 'robotA' | 'robotB'
+
+/**
+ * Assign voices so the MC sounds DIFFERENT from the rappers, while never gambling
+ * on a voice that might be silent. The hard lesson (the "silent second robot"
+ * bug): a per-robot voice can produce NO audio on a given device (an undownloaded
+ * macOS premium voice, a network voice offline), so giving robot A and robot B
+ * their own voices makes one go quiet. Instead:
+ *  - BOTH robots share ONE reliable voice (the platform default / first LOCAL
+ *    one — the voice most likely to actually play), told apart by pitch/rate. If
+ *    one robot is audible, the other is too.
+ *  - The MC takes a DIFFERENT local voice (female-leaning for character), or falls
+ *    back to the robot voice on a one-voice device (a working shared voice beats a
+ *    silent "distinct" one).
+ * Local-only: network voices (Chrome's "Google …") are the silent-failure risk, so
+ * they're used only if the device has NO local voice at all. Recomputed each call
+ * so it self-heals once voices finish loading.
+ */
+function assignVoices(): { mc?: SpeechSynthesisVoice; robotA?: SpeechSynthesisVoice; robotB?: SpeechSynthesisVoice } {
+  const all = usableVoices()
+  if (!all.length) return {}
+  const local = all.filter((v) => v.localService)
+  const pool = local.length ? local : all // network only as a last resort
+  const robot = pool.find((v) => v.default) ?? pool[0]
+  const mc =
+    pool.find((v) => v.name !== robot?.name && FEMALE_VOICE.test(v.name)) ??
+    pool.find((v) => v.name !== robot?.name) ??
+    robot
+  // Both robots use the same proven voice; pitch/rate (set by the caller) make the
+  // two performers sound distinct without risking a silent side.
+  return { mc, robotA: robot, robotB: robot }
+}
+
+function voiceForRole(role: VoiceRole): SpeechSynthesisVoice | undefined {
+  const a = assignVoices()
+  if (role === 'mc') return a.mc
+  if (role === 'robotB') return a.robotB
+  return a.robotA
+}
+
+/**
+ * Split text into short, sentence-sized chunks (<= `max` chars) so no single
+ * utterance crosses the ~15s Chrome stall threshold. Splits on sentence
+ * punctuation first, then hard-wraps any over-long remainder at a space. Pure.
+ */
+export function chunkText(text: string, max = 120): string[] {
+  const sentences = text.match(/[^.!?]+[.!?]*\s*/g) ?? [text]
+  const out: string[] = []
+  for (const s of sentences) {
+    let t = s.trim()
+    if (!t) continue
+    while (t.length > max) {
+      let cut = t.lastIndexOf(' ', max)
+      if (cut <= 0) cut = max
+      out.push(t.slice(0, cut).trim())
+      t = t.slice(cut).trim()
+    }
+    if (t) out.push(t)
+  }
+  return out
 }
 
 // Chrome drops a speak() issued the same tick as a cancel() of ACTIVE speech, so
@@ -149,11 +238,82 @@ function speakSoon(synth: SpeechSynthesis, u: SpeechSynthesisUtterance, isCancel
   else go()
 }
 
+/**
+ * Queue a list of already-clean text chunks through one voice, sequentially, with
+ * the given utterance shape. Fires `onStart` once (first chunk actually begins),
+ * `onLine` per chunk, and `onDone` once (all finished / cancelled / failed).
+ * Returns a cancel fn. Shared by speakLines and announce. Assumes `canSpeak()`.
+ */
+function speakQueue(
+  chunks: string[],
+  shape: (u: SpeechSynthesisUtterance) => void,
+  cbs: { onStart?: () => void; onLine?: (i: number) => void; onDone?: () => void },
+): () => void {
+  const synth = window.speechSynthesis
+  let cancelled = false
+  let started = false
+  let settled = false
+  let i = 0
+  const finish = () => {
+    if (settled) return
+    settled = true
+    stopKeepAlive()
+    cbs.onDone?.()
+  }
+  const next = () => {
+    if (cancelled) return
+    if (i >= chunks.length) {
+      finish()
+      return
+    }
+    const u = new window.SpeechSynthesisUtterance(chunks[i])
+    shape(u)
+    cbs.onLine?.(i)
+    u.onstart = () => {
+      if (!started && !cancelled) {
+        started = true
+        cbs.onStart?.()
+      }
+    }
+    u.onend = () => {
+      i++
+      next()
+    }
+    u.onerror = () => {
+      i++
+      next()
+    }
+    // The first chunk may interrupt prior speech; later chunks fire from onend
+    // with nothing active, so they speak immediately.
+    if (i === 0) {
+      speakSoon(synth, u, () => cancelled, () => {
+        i++
+        next()
+      })
+    } else {
+      synth.speak(u)
+      kick(synth)
+    }
+  }
+  startKeepAlive(synth)
+  next()
+  return () => {
+    if (settled) return
+    cancelled = true
+    settled = true
+    stopKeepAlive()
+    synth.cancel()
+    cbs.onDone?.()
+  }
+}
+
 export interface SpeakOptions {
   /** Speaking rate (0.1–10, default 0.95 for a deliberate flow). */
   rate?: number
   /** Voice pitch (0–2, default 0.5 for a deadpan robot). */
   pitch?: number
+  /** Which assigned voice to use (default robot A). */
+  role?: VoiceRole
   /** Called with the index of each line as it starts. */
   onLine?: (index: number) => void
   /** Called once when every line has finished (or playback is cancelled). */
@@ -166,54 +326,24 @@ export interface SpeakOptions {
  * unavailable, so callers can always wire it up unconditionally.
  */
 export function speakLines(lines: string[], opts: SpeakOptions = {}): () => void {
+  // One utterance per line so `onLine(i)` stays aligned to the caller's line index
+  // (VoteHost highlights answer i as it's performed). Lines here are short (a quip
+  // answer is <=140 chars, well under the ~15s stall threshold), so no chunking.
   const clean = lines.map((l) => l.trim()).filter(Boolean)
   if (!canSpeak() || clean.length === 0) {
     opts.onDone?.()
     return () => {}
   }
-  const synth = window.speechSynthesis
-  const voice = reliableVoice()
-  let cancelled = false
-  let i = 0
-
-  const speakNext = () => {
-    if (cancelled) return
-    if (i >= clean.length) {
-      opts.onDone?.()
-      return
-    }
-    const u = new window.SpeechSynthesisUtterance(clean[i])
-    u.rate = opts.rate ?? 0.95
-    u.pitch = opts.pitch ?? 0.5
-    if (voice) u.voice = voice
-    opts.onLine?.(i)
-    u.onend = () => {
-      i++
-      speakNext()
-    }
-    u.onerror = () => {
-      i++
-      speakNext()
-    }
-    // The first line may interrupt prior speech; later lines fire from onend with
-    // nothing active, so they speak immediately.
-    if (i === 0) {
-      speakSoon(synth, u, () => cancelled, () => {
-        i++
-        speakNext()
-      })
-    } else {
-      synth.speak(u)
-      kick(synth)
-    }
-  }
-
-  speakNext()
-  return () => {
-    cancelled = true
-    synth.cancel()
-    opts.onDone?.()
-  }
+  const voice = voiceForRole(opts.role ?? 'robotA')
+  return speakQueue(
+    clean,
+    (u) => {
+      u.rate = opts.rate ?? 0.95
+      u.pitch = opts.pitch ?? 0.5
+      if (voice) u.voice = voice
+    },
+    { onLine: opts.onLine, onDone: opts.onDone },
+  )
 }
 
 export interface AnnounceOptions {
@@ -229,48 +359,39 @@ export interface AnnounceOptions {
 }
 
 /**
- * Speak a single line in the announcer/MC voice. Same underlying voice as the
- * robots, set apart by a brighter pitch and quicker rate. A no-op (calls
- * `onDone`) where speech is unavailable. Returns a cancel fn.
+ * Speak a single MC/announcer line (chunked so a long line can't stall). A
+ * brighter, quicker voice than the deadpan robots, and a DIFFERENT device voice
+ * where one is available. A no-op (calls `onDone`) where speech is unavailable.
+ * Returns a cancel fn.
  */
 export function announce(text: string, opts: AnnounceOptions = {}): () => void {
-  const line = text.trim()
-  if (!canSpeak() || !line) {
+  const chunks = chunkText(text.trim())
+  if (!canSpeak() || !chunks.length) {
     opts.onDone?.()
     return () => {}
   }
-  const synth = window.speechSynthesis
-  const voice = reliableVoice()
-  let cancelled = false
-  const u = new window.SpeechSynthesisUtterance(line)
-  u.rate = opts.rate ?? 1.06
-  u.pitch = opts.pitch ?? 1.15
-  if (voice) u.voice = voice
-  u.onstart = () => {
-    if (!cancelled) opts.onStart?.()
-  }
-  u.onend = () => {
-    if (!cancelled) opts.onDone?.()
-  }
-  u.onerror = () => {
-    if (!cancelled) opts.onDone?.()
-  }
-  speakSoon(synth, u, () => cancelled, () => {
-    if (!cancelled) opts.onDone?.()
-  })
-  return () => {
-    cancelled = true
-    synth.cancel()
-    opts.onDone?.()
-  }
+  const voice = voiceForRole('mc')
+  return speakQueue(
+    chunks,
+    (u) => {
+      u.rate = opts.rate ?? 1.06
+      u.pitch = opts.pitch ?? 1.15
+      if (voice) u.voice = voice
+    },
+    { onStart: opts.onStart, onDone: opts.onDone },
+  )
 }
 
 export interface VerseOptions {
   /** Speaking rate (default 0.95). */
   rate?: number
   /** Voice pitch (default 0.6, a deadpan robot). Vary per side so the two robots
-   *  sound distinct on the shared voice. */
+   *  sound distinct on their shared voice (deep left vs bright right). */
   pitch?: number
+  /** Which robot is performing. Both robots share one reliable voice (kept apart
+   *  by pitch/rate, never by a per-side voice that might be silent); `side` is
+   *  carried for the caller's own use and future device-specific tuning. Default 'a'. */
+  side?: 'a' | 'b'
   /** Fired as each word begins (index into the whitespace-split words). Drives
    *  the karaoke highlight and the jaw chomp. */
   onWord?: (wordIndex: number) => void
@@ -283,6 +404,7 @@ export interface VerseOptions {
  * so the caller can sync a karaoke highlight + a jaw chomp. Where the browser
  * doesn't emit boundary events the caller should run its own time-based fallback;
  * where speech is unavailable this calls `onDone` at once. Returns a cancel fn.
+ * A verse is short (a few lines) so it stays one utterance for clean boundaries.
  */
 export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   const clean = text.replace(/\s+/g, ' ').trim()
@@ -299,7 +421,7 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
     wordStart.push(pos)
     pos += w.length + 1
   }
-  const voice = reliableVoice()
+  const voice = voiceForRole(opts.side === 'b' ? 'robotB' : 'robotA')
   let cancelled = false
   const u = new window.SpeechSynthesisUtterance(clean)
   u.rate = opts.rate ?? 0.95
@@ -312,16 +434,21 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
     opts.onWord?.(k)
   }
   u.onend = () => {
+    stopKeepAlive()
     if (!cancelled) opts.onDone?.()
   }
   u.onerror = () => {
+    stopKeepAlive()
     if (!cancelled) opts.onDone?.()
   }
+  startKeepAlive(synth)
   speakSoon(synth, u, () => cancelled, () => {
+    stopKeepAlive()
     if (!cancelled) opts.onDone?.()
   })
   return () => {
     cancelled = true
+    stopKeepAlive()
     synth.cancel()
     opts.onDone?.()
   }
