@@ -3,12 +3,17 @@
  * composite. All are block compositions, no game depends on another.
  */
 import type { GamePlugin } from '@doot-games/sdk'
+import { backronym } from './games/backronym'
+import { ballpark } from './games/ballpark'
 import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
 import { draw } from './games/draw'
 import { fibFinder } from './games/fibfinder'
 import { guess } from './games/guess'
+import { hivemind } from './games/hivemind'
 import { madLibs } from './games/madlibs'
+import { mostLikely } from './games/mostlikely'
+import { openMic } from './games/openmic'
 import { poll } from './games/poll'
 import { quipClash } from './games/quipclash'
 import { rank } from './games/rank'
@@ -32,6 +37,11 @@ export const builtinPlugins: GamePlugin[] = [
   sketchSpot,
   circuitCypher,
   whatYouDidntKnow,
+  backronym,
+  openMic,
+  hivemind,
+  mostLikely,
+  ballpark,
   custom,
 ]
 

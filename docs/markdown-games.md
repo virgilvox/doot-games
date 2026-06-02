@@ -32,7 +32,8 @@ Rules:
 - `theme: <id>` (optional, before the first round) picks a theme. Ids: `doot`,
   `cutesie`, `cyber`, `professional`, `playful`.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
-  block kinds below. You can repeat and mix them in any order.
+  block kinds below (`guess`, `poll`, `rank`, `rate`, `draw`, `hivemind`,
+  `mostlikely`, `ballpark`). You can repeat and mix them in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -113,6 +114,40 @@ and `votetimer` (seconds to vote, default 30).
 prompt: Draw your spirit animal
 vote: true
 votetimer: 30
+```
+
+### `hivemind`: match the crowd (read the room)
+Fields: `prompt`, `timer` (default 30). Everyone answers in free text and scores
+by giving the SAME answer as the most other players, so pick prompts with an
+obvious popular answer. No `- ` items.
+
+```markdown
+## hivemind
+prompt: Name a color of the rainbow
+timer: 25
+```
+
+### `mostlikely`: the room votes a player
+Fields: `prompt`, `timer` (default 20). The options ARE the lobby (each player can
+be nominated), so there are no `- ` items. The most-nominated player is crowned.
+The heading also accepts `## most likely`.
+
+```markdown
+## mostlikely
+prompt: Most likely to start a band
+```
+
+### `ballpark`: closest numeric guess wins
+Fields: `subject` (optional), `prompt`, `image`, `answer:` (the true **number**,
+hidden from players until the reveal), `unit:` (optional, e.g. `km`, `%`, `years`),
+`timer` (default 30). No `- ` items. Use facts nobody knows exactly; the closest
+guess scores the most and the reveal animates a needle to the answer.
+
+```markdown
+## ballpark
+prompt: How far is the Moon from Earth?
+unit: km
+answer: 384400
 ```
 
 ## A full example (mixed blocks)

@@ -53,6 +53,9 @@ Block kinds:
 * "## rank": players put items in order. Fields: prompt, image, timer (default none). List 2 or more "- item".
 * "## rate": score subjects on a scale. Fields: subject, prompt, image, timer, "categories: A, B, C", and "scale:" (a numeric range like "1-10", or comma-separated labels like "F, D, C, B, A").
 * "## draw": players sketch the prompt. Fields: prompt, image, timer (default 60). Add "vote: true" to make it draw-then-vote: everyone draws, then the room votes on the anonymized gallery and the best drawing wins points and tops the results. Optional with vote: "voteprompt:" (the vote question) and "votetimer:" (seconds to vote, default 30).
+* "## hivemind": everyone answers a prompt in free text and scores by MATCHING the crowd (the "read the room" game). Fields: prompt, timer (default 30). Pick prompts with an obvious popular answer ("Name a color of the rainbow"). No "- " items.
+* "## mostlikely": the room votes a PLAYER from the lobby for a "most likely to..." prompt. Fields: prompt, timer (default 20). The options are the players, so no "- " items. Keep prompts party-safe.
+* "## ballpark": numeric trivia, closest guess wins. Fields: subject (optional), prompt, image, "answer:" (the true NUMBER, hidden from players until reveal), "unit:" (optional, e.g. km, %, years), timer (default 30). No "- " items. Use facts nobody knows exactly.
 
 Example:
 # Trivia and Vibes Night

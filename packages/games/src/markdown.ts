@@ -14,7 +14,7 @@
  *   - Michelangelo
  *
  * Each `##` heading starts a round of that block kind (guess/rate/poll/rank/
- * draw). `key: value` lines set scalar fields; `- item` lines are options /
+ * draw/hivemind/mostlikely/ballpark). `key: value` lines set scalar fields; `- item` lines are options /
  * items / categories. A `## draw` round with `vote: true` becomes draw-then-vote:
  * it expands to a draw round (gallery hidden) plus a drawvote round the room
  * votes on, with the best drawing topping the results. This is pure (no block/Vue
@@ -75,7 +75,10 @@ function isTruthy(v: string | undefined): boolean {
 function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
   const p = raw.props
   const labels = raw.items.map((i) => i.label).filter(Boolean)
-  switch (raw.kind) {
+  // Normalize the heading so multi-word kinds work however they're written
+  // (`## most likely`, `## most-likely`, `## mostlikely` all map to one block).
+  const kind = raw.kind.replace(/[\s_-]+/g, '')
+  switch (kind) {
     case 'guess': {
       const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
       const correctIdx = raw.items.findIndex((i) => i.flags.includes('correct'))
@@ -163,8 +166,48 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'hivemind': {
+      const ml = Number(p.maxlength)
+      return [
+        {
+          block: 'hivemind',
+          content: {
+            prompt: p.prompt ?? 'Name something everyone would say.',
+            placeholder: p.placeholder ?? '',
+            maxLength: Number.isFinite(ml) && ml > 0 ? ml : 40,
+            timer: toTimer(p.timer, 30),
+          },
+        },
+      ]
+    }
+    case 'mostlikely': {
+      return [
+        {
+          block: 'mostlikely',
+          content: { prompt: p.prompt ?? 'Most likely to...', timer: toTimer(p.timer, 20) },
+        },
+      ]
+    }
+    case 'ballpark': {
+      const answer = Number(p.answer)
+      return [
+        {
+          block: 'ballpark',
+          content: {
+            subject: p.subject ?? '',
+            prompt: p.prompt ?? 'How many?',
+            image: p.image ?? '',
+            unit: p.unit ?? '',
+            answer: Number.isFinite(answer) ? answer : 0,
+            timer: toTimer(p.timer, 30),
+          },
+        },
+      ]
+    }
     default:
-      warnings.push(`Unknown block kind "${raw.kind}" - skipped. Use one of: guess, rate, poll, rank, draw.`)
+      warnings.push(
+        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, rate, poll, rank, draw, hivemind, mostlikely, ballpark.`,
+      )
       return []
   }
 }

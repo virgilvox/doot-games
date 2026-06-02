@@ -30,6 +30,11 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'sketch-spot', name: 'Sketch & Spot', version: '0.1.0', flagship: true, description: 'Sketch the prompt on your phone, then vote for the best drawing.' },
   { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.3.0', flagship: true, description: 'A robot rap battle: write rhyming bars, then the robots face off head to head and the crowd votes.' },
   { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow: rising stakes, hidden answers, first to buzz in wins.' },
+  { id: 'backronym', name: 'Backronym', version: '0.1.0', flagship: true, description: 'Famous initials appear; invent what they REALLY stand for, then vote the best.' },
+  { id: 'open-mic', name: 'Open Mic', version: '0.1.0', flagship: true, description: 'Write a one-liner, let the robots deliver it deadpan, then vote the funniest bit.' },
+  { id: 'hivemind', name: 'Hivemind', version: '0.1.0', flagship: true, description: 'Answer the prompt like everyone else; matching the crowd is the whole game.' },
+  { id: 'most-likely', name: 'Most Likely To', version: '0.1.0', flagship: true, description: "Vote a player for each 'most likely to...' prompt; the room's pick is revealed." },
+  { id: 'ballpark', name: 'Ballpark', version: '0.1.0', flagship: true, description: 'Numeric trivia where the closest guess wins. Get in the ballpark.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -57,4 +62,6 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   // Fib Finder's truth is the answer key: strip it (and any derived options)
   // before serving a saved fibvote-based game to a non-owner.
   fibvote: { truth: '', options: [] },
+  // Ballpark's true number is the answer key: null it before serving to a non-owner.
+  ballpark: { answer: null },
 }

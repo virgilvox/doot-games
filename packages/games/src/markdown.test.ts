@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { ballparkBlock } from './blocks/ballpark/block'
 import { drawBlock } from './blocks/draw/block'
 import { drawVoteBlock } from './blocks/drawvote/block'
 import { guessBlock } from './blocks/guess/block'
+import { hivemindBlock } from './blocks/hivemind/block'
+import { mostLikelyBlock } from './blocks/mostlikely/block'
 import { pollBlock } from './blocks/poll/block'
 import { rankBlock } from './blocks/rank/block'
 import { rateBlock } from './blocks/rate/block'
@@ -14,6 +17,9 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   rank: rankBlock.contentSchema,
   draw: drawBlock.contentSchema,
   drawvote: drawVoteBlock.contentSchema,
+  hivemind: hivemindBlock.contentSchema,
+  mostlikely: mostLikelyBlock.contentSchema,
+  ballpark: ballparkBlock.contentSchema,
 }
 
 const SAMPLE = `# Movie Night
@@ -111,6 +117,31 @@ describe('parseMarkdownGame', () => {
     const { rounds } = parseMarkdownGame('## draw\nprompt: Draw a cat')
     expect(rounds.map((r) => r.block)).toEqual(['draw'])
     expect((rounds[0]!.content as { liveGallery: boolean }).liveGallery).toBe(true)
+  })
+
+  it('parses the new standalone blocks (hivemind, mostlikely, ballpark)', () => {
+    const { rounds, warnings } = parseMarkdownGame(
+      [
+        '# Mixed',
+        '## hivemind',
+        'prompt: Name a fruit',
+        'timer: 25',
+        '## most likely', // multi-word heading normalizes to the mostlikely block
+        'prompt: Most likely to oversleep',
+        '## ballpark',
+        'prompt: How many bones in the body?',
+        'unit: bones',
+        'answer: 206',
+      ].join('\n'),
+    )
+    expect(rounds.map((r) => r.block)).toEqual(['hivemind', 'mostlikely', 'ballpark'])
+    expect(warnings).toEqual([])
+    // Each validates against its block schema.
+    for (const round of rounds) expect(SCHEMAS[round.block]!.safeParse(round.content).success).toBe(true)
+    expect((rounds[0]!.content as { timer: number | null }).timer).toBe(25)
+    const bp = rounds[2]!.content as { answer: number; unit: string }
+    expect(bp.answer).toBe(206)
+    expect(bp.unit).toBe('bones')
   })
 
   it('warns on unknown blocks and empty input', () => {

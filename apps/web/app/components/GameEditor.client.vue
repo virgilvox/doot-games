@@ -609,9 +609,9 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
                     <li>A third answer</li>
                   </ul>
                 </template>
-                <component
-                  :is="blockFor(round)!.PlayerInput"
+                <PlayerPreview
                   v-else-if="blockFor(round) && !errors[i]"
+                  :block="blockFor(round)!"
                   :content="round.content"
                   :model-value="previewValue(i)"
                   @update:model-value="previewInputs[i] = $event"
