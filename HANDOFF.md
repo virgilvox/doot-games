@@ -3,15 +3,23 @@
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
 _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every push to
-`main` deploys to prod via CI, no staging). All of the work below went straight to `main`
-and is live on https://doot.games, verified after each deploy._
+`main` deploys to prod via CI, no staging). The 2026-06-02 session's commits have been
+**pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
+pushed" notes in the entries below are superseded._
 
-> **NOTE (2026-06-02):** the entries below (games batch, Circuit Cypher TTS fix, phone
-> reveals, C12 bookmarks) are **committed to `main` locally but NOT yet pushed** — prod still
-> runs the prior code until the owner pushes. Do the real-device TTS listen after pushing.
-> Commits: `games: add Backronym…` / `games,ui: fix Circuit Cypher TTS…` / `games: phone
-> reveal feedback…` / `docs: …` / `web: bookmark/save games (C12)` / `engine: secret
-> per-player content primitive…`.
+> **START HERE (fresh session, 2026-06-02).** The last session's work is **pushed to `main`
+> and deploying to prod via CI** (confirm the deploy is healthy, then do the Circuit Cypher
+> TTS real-device listen once it is live). It shipped: the cheap-wins game batch (Backronym /
+> Open Mic / Hivemind / Most Likely To / Ballpark), the **Circuit Cypher TTS fix**,
+> poll/rate/rank/draw phone-reveal feedback, **C12 bookmarks**, and the **secret per-player
+> content primitive** (the hidden-role foundation). All green: typecheck (incl. `nuxi`), the
+> full test suite, and the web build.
+>
+> **Recommended next: build Faker** on the new primitive (full design is in the "Secret
+> per-player content primitive" entry just below). Working rules: commit only verified work,
+> in logical chunks; **plain commit messages with NO AI attribution** (no Co-Authored-By, no
+> "Generated with"); no em dashes and no AI-sounding copy in UI or replies; gate "done" on
+> typecheck + tests + build; push to deploy when the owner asks.
 
 > **Secret per-player content primitive — the hidden-role foundation (2026-06-02, COMMITTED
 > to `main` locally, not yet pushed).** The reusable engine capability that unlocks Faker /
