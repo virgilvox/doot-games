@@ -67,17 +67,17 @@ const featured = computed(() => flagshipGames[0] ?? null)
           </div>
           <div class="chips">
             <div class="chip-row">
-              <span class="filter-lbl">Type</span>
-              <div class="chip-scroll">
-                <button class="chip" :class="{ on: typeFilter === 'all' }" @click="typeFilter = 'all'">All</button>
-                <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" @click="typeFilter = t.id">{{ t.name }}</button>
+              <span id="filter-type-lbl" class="filter-lbl">Type</span>
+              <div class="chip-scroll" role="group" aria-labelledby="filter-type-lbl">
+                <button class="chip" :class="{ on: typeFilter === 'all' }" :aria-pressed="typeFilter === 'all'" @click="typeFilter = 'all'">All</button>
+                <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" :aria-pressed="typeFilter === t.id" @click="typeFilter = t.id">{{ t.name }}</button>
               </div>
             </div>
             <div class="chip-row">
-              <span class="filter-lbl">Theme</span>
-              <div class="chip-scroll">
-                <button class="chip" :class="{ on: themeFilter === 'all' }" @click="themeFilter = 'all'">All</button>
-                <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" @click="themeFilter = t.id">{{ t.name }}</button>
+              <span id="filter-theme-lbl" class="filter-lbl">Theme</span>
+              <div class="chip-scroll" role="group" aria-labelledby="filter-theme-lbl">
+                <button class="chip" :class="{ on: themeFilter === 'all' }" :aria-pressed="themeFilter === 'all'" @click="themeFilter = 'all'">All</button>
+                <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" :aria-pressed="themeFilter === t.id" @click="themeFilter = t.id">{{ t.name }}</button>
               </div>
             </div>
           </div>

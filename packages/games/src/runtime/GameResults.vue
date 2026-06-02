@@ -130,7 +130,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </button>
 
         <div class="cmain">
-          <div class="cpill">
+          <div class="cpill" aria-live="polite" aria-atomic="true">
             <span class="cpill-label">{{ currentLabel }}</span>
             <span v-if="slides.length > 1" class="cpos">{{ current + 1 }} / {{ slides.length }}</span>
           </div>

@@ -36,7 +36,15 @@ const allIn = computed(() => showCount.value && (props.lockedIn ?? 0) >= (props.
       <span v-if="!manyRounds" class="dotbar">
         <i v-for="(d, i) in dots" :key="i" :class="{ done: d.done, cur: d.current }" />
       </span>
-      <span v-else class="track" role="progressbar" :aria-valuenow="roundIndex + 1" :aria-valuemax="roundCount">
+      <span
+        v-else
+        class="track"
+        role="progressbar"
+        aria-valuemin="0"
+        :aria-valuenow="roundIndex + 1"
+        :aria-valuemax="roundCount"
+        :aria-label="`Round ${roundIndex + 1} of ${roundCount}`"
+      >
         <span class="track-fill" :style="{ width: `${progressPct}%` }" />
       </span>
       <span class="state-pill mono">{{ stateLabel }}</span>
