@@ -61,10 +61,12 @@ describe('cheap-wins batch shapes', () => {
     expect((rounds[0]!.content as { prompt: string }).prompt).toMatch(/really stand for\?$/)
   })
 
-  it('Open Mic builds quip -> vote pairs with the robots set to perform', () => {
+  it('Open Mic builds quip -> vote pairs (the custom host performs the bits)', () => {
     const rounds = openMic.buildConfig!('seed', { rounds: 2 }).rounds
     expect(rounds.map((r) => r.block)).toEqual(['quip', 'vote', 'quip', 'vote'])
-    expect((rounds[1]!.content as { perform: boolean }).perform).toBe(true)
+    // The custom OpenMicHost performs the bits, so the vote block's own `perform`
+    // flag is left at its default (false).
+    expect((rounds[1]!.content as { perform?: boolean }).perform ?? false).toBe(false)
   })
 
   for (const { game, kind } of [

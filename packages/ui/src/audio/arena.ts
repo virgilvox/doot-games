@@ -41,6 +41,11 @@ export interface ArenaAudio {
   airhorn(): void
   /** A swelling crowd-cheer noise burst. */
   cheer(): void
+  /** A warm crowd-laughter swell (the comedy-club reaction). `big` for a bigger
+   *  laugh on a strong punchline. */
+  laugh(big?: boolean): void
+  /** A "ba-dum-tss" rimshot, for a punchline landing. */
+  rimshot(): void
   /** A countdown tick; pass `true` for the final "GO" double-beep. */
   countBeep(go?: boolean): void
   /** Current analyser energy + bins for the stage's per-frame reactivity. */
@@ -56,8 +61,12 @@ export function canPlayArenaAudio(): boolean {
   return typeof w.AudioContext !== 'undefined' || typeof w.webkitAudioContext !== 'undefined'
 }
 
-export function createArenaAudio(opts: { bpm?: number } = {}): ArenaAudio {
+export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): ArenaAudio {
   const bpm = opts.bpm ?? 90
+  // The rap arena runs a driving beat; a standup club wants none (just the analyser
+  // + SFX cued by the show). `beat:false` boots the context and keeps cheer/laugh/
+  // rimshot, but never schedules drums or the pad drone.
+  const beat = opts.beat !== false
   let ctx: AudioContext | null = null
   let master: GainNode | null = null
   let music: GainNode | null = null
@@ -295,12 +304,14 @@ export function createArenaAudio(opts: { bpm?: number } = {}): ArenaAudio {
       try {
         if (!ctx) init()
         await ctx?.resume()
-        if (!padStarted) startPad()
+        if (beat && !padStarted) startPad()
         if (playing) return
         playing = true
-        step = 0
-        nextTime = (ctx?.currentTime ?? 0) + 0.08
-        loop()
+        if (beat) {
+          step = 0
+          nextTime = (ctx?.currentTime ?? 0) + 0.08
+          loop()
+        }
       } catch {
         playing = false
       }
@@ -374,6 +385,72 @@ export function createArenaAudio(opts: { bpm?: number } = {}): ArenaAudio {
       g.connect(master)
       n.start(t)
       n.stop(t + 1.5)
+    },
+    laugh(big = false): void {
+      if (!ctx || !master || !noiseBuf) return
+      const t = ctx.currentTime
+      const dur = big ? 1.7 : 1.1
+      // Warm noise bed shaped by a band of "voice" frequencies, wobbled by an LFO
+      // so it reads as "ha-ha-ha" rather than a flat hiss.
+      const n = ctx.createBufferSource()
+      n.buffer = noiseBuf
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.value = big ? 700 : 820
+      bp.Q.value = 0.6
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0, t)
+      g.gain.linearRampToValueAtTime(big ? 0.36 : 0.26, t + 0.12)
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur)
+      // Tremolo for the chuckle rhythm.
+      const lfo = ctx.createOscillator()
+      const lfoG = ctx.createGain()
+      lfo.type = 'sine'
+      lfo.frequency.value = big ? 9 : 7
+      lfoG.gain.value = 0.18
+      lfo.connect(lfoG)
+      lfoG.connect(g.gain)
+      n.connect(bp)
+      bp.connect(g)
+      g.connect(master)
+      n.start(t)
+      n.stop(t + dur + 0.05)
+      lfo.start(t)
+      lfo.stop(t + dur + 0.05)
+    },
+    rimshot(): void {
+      if (!ctx || !master || !noiseBuf) return
+      const t = ctx.currentTime
+      // ba (low tom) - dum (a touch lower) - tss (a splashy cymbal).
+      const tom = (tt: number, f: number) => {
+        const o = ctx!.createOscillator()
+        const g = ctx!.createGain()
+        o.type = 'triangle'
+        o.frequency.setValueAtTime(f, tt)
+        o.frequency.exponentialRampToValueAtTime(f * 0.7, tt + 0.12)
+        g.gain.setValueAtTime(0.32, tt)
+        g.gain.exponentialRampToValueAtTime(0.001, tt + 0.16)
+        o.connect(g)
+        g.connect(master!)
+        o.start(tt)
+        o.stop(tt + 0.18)
+      }
+      tom(t, 220)
+      tom(t + 0.16, 180)
+      const n = ctx.createBufferSource()
+      n.buffer = noiseBuf
+      const hp = ctx.createBiquadFilter()
+      hp.type = 'highpass'
+      hp.frequency.value = 6000
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0, t + 0.32)
+      g.gain.linearRampToValueAtTime(0.3, t + 0.34)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.9)
+      n.connect(hp)
+      hp.connect(g)
+      g.connect(master)
+      n.start(t + 0.32)
+      n.stop(t + 0.95)
     },
     countBeep(go = false): void {
       if (!ctx) return

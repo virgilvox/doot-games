@@ -1,9 +1,10 @@
 /**
- * Open Mic, Circuit Cypher's deadpan twin for jokes: players write a one-liner to
- * a comedy premise, then the robots DELIVER each joke aloud over TTS before the
- * room votes for the funniest. It is pure composition, [quip, vote(perform), ...],
- * reusing the same two-phase spine as Quip Clash plus the `vote` block's `perform`
- * flag (the rap-battle "read it aloud" moment, here played for laughs).
+ * Open Mic, a standup-comedy "Game From Doot": players write a one-liner to a
+ * comedy premise, then a robot comic performs each bit on a 3D brick-wall club
+ * stage (TTS) before the room votes for the funniest. It is an ordinary
+ * `[quip, vote, ...]` composition (the same two-phase spine as Quip Clash, so all
+ * the engine withholding/derive/scoring is reused) with a CUSTOM Host that runs the
+ * comedy show; the generic player still drives the phones (write a bit, then vote).
  *
  * Each play draws fresh premises from a large pool (`buildConfig`, seeded by the
  * room code) so no two rooms get the same set.
@@ -13,6 +14,7 @@ import type { RoundInstance } from '@doot-games/sdk'
 import { quipBlock } from '../blocks/quip/block'
 import { voteBlock } from '../blocks/vote/block'
 import { seededShuffle } from '../runtime/derive'
+import OpenMicHost from './OpenMicHost.vue'
 
 /** Comedy premises: write a punchy one-liner, the robot reads it deadpan. */
 const PREMISE_POOL: string[] = [
@@ -52,8 +54,9 @@ function pair(premise: string): RoundInstance[] {
         timer: 75,
       },
     },
-    // perform:true makes the robots read each joke aloud before the room votes.
-    { block: 'vote', content: { prompt: 'Funniest bit wins', options: [], mode: 'field', timer: 30, perform: true } },
+    // The custom OpenMicHost performs each bit on the comedy stage, so the vote
+    // block does not need its own `perform` flag here.
+    { block: 'vote', content: { prompt: 'Funniest bit wins', options: [], mode: 'field', timer: 30 } },
   ]
 }
 
@@ -68,11 +71,12 @@ export const openMic = defineGame({
     version: '0.1.0',
     description: 'Write a one-liner, let the robots deliver it deadpan, then vote for the funniest bit.',
     author: 'Doot',
-    capabilities: ['timer'],
+    capabilities: ['timer', 'music'],
     minPlayers: 3,
     flagship: true,
   },
   blocks: [quipBlock, voteBlock],
+  components: { Host: OpenMicHost },
   defaultConfig: { title: 'Open Mic', rounds: deckFrom(PREMISE_POOL.slice(0, ROUNDS_PER_GAME)) },
   buildConfig: (seed: string, opts?: { rounds?: number }) => {
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PREMISE_POOL.length))

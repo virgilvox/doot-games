@@ -58,6 +58,8 @@ export { type ArenaAudio, type ArenaLevels, canPlayArenaAudio, createArenaAudio 
 export { default as RobotRapper } from './components/RobotRapper.vue'
 // The 3D rap-battle arena (lazy Three.js, client-only, SSR-safe).
 export { default as RapBattleStage } from './components/RapBattleStage.vue'
+// The 3D standup-comedy club (lazy Three.js, client-only, SSR-safe).
+export { default as ComedyStage } from './components/ComedyStage.vue'
 
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'
