@@ -6,6 +6,53 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` deploys to prod via CI, no staging). All of the work below went straight to `main`
 and is live on https://doot.games, verified after each deploy._
 
+> **Deep-audit + hardening pass (2026-06-02, SHIPPED + DEPLOYED). Three review rounds
+> on top of the UX pass below.** Verified after each deploy.
+>
+> - **Results carousel, final form.** Replaced the bottom tab bar (long poll-prompt
+>   labels wrapped off-screen): now an arrow on each side, the current section title in
+>   a pill on top (an `aria-live` region), one section in view, and the stat strip pinned
+>   at the bottom. The leaderboard (winners) is page 1 when a game scores; poll/rank
+>   games have no scored winner and open on the first breakdown. `GameResults.vue`.
+> - **Claude connector gates done:** a plain-language **privacy policy** (`/privacy`) and
+>   **terms of service** (`/terms`), both footer-linked, plus an SVG **favicon**. Still
+>   needed for the directory: a square logo asset, public docs with 3+ examples, a
+>   reviewer test account, accepting the directory terms, and the owner-run claude.ai
+>   connect+save handshake (cannot be automated).
+> - **Circuit Cypher, root-caused and fixed.** "Wouldn't auto-advance scenes / no voices"
+>   was three things: every announcer beat sat on a flat ~18s cap when the voice fired no
+>   start/end events; the first `speak()` fired from a timer, which some browsers drop;
+>   and a host reload built an empty bracket before the relay re-delivered inputs. Fixes:
+>   an `onStart` watchdog plus a length-scaled cap (with headroom for the long welcome
+>   line); `primeSpeech` inside the Start/unmute gesture; a reload guard that waits for
+>   the verse count to settle. The MC is now pinned to a **female voice** (Samantha and
+>   equivalents) by name instead of trusting the unreliable platform `default` flag.
+>   Verified end to end with an instrumented 2-player battle (every line spoken, full
+>   sequence runs).
+> - **Audit fixes:** the SSRF guard now actually blocks IPv6-literal image URLs (a
+>   bracket-strip bug had made the IPv6 blocklist dead code); idle players notice the host
+>   leaving (a presence ticker re-evaluates time-based `hostPresent`); accessibility
+>   (filter `aria-pressed` + groups, results `aria-live`, progressbar label); a derived
+>   round's `from` survives save/load; results confetti fires once; a draw-only results
+>   screen no longer renders blank; long phone names truncate. Docs synced (README
+>   counts, CLAUDE block list, connector tool table).
+> - **Cruft removed:** the never-imported `vue3-pixi` dep, the dead `RobotBattle.vue`, and
+>   two scratch scripts.
+>
+> **Known limitations the audits surfaced (architectural, not one-line bugs):**
+> - **Delegated-driver forge.** When "let a player drive" is on, a forged drive command
+>   (the host trusts a client-asserted `pid`, derivable from the public room+name) can
+>   trigger an early `reveal` and publish the answer key. Inherent to the trustless public
+>   relay + login-free identity; the real fix is a driver PIN (an out-of-band secret shown
+>   on the host screen, entered on the co-host's phone) or keeping `reveal` host-only.
+> - **Soft two-phase anonymity.** A spectator reading the raw relay can correlate an
+>   identical submission in a vote gallery back to its per-player input address and recover
+>   the author before reveal (drawvote/fibvote/split). Not an answer-key leak, and not a
+>   stated invariant; inherent to per-player inputs + reconnect-by-name on a public relay.
+> - **Extreme prompt overflow.** A pathological 600+ char prompt can scroll past the host
+>   control bar (the column `overflow` was removed because it clipped the selected answer's
+>   glow). Acceptable trade for the common case; a `prompt` `.max()` would close it.
+
 > **UX pass after the first real Claude-built games (2026-06-02, SHIPPED + DEPLOYED).**
 > Fixes from hosting and publishing real MCP-authored games:
 >

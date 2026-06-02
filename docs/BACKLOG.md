@@ -72,8 +72,8 @@ each group; `[size]` is a rough effort hint.
     not wired into any game);
   - tie handling (split / co-crown) + custom prompt packs via a share code.
 - [ ] **E18. Smaller engine gaps:**
-  - `PlayerReveal` is only on **guess / vote / buzzer / split** — add to **poll / rank /
-    rate / draw** so phones get personal reveal feedback everywhere;
+  - `PlayerReveal` is on **guess / vote / buzzer / split / drawvote / fibvote** — add to
+    **poll / rank / rate / draw** so phones get personal reveal feedback everywhere;
   - own-answer hiding does not fire for **fill / split** votes (wire the reserved
     `assignment` / `promptFor` per-player path, currently unused by the renderer);
   - **admin role** + DB-backed official games + versioning.
@@ -83,6 +83,28 @@ each group; `[size]` is a rough effort hint.
 - [ ] **E17. Infra:** OAuth / magic-link (better-auth config); **Postgres** for
   multi-instance scale (driver behind `useDb()`); **upload hardening** (presigned-POST
   size policy + content-type enforcement).
+
+## F. Claude connector directory submission
+- [x] Hard gates done: **privacy policy** (`/privacy`), **terms of service** (`/terms`),
+  **favicon** (`/favicon.svg`); OAuth/PRM/DCR/PKCE, Streamable HTTP + 401 challenge, tool
+  annotations, read/write split, consent screen. (See `docs/connect-claude.md`.)
+- [ ] A dedicated **square logo** asset for the submission form. `[small]`
+- [ ] **Public docs** with 3+ usage examples + a reviewer **test account**. `[small]`
+- [ ] Accept the Anthropic Software Directory Terms at submission; run the live
+  **claude.ai connect+save handshake** (owner-only, cannot be automated). `[owner]`
+
+## Known security/architecture limitations (from the 2026-06-02 audits)
+- [ ] **Delegated-driver forge.** With "let a player drive" on, a forged drive command
+  (host trusts a client-asserted `pid`, derivable from the public room+name) can force an
+  early `reveal` and publish the answer key. Inherent to the trustless public relay; fix
+  is a driver PIN (an out-of-band secret) or keeping `reveal` host-only. `[medium]`
+- [ ] **Soft two-phase anonymity.** A relay reader can correlate an identical submission
+  in a vote gallery to its per-player input and unmask the author before reveal
+  (drawvote/fibvote/split). Not an answer-key leak; document as best-effort or use opaque
+  per-round input keys. `[medium]`
+- [ ] **Extreme prompt overflow.** A 600+ char prompt can scroll past the host control bar
+  (column overflow was removed to stop clipping the answer glow). A `prompt.max()` closes
+  it, at the cost of rejecting very long prompts in the editor. `[small]`
 
 ## Misc / docs / known trades
 - [ ] PRD §8 still documents the pre-block plugin contract — reconcile with the block model.
