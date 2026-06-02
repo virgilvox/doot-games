@@ -9,6 +9,10 @@ import { RoomRuntime, type RoomRuntimeOptions } from '../room'
 import type { HostAction } from '../state-machine'
 
 const HOST_TICK_MS = 250
+// Players/viewers receive no relay traffic while idle (e.g. after submitting), but
+// `hostPresent` is time-based, so without a local tick a host that went away is
+// never noticed and the "host left" banner never shows. Refresh on a slow cadence.
+const PRESENCE_TICK_MS = 4000
 
 export interface UseDootRoomOptions extends RoomRuntimeOptions {
   /** Auto-connect on creation (default true). */
@@ -28,6 +32,10 @@ export function useDootRoom(options: UseDootRoomOptions) {
   let tick: ReturnType<typeof setInterval> | null = null
   if (options.role === 'host') {
     tick = setInterval(() => runtime.tick(), HOST_TICK_MS)
+  } else {
+    // Re-evaluate the time-based snapshot (hostPresent) so an idle player notices
+    // the host going away without needing an inbound relay message.
+    tick = setInterval(refresh, PRESENCE_TICK_MS)
   }
 
   if (options.autoConnect !== false) {

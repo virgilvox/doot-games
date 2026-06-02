@@ -68,7 +68,7 @@ onScopeDispose(() => clearTimeout(timer))
       <div v-else-if="room.error.value" class="banner err">{{ room.error.value }}</div>
     </template>
     <template #top>
-      <span class="who"><Avatar :name="name" :id="room.me.value.id" :size="34" /> {{ name }}</span>
+      <span class="who"><Avatar :name="name" :id="room.me.value.id" :size="34" /> <span class="who-name">{{ name }}</span></span>
       <span class="conn mono" :class="{ live: room.connected.value }">
         {{ room.connected.value ? 'live' : '…' }}
       </span>
@@ -89,6 +89,12 @@ onScopeDispose(() => clearTimeout(timer))
   align-items: center;
   gap: 9px;
   font-weight: 800;
+  min-width: 0;
+}
+.who-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .conn {
   font-size: 12px;
