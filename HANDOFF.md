@@ -6,6 +6,107 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` deploys to prod via CI, no staging). All of the work below went straight to `main`
 and is live on https://doot.games, verified after each deploy._
 
+> **NOTE (2026-06-02):** the three entries below (games batch, Circuit Cypher TTS fix, phone
+> reveals) are **committed to `main` locally as 3 commits but NOT yet pushed** — prod still
+> runs the prior code until the owner pushes. Do the real-device TTS listen after pushing.
+> Commits: `games: add Backronym…` / `games,ui: fix Circuit Cypher TTS…` / `games: phone
+> reveal feedback…`.
+
+> **Circuit Cypher TTS — true root cause finally found + fixed (2026-06-02, COMMITTED to
+> `main` locally, not yet pushed).** After several prior "fixes" that didn't
+> hold, I reproduced it in a real headed browser (`scripts/tts-probe.mjs` + the instrumented
+> `scripts/cypher-tts-verify.mjs`) and the per-utterance timeline showed the actual bugs:
+> - **The "stuck on the title card" freeze = a single over-long utterance stalling.** The MC
+>   welcome line (~194 chars) `start@21.7s … end@71.7s` — a **50-second hang**. Chrome/macOS
+>   silently STOPS an utterance that speaks longer than ~15s; it goes quiet and `onend` fires
+>   tens of seconds late, so the show sits frozen on one card. The short robot verses (~7s)
+>   were unaffected, which is why earlier scripted checks looked "PASS". **Fix:** `chunkText`
+>   in `packages/ui/src/audio/speech.ts` splits long lines into short, sentence-sized
+>   utterances (none crosses the stall threshold) + a `resume()` keepalive. Unit-tested
+>   (`speech.test.ts`).
+> - **"Silent second robot" (Sparky quiet, Drive fine) = a per-robot voice that produces no
+>   audio on the device** (an undownloaded macOS premium voice, or a network voice). Giving
+>   robot A and robot B their *own* voices reintroduces this. **Fix:** both robots now SHARE
+>   one reliable voice (the platform default / first LOCAL voice — most likely to actually
+>   play), told apart by pitch/rate; if one robot is audible, both are. The **MC** takes a
+>   *different* local voice (female-leaning), so rappers ≠ host (the owner's ask). Selection
+>   is **local-only** (never the silent network "Google …" voices) and by language +
+>   availability, **never by hardcoded name** (voice names differ per OS; "Samantha" isn't on
+>   every Mac, and the available set even changes between `getVoices()` calls as voices load).
+> - Probe on this Mac confirms: MC=Fiona, both robots=Alex (default), both produce audio
+>   (`start`→`end`, no error). Why it kept regressing before: fixes were scripted-verified in
+>   headless/short-line conditions that never hit the >15s stall or a device's bad voice.
+> - **Still owner-side:** a real two-device on-device playtest (the audio itself can't be
+>   asserted headlessly), then deploy. Dev server picks up the fix via HMR (reload the host).
+
+> **E18 phone-reveal feedback (2026-06-02, COMMITTED to `main` locally, not yet pushed).**
+> Closed the backlog gap where poll/rank/rate/draw showed only a generic "check the big
+> screen" at reveal. Added a `revealSummary` + `PlayerReveal` to each (purely additive — the
+> engine already publishes any block's `revealSummary` and the generic player renderer mounts
+> its `PlayerReveal`): **poll** = you-vs-room top pick; **rate** = your score vs the room
+> average per category (on the round's own scale); **rank** = the consensus order with your #1
+> called out; **draw** = your own drawing back on your phone (`DrawThumb`). Pure summaries
+> unit-tested (`blocks/reveals.test.ts`). 279 tests, typecheck (incl. `nuxi`), build all green.
+
+> **Cheap-wins game batch — five new flagships (2026-06-02, COMMITTED to `main` locally,
+> not yet pushed).** Adapted from an external idea dump; the brief was the
+> highest games-per-effort set with no engine changes. Verified with `pnpm typecheck`
+> (incl. `nuxi`), the full suite (**225 tests**, +14 new), and the web build.
+>
+> - **Backronym** (`games/backronym.ts`) and **Open Mic** (`games/openmic.ts`) are pure
+>   `quip → vote` compositions, the Quip Clash spine reused: Backronym generates a
+>   familiar initialism (NASA/TPS/LOL) per round from a seeded pool; Open Mic flips
+>   `vote.perform` on so the robots read each one-liner aloud (TTS) before the vote. No
+>   new blocks.
+> - **Hivemind** (new `hivemind` block) is the "read the room" game Doot lacked: free-text
+>   answers cluster by a normalized key; you score by matching the crowd
+>   (`(k-1)/(total-1)`, a lone answer scores 0). Reveal stacks the emergent clusters.
+> - **Most Likely To** (new `mostlikely` block) is roster-driven: the vote options ARE the
+>   lobby (the player/host views read `room.players`; scoring resolves names from
+>   `ctx.players`, with the chosen name captured on each vote so a nominee who leaves is
+>   still named). No `derive`, so it stays editable (the two-phase "needs a source"
+>   validation doesn't apply). The most-nominated player takes the dubious crown.
+> - **Ballpark** (new `ballpark` block) is closest-guess numeric trivia: the true number is
+>   withheld (`answerOf`/`redactContent` + a `REDACTION_RULES` entry), scoring is
+>   self-scaling (worst guess in the round = 0, closest = full + a bullseye bonus), and the
+>   reveal animates a CSS needle/dial to the answer with every guess marked. This is the
+>   first of the pitched "closeness" family (Spectrum / Over-Under would reuse the block,
+>   but each needs a per-player role, so they're deferred).
+> - All five are **flagships** (manifest `flagship` + `buildConfig` content pools +
+>   `roundOptions`), registered in `registry.ts` / `catalog.ts` / `visuals.ts`, with the
+>   three standalone blocks added to the Custom editor palette. Pure scoring is unit-tested
+>   (`hivemind`/`mostlikely`/`ballpark` `.test.ts`). The catalog sync + redaction-coverage
+>   tests pass, so registration is provably consistent.
+>
+> **Audit + hardening of the batch (same session).** An adversarial pass over the above,
+> then fixes + deeper tests (272 tests total, all green; typecheck incl. `nuxi`; build):
+> - **Editor-preview crash fixed (real bug).** `injectDootRoom()` THROWS with no provider,
+>   and Most Likely To is the first *non-derived* block whose `PlayerInput` injects the room
+>   (for the roster), so the editor's bare phone-preview would have crashed on it. Added
+>   `PlayerPreview.client.vue` (mirrors `HostPreview`: a scoped mock room, here with a
+>   sample roster so roster inputs render real chips) and routed the editor's phone preview
+>   through it. The big-screen previews were already safe (HostPreview renders the open
+>   state; the reveal/`roundRevealFor` computeds are lazy and never evaluated there).
+> - **Ballpark needle made outlier-robust.** A single wild guess (999999) would blow out the
+>   dial and squash everyone else; the dial radius is now ~5x the *median* error capped at
+>   the worst guess, so a tight pack stays tight and outliers clamp to the track edge.
+>   `ballparkBounds` is exported + unit-tested.
+> - **End-to-end integration tests** (`runtime/cheap-wins.integration.test.ts`) wire a real
+>   `RoomRuntime` (host + players over a fake relay) exactly like `HostRoom.client.vue`.
+>   Proven through the engine: **Ballpark's answer is never on the relay before reveal**
+>   (redacted config + no `roundAnswer` until reveal), then published at reveal with the
+>   needle summary naming the closest guesser; Most Likely To's roster vote reveal resolves
+>   real names; Hivemind's free-text clusters publish with the crowd answer on top.
+> - **Markdown / MCP authoring** for the three new blocks: parser cases (`## hivemind`,
+>   `## mostlikely` / `## most likely`, `## ballpark` with `answer:`/`unit:`), the
+>   `doot_format_guide` MCP text, `docs/markdown-games.md`, and parser tests. So the Claude
+>   connector can now author Ballpark/Hivemind/Most Likely To games, not just play them.
+>
+> Still ahead (the bigger adapted ideas the owner ranked behind this batch, in
+> `docs/BACKLOG.md §G`): **Truth or Share** (a new directed/spotlight engine primitive +
+> photo-share-over-relay + consent/moderation), **Faker** (wire the reserved `assignment`/
+> `promptFor` per-player path), Doodle Chain (a pipeline primitive), and the rest.
+
 > **Deep-audit + hardening pass (2026-06-02, SHIPPED + DEPLOYED). Three review rounds
 > on top of the UX pass below.** Verified after each deploy.
 >

@@ -17,6 +17,12 @@ each group; `[size]` is a rough effort hint.
   dual-axis scoring (find the truth / fool the room). Deployed.
 - **Sketch & Spot** (Drawful) — new `drawvote` block: vote on a gallery of the
   room's drawings (the Draw block in the two-phase loop). Deployed.
+- **Cheap-wins game batch** (5 new flagships, committed to `main` locally 2026-06-02, not
+  yet pushed): **Backronym** + **Open Mic** (pure `quip→vote` compositions; Open Mic
+  uses `vote.perform` TTS), **Hivemind** (new `hivemind` block, match-the-crowd),
+  **Most Likely To** (new `mostlikely` block, roster-as-options), **Ballpark** (new
+  `ballpark` block, closest-guess numeric trivia + needle reveal + withheld answer). See
+  HANDOFF for details; 14 new tests, catalog/redaction sync verified.
 
 ---
 
@@ -72,8 +78,10 @@ each group; `[size]` is a rough effort hint.
     not wired into any game);
   - tie handling (split / co-crown) + custom prompt packs via a share code.
 - [ ] **E18. Smaller engine gaps:**
-  - `PlayerReveal` is on **guess / vote / buzzer / split / drawvote / fibvote** — add to
-    **poll / rank / rate / draw** so phones get personal reveal feedback everywhere;
+  - [x] `PlayerReveal` everywhere — added to **poll / rank / rate / draw** (poll: you-vs-room
+    top pick; rate: your score vs the room average per category; rank: the consensus order
+    with your #1 called out; draw: your own drawing back on your phone). Pure `revealSummary`
+    unit-tested (`blocks/reveals.test.ts`); committed to `main` locally, not yet pushed.
   - own-answer hiding does not fire for **fill / split** votes (wire the reserved
     `assignment` / `promptFor` per-player path, currently unused by the renderer);
   - **admin role** + DB-backed official games + versioning.
@@ -105,6 +113,33 @@ each group; `[size]` is a rough effort hint.
 - [ ] **Extreme prompt overflow.** A 600+ char prompt can scroll past the host control bar
   (column overflow was removed to stop clipping the answer glow). A `prompt.max()` closes
   it, at the cost of rejecting very long prompts in the editor. `[small]`
+
+## G. Adapted game ideas (remaining, ranked behind the cheap-wins batch)
+From an external idea dump; the cheap-wins batch (Backronym/Open Mic/Hivemind/Most Likely
+To/Ballpark) shipped first. These need new primitives, so they're real builds, not
+compositions:
+- [ ] **G1. Truth or Share** — the owner's headline idea. A new **directed/spotlight**
+  engine primitive (picker → target(s) → respond → react), photo-share over the
+  **ephemeral relay with TTL** (never S3), a **host moderation gate**, passes + spice
+  tiers, and reaction-cut scoring (the picker earns a cut of the room's reactions so the
+  optimal play is entertaining, not cruel). Consent is a feature, not a bolt-on. `[large]`
+- [ ] **G2. Faker** (social deduction) — wire the **reserved `assignment`/`promptFor`**
+  per-player path (one imposter gets a blank/near-miss prompt) + an accusation round. The
+  same wiring then unlocks **Hot Seat** and **Spectrum**. `[medium-large]`
+- [ ] **G3. Closeness family extensions** — reuse the new `ballpark` block for **Over/Under**
+  (streak) and **Spectrum** (Wavelength; needs the per-player clue-giver role from G2). `[medium]`
+- [ ] **G4. Doodle Chain** (Gartic Phone) — a new **pipeline** primitive (each player's
+  output feeds the next, rotated per player) + the end-of-game unspool reveal. `[large]`
+- [ ] **G5. Quick Draw** (skribbl) — real-time stroke streaming + fuzzy answer matching,
+  speed-scored. Reuses the Pixi surface + relay. `[large]`
+- [ ] **G6. Companion mode** — **Call It** (host-resolved live predictions; host is the
+  answer key, marks outcomes as they land) and **Buzzword Bingo** (per-player randomized
+  cards + win detection). `[medium]`
+- [ ] **G7. Hot Seat / Two Truths & a Lie** — per-round subject roles / dynamic per-author
+  round counts; depends on the directed primitive (G1) or per-player assignment (G2). `[large]`
+- [x] **Markdown-parser support** for the three new standalone blocks (hivemind / mostlikely /
+  ballpark) so MCP/markdown can author them. Shipped: parser cases + `doot_format_guide` +
+  `docs/markdown-games.md` + tests.
 
 ## Misc / docs / known trades
 - [ ] PRD §8 still documents the pre-block plugin contract — reconcile with the block model.
