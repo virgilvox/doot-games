@@ -3,9 +3,16 @@
  * one consensus ranking, shown as an ordered chart. A no-winner, opinion-style
  * mechanic (debates, tier lists, "rank these from best to worst").
  */
-import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import {
+  type BlockResultsContext,
+  type ResultsFragment,
+  type RevealContext,
+  defineBlock,
+  z,
+} from '@doot-games/sdk'
 import RankHost from './RankHost.vue'
 import RankPlayer from './RankPlayer.vue'
+import RankReveal from './RankReveal.vue'
 
 export const rankContentSchema = z.object({
   prompt: z.string().default('Rank these'),
@@ -26,6 +33,10 @@ export type RankContent = z.infer<typeof rankContentSchema>
 export interface RankInput {
   /** Item ids in the player's chosen order. */
   order: string[]
+}
+/** The public per-round reveal phones read: the room's consensus order. */
+export interface RankRevealSummary {
+  order: Array<{ id: string; label: string }>
 }
 
 export const rankBlock = defineBlock<RankContent, RankInput>({
@@ -53,6 +64,12 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
   isComplete: (c, input) => input.order.length === c.items.length,
   PlayerInput: RankPlayer,
   HostDisplay: RankHost,
+  PlayerReveal: RankReveal,
+  // No withheld answer; publish the room's consensus order so a phone can show
+  // where the player's own ranking landed.
+  revealSummary: (ctx: RevealContext<RankContent, RankInput>): RankRevealSummary => ({
+    order: consensus(ctx.content, ctx.inputs).map((r) => ({ id: r.id, label: r.label })),
+  }),
   aggregate: (ctx: BlockResultsContext<RankContent, RankInput>): ResultsFragment => {
     const distributions = ctx.rounds.map(({ index, content }) => {
       const ranked = consensus(content, ctx.inputsFor(index))

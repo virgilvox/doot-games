@@ -3,9 +3,16 @@
  * option; reveal shows the live distribution. Distinct from Rate: Poll is a
  * single choice across options, Rate scores subjects on a scale.
  */
-import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import {
+  type BlockResultsContext,
+  type ResultsFragment,
+  type RevealContext,
+  defineBlock,
+  z,
+} from '@doot-games/sdk'
 import PollHost from './PollHost.vue'
 import PollPlayer from './PollPlayer.vue'
+import PollReveal from './PollReveal.vue'
 
 export const pollContentSchema = z.object({
   prompt: z.string().default('What do you think?'),
@@ -24,6 +31,14 @@ export type PollContent = z.infer<typeof pollContentSchema>
 export interface PollInput {
   choice: number | null
 }
+/** The public per-round reveal phones read to show "you vs the room". */
+export interface PollRevealSummary {
+  counts: number[]
+  /** The room's most-picked option index, or -1 if nobody voted. */
+  topIndex: number
+  topLabel: string
+  total: number
+}
 
 export const pollBlock = defineBlock<PollContent, PollInput>({
   kind: 'poll',
@@ -41,6 +56,31 @@ export const pollBlock = defineBlock<PollContent, PollInput>({
   isComplete: (_c, input) => input.choice != null,
   PlayerInput: PollPlayer,
   HostDisplay: PollHost,
+  PlayerReveal: PollReveal,
+  // No answer to withhold (a poll has no right answer), so the per-round reveal is
+  // safe to publish: the live tally + the room's top pick, for phone feedback.
+  revealSummary: (ctx: RevealContext<PollContent, PollInput>): PollRevealSummary => {
+    const counts = ctx.content.options.map(() => 0)
+    for (const input of ctx.inputs.values()) {
+      const c = (input as PollInput | null)?.choice
+      if (c != null && c >= 0 && c < counts.length) counts[c] = (counts[c] ?? 0) + 1
+    }
+    let topIndex = -1
+    let topVotes = -1
+    counts.forEach((n, i) => {
+      if (n > topVotes) {
+        topVotes = n
+        topIndex = i
+      }
+    })
+    const total = counts.reduce((a, b) => a + b, 0)
+    return {
+      counts,
+      topIndex: total > 0 ? topIndex : -1,
+      topLabel: total > 0 ? (ctx.content.options[topIndex]?.label ?? '') : '',
+      total,
+    }
+  },
   aggregate: (ctx: BlockResultsContext<PollContent, PollInput>): ResultsFragment => {
     const distributions = ctx.rounds.map(({ index, content }) => {
       const counts = content.options.map(() => 0)

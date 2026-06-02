@@ -5,9 +5,16 @@
  * its `label`. Distinct from Poll (which is a single choice with no scale).
  * Contributes a top-rated award per category.
  */
-import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import {
+  type BlockResultsContext,
+  type ResultsFragment,
+  type RevealContext,
+  defineBlock,
+  z,
+} from '@doot-games/sdk'
 import RateHost from './RateHost.vue'
 import RatePlayer from './RatePlayer.vue'
+import RateReveal from './RateReveal.vue'
 
 export const rateScaleSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -43,6 +50,10 @@ export const rateContentSchema = z.object({
 export type RateContent = z.infer<typeof rateContentSchema>
 export interface RateInput {
   ratings: Record<string, number>
+}
+/** The public per-round reveal phones read to compare their score to the room. */
+export interface RateRevealSummary {
+  categories: Array<{ id: string; label: string; avg: number; count: number }>
 }
 
 /** The ordered `{label, value}` steps for a scale, numeric or labelled levels. */
@@ -102,6 +113,23 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
   isComplete: (c, input) => c.categories.every((cat) => typeof input.ratings[cat.id] === 'number'),
   PlayerInput: RatePlayer,
   HostDisplay: RateHost,
+  PlayerReveal: RateReveal,
+  // No right answer to withhold; publish each category's room average so a phone
+  // can show "you vs the room" at reveal.
+  revealSummary: (ctx: RevealContext<RateContent, RateInput>): RateRevealSummary => ({
+    categories: ctx.content.categories.map((cat) => {
+      let sum = 0
+      let count = 0
+      for (const input of ctx.inputs.values()) {
+        const v = (input as RateInput | null)?.ratings?.[cat.id]
+        if (typeof v === 'number') {
+          sum += v
+          count++
+        }
+      }
+      return { id: cat.id, label: cat.label, avg: count > 0 ? sum / count : 0, count }
+    }),
+  }),
   aggregate: (ctx: BlockResultsContext<RateContent, RateInput>): ResultsFragment => {
     const byCategory = new Map<string, { label: string; subject: string; avg: number; scale: RateScale }>()
     let ratingsCast = 0

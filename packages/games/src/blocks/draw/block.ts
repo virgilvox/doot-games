@@ -8,6 +8,7 @@ import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '
 import type { DrawValue } from '@doot-games/ui'
 import DrawHost from './DrawHost.vue'
 import DrawPlayer from './DrawPlayer.vue'
+import DrawReveal from './DrawReveal.vue'
 
 export const drawContentSchema = z.object({
   prompt: z.string().default('Draw the prompt!'),
@@ -44,6 +45,10 @@ export const drawBlock = defineBlock<DrawContent, DrawInput>({
   isComplete: (_c, input) => Array.isArray(input?.strokes) && input.strokes.length > 0,
   PlayerInput: DrawPlayer,
   HostDisplay: DrawHost,
+  // No revealSummary needed: the phone just shows the player their OWN drawing
+  // (the gallery is the big-screen payoff). The relay only hands a player their
+  // own input, so PlayerReveal renders it directly.
+  PlayerReveal: DrawReveal,
   aggregate: (ctx: BlockResultsContext<DrawContent, DrawInput>): ResultsFragment => {
     let drawings = 0
     let strokes = 0
