@@ -176,6 +176,12 @@ function resetPreview(i: number) {
   if (block) previewInputs[i] = block.emptyInput(config.rounds[i]!.content)
 }
 
+// Preview surface: the phone (what each player taps) vs the big screen (what the
+// whole room watches). A host author's primary artifact is the TV, so they need
+// to see it too. Host views render via <HostPreview>, which provides a mock room
+// so they show their open, no-answers-yet state.
+const previewMode = ref<'phone' | 'host'>('phone')
+
 const addKind = ref(plugin.blocks[0]?.kind ?? '')
 function addRound() {
   const block = getBlock(plugin!, addKind.value)
@@ -557,8 +563,29 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
               <p v-if="errors[i]" class="sf-error" role="alert">{{ errors[i] }}</p>
             </div>
             <aside class="ed-preview">
-              <div class="ed-preview-label">As players see it</div>
-              <div class="ed-phone panel">
+              <div class="ed-preview-head" role="group" aria-label="Preview surface">
+                <button
+                  type="button"
+                  class="ed-pt-btn"
+                  :class="{ on: previewMode === 'phone' }"
+                  :aria-pressed="previewMode === 'phone'"
+                  @click="previewMode = 'phone'"
+                >
+                  Phone
+                </button>
+                <button
+                  type="button"
+                  class="ed-pt-btn"
+                  :class="{ on: previewMode === 'host' }"
+                  :aria-pressed="previewMode === 'host'"
+                  @click="previewMode = 'host'"
+                >
+                  Big screen
+                </button>
+              </div>
+
+              <!-- PHONE: what each player taps on their own device -->
+              <div v-if="previewMode === 'phone'" class="ed-phone panel">
                 <div class="kicker">{{ blockFor(round)?.name }}</div>
                 <h3 class="ed-phone-prompt">{{ promptOf(round) }}</h3>
                 <img
@@ -584,6 +611,26 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
                   :model-value="previewValue(i)"
                   @update:model-value="previewInputs[i] = $event"
                 />
+                <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
+              </div>
+
+              <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
+              <div v-else class="ed-bigscreen panel">
+                <div class="ed-bs-prompt-area">
+                  <h3 class="ed-bs-prompt">{{ promptOf(round) }}</h3>
+                  <img
+                    v-if="contentOf(round).image"
+                    :src="contentOf(round).image as string"
+                    alt=""
+                    class="ed-bs-img"
+                  />
+                </div>
+                <div v-if="isDerived(round)" class="ed-bs-board">
+                  <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
+                </div>
+                <div v-else-if="blockFor(round) && !errors[i]" class="ed-bs-board">
+                  <HostPreview :block="blockFor(round)!" :content="round.content" :index="i" />
+                </div>
                 <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
               </div>
             </aside>
@@ -987,6 +1034,71 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   letter-spacing: 0;
   color: var(--ink-soft);
   font-weight: 500;
+}
+/* Preview surface toggle: phone vs the big screen. */
+.ed-preview-head {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 8px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 999px;
+}
+.ed-pt-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.ed-pt-btn.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+/* Big-screen (host) preview: a framed "stage" distinct from the phone card. */
+.ed-bigscreen {
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 16px;
+  background: var(--surface-2);
+}
+.ed-bs-prompt-area {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.ed-bs-prompt {
+  font-family: var(--font-display, inherit);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.ed-bs-img {
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
+}
+.ed-bs-board {
+  /* The real host view is sized for a projector; scale it down to the editor
+     column. `zoom` shrinks layout and clamp()-based fonts proportionally. */
+  zoom: 0.62;
+  border-top: var(--bd) solid var(--line-soft);
+  padding-top: 16px;
 }
 /* Two-phase "this round is built automatically" explainer. */
 .ed-derived {

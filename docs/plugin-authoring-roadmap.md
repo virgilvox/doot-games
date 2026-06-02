@@ -72,10 +72,14 @@ bridge, `@vue/repl`, or MCP** — it's plain product work on the existing editor
   — a blank page with a title. Build a **template/remix gallery**: a wall of complete,
   playable example games you clone-and-tweak. The fork API already exists
   (`server/api/games/[id]/clone.post.ts`); this is UI + curated content.
-- **Preview the big screen, not just the phone.** The editor previews only "as players
-  see it" (the phone). The host's *primary* artifact is the TV/projector. Add a
-  **`HostDisplay` preview pane** beside the phone pane — the block contract already
-  exposes `HostDisplay`, so the data is there. ← **building this now** (see Build order).
+- **Preview the big screen, not just the phone.** ✅ **Shipped.** The editor previews
+  had only "as players see it" (the phone); the host's *primary* artifact is the
+  TV/projector. There is now a **Phone / Big screen toggle**; the big-screen pane
+  renders the real `HostDisplay` via `HostPreview.client.vue`, which provides a scoped
+  **mock room** (`provideDootRoom`) so injection-based host views (`GuessHost`,
+  `VoteHost`, …) render their open, no-answers-yet state without a relay. (Finding:
+  `HostDisplay` views inject the room — they can't be mounted on props alone, which
+  the original "just reuse the contract" estimate missed.)
 - **In-app AI content generation.** Today's "AI" is a copy-prompt-to-ChatGPT clipboard
   hack. Turn it into "type a topic → filled-in rounds appear in the editor → tweak,"
   built on the existing markdown round-trip (`parseMarkdownGame`). Runs in **trusted
@@ -266,8 +270,9 @@ The primary-user work (1) is unblocked by all the infrastructure and ships visib
 to a party host now. The sandbox/coder tiers follow.
 
 1. **Tier 0/1 — the primary surface (do first; no sandbox/bridge/editor/MCP needed):**
-   1a. **Big-screen `HostDisplay` preview** in the editor. ← **in progress this turn.**
-   1b. **Template/remix gallery** (kill the blank page; reuses the clone API).
+   1a. ✅ **Big-screen `HostDisplay` preview** in the editor — Phone/Big-screen toggle,
+       host views rendered through a scoped mock-room provider.
+   1b. **Template/remix gallery** (kill the blank page; reuses the clone API). ← next
    1c. **In-app AI content generation** (topic → filled rounds; markdown round-trip).
    1d. **Custom-renderer registry** + authoring quality/a11y guardrails.
 2. **Harden the shipped sandbox.** Origin live ✅, `@doot-games/plugin-bridge` shipped ✅;
