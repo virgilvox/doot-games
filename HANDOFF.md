@@ -10,7 +10,35 @@ and is live on https://doot.games, verified after each deploy._
 > reveals, C12 bookmarks) are **committed to `main` locally but NOT yet pushed** — prod still
 > runs the prior code until the owner pushes. Do the real-device TTS listen after pushing.
 > Commits: `games: add Backronym…` / `games,ui: fix Circuit Cypher TTS…` / `games: phone
-> reveal feedback…` / `docs: …` / `web: bookmark/save games (C12)`.
+> reveal feedback…` / `docs: …` / `web: bookmark/save games (C12)` / `engine: secret
+> per-player content primitive…`.
+
+> **Secret per-player content primitive — the hidden-role foundation (2026-06-02, COMMITTED
+> to `main` locally, not yet pushed).** The reusable engine capability that unlocks Faker /
+> Hot Seat / (eventually) Truth or Share. The host can give each player DIFFERENT content
+> for a round, delivered to each player's own private relay address so another player's UI
+> never shows it, with an optional withheld answer (who the imposter is) revealed at reveal.
+> - `addr.roundContentForPlayer` + the player's own `myRoundContent` subscription; `room.ts`
+>   `publishAssignedIfAny` + `perPlayerContentFor`; `LoadedGame.assignContent`; the Vue
+>   composable exposes `perPlayerContentFor`; the player renderer prefers it.
+> - SDK: a roster-aware `assignContent(ctx) -> { perPlayer, answer }` block hook; runtime
+>   `buildAssignContent`; `HostRoom` wires it. Additive (rounds without it are unchanged).
+> - **Soft-secrecy caveat (documented, accepted):** the per-player address is derivable, so a
+>   devtools user could read others' — the same trade-off as the existing soft two-phase
+>   anonymity. Fine for casual play; not a defense against a determined cheater.
+> - Integration test (`runtime/perplayer.integration.test.ts`) proves each player gets only
+>   their own content and the answer is withheld until reveal.
+> - **NEXT: build Faker on it** (deliberately not rushed into this session). Concrete design:
+>   (1) a `faker` make block — content `{ category, word }`; `redactContent` strips `word`
+>   from the public config; `assignContent` picks one imposter (seeded), gives non-fakers the
+>   word and the faker a blank + "you're the faker", `answer = { fakerPid, word }`; players
+>   submit a one-word clue; the HostDisplay shows only the category + a count (never the word,
+>   since the faker watches the big screen). (2) an `accuse` judge block deriving from the
+>   faker round — needs a small **derive extension: pass the source round's answer key into
+>   `DeriveContext.sources[i].answer`** (so `accuse` learns `fakerPid`); shows the attributed
+>   clues + a roster vote; scores accusers who picked the real faker and the faker if it
+>   escaped (not top-voted); reveal unmasks the faker + word. (3) `faker` game = a word pool
+>   via `buildConfig`. Plus REDACTION_RULES `faker: { word: '' }` (catalog test enforces it).
 
 > **Circuit Cypher TTS — true root cause finally found + fixed (2026-06-02, COMMITTED to
 > `main` locally, not yet pushed).** After several prior "fixes" that didn't

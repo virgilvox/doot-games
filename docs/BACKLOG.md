@@ -129,9 +129,15 @@ compositions:
   **ephemeral relay with TTL** (never S3), a **host moderation gate**, passes + spice
   tiers, and reaction-cut scoring (the picker earns a cut of the room's reactions so the
   optimal play is entertaining, not cruel). Consent is a feature, not a bolt-on. `[large]`
-- [ ] **G2. Faker** (social deduction) — wire the **reserved `assignment`/`promptFor`**
-  per-player path (one imposter gets a blank/near-miss prompt) + an accusation round. The
-  same wiring then unlocks **Hot Seat** and **Spectrum**. `[medium-large]`
+- [~] **G2. Faker** (social deduction). The **secret per-player content primitive is DONE**
+  (committed local: `assignContent` block hook + `addr.roundContentForPlayer` + the player's
+  private subscription + `buildAssignContent` + HostRoom wiring + integration test). It
+  supersedes the old reserved `assignment`/`promptFor` idea (roster-aware + truly secret).
+  **Remaining = the Faker game itself:** a `faker` make block (`assignContent` picks the
+  imposter, `redactContent` hides the word, REDACTION_RULES `faker:{word:''}`) + an `accuse`
+  judge block (needs a small derive extension to pass the source round's answer key into
+  `DeriveContext.sources[i].answer`) + scoring + a word pool. Full design in HANDOFF. The
+  same primitive then unlocks **Hot Seat** and **Spectrum**. `[medium]`
 - [ ] **G3. Closeness family extensions** — reuse the new `ballpark` block for **Over/Under**
   (streak) and **Spectrum** (Wavelength; needs the per-player clue-giver role from G2). `[medium]`
 - [ ] **G4. Doodle Chain** (Gartic Phone) — a new **pipeline** primitive (each player's
