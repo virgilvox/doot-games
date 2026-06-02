@@ -66,15 +66,19 @@ const featured = computed(() => flagshipGames[0] ?? null)
             <input v-model="search" type="search" placeholder="Search games or topics" aria-label="Search games" />
           </div>
           <div class="chips">
-            <div class="chip-grp">
+            <div class="chip-row">
               <span class="filter-lbl">Type</span>
-              <button class="chip" :class="{ on: typeFilter === 'all' }" @click="typeFilter = 'all'">All</button>
-              <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" @click="typeFilter = t.id">{{ t.name }}</button>
+              <div class="chip-scroll">
+                <button class="chip" :class="{ on: typeFilter === 'all' }" @click="typeFilter = 'all'">All</button>
+                <button v-for="t in types" :key="t.id" class="chip" :class="{ on: typeFilter === t.id }" @click="typeFilter = t.id">{{ t.name }}</button>
+              </div>
             </div>
-            <div class="chip-grp">
+            <div class="chip-row">
               <span class="filter-lbl">Theme</span>
-              <button class="chip" :class="{ on: themeFilter === 'all' }" @click="themeFilter = 'all'">All</button>
-              <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" @click="themeFilter = t.id">{{ t.name }}</button>
+              <div class="chip-scroll">
+                <button class="chip" :class="{ on: themeFilter === 'all' }" @click="themeFilter = 'all'">All</button>
+                <button v-for="t in themeList" :key="t.id" class="chip" :class="{ on: themeFilter === t.id }" @click="themeFilter = t.id">{{ t.name }}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -87,7 +91,7 @@ const featured = computed(() => flagshipGames[0] ?? null)
             <p>{{ featured.description }}</p>
             <span class="btn btn-primary">Host now</span>
           </div>
-          <div class="fart"><GameCover :title="featured.name" :type="featured.id" :height="280" /></div>
+          <div class="fart"><GameCover :title="featured.name" :type="featured.id" :height="200" /></div>
         </NuxtLink>
       </section>
 
@@ -177,22 +181,38 @@ const featured = computed(() => flagshipGames[0] ?? null)
 }
 .chips {
   display: flex;
-  gap: 9px;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
 }
-.chip-grp {
+/* One quiet, single-line row per filter group. The chips scroll sideways rather
+   than wrapping into a tall block that crowds the page. */
+.chip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.chip-scroll {
   display: flex;
   gap: 9px;
-  flex-wrap: wrap;
   align-items: center;
-  padding-right: 10px;
-  border-right: 2px solid var(--line-soft);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
 }
-.chip-grp:last-child {
-  border-right: none;
+.chip-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+.chip-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
 }
 .filter-lbl {
+  flex: none;
+  width: 46px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -200,6 +220,8 @@ const featured = computed(() => flagshipGames[0] ?? null)
   color: var(--mute);
 }
 .chip {
+  flex: none;
+  scroll-snap-align: start;
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
   border-radius: 999px;
@@ -237,10 +259,11 @@ const featured = computed(() => flagshipGames[0] ?? null)
   box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--primary) 30%, transparent);
 }
 .fcontent {
-  padding: 34px;
+  padding: 24px 26px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: center;
 }
 .fkick {
   font-family: var(--font-mono);
@@ -251,21 +274,21 @@ const featured = computed(() => flagshipGames[0] ?? null)
   font-weight: 500;
 }
 .fcontent h2 {
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: clamp(24px, 3vw, 30px);
   font-weight: 800;
-  margin: 10px 0 12px;
+  margin: 8px 0 8px;
   letter-spacing: -0.02em;
 }
 .fcontent p {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--ink-soft);
-  line-height: 1.5;
-  margin-bottom: 20px;
+  line-height: 1.45;
+  margin-bottom: 16px;
   max-width: 42ch;
 }
 .fart {
   position: relative;
-  min-height: 240px;
+  min-height: 150px;
 }
 .fart :deep(.cover) {
   height: 100% !important;
