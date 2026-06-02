@@ -18,6 +18,9 @@ import { authorsFor } from './users'
 const roundSchema = z.object({
   block: z.string().min(1),
   content: z.record(z.string(), z.unknown()),
+  // A derived round's source indices (default [index-1]). Adjacent two-phase
+  // games omit it, but persist it so a non-adjacent source survives save/load.
+  from: z.array(z.number().int().nonnegative()).optional(),
 })
 
 export const gameInputSchema = z.object({

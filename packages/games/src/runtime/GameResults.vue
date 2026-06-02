@@ -52,6 +52,17 @@ const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? curren
 const currentLabel = computed(() => currentSlide.value?.label ?? '')
 const onLeaderboard = computed(() => currentKind.value === 'leaderboard')
 
+// Burst the confetti ONCE, the first time the leaderboard is shown on the host
+// screen. Latched so paging away and back to the leaderboard does not replay it.
+const showConfetti = ref(false)
+watch(
+  onLeaderboard,
+  (v) => {
+    if (v && !props.compact) showConfetti.value = true
+  },
+  { immediate: true },
+)
+
 function go(delta: number) {
   const n = slides.value.length
   if (n === 0) return
@@ -72,7 +83,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
 <template>
   <div class="results" :class="{ carousel: !compact }">
-    <ConfettiBurst v-if="!compact && onLeaderboard" />
+    <ConfettiBurst v-if="showConfetti" />
     <header class="rhead">
       <div class="kicker">That is a wrap</div>
       <h1>{{ results.headline }}</h1>
@@ -158,7 +169,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </button>
       </div>
 
-      <StatStrip v-if="hasStats" :stats="results.stats ?? []" class="cstats" />
+      <!-- A game with no scored sections (e.g. a plain Draw gallery) has only the
+           run tally; center it so the stage is not a blank box. -->
+      <div v-if="!slides.length" class="cempty">
+        <StatStrip v-if="hasStats" :stats="results.stats ?? []" />
+      </div>
+      <StatStrip v-else-if="hasStats" :stats="results.stats ?? []" class="cstats" />
     </template>
   </div>
 </template>
@@ -277,6 +293,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 }
 .cstats {
   flex: none;
+}
+.cempty {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
 }
 .slide-enter-active,
 .slide-leave-active {

@@ -185,7 +185,9 @@ function resetPreview(i: number) {
 // so they show their open, no-answers-yet state.
 const previewMode = ref<'phone' | 'host'>('phone')
 
-const addKind = ref(plugin.blocks[0]?.kind ?? '')
+// Default to the first ADDABLE block (blockChoices hides derived blocks), so the
+// bound value always matches what the dropdown actually shows.
+const addKind = ref(blockChoices.value[0]?.kind ?? '')
 function addRound() {
   const block = getBlock(plugin!, addKind.value)
   if (!block) return
