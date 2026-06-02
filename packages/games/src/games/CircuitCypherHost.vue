@@ -261,7 +261,10 @@ function clearTimers() {
  *  on a flat ~18s ceiling, while the long opening welcome line still finishes
  *  before the cap rather than being cut off. Clamped both ways. */
 function speechCapMs(text: string, minHold: number): number {
-  const est = Math.min(20000, Math.max(2500, text.length * 90 + 1500))
+  // ~9 chars/sec is deliberately slow so a slow platform voice still finishes the
+  // long welcome line (~194 chars -> ~23s) before the cap rather than being cut
+  // off, while a short callout that wedges still advances in a few seconds.
+  const est = Math.min(26000, Math.max(2500, text.length * 110 + 2000))
   return Math.max(minHold, est)
 }
 /**

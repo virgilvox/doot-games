@@ -103,8 +103,11 @@ export function cancelSpeech(): void {
 // (on macOS the default is "Samantha"); we pick one explicitly rather than trusting
 // the platform `default` flag, which Chrome does not reliably set, so it would
 // otherwise fall back to whatever local voice sorts first (often a male one).
+// Leading word boundary only: matches a female name as a word-start, including
+// camelCase platform voices like "AvaNeural", while excluding mid-word substrings
+// (e.g. "Slava"). Wrong picks here are cosmetic (voice character), never gameplay.
 const FEMALE_VOICE =
-  /(samantha|victoria|karen|moira|tessa|fiona|serena|allison|ava|susan|zoe|nicky|female|zira|aria|jenny|michelle|hazel|eva|sonia|clara|nora)/i
+  /\b(samantha|victoria|karen|moira|tessa|fiona|serena|allison|ava|susan|zoe|nicky|female|zira|aria|jenny|michelle|hazel|eva|sonia|clara|nora)/i
 
 function reliableVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices()
