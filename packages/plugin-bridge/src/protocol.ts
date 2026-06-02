@@ -20,7 +20,7 @@ export type ThemeTokens = z.infer<typeof themeTokens>
  * plugin has never been given the key, so answer-withholding holds by construction.
  */
 export const hostToPlugin = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('init'), block: z.string(), role: z.enum(['player', 'host']), theme: themeTokens }),
+  z.object({ t: z.literal('init'), block: z.string(), role: z.enum(['player', 'host']), theme: themeTokens, protocolVersion: z.number().int() }),
   z.object({ t: z.literal('round'), content: z.unknown(), phase: z.string(), index: z.number().int().min(0) }),
   z.object({ t: z.literal('state'), myInput: z.unknown().nullable(), phase: z.string(), results: z.unknown().optional() }),
   z.object({ t: z.literal('answer'), key: z.unknown() }),
@@ -33,11 +33,30 @@ export type HostToPlugin = z.infer<typeof hostToPlugin>
  * own content/input schema before publishing to CLASP.
  */
 export const pluginToHost = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('ready') }),
+  z.object({ t: z.literal('ready'), protocolVersion: z.number().int() }),
   z.object({ t: z.literal('submit'), input: z.unknown() }),
-  z.object({ t: z.literal('resize'), h: z.number().min(0).max(4000) }),
+  z.object({ t: z.literal('resize'), h: z.number().min(0).max(1600) }),
 ])
 export type PluginToHost = z.infer<typeof pluginToHost>
 
 /** The single bootstrap message the host posts to the iframe to transfer a port. */
 export const BOOTSTRAP = '__doot_bridge_port' as const
+
+/**
+ * Bridge protocol version. Pinned, immutable plugins can't be patched when the host
+ * evolves, so both sides exchange this in init/ready and the host refuses an
+ * incompatible major rather than hanging the round. Bump the major on any breaking
+ * message-shape change.
+ */
+export const PROTOCOL_VERSION = 1
+
+/** Bridge-level enforcement defaults (the host may override per-call). */
+export const BRIDGE_LIMITS = {
+  /** Inbound messages/second from the plugin before excess is dropped (flood guard). */
+  maxMessagesPerSecond: 120,
+  /** Max serialized bytes per inbound message (relay/phone/DB DoS backstop; blocks
+   *  should still set tighter `.max()` on their own input schemas). */
+  maxBytes: 262_144,
+  /** Phases in which a `submit` is accepted (last-write-wins until the host locks). */
+  acceptSubmitPhases: ['active'] as readonly string[],
+} as const

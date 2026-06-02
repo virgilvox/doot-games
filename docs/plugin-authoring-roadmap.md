@@ -1,197 +1,306 @@
 # Plugin authoring roadmap (how anyone builds a Doot game)
 
-The plan for letting people author games across the whole skill range — a teacher
-filling in a form, a designer wiring rich controls, a coder writing a custom Pixi
-round, an AI agent building against the SDK — on **one continuous surface** where
-each step degrades gracefully into the next. This complements
+The plan for letting people author games across the whole skill range on **one
+continuous surface** where each step degrades gracefully into the next. Complements
 [`external-plugins.md`](./external-plugins.md) (the security/runtime design for
 *untrusted* plugins) and [`authoring-a-game.md`](./authoring-a-game.md) (today's
 first-party contract). When this and the PRD disagree, the PRD wins; fix this file.
 
-Grounded in a 2026 survey of how comparable tools actually do it: Figma (sandbox =
-boundary, not review), Obsidian/Raycast (repo-link ingestion), itch.io/Discord
-(separate-origin iframe), Sandpack/`@vue/repl` (in-browser compile+preview),
-Kahoot/Gimkit/GDevelop/Twine/Construct 3 (non-coder UX), and the 2025 remote-MCP
-OAuth spec.
+Grounded in a 2026 survey of how comparable tools do it: Figma (sandbox = boundary,
+not review), Obsidian/Raycast (repo-link ingestion), itch.io/Discord (separate-origin
+iframe), Sandpack/`@vue/repl` (in-browser compile+preview), Kahoot/Gimkit/GDevelop/
+Twine/Construct 3 (non-coder UX), the 2025 remote-MCP OAuth spec.
+
+## Who this is for — and the order that implies
+
+**The primary user is a non-developer** (the platform's whole ethos: "how will a
+regular person at a party host/play/customize this?"). For *authoring*, that's a
+teacher or a host who wants a custom game, not a programmer. Coders and AI-agent
+authors are a real but **minority** audience.
+
+So the tiers run non-coder → coder, and **the build order starts at the bottom**, not
+the top. The hard, exciting infrastructure (sandbox iframe, in-browser code editor,
+MCP server) serves the minority and is mostly **not on the primary user's path** — and
+critically, the primary-user work is **not blocked by any of it**. Build the bottom of
+the ladder first. (This corrects an earlier draft that sequenced the coder tiers first;
+the audit flagged the center of gravity as inverted.)
 
 ## The thesis: tiers, not modes
 
-The biggest mistake would be to ship "a form editor" **or** "a code editor" as a
-fork. Every tool people actually love — Construct 3, Twine, GDevelop, Lovable —
-makes the common case trivial and the complex case *reachable from the same place*
-without an all-or-nothing mode switch. Doot's blocks-and-compositions model is
-already that architecture (mechanic decoupled from content, a small primitive
-vocabulary, ~20-line games). The roadmap is to make the escape hatches continuous.
-
-**Invariants that hold at every tier:** live preview is constant; Zod validation is
-constant; the same `defineBlock`/`defineGame` contract is the target; the engine
-still owns the relay, phases, reconnect, and answer-withholding (a tier never
-reimplements these). A user graduates tiers without restarting their game.
+Shipping "a form editor" **or** "a code editor" as a fork would be the mistake. Every
+tool people love — Construct 3, Twine, GDevelop, Lovable — makes the common case
+trivial and the complex case *reachable from the same place* without an all-or-nothing
+mode switch. Doot's blocks-and-compositions model is already that architecture
+(mechanic decoupled from content, a small vocabulary, ~20-line games). The job is to
+make the escape hatches continuous.
 
 | Tier | Audience | What it is | Status |
 | --- | --- | --- | --- |
-| **0 — Template & form** | teachers, hosts, the 80% | Remix a template, fill the auto-generated Zod form per `{block, content}` round | **Shipped** (`GameEditor`, `SchemaForm`). Add: template gallery, "remix this", CSV/AI content import |
-| **1 — Rich schema controls** | power authors, designers | Same forms, but custom field renderers (answer-key editor, per-option media, color/theme, conditional fields) | Partial. Add a **custom-renderer registry** to `SchemaForm` |
-| **2 — Paste-in canvas round** | JS-comfortable creators | A "canvas block": author writes a Pixi/Three/Canvas scene against a tiny helper API, sandboxed, live preview | **New build** |
-| **3 — Full code editor** | coders | In-browser multi-file editor + compile + dual preview, the full `defineGame` with `components` overrides | **New build** |
-| **AI assist** | all tiers | Generate → preview → iterate, layered across 0–3 | **New build** (two rails ↓) |
+| **0 — Template & form** | teachers, hosts — **the 80%** | Remix a complete example, fill the auto-generated Zod form per `{block, content}` round | **Shipped, needs party-ready polish** (gallery, host preview, AI content) |
+| **1 — Rich schema controls** | power authors, designers | Same forms, friendlier + custom field renderers (answer-key editor, media, color/theme, conditional fields) | Partial — extend `SchemaForm` |
+| **2 — Paste-in canvas round** | JS-comfortable creators | A sandboxed `CanvasBlock` (a Pixi/Three/2D scene against a tiny helper API) | New build |
+| **3 — Full code editor** | coders | In-browser multi-file editor + compile + dual preview, full `defineGame` | New build |
+| **AI assist** | all tiers | Generate → preview → iterate, layered across 0–3 | New build (two rails ↓) |
 
-### Tier 0 — Template & form (shipped; polish)
-`apps/web/app/components/GameEditor.client.vue` + `packages/ui/src/schema-form/SchemaForm.vue`
-already auto-generate an editor from a block's Zod `contentSchema` with a live phone
-preview. The gap is the *cold start*: never show a blank page. Add a **template
-gallery + "remix this game"** (clone any public game into the editor) and **bulk
-import** (CSV/paste, and AI generation) for question/content pools — the proven
-Gimkit/Kahoot/QuestionWell pattern.
+**Engineering invariants that hold at every tier:** live preview is constant; Zod
+validation is constant; the same `defineBlock`/`defineGame` contract is the target;
+the engine owns the relay, phases, reconnect, and answer-withholding (a tier never
+reimplements these). A user graduates tiers without restarting their game.
 
-### Tier 1 — Rich schema controls (custom-renderer registry)
-Schema-driven forms are excellent for structured content and weak for rich controls
-*unless you can register custom widgets*. Adopt the shadcn-vue AutoForm
-`INPUT_COMPONENTS` / JSONForms custom-renderer pattern: a block declares a field
-maps to a named renderer (answer-key editor, media uploader, color/theme picker),
-and `SchemaForm` resolves it from a registry — no hand-built editor per block.
-Conditional/dependent fields (show X when Y) come from the same layer. Plan the
-escape hatch into the form layer from day one; auto-generation alone never covers a
-genuinely custom round.
+**Accessibility invariants that hold at every tier** (a11y is a *build requirement*,
+PRD §2.5 — not polish, and easy to silently drop here):
+- The **host chrome owns the a11y-critical surface**: prompt text, image, the timer,
+  the **untimed/accuracy option**, lobby, results. These render in trusted Doot DOM
+  (as `GamePlayer`/`GameHost` already do) *above/around* any plugin frame, so the core
+  round is screen-reader-legible even when the plugin draws an opaque canvas.
+- Every block (incl. canvas) gets `reducedMotion` in its state and **must** honor it.
+- A canvas/opaque block **must declare a text representation** of its current state and
+  inputs (an `a11yLabel` / live-region string the host renders outside the canvas) and
+  use color **with** shape/label, never color alone. Reject blocks that don't.
+- The author-time harness **lints a11y** (axe-core) and blocks publish on violations —
+  the platform can't inspect a cross-origin frame at runtime, so author-time + trusted
+  chrome are the only enforcement points (see Security & a11y tension below).
 
-### Tier 2 — Paste-in canvas round (the highest-leverage new thing)
-A first-class **canvas block** where the author writes a self-contained Pixi 8 /
-Three.js / 2D-canvas scene against a tiny, typed helper API and sees it render live.
-This is the Construct-3 escape hatch: scoped to **one round**, not the whole game,
-so a non-expert can go deep in a small, safe box. The helper surface is exactly the
-bridge, dressed up ergonomically:
+## Tier 0 — Template & form (the primary surface; polish it first)
 
-- **in:** `onState({ content, myInput, phase, players, theme })`, theme tokens as
-  CSS custom properties (canvas matches the active theme, per the animation rule).
-- **out:** `submit(input)` (one verb), `resize(h)`.
-- **withholding:** the answer arrives only via `onReveal(key)` — the author *cannot*
-  read it early, by construction.
+`apps/web/app/components/GameEditor.client.vue` + `packages/ui/src/schema-form/`
+already auto-generate an editor from a block's Zod `contentSchema`. What a regular
+person actually hits first is under-built, and **none of it needs the sandbox, the
+bridge, `@vue/repl`, or MCP** — it's plain product work on the existing editor:
 
-Renders inside the sandboxed plugin iframe (below). Pixi/Three are normal ESM deps
-resolved through a pinned import map. This is where "advanced custom game" stops
-meaning "fork the platform."
+- **Never a blank page.** "Create → pick a type" today yields a near-empty composition
+  — a blank page with a title. Build a **template/remix gallery**: a wall of complete,
+  playable example games you clone-and-tweak. The fork API already exists
+  (`server/api/games/[id]/clone.post.ts`); this is UI + curated content.
+- **Preview the big screen, not just the phone.** The editor previews only "as players
+  see it" (the phone). The host's *primary* artifact is the TV/projector. Add a
+  **`HostDisplay` preview pane** beside the phone pane — the block contract already
+  exposes `HostDisplay`, so the data is there. ← **building this now** (see Build order).
+- **In-app AI content generation.** Today's "AI" is a copy-prompt-to-ChatGPT clipboard
+  hack. Turn it into "type a topic → filled-in rounds appear in the editor → tweak,"
+  built on the existing markdown round-trip (`parseMarkdownGame`). Runs in **trusted
+  app chrome** (never the plugin frame — the plugin origin's `connect-src 'none'`
+  forbids network there). Key custody per AI rails below.
+- **Authoring guardrails.** Validation today is correctness-only. Add quality nudges
+  ("3 rounds is short," "mix up your round types," "no timer anywhere — add one or mark
+  it untimed") and the a11y affordances above. Sane non-blank defaults; undo.
 
-### Tier 3 — Full code editor (don't hand-build it)
-A multi-file in-browser editor with compile + **dual live preview** (player view and
-host view side by side, fed the same compiled module with different roles — mirroring
-the generic `GamePlayer`/`GameHost` renderer). **Tech: `@vue/repl`** (MIT, the engine
-behind play.vuejs.org) for in-browser SFC compile+preview, **CodeMirror 6** as the
-default editor (~50–200 kB, mobile-friendly), **Monaco** as a lazy-loaded "advanced
-mode" with full TS IntelliSense. `@vue/repl` supports both editors natively and lets
-us **self-host the compiler/runtime** (critical: Doot is self-hostable). Avoid
-StackBlitz WebContainers (commercial license for for-profit, no public self-host,
-app-wide COOP/COEP headers that would collide with Doot's embedded-frame play surface
-and OAuth) and Sandpack-for-Vue (pushes onto the proprietary Nodebox path).
+## Tier 1 — Rich schema controls (custom-renderer registry)
 
-**Key reconciliation:** `external-plugins.md` says *"Doot does not build untrusted
-source."* The in-app editor stores source — but `@vue/repl` compiles **client-side,
-hermetically, with no `npm install`**, so we never run an author's build scripts or
-touch the npm-postinstall supply-chain class (Shai-Hulud et al.). The in-app editor
-*is* the no-build path. Repo/zip import stays prebuilt-bundle-only, SHA-pinned.
+Schema-driven forms are great for structured content, weak for rich controls *unless
+you can register custom widgets*. Adopt the shadcn-vue AutoForm `INPUT_COMPONENTS` /
+JSONForms custom-renderer pattern: a field maps to a named renderer (answer-key editor,
+media uploader, color/theme picker), resolved from a registry — no hand-built editor
+per block. Conditional/dependent fields come from the same layer. This is also where
+the forms get *friendlier* for non-coders (authored labels/help, not just humanized
+field names). Plan the escape hatch in from day one.
+
+## Tier 2 — Paste-in canvas round (a distinct `CanvasBlock`, not a `RoundBlock`)
+
+A sandboxed block where the author writes a self-contained Pixi 8 / Three.js / 2D scene
+against a tiny helper API — the Construct-3 escape hatch, scoped to **one round**.
+
+**Correction (audit):** a canvas block **cannot be a `RoundBlock`.** A `RoundBlock`
+(`sdk/src/block.ts`) is trusted in-process Vue components **plus pure functions** the
+host runs directly — `aggregate`, `redactContent`, `answerOf`, `derive`, `toVoteText`.
+Untrusted canvas code lives behind the iframe bridge and can only `submit`; it can't
+hand those functions to the host process. So define a **separate `CanvasBlock`
+artifact**:
+- It provides a sandboxed render + `submit`, and declares its `contentSchema`,
+  `inputSchema`, and answer **shape as data (Zod)** so the *trusted host* does
+  redaction, withholding, validation, and a **declarative** aggregate (e.g. "score =
+  exact match on field X"), never author code in-process.
+- **Single-round only in v1**: no `derive`/`toVoteText` across the bridge, so a canvas
+  block can't be a make/judge round in a two-phase game yet.
+- Helper API — **in:** `onState({ content, myInput, phase, players, theme,
+  reducedMotion })`, theme tokens as CSS custom properties; **out:** `submit(input)`,
+  `resize(h)`; **withholding:** `onReveal(key)` fires only at reveal. Plus the required
+  `a11yLabel` text channel.
+- **Deps are a vendored, pinned allowlist** (Vue runtime, `pixi.js@<pin>`,
+  `pixi-filters`, `three@<pin>`) served from Doot's origin — **not** open CDN imports
+  (keeps it hermetic *and* working offline for self-hosters; see hermetic note below).
+
+## Tier 3 — Full code editor (reuse the compiler, build the preview)
+
+A multi-file in-browser editor with compile + **dual live preview** (player + host).
+**Tech:** `@vue/repl` (MIT) for the **client-side SFC compiler** (genuinely reusable,
+self-hostable), **CodeMirror 6** default (~50–200 kB, mobile-friendly), **Monaco** as
+a lazy-loaded advanced mode. The whole editor route is **desktop-targeted, lazy, and
+code-split out of the play surface** (never shipped to phones).
+
+**Correction (audit):** `@vue/repl`'s `Preview` is a **same-origin srcdoc** iframe — it
+is *incompatible* with the null-origin `plugins.doot.games` sandbox. We get the
+**compiler** for free but must **build the preview harness ourselves**: compile in the
+parent, ship the compiled module + the vendored import map across the bridge into the
+null-origin frame, which boots its own Vue + block renderer. A same-origin preview is
+acceptable **only** while an author edits *their own* code (they can only attack their
+own session); the moment a preview shows *someone else's* unreviewed plugin (remix,
+gallery), it **must** be the null-origin frame.
+
+**Hermetic claim, corrected:** in-app compile sidesteps the **build-script** supply-chain
+class (no `npm install`, no postinstall). It does **not** sidestep runtime deps: author
+`import`s resolve through an import map, and that map must point at a **vendored,
+version-pinned, self-hosted allowlist** — never arbitrary CDN imports (CDN compromise/
+drift, and broken for offline self-hosters). Repo/zip import stays prebuilt-bundle-only,
+SHA-pinned.
+
+**No cross-origin isolation, ever.** The compiler is pure-JS and needs no
+`SharedArrayBuffer`/COEP. Enabling COOP/COEP on `doot.games` would break embedded-frame
+play (a hard invariant) and better-auth OAuth popups. If QuickJS-WASM is ever adopted,
+it uses the non-SAB interrupt path or runs on the already-isolated plugin origin.
 
 ## AI assist — two rails
 
-1. **Doot SDK MCP server (flagship).** An OAuth 2.1 remote MCP server (RFC 9728
-   protected-resource metadata, PKCE/S256, RFC 8707 audience-bound tokens, CIMD/DCR
-   registration) exposing tools like `list_blocks`, `get_block_schema`,
-   `scaffold_game`, `validate_manifest`, `preview_url`. A user's *own* Claude
-   (Claude Code / desktop) authenticates and builds plugins against the **real**
-   schemas. Why this is the primary rail: **zero API-key custody** for Doot, the user
-   pays their own tokens, and generation is grounded in the actual contract instead
-   of hallucinated. This is the exact pattern Vercel, Cloudflare, and Salesforce
-   already ship. Security is textbook (HTTPS, exact redirect-URI match, short-lived
-   tokens + rotation, SSRF guard on CIMD fetch, per-client consent).
-2. **In-app assistant (secondary).** "Describe your game → preview → iterate" inside
-   the editor (Lovable/v0 UX). If bring-your-own-key, **never store the key in
-   Postgres** — route through a secret manager / gateway with workspace-scoped
-   virtual keys. Prefer platform-metered or the MCP rail to avoid key custody.
+1. **Doot SDK MCP server (the powerful rail).** A remote OAuth 2.1 MCP server exposing
+   `list_blocks` / `get_block_schema` / `scaffold_game` / `validate_manifest` /
+   `preview_url`, so a user's *own* Claude builds plugins against the **real** schemas —
+   **zero API-key custody**, user pays their own tokens, grounded generation. Pattern
+   shipped by Vercel/Cloudflare/Salesforce.
+   **Correction (audit): this is NOT "no infra coupling."** It is the largest new server
+   component here: a stateful OAuth *authorization server* (RFC 9728 metadata, PKCE,
+   RFC 8707 audience-bound tokens, dynamic client registration + consent + token
+   rotation), which better-auth does **not** provide. It needs durable token/client
+   storage (SQLite ok — but TTL-GC anonymous DCR clients and rate-limit registration),
+   and likely its **own origin** (`mcp.doot.games`). **Adopt a vetted MCP-OAuth
+   library**, don't hand-roll the spec; sequence it **after** the editor, not in
+   parallel, unless a second owner takes it.
+2. **In-app assistant (the friendly rail — higher primary-user value).** "Describe your
+   game → preview → iterate" in trusted app chrome (Tier-0 content gen above). If BYOK,
+   **never store the key in the DB** — secret manager / gateway with scoped virtual
+   keys; prefer platform-metered. The clipboard hack is the zero-custody fallback today.
 
-## Security model (recap + what's new)
+## Trust & moderation UX (for the non-coder host)
 
-The runtime boundary is fully specified in [`external-plugins.md`](./external-plugins.md):
-untrusted plugins run in a `<iframe sandbox="allow-scripts">` (null origin, **no**
-`allow-same-origin`) on a separate origin, behind a tiny Zod-validated
-`MessageChannel` bridge; `connect-src 'none'`; the answer key is withheld until
-reveal by construction. **The sandbox is the boundary, not code review** (Figma's
-own conclusion). Two additions this roadmap pins down:
+The sandbox gives *technical* safety. A host putting a community game on a TV needs
+*social/content* safety, which is a UX problem the runtime model doesn't solve:
+- **Design the "unreviewed" badge in plain language** ("Doot hasn't checked this game —
+  it can't see your account or data, but its content isn't moderated"). Name + words +
+  placement, not just a flag.
+- **A report/hide path** from the host's POV; block a publisher.
+- **Trust signals the primary user understands**: play counts, ratings, "hosted 200×,"
+  Doot-reviewed/featured — surfaced at the point of choosing a game. `@handle` provenance
+  is necessary but insufficient (the host knows no publishers).
 
-- **Host-only cookies are now a hard invariant.** Doot's better-auth config sets no
-  cookie `domain` and does not enable `crossSubDomainCookies`, so session cookies are
-  scoped to `doot.games` exactly and are **not** sent to `plugins.doot.games`. This
-  is *what makes a subdomain a safe plugin origin.* Never set a `.doot.games` cookie,
-  never enable `crossSubDomainCookies`. (Upgrade path for belt-and-suspenders: move
-  the plugin origin to a separate registrable domain so it is cross-site, not just
-  cross-origin. Not required while cookies stay host-only.)
-- **The plugin origin exists.** `plugins.doot.games` → the `doot-prod` droplet (DNS
-  live). Caddy serves it as a **static, locked-down origin** (the CSP above), never
-  reverse-proxied to the app. Today: a placeholder `respond`. Phase 1: swap to
-  `file_server` over the built host shell + bridge. See `docker/Caddyfile`.
+Build this **before** external community plugins ship, not after.
 
-Defense-in-depth option for later (Figma's model): run plugin *logic* in
-QuickJS-WASM inside the frame (kill-switch via memory limit + interrupt, DOM-less,
-escape-resistant) and render through a trusted renderer. Not needed for Phase 1–2;
-the origin-iframe + bridge + withholding already satisfies the three boundaries
-(capability, information, availability).
+## Security model (recap + hardening)
+
+Runtime boundary is in [`external-plugins.md`](./external-plugins.md): untrusted plugins
+run `<iframe sandbox="allow-scripts">` (null origin, **no** `allow-same-origin`) on a
+separate origin, behind a Zod-validated `MessageChannel` bridge; `connect-src 'none'`;
+answer withheld until reveal. **Sandbox is the boundary, not review.** Pinned facts:
+
+- **Host-only cookies are a hard invariant.** No cookie `domain`, no
+  `crossSubDomainCookies`, so the session never reaches `plugins.doot.games` — *that* is
+  what makes a subdomain safe. Any future `.doot.games` cookie or `crossSubDomainCookies`
+  leaks the session into the plugin origin. See [[doot-plugin-origin-cookie-coupling]].
+- **The plugin origin is live.** `plugins.doot.games` → the `doot-prod` droplet, valid
+  cert, strict CSP, never proxied to the app. Serves a placeholder `respond` today;
+  Phase 1 swaps to `file_server` over the real host shell.
+
+**Hardening applied to the shipped bridge (from the audit):**
+- **Handshake source-pinning.** `connectToHost` now accepts the bootstrap port only from
+  `window.parent` and only on the typed `BOOTSTRAP` message — closes a port-hijack where
+  a nested/sibling frame could race the port and forge host messages (incl. a fake
+  `answer`). `targetOrigin '*'` is unavoidable for a null-origin frame, so source-pinning
+  on the plugin side is the load-bearing control.
+- **Enforcement lives in the bridge, not an unwritten caller.** `createPortHost` now
+  rate-limits inbound messages, **size-caps** every message (relay/phone/DB DoS), and
+  **phase-gates** `submit` (drops submits outside the open phase and after the first
+  accepted submit per round). The host must *still* re-validate `submit.input` against
+  the block's own schema before publishing.
+- **`img-src` exfil channel closed.** `connect-src 'none'` does **not** mean "can't
+  exfiltrate" while `img-src https://media.doot.games` is allowed — a plugin can beacon
+  data as an image URL. The plugin-origin CSP drops third-party `img-src`; platform
+  media is handed over the bridge as content, not as a fetchable URL the plugin builds.
+- **Protocol version negotiation.** Pinned, immutable plugins can't be patched when the
+  host evolves, so `init`/`ready` now carry a `protocolVersion`; the host refuses (red-
+  badges) incompatible majors instead of hanging the round.
+
+**Bundle hosting (resolve before wiring in):** CSP is a property of the *document*. A
+plugin bundle loaded from `esm.sh` would run under the shell's `script-src 'self'` and
+be **blocked** — so Doot must **re-host registered bundles same-origin** on
+`plugins.doot.games` (fetch at registration with SSRF guards, SHA-pin, serve under the
+strict CSP). Never widen `script-src` to a CDN.
+
+**Security ↔ a11y tension (stated honestly):** the platform **cannot** guarantee the
+accessibility of arbitrary UI inside a cross-origin frame it can't inspect — a `<canvas>`
+is opaque to screen readers by default. Mitigation, by tier: (1) **author-time axe-core
+lint** in the harness blocks publish on violations; (2) **trusted chrome owns** prompt/
+timer/untimed/results so the core round is always legible; (3) canvas blocks **must**
+declare an `a11yLabel` text channel and honor `reducedMotion`; (4) the reviewed/featured
+tier adds a manual a11y checklist; unlisted carries an "unreviewed accessibility" badge.
+
+## The bridge must grow to host real blocks (honest cost)
+
+Today's protocol — host→plugin `{init, round, state, answer}`, plugin→host
+`{ready, submit, resize}` — does **not** carry what the in-process renderer carries.
+"First-party blocks through the iframe" (build step below) requires extending it with:
+a **reveal** message (the `revealSummary`/`PlayerReveal` payload), a **host-view inputs
++ roster** snapshot (`HostDisplay` draws live tallies from an inputs `Map`), a **theme
+update** message (theme can change mid-room), and a **public results fragment** shape
+(today `state.results` is opaque `z.unknown()`). Reactivity is lost across postMessage —
+the host must diff and re-send `state` per input and the plugin rebuilds its view. Open
+question: **host views may stay in-process** (they're trusted render) to shrink the
+bridge surface. Mixed-trust two-phase is out of scope for the first iframe milestone.
 
 ## Ingestion (three doors, one stored artifact)
 
 1. **In-app editor → stored source (canonical).** Author builds in the editor; Doot
-   stores the source + content schema in the durable store as a versioned, immutable
-   snapshot. No git, no CI, no npm — a self-hoster gets this with zero extra infra.
-2. **Manifest URL → prebuilt bundle (existing design).** Author self-hosts a built
-   ES module + `plugin.json`; Doot fetches, SHA-pins, registers. No platform-side
-   build. (`external-plugins.md`.)
-3. **Repo / zip import (convenience).** Pull a tagged release's **prebuilt** assets
-   (Obsidian/`.vsix` model) or accept a zip; content-hash, scan, store. Converges to
-   the same versioned artifact as door 1. Only ever build server-side in an
-   ephemeral, network-restricted container with `--ignore-scripts` + a frozen
-   lockfile — and prefer not to build at all.
+   stores source + schema as a versioned, immutable snapshot. No git/CI/npm — a
+   self-hoster gets this with zero extra infra.
+2. **Manifest URL → prebuilt bundle (existing design).** Author self-hosts a built ES
+   module + `plugin.json`; Doot fetches (SSRF-guarded), re-hosts same-origin, SHA-pins,
+   registers. Manifest carries `minProtocol`/`engines`. (`external-plugins.md`.)
+3. **Repo / zip import (convenience).** Pull a tagged release's **prebuilt** assets, or a
+   zip; content-hash, scan, store. Converges to the same artifact. Only ever build
+   server-side in an ephemeral, network-restricted container with `--ignore-scripts` +
+   frozen lockfile — and prefer not to build at all.
 
-Registry tiers stay as designed: unlisted (host-it-yourself) → open pinned
-(community/unreviewed badge) → reviewed/featured (may widen `connect-src`). Provenance
-via the existing `@handle` (verified-publisher model), not artifact signing.
+Registry tiers: unlisted (host-it-yourself) → open pinned (community/unreviewed badge) →
+reviewed/featured. Provenance via `@handle`, plus the trust signals above.
 
-## Build order
+## Build order (ethos-first)
 
-Maps onto `external-plugins.md` phases 0–4; each step is the smallest safe increment.
+The primary-user work (1) is unblocked by all the infrastructure and ships visible value
+to a party host now. The sandbox/coder tiers follow.
 
-1. **Plugin origin (done/in-flight).** `plugins.doot.games` DNS ✅; Caddy locked-down
-   static origin staged in `docker/Caddyfile` (goes live on next deploy, auto-cert).
-2. **Graduate the harness → packages.** ✅ `@doot-games/plugin-bridge` shipped — the
-   Zod protocol + host/plugin transport cores (`createPluginHost`/`connectToHost`,
-   plus `createPortHost`/`attachPluginPort` for tests), unit-tested (handshake,
-   submit round-trip, answer-withholding, off-protocol rejection). Still to do:
-   `@doot-games/plugin-dev` + `create-doot-game` (the scaffold + CLI harness; the
-   working reference is `examples/external-plugin/`). ← external-plugins.md Phase 0–1.
-3. **First-party blocks through the iframe.** Render built-in games via the bridge
-   from the `plugins.doot.games` shell. Proves the boundary with trusted code.
-4. **In-app tiered editor.** `@vue/repl` + CodeMirror, dual player/host preview
-   through the *same* bridge — this doubles as the non-coder harness. Add the Tier-1
-   custom-renderer registry and the Tier-2 canvas block.
-5. **Doot SDK MCP server.** Parallel track, no infra coupling, high ROI.
-6. **External registration + registry tiers.** Manifest-URL/zip/repo import, SHA pin,
-   unlisted → pinned → reviewed. ← external-plugins.md Phase 2–4.
+1. **Tier 0/1 — the primary surface (do first; no sandbox/bridge/editor/MCP needed):**
+   1a. **Big-screen `HostDisplay` preview** in the editor. ← **in progress this turn.**
+   1b. **Template/remix gallery** (kill the blank page; reuses the clone API).
+   1c. **In-app AI content generation** (topic → filled rounds; markdown round-trip).
+   1d. **Custom-renderer registry** + authoring quality/a11y guardrails.
+2. **Harden the shipped sandbox.** Origin live ✅, `@doot-games/plugin-bridge` shipped ✅;
+   apply the security hardening above (source-pin, rate/size/phase caps, protocol
+   version, `img-src`) and decide same-origin bundle re-hosting **before** wiring the
+   bridge into `apps/web`.
+3. **First-party blocks through the iframe.** Extend the protocol (reveal/inputs/roster/
+   theme/results — see "the bridge must grow"); decide host-view in-process vs in-frame.
+4. **Tier 2 `CanvasBlock`** — distinct artifact, single-round, host-side declarative
+   scoring, vendored-pinned pixi/three, required `a11yLabel`.
+5. **Tier 3 in-app editor** — `@vue/repl` compiler + custom null-origin preview harness;
+   desktop-only, code-split off the play surface.
+6. **Doot SDK MCP server** — new authenticated service (own origin + durable token store);
+   adopt an MCP-OAuth library; after the editor.
+7. **External registration + registry tiers** + trust/moderation UX.
 
 ## Open decisions
 
-- **Plugin origin: subdomain vs separate registrable domain.** Subdomain now (cheap,
-  safe while cookies are host-only). Revisit if we ever need cross-site hardening or
-  COEP isolation for QuickJS/SharedArrayBuffer.
-- **Where the editor lives.** A `@doot-games/plugin-editor` package (importable,
-  reusable in the dev harness and the app) vs an `apps/web`-only component. Lean
-  package, to match the bridge/dev split.
-- **AI metering for the in-app assistant** (if we ship rail 2): BYOK-via-gateway vs
-  platform-metered credits. The MCP rail (rail 1) sidesteps this entirely.
-- **Canvas block fidelity.** How much Pixi/Three surface to expose through the helper
-  API before it's "just write a full block" (Tier 3).
+- **Plugin origin: subdomain vs separate registrable domain.** Subdomain now (safe while
+  cookies are host-only). Revisit only for cross-site hardening; **never** enable COEP on
+  `doot.games`.
+- **Host views: in-process vs in-frame.** Leaning in-process (trusted render) to keep the
+  bridge small.
+- **Where the editor lives.** A `@doot-games/plugin-editor` package vs an `apps/web`-only
+  component. Lean package, to match the bridge/dev split.
+- **AI metering for the in-app assistant.** BYOK-via-gateway vs platform-metered. The MCP
+  rail sidesteps key custody.
 
 ## What already exists (don't rebuild it)
 
-- **Working dev harness:** `examples/external-plugin/` — `npx vite` → `/dev-host.html`
-  embeds a plugin in the production sandbox, speaks the real bridge, scripts
-  lobby→round→reveal→results, fakes other players, withholds the answer, and flags
-  off-protocol messages. This *is* the contract; build against it.
-- **The bridge:** `examples/external-plugin/bridge.ts` (Zod-validated, both sides).
-- **Schema-driven editor:** `GameEditor.client.vue` + `SchemaForm.vue`.
+- **`@doot-games/plugin-bridge`** — the shipped, tested host/plugin transport + Zod
+  protocol (being hardened per the audit).
+- **Working dev harness:** `examples/external-plugin/` — `npx vite` → `/dev-host.html`.
+- **Schema-driven editor:** `GameEditor.client.vue` + `packages/ui/src/schema-form/`.
 - **The authoring contract:** `@doot-games/sdk` (`defineBlock`/`defineGame`).
 - **The full security design:** `docs/external-plugins.md`.

@@ -3,7 +3,7 @@
  * touches cookies, the session, the DB, the host DOM, or the raw relay; it only
  * receives validated, already-redacted state and may `submit` one input.
  */
-import { hostToPlugin, type HostToPlugin, type PluginToHost } from './protocol'
+import { BOOTSTRAP, hostToPlugin, type HostToPlugin, PROTOCOL_VERSION, type PluginToHost } from './protocol'
 
 export interface PluginHandlers {
   onInit?: (m: Extract<HostToPlugin, { t: 'init' }>) => void
@@ -48,7 +48,7 @@ export function attachPluginPort(port: MessagePort, handlers: PluginHandlers): P
     }
   }
   port.start()
-  send({ t: 'ready' })
+  send({ t: 'ready', protocolVersion: PROTOCOL_VERSION })
   return {
     submit: (input) => send({ t: 'submit', input }),
     resize: (h) => send({ t: 'resize', h }),
@@ -63,10 +63,20 @@ export function attachPluginPort(port: MessagePort, handlers: PluginHandlers): P
  * DOM entry: call once at plugin startup inside the iframe. Resolves once the host
  * has handed over its private MessagePort (via a single window bootstrap message);
  * after that all traffic is port-private and origin-bound.
+ *
+ * Source-pinned to close a port-hijack: the bootstrap is accepted ONLY from the
+ * embedding host (`e.source === window.parent`) and ONLY on the typed `BOOTSTRAP`
+ * message. Without this, any context that can post a `MessagePort` into this window
+ * (a frame the plugin itself nests, an opener, a sibling that grabbed a handle)
+ * could race the real host, win the channel, and forge host messages — including a
+ * fake `answer` key. `targetOrigin '*'` on the host side gives zero peer
+ * authentication, so this check is the load-bearing control.
  */
 export function connectToHost(handlers: PluginHandlers): Promise<PluginConnection> {
   return new Promise((resolve) => {
     const onBootstrap = (e: MessageEvent) => {
+      if (e.source !== window.parent) return
+      if ((e.data as { t?: unknown } | null)?.t !== BOOTSTRAP) return
       const port = e.ports?.[0]
       if (!port) return
       window.removeEventListener('message', onBootstrap)
