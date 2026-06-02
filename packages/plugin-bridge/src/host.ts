@@ -9,6 +9,9 @@
  */
 import { BRIDGE_LIMITS, BOOTSTRAP, type HostToPlugin, PROTOCOL_VERSION, pluginToHost } from './protocol'
 
+/** Reused to measure inbound payloads in real UTF-8 bytes (not UTF-16 code units). */
+const BYTE_ENCODER = new TextEncoder()
+
 /** Why an inbound message was dropped (surfaced to `onInvalid` for telemetry). */
 export type DropReason = 'schema' | 'oversize' | 'flood' | 'phase' | 'version'
 
@@ -50,7 +53,9 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
   let ready = false
   // The phase the host last told the plugin it was in; used to gate `submit`.
   let currentPhase: string | undefined
-  // Per-second flood counter (cheap, allocation-free; resets each window).
+  // Per-second flood counter — a cheap fixed window (resets on the first message
+  // >=1s after it opened). Approximate: a steady stream straddling boundaries can
+  // pass up to ~2x the rate over a sliding second, which is fine for a DoS backstop.
   let windowStart = 0
   let inWindow = 0
 
@@ -67,14 +72,16 @@ export function createPortHost(port: MessagePort, cb: HostCallbacks, opts: HostO
     }
 
     // 2) Size backstop — a single giant payload must not reach the relay/DB.
-    let size = 0
+    // Measured in real UTF-8 bytes; an unstringifiable payload (BigInt, circular)
+    // is malformed, so it's dropped as a schema failure, not an oversize.
+    let serialized: string | undefined
     try {
-      size = JSON.stringify(ev.data)?.length ?? 0
+      serialized = JSON.stringify(ev.data)
     } catch {
-      cb.onInvalid?.(ev.data, 'oversize')
+      cb.onInvalid?.(ev.data, 'schema')
       return
     }
-    if (size > maxBytes) {
+    if (serialized !== undefined && BYTE_ENCODER.encode(serialized).length > maxBytes) {
       cb.onInvalid?.(ev.data, 'oversize')
       return
     }

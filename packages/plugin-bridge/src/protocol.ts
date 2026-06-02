@@ -57,6 +57,9 @@ export const BRIDGE_LIMITS = {
   /** Max serialized bytes per inbound message (relay/phone/DB DoS backstop; blocks
    *  should still set tighter `.max()` on their own input schemas). */
   maxBytes: 262_144,
-  /** Phases in which a `submit` is accepted (last-write-wins until the host locks). */
-  acceptSubmitPhases: ['active'] as readonly string[],
+  /** Phases in which a `submit` is accepted (last-write-wins until the host locks).
+   *  Defaults to the engine's open RoundState ('open'); a host that sends a different
+   *  phase vocabulary must override this. The host MUST keep round/state `phase`
+   *  truthful — the gate trusts it to decide when submissions close. */
+  acceptSubmitPhases: ['open'] as readonly string[],
 } as const

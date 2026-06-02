@@ -628,7 +628,9 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 <div v-if="isDerived(round)" class="ed-bs-board">
                   <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
                 </div>
-                <div v-else-if="blockFor(round) && !errors[i]" class="ed-bs-board">
+                <!-- inert: the big-screen board is a non-interactive preview, so its
+                     controls (e.g. a host "peek" button) stay out of mouse + tab reach. -->
+                <div v-else-if="blockFor(round) && !errors[i]" class="ed-bs-board" inert>
                   <HostPreview :block="blockFor(round)!" :content="round.content" :index="i" />
                 </div>
                 <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
@@ -1095,10 +1097,13 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 }
 .ed-bs-board {
   /* The real host view is sized for a projector; scale it down to the editor
-     column. `zoom` shrinks layout and clamp()-based fonts proportionally. */
+     column. `zoom` shrinks layout and clamp()-based fonts proportionally
+     (supported in Chromium, WebKit, and Firefox 126+). */
   zoom: 0.62;
   border-top: var(--bd) solid var(--line-soft);
   padding-top: 16px;
+  /* Belt-and-suspenders with `inert`: it's a preview, not a control surface. */
+  pointer-events: none;
 }
 /* Two-phase "this round is built automatically" explainer. */
 .ed-derived {

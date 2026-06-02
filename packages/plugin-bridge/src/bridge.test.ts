@@ -23,14 +23,14 @@ const asPort = (p: unknown) => p as unknown as MessagePort
 describe('protocol schemas', () => {
   it('accepts well-formed host->plugin messages (init carries a protocol version)', () => {
     expect(hostToPlugin.safeParse({ t: 'init', block: 'trivia', role: 'player', theme: {}, protocolVersion: 1 }).success).toBe(true)
-    expect(hostToPlugin.safeParse({ t: 'round', content: { q: 1 }, phase: 'active', index: 0 }).success).toBe(true)
+    expect(hostToPlugin.safeParse({ t: 'round', content: { q: 1 }, phase: 'open', index: 0 }).success).toBe(true)
     expect(hostToPlugin.safeParse({ t: 'answer', key: { correct: 1 } }).success).toBe(true)
   })
 
   it('rejects malformed and unknown host->plugin messages', () => {
     expect(hostToPlugin.safeParse({ t: 'init', block: 'trivia', role: 'player', theme: {} }).success).toBe(false) // missing version
     expect(hostToPlugin.safeParse({ t: 'init', block: 'trivia', role: 'spectator', theme: {}, protocolVersion: 1 }).success).toBe(false)
-    expect(hostToPlugin.safeParse({ t: 'round', content: {}, phase: 'active', index: -1 }).success).toBe(false)
+    expect(hostToPlugin.safeParse({ t: 'round', content: {}, phase: 'open', index: -1 }).success).toBe(false)
     expect(hostToPlugin.safeParse({ t: 'nope' }).success).toBe(false)
     expect(hostToPlugin.safeParse('not even an object').success).toBe(false)
   })
@@ -60,12 +60,12 @@ describe('host <-> plugin round trip', () => {
     expect(onReady).toHaveBeenCalledWith({ protocolVersion: PROTOCOL_VERSION })
 
     host.send({ t: 'init', block: 'trivia', role: 'player', theme: { '--accent': '#f0f' }, protocolVersion: PROTOCOL_VERSION })
-    host.send({ t: 'round', content: { q: 'hottest planet?' }, phase: 'active', index: 0 })
+    host.send({ t: 'round', content: { q: 'hottest planet?' }, phase: 'open', index: 0 })
     await flush()
     expect(onInit).toHaveBeenCalledWith(expect.objectContaining({ block: 'trivia', role: 'player' }))
     expect(onRound).toHaveBeenCalledWith(expect.objectContaining({ index: 0 }))
 
-    conn.submit({ choice: 1 }) // accepted: the round is in the 'active' phase
+    conn.submit({ choice: 1 }) // accepted: the round is in the 'open' phase
     await flush()
     expect(onSubmit).toHaveBeenCalledWith({ choice: 1 })
   })
@@ -76,7 +76,7 @@ describe('host <-> plugin round trip', () => {
     const host = createPortHost(asPort(hostPort), {})
     attachPluginPort(asPort(pluginPort), { onAnswer })
 
-    host.send({ t: 'round', content: { q: 'x' }, phase: 'active', index: 0 })
+    host.send({ t: 'round', content: { q: 'x' }, phase: 'open', index: 0 })
     host.send({ t: 'state', myInput: { choice: 1 }, phase: 'locked' })
     await flush()
     expect(onAnswer).not.toHaveBeenCalled() // never leaked during the round
@@ -116,7 +116,7 @@ describe('host-side enforcement (the plugin is hostile)', () => {
     expect(onSubmit).not.toHaveBeenCalled()
     expect(onInvalid).toHaveBeenCalledWith({ t: 'submit', input: { sneaky: true } }, 'phase')
 
-    host.send({ t: 'round', content: {}, phase: 'active', index: 1 })
+    host.send({ t: 'round', content: {}, phase: 'open', index: 1 })
     conn.submit({ choice: 2 })
     await flush()
     expect(onSubmit).toHaveBeenCalledWith({ choice: 2 })
@@ -126,10 +126,10 @@ describe('host-side enforcement (the plugin is hostile)', () => {
     const onSubmit = vi.fn()
     const onInvalid = vi.fn()
     const { host: hostPort, plugin: pluginPort } = fakePortPair()
-    const host = createPortHost(asPort(hostPort), { onSubmit, onInvalid }, { maxBytes: 200, acceptSubmitPhases: ['active'] })
+    const host = createPortHost(asPort(hostPort), { onSubmit, onInvalid }, { maxBytes: 200, acceptSubmitPhases: ['open'] })
     attachPluginPort(asPort(pluginPort), {})
     await flush()
-    host.send({ t: 'round', content: {}, phase: 'active', index: 0 })
+    host.send({ t: 'round', content: {}, phase: 'open', index: 0 })
     await flush()
 
     pluginPort.postMessage({ t: 'submit', input: { blob: 'x'.repeat(1000) } })

@@ -23,7 +23,7 @@ const emptyInputs = new Map<string, unknown>()
 // reads return undefined; actions are no-ops. Cast through `unknown` — we only
 // need the subset host views touch, never the full runtime.
 const mockRoom = {
-  round: computed(() => ({ index: props.index, state: 'open' })),
+  round: computed(() => ({ index: props.index, state: 'open', deadline: null })),
   phase: computed(() => 'open'),
   players: computed(() => []),
   me: computed(() => ({ id: 'preview', name: 'Preview', role: 'host' })),
