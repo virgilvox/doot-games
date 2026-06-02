@@ -24,7 +24,9 @@ tools (a connector-directory requirement, see below).
 | `list_game_types` | read | The catalog (which games are ready-made vs building blocks) |
 | `doot_format_guide` | read | The markdown game format, so Claude writes a valid game |
 | `validate_doot_game` | read | Parse a markdown spec, return rounds + warnings to fix |
+| `list_my_games` | read | List the games saved to the signed-in account (id, title, link) |
 | `save_game` | write | Save the game to the signed-in user's account, return a link |
+| `update_game` | write | Update one of the account's own games (owner-checked) |
 | `upload_image` | write | Fetch an https image URL, re-host it on Doot, return a media URL |
 
 All tools run behind OAuth (`withMcpAuth`); an unauthenticated POST gets a 401 with

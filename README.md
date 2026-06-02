@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **117 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **twelve games** built from composable blocks, five flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher — a robot rap battle — and "What, You Didn't Know That?" — a trivia gameshow with buzz-ins) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, and the **Nuxt shell**. Still ahead: the external-plugin sandbox and OAuth. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the schema-driven editor (or import one from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **212 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive), the **block SDK**, a five-pack **theme system**, the theme-aware **UI library**, **fourteen games** built from composable blocks, seven flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher (a robot rap battle), "What, You Didn't Know That?" (a trivia gameshow with buzz-ins), Fib Finder, and Sketch & Spot) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, an account-linked **Connect with Claude** (MCP) integration, and the **Nuxt shell**. Still ahead: the external-plugin sandbox. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -101,7 +101,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 
 # 3. Verify the workspace
-pnpm test                   # 117 tests (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
+pnpm test                   # 212 tests (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
 pnpm -r typecheck
 
 #, or, bring up the full local stack (app + Postgres + MinIO)
