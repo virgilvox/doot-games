@@ -215,6 +215,34 @@ export function buildDeriveContent(
 }
 
 /**
+ * Build the engine's `assignContent` callback from the blocks: for a round whose
+ * block declares `assignContent` (the hidden-role pattern), run its pure
+ * assignment over the current roster and return the SECRET per-player content map
+ * plus the withheld answer (e.g. which player is the imposter). The engine
+ * publishes each player's content to their own private address. Undefined for an
+ * ordinary round.
+ */
+export function buildAssignContent(
+  plugin: GamePlugin,
+  config: GameComposition,
+  seed: string,
+  getPlayers: () => ScorePlayer[],
+): (index: number) => { perPlayer: Record<string, unknown>; answer?: unknown } | undefined {
+  return (index) => {
+    const inst = config.rounds[index]
+    if (!inst) return undefined
+    const block = getBlock(plugin, inst.block)
+    if (!block?.assignContent) return undefined
+    const result = block.assignContent({
+      content: inst.content,
+      players: getPlayers(),
+      shuffle: seededShuffle(`${seed}:assign:${index}`),
+    })
+    return { perPlayer: result.perPlayer, answer: result.answer }
+  }
+}
+
+/**
  * Build the engine's `revealSummary` callback: for a round whose block declares
  * `revealSummary`, compute the public per-round payload from the effective
  * content (runtime-derived if present), this round's inputs, and its answer key.

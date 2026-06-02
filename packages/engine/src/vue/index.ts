@@ -100,6 +100,11 @@ export function useDootRoom(options: UseDootRoomOptions) {
       void snapshot.value
       return runtime.runtimeContentFor(roundIndex)
     },
+    // This player's own SECRET per-round content (hidden-role games).
+    perPlayerContentFor: (roundIndex: number) => {
+      void snapshot.value
+      return runtime.perPlayerContentFor(roundIndex)
+    },
     roundRevealFor: (roundIndex: number) => {
       void snapshot.value
       return runtime.roundRevealFor(roundIndex)

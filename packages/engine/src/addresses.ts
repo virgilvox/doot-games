@@ -34,6 +34,14 @@ export const addr = {
   /** Public per-round reveal summary for round `i` (vote tallies, the winner),
    *  published at reveal so phones can show personal feedback. */
   roundReveal: (room: string, i: number) => `${roomBase(room)}/round/${i}/reveal`,
+  /** SECRET per-player content for round `i`: the host publishes a different
+   *  payload to each player's own address (e.g. a hidden-role game where one
+   *  player gets a different prompt). A player subscribes only to their own, so
+   *  another player's UI never shows it. NOTE (soft secrecy): the address is
+   *  derivable, so a determined relay reader could subscribe to others'. This is the
+   *  same accepted trade-off as soft two-phase anonymity; fine for casual play. */
+  roundContentForPlayer: (room: string, i: number, pid: string) =>
+    `${roomBase(room)}/round/${i}/content/${pid}`,
   resultsSummary: (room: string) => `${roomBase(room)}/results/summary`,
   playerProfile: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/profile`,
   playerPing: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/ping`,
@@ -58,6 +66,10 @@ export const patterns = {
   roundContent: (room: string) => `${roomBase(room)}/round/*/content`,
   /** Per-round reveal summaries for all rounds (player/viewer reads these). */
   roundReveal: (room: string) => `${roomBase(room)}/round/*/reveal`,
+  /** This player's own SECRET per-round content across rounds. The round index uses
+   *  a single-segment wildcard, so it never collides with the shared round-content
+   *  subscription (which has no trailing player segment). */
+  myRoundContent: (room: string, pid: string) => `${roomBase(room)}/round/*/content/${pid}`,
 } as const
 
 /**
@@ -66,8 +78,10 @@ export const patterns = {
  */
 export function parseRoundSubAddress(address: string, leaf: string): number | null {
   const parts = address.split('/')
-  // /doot/<room>/round/<i>/<leaf> => 3='round' 4=i 5=leaf
-  if (parts[3] !== 'round' || parts[5] !== leaf || parts[4] === undefined) return null
+  // /doot/<room>/round/<i>/<leaf> => 0='' 1='doot' 2=room 3='round' 4=i 5=leaf.
+  // Require EXACTLY 6 segments so the secret per-player channel
+  // (`round/<i>/content/<pid>`, 7 segments) is never mistaken for shared content.
+  if (parts.length !== 6 || parts[3] !== 'round' || parts[5] !== leaf || parts[4] === undefined) return null
   const i = Number.parseInt(parts[4], 10)
   return Number.isNaN(i) ? null : i
 }
@@ -77,6 +91,17 @@ export function pidFromPlayerAddress(address: string): string | null {
   const parts = address.split('/')
   // /doot/<room>/player/<pid>/<leaf>  => indices: 0='' 1='doot' 2=room 3='player' 4=pid
   return parts[3] === 'player' && parts[4] ? parts[4] : null
+}
+
+/** Extract `{ roundIndex, pid }` from a `/round/<i>/content/<pid>` address (the
+ *  secret per-player content channel), or null if it doesn't match. */
+export function parseRoundContentForPlayer(address: string): { roundIndex: number; pid: string } | null {
+  const parts = address.split('/')
+  // /doot/<room>/round/<i>/content/<pid> => 3='round' 4=i 5='content' 6=pid
+  if (parts[3] !== 'round' || parts[5] !== 'content' || parts[4] === undefined || !parts[6]) return null
+  const roundIndex = Number.parseInt(parts[4], 10)
+  if (Number.isNaN(roundIndex)) return null
+  return { roundIndex, pid: parts[6] }
 }
 
 /** Extract `{ roundIndex, pid }` from an `/input/<i>/<pid>` address. */

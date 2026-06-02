@@ -26,8 +26,16 @@ const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
 // A two-phase round's content (the vote options) arrives at runtime via the
-// relay; overlay it on the authored content when present.
-const content = computed(() => room.runtimeContentFor(index.value) ?? instance.value?.content ?? null)
+// relay; overlay it on the authored content when present. A hidden-role round
+// delivers SECRET per-player content to this player's own address, which takes
+// precedence over everything else (this is THIS player's view of the round).
+const content = computed(
+  () =>
+    room.perPlayerContentFor(index.value) ??
+    room.runtimeContentFor(index.value) ??
+    instance.value?.content ??
+    null,
+)
 const prompt = computed(() => (content.value as { prompt?: string } | null)?.prompt ?? '')
 // Show the prompt image on the phone too (not only the host screen), so players
 // who can't see the big screen still get the question. Hide it if it 404s.

@@ -66,6 +66,27 @@ export interface DerivedContent<Content = unknown> {
   answer?: unknown
 }
 
+/**
+ * What a hidden-role block's `assignContent` receives: this round's authored
+ * content, the current roster, and a seeded shuffle so the role assignment (e.g.
+ * which player is the imposter) is deterministic and reconnect-safe.
+ */
+export interface AssignContext<Content = unknown> {
+  content: Content
+  players: ScorePlayer[]
+  shuffle: <T>(items: T[]) => T[]
+}
+
+/**
+ * What `assignContent` returns: a SECRET per-player content map (pid -> that
+ * player's view, published only to their private address) plus an optional
+ * withheld answer key (e.g. who the imposter is), revealed at reveal.
+ */
+export interface AssignedContent<Content = unknown> {
+  perPlayer: Record<string, Content>
+  answer?: unknown
+}
+
 /** What a block's `revealSummary` receives to build a public per-round payload. */
 export interface RevealContext<Content = unknown, Input = unknown> {
   content: Content
@@ -125,6 +146,16 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
    * (`RoundInstance.from`, default: the previous round). Absent for static rounds.
    */
   derive?: (ctx: DeriveContext<Content>) => DerivedContent<Content>
+
+  /**
+   * Hidden-role pattern: build SECRET per-player content for this round from the
+   * roster (e.g. one player is the imposter and gets a different prompt). Pure and
+   * host-only. Returns a pid -> content map (each delivered only to that player's
+   * private address) plus an optional withheld answer (who the imposter is). The
+   * authored content should `redactContent` anything the secret must hide from the
+   * public config (e.g. the secret word), since assignContent delivers it privately.
+   */
+  assignContent?: (ctx: AssignContext<Content>) => AssignedContent<Content>
 
   /** Content keys this block's `derive` produces at runtime from the source
    *  round (e.g. the vote block's `options`, the split block's `scenarios`).

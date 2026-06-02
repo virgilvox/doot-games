@@ -12,6 +12,7 @@
 import {
   addr,
   parseInputAddress,
+  parseRoundContentForPlayer,
   parseRoundSubAddress,
   patterns,
   pidFromPlayerAddress,
@@ -80,6 +81,17 @@ export interface LoadedGame {
     index: number,
     inputsFor: (i: number) => Map<string, RelayValue>,
   ) => RelayValue | undefined
+  /**
+   * Hidden-role pattern: build SECRET per-player content for round `index` from
+   * the current roster (e.g. one player gets a different prompt). Host-only,
+   * called when the host lands on the round. Returns a `perPlayer` map (pid ->
+   * that player's content, published to their own private address) plus an
+   * optional withheld `answer` (e.g. which player is the imposter), revealed at
+   * reveal like any other answer key. Undefined for an ordinary round.
+   */
+  assignContent?: (
+    index: number,
+  ) => { perPlayer: Record<string, RelayValue>; answer?: RelayValue } | undefined
 }
 
 export interface RoomRuntimeOptions {
@@ -145,6 +157,9 @@ export class RoomRuntime {
   /** Runtime-derived content per round (two-phase). Host fills it on publish;
    *  player/viewer fill it from the relay. Overrides authored content. */
   private runtimeContent = new Map<number, RelayValue>()
+  /** This player's own SECRET per-round content (hidden-role games). Filled from
+   *  the player's private per-round address; overrides everything for the player. */
+  private perPlayerContent = new Map<number, RelayValue>()
   /** Public per-round reveal summaries, keyed by round index. */
   private roundReveals = new Map<number, RelayValue>()
   /** Host-only: the withheld answer key a runtime derivation produced (e.g. the
@@ -423,6 +438,14 @@ export class RoomRuntime {
         this.inputs.set(`${parsed.roundIndex}:${this.me.id}`, v)
         this.emit()
       })
+      // This player's own SECRET per-round content (hidden-role games), delivered
+      // only to their private address so another player's UI never shows it.
+      on(patterns.myRoundContent(r, this.me.id), (v, a) => {
+        const parsed = parseRoundContentForPlayer(a)
+        if (!parsed) return
+        this.perPlayerContent.set(parsed.roundIndex, v)
+        this.emit()
+      })
     } else {
       // Host/viewer see the whole room.
       on(patterns.playerProfile(r), (v, a) => {
@@ -570,6 +593,12 @@ export class RoomRuntime {
    *  The renderer overlays this on the authored content. */
   runtimeContentFor(roundIndex: number): RelayValue | undefined {
     return this.runtimeContent.get(roundIndex)
+  }
+
+  /** This player's own SECRET content for a round (hidden-role games), or
+   *  undefined. Takes precedence over the shared/authored content for the player. */
+  perPlayerContentFor(roundIndex: number): RelayValue | undefined {
+    return this.perPlayerContent.get(roundIndex)
   }
 
   /** The public reveal summary for a round, once the host has revealed it. */
@@ -802,6 +831,7 @@ export class RoomRuntime {
     this.publish(addr.phase(this.room), 'active')
     this.transition({ type: 'start' })
     this.publishDerivedIfAny(0)
+    this.publishAssignedIfAny(0)
   }
 
   /**
@@ -817,6 +847,23 @@ export class RoomRuntime {
     this.runtimeContent.set(index, derived.publish)
     this.publish(addr.roundContent(this.room, index), derived.publish)
     if (derived.answer !== undefined) this.derivedAnswers.set(index, derived.answer)
+    this.emit()
+  }
+
+  /**
+   * When the host lands on a round, give the game a chance to assign SECRET
+   * per-player content (hidden-role pattern): each player's payload goes to their
+   * own private address, and an optional withheld answer (e.g. who the imposter
+   * is) is kept for reveal/scoring. A no-op for ordinary rounds. Host only.
+   */
+  private publishAssignedIfAny(index: number): void {
+    if (this.me.role !== 'host' || !this.game?.assignContent) return
+    const assigned = this.game.assignContent(index)
+    if (!assigned) return
+    for (const [pid, content] of Object.entries(assigned.perPlayer)) {
+      this.publish(addr.roundContentForPlayer(this.room, index, pid), content)
+    }
+    if (assigned.answer !== undefined) this.derivedAnswers.set(index, assigned.answer)
     this.emit()
   }
 
@@ -860,8 +907,10 @@ export class RoomRuntime {
     this.transition({ type: 'next', roundCount })
     const i = this.state.round.index
     // Build this round's content from earlier rounds before announcing it, so a
-    // player sees the derived content as soon as the round becomes current.
+    // player sees the derived (or secret per-player) content as soon as the round
+    // becomes current.
     this.publishDerivedIfAny(i)
+    this.publishAssignedIfAny(i)
     this.publish(addr.roundIndex(this.room), i)
     this.publish(addr.roundState(this.room), 'ready')
     this.publish(addr.roundDeadline(this.room), null)
