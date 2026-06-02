@@ -84,6 +84,15 @@ const content = computed<Record<string, unknown> | null>(
 )
 const subject = computed(() => content.value?.subject as string | undefined)
 const prompt = computed(() => (content.value?.prompt as string | undefined) ?? '')
+// Scale the prompt down as it gets longer so a paragraph-length question still
+// fits the big-screen stage rather than overflowing the answers and control bar.
+const promptStyle = computed<Record<string, string> | undefined>(() => {
+  const len = prompt.value.length
+  if (len <= 80) return undefined
+  if (len <= 160) return { fontSize: 'clamp(24px, 3.2vw, 38px)' }
+  if (len <= 280) return { fontSize: 'clamp(22px, 2.5vw, 30px)' }
+  return { fontSize: 'clamp(20px, 2vw, 26px)' }
+})
 const image = computed(() => content.value?.image as string | undefined)
 // Hide an image that fails to load rather than show a broken glyph on the big
 // screen. Tracked per URL so a later round's valid image still renders.
@@ -368,7 +377,7 @@ watch(
     <div class="stage-grid">
       <div class="left">
         <span v-if="subject" class="subject">{{ subject }}</span>
-        <h1 class="prompt">{{ prompt }}</h1>
+        <h1 class="prompt" :style="promptStyle">{{ prompt }}</h1>
         <div v-if="showImage" class="imgbox"><img :src="image" alt="" @error="failedImages.add(image!)" /></div>
       </div>
       <div class="right">
@@ -583,17 +592,27 @@ watch(
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 .stage-grid {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 22px;
-  align-items: center;
+  align-items: stretch;
 }
-.left {
+/* Each column fills the stage height and centers its content, but stays
+   contained: a paragraph-length prompt scrolls inside its own column rather
+   than spilling over the answers or the control bar. "safe center" keeps the
+   top of overflowing content reachable instead of clipping it. */
+.left,
+.right {
   display: flex;
   flex-direction: column;
+  justify-content: safe center;
+  min-height: 0;
+  overflow-y: auto;
 }
 .subject {
   align-self: flex-start;

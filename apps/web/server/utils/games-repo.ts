@@ -146,7 +146,9 @@ async function toSummaries(rows: SummaryRow[]): Promise<SavedGameSummary[]> {
       title: r.title,
       themeId: r.themeId,
       visibility: r.visibility as Visibility,
-      authorName: author?.name ?? null,
+      // When a handle is claimed, the byline shows the @handle, so don't expose
+      // the (often email-derived) display name in the payload at all.
+      authorName: author?.handle ? null : (author?.name ?? null),
       authorHandle: author?.handle ?? null,
       description: r.description,
       tags: parseTags(r.tags),

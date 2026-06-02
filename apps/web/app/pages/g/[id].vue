@@ -112,7 +112,7 @@ async function remove() {
         <img v-if="game.coverImage" :src="game.coverImage" alt="" class="detail-cover" @error="game.coverImage = null" />
         <span class="kicker">Saved game</span>
         <h1 class="detail-title">{{ game.title }}</h1>
-        <p v-if="game.authorName" class="detail-by">
+        <p v-if="game.authorName || game.authorHandle" class="detail-by">
           by
           <NuxtLink v-if="game.authorHandle" :to="`/u/@${game.authorHandle}`" class="detail-by-link">@{{ game.authorHandle }}</NuxtLink>
           <template v-else>{{ game.authorName }}</template>
