@@ -9,6 +9,7 @@ interface SavedGameSummary {
   title: string
   themeId: string
   visibility: 'private' | 'unlisted' | 'public'
+  coverImage: string | null
   createdAt: number
 }
 const session = authClient.useSession()
@@ -56,7 +57,7 @@ const filters = ['all', 'private', 'unlisted', 'public'] as const
 
           <div v-if="filtered.length" class="grid">
             <NuxtLink v-for="g in filtered" :key="g.id" :to="`/g/${g.id}`" class="card">
-              <GameCover :title="g.title" :type="g.pluginId" />
+              <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
               <div class="card-body">
                 <div class="card-title">{{ g.title }}</div>
                 <div class="card-meta">

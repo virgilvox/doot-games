@@ -171,8 +171,11 @@ async function remove() {
 }
 .detail-cover {
   width: 100%;
-  max-height: 240px;
-  object-fit: cover;
+  max-height: 320px;
+  /* Show the whole cover (often a wide banner) rather than cropping it; the
+     neutral backdrop fills any letterbox space so it reads as intentional. */
+  object-fit: contain;
+  background: var(--surface-2);
   border-radius: 16px;
   border: var(--bd) solid var(--line-soft);
   margin-bottom: 22px;

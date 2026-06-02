@@ -6,7 +6,7 @@
  * optional "N live" badge. Colors come from theme CSS variables, so covers
  * restyle with the active theme.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -17,9 +17,17 @@ const props = withDefaults(
     live?: number
     /** Cover height in px (default 150); the featured hero uses a taller value. */
     height?: number
+    /** Optional uploaded cover image. When set (and it loads), it fills the cover
+     *  instead of the generated gradient art; a broken URL falls back to the art. */
+    image?: string | null
   }>(),
-  { type: '', live: 0, height: 150 },
+  { type: '', live: 0, height: 150, image: null },
 )
+
+// Show the uploaded image only if it actually loads; otherwise keep the
+// generated gradient art so a dead URL never leaves an empty box.
+const imageFailed = ref(false)
+const showImage = computed(() => !!props.image && !imageFailed.value)
 
 const ACCENTS = ['--c1', '--c2', '--c3', '--c4', '--c5', '--primary']
 function hash(s: string): number {
@@ -70,7 +78,8 @@ const SF = 'rgba(255,255,255,.32)'
 
 <template>
   <div class="cover" :style="{ background: grad, height: `${height}px` }">
-    <svg class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <img v-if="showImage" class="cover-img" :src="image!" alt="" @error="imageFailed = true" />
+    <svg v-if="!showImage" class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <template v-if="motif === 'q'">
         <circle cx="150" cy="62" r="40" fill="none" :stroke="SF" stroke-width="10" />
         <path d="M138 56c0-9 7-15 14-15s13 5 13 13c0 9-11 9-12 18" fill="none" :stroke="S" stroke-width="8" stroke-linecap="round" />
@@ -182,7 +191,7 @@ const SF = 'rgba(255,255,255,.32)'
         <rect v-for="n in 15" :key="n" :x="46 + ((n - 1) % 5) * 44" :y="28 + Math.floor((n - 1) / 5) * 36" width="30" height="26" rx="6" :fill="(((n - 1) % 5) + Math.floor((n - 1) / 5)) % 3 === 0 ? S : SF" />
       </template>
     </svg>
-    <span class="ini" aria-hidden="true">{{ initial }}</span>
+    <span v-if="!showImage" class="ini" aria-hidden="true">{{ initial }}</span>
     <span v-if="live > 0" class="live"><i />{{ live }} live</span>
   </div>
 </template>
@@ -198,6 +207,14 @@ const SF = 'rgba(255,255,255,.32)'
   inset: 0;
   width: 100%;
   height: 100%;
+}
+.cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .ini {
   position: absolute;

@@ -16,6 +16,7 @@ interface SavedGameSummary {
   themeId: string
   authorName: string | null
   authorHandle: string | null
+  coverImage: string | null
   createdAt: number
 }
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
@@ -159,7 +160,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
         <div class="rail">
           <div v-for="g in trending" :key="g.id" class="card rail-card card-link">
             <NuxtLink :to="`/g/${g.id}`" class="card-stretch" :aria-label="`${g.title}, view and host`" />
-            <GameCover :title="g.title" :type="g.pluginId" />
+            <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
@@ -194,7 +195,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
         <div class="rail">
           <div v-for="g in fresh" :key="g.id" class="card rail-card card-link">
             <NuxtLink :to="`/g/${g.id}`" class="card-stretch" :aria-label="`${g.title}, view and host`" />
-            <GameCover :title="g.title" :type="g.pluginId" />
+            <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta"><span class="badge type">{{ typeName(g.pluginId) }}</span></div>
