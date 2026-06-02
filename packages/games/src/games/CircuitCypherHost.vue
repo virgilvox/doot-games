@@ -792,12 +792,36 @@ onMounted(() => {
   })
 })
 
-// Drive the write -> battle transition off the reactive round state.
+// Drive the write -> battle transition off the reactive round state. On a host
+// page RELOAD the relay re-delivers the locked round state and the player inputs
+// as separate retained values, in any order, so reading inputs the instant we see
+// "locked" can find them empty (or half-arrived) and build an empty/partial
+// bracket that ends the cypher immediately. So wait until the verse count settles
+// (two equal, non-zero reads) before building, and only fall through to an empty
+// finish after a short grace cap (a genuinely verse-less room).
+let lastInputCount = -1
+let battleAttempts = 0
+function tryBeginBattle() {
+  if (mode.value !== 'write') return
+  if (room.phase.value !== 'active' || room.round.value.state !== 'locked') return
+  const n = room.inputsFor(0).size
+  if ((n === 0 || n !== lastInputCount) && battleAttempts < 14) {
+    lastInputCount = n
+    battleAttempts++
+    // Tracked in `timers` so it is cleared on unmount; avoids `schedule`'s
+    // `pending` side-effect (which is the battle-phase skip target).
+    timers.push(setTimeout(tryBeginBattle, 300))
+    return
+  }
+  beginBattle()
+}
 watch(
   () => `${room.phase.value}:${room.round.value.state}`,
   () => {
     if (room.phase.value === 'active' && room.round.value.state === 'locked' && mode.value === 'write') {
-      beginBattle()
+      lastInputCount = -1
+      battleAttempts = 0
+      tryBeginBattle()
     }
   },
 )
