@@ -6,3 +6,8 @@ Crowd laughter + applause: "approx 800 laughter" recordings by lonemonk
   Source: https://commons.wikimedia.org/wiki/File:72842_lonemonk_approx-800-laugh-1.wav
           https://commons.wikimedia.org/wiki/File:72843_lonemonk_approx-800-laughter-only-1.wav
           https://commons.wikimedia.org/wiki/File:72844_lonemonk_approx-800-laughter-and-clapter-1.wav
+
+Crowd cheer/applause (Circuit Cypher open/close): "Applause i.ogg" by thore,
+via Wikimedia Commons. Public domain.
+  - cc-cheer.mp3
+  Source: https://commons.wikimedia.org/wiki/File:Applause_i.ogg

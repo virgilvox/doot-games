@@ -293,8 +293,9 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
     if (s === 26) stab(t, [174.61, 220, 261.63])
   }
   function loop(): void {
-    // Stop re-arming once stopped, otherwise a pending tick keeps the beat going.
-    if (!ctx || !playing) return
+    // Stop re-arming once stopped (or once a real track takes over), otherwise a
+    // pending tick keeps the synth beat going under the track.
+    if (!ctx || !playing || usingTrack) return
     while (nextTime < ctx.currentTime + 0.12) {
       scheduleStep(step, nextTime)
       nextTime += 60 / bpm / 4

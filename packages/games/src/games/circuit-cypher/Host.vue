@@ -44,6 +44,7 @@ import {
 import { type Ref, computed, inject, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { type BarsContent, type BarsInput, barsBlock, renderVerse } from '../../blocks/bars/block'
 import GameResults from '../../runtime/GameResults.vue'
+import { seededShuffle } from '../../runtime/derive'
 import {
   type BattleTally,
   type BattleView,
@@ -177,6 +178,42 @@ function setMuted(m: boolean) {
 function mcSay(text: string, onDone?: () => void, onStart?: () => void) {
   if (!muted.value && canSpeak()) announce(text, { onDone, onStart })
   else onDone?.()
+}
+
+// ── Real rap beats (optional) ──────────────────────────────────────────────
+// If beats are dropped into /public/audio/beats (listed in manifest.json), play
+// them instead of the synthesized boom-bap, with a per-room seeded assignment so
+// the MC and each performer get a different song every game. With no beats present
+// the engine keeps the generated beat (the back-pocket fallback).
+const beatPlan = ref<{ mc: number; left: number; right: number }>({ mc: 0, left: 0, right: 0 })
+const usingRealBeats = ref(false)
+async function loadBeats() {
+  try {
+    const res = await fetch('/audio/beats/manifest.json')
+    if (!res.ok) return
+    const data = (await res.json()) as { tracks?: unknown }
+    const list = Array.isArray(data.tracks) ? (data.tracks.filter((t) => typeof t === 'string') as string[]) : []
+    if (!list.length) return
+    const urls = list.map((t) => (t.startsWith('http') || t.startsWith('/') ? t : `/audio/beats/${t}`))
+    await audio.value?.loadMusic(urls)
+    const n = audio.value?.trackCount() ?? 0
+    if (n <= 0) return
+    usingRealBeats.value = true
+    // Seeded shuffle of the track indices: distinct songs for MC / left / right,
+    // varied per room.
+    const order = seededShuffle(`ccbeats:${room.runtime.room}`)(Array.from({ length: n }, (_, i) => i))
+    beatPlan.value = {
+      mc: order[0] ?? 0,
+      left: order[1 % order.length] ?? 0,
+      right: order[2 % order.length] ?? 0,
+    }
+  } catch {
+    /* generated beat fallback */
+  }
+}
+function playBed(which: 'mc' | 'left' | 'right') {
+  if (!usingRealBeats.value) return
+  audio.value?.playTrack(beatPlan.value[which])
 }
 
 // ── Battle state ───────────────────────────────────────────────────────────
@@ -448,6 +485,7 @@ function performSide(left: boolean) {
     schedule(() => enter(left ? 'completeA' : 'completeB'), 400)
     return
   }
+  playBed(left ? 'left' : 'right') // each performer raps over their own song
   const kara = buildKaraoke(perf.verse)
   const count = kara.count
   const setActive = (k: number) => {
@@ -527,6 +565,7 @@ function enter(step: Fine) {
       karaoke.value = null
       confetti.value = false
       audio.value?.airhorn()
+      playBed('mc') // the host's track over the intro
       publishBattle()
       sayThenAdvance(
         performMode.value === 'live'
@@ -770,6 +809,10 @@ onMounted(() => {
   warmUpSpeech() // prime TTS voices so the first verse actually speaks
   audio.value = createArenaAudio()
   audio.value.setMuted(muted.value)
+  // Optional real beats (cycled per game) + a real crowd cheer for open/close; both
+  // degrade silently to the synthesized beat + synth cheer if absent.
+  void loadBeats()
+  void audio.value.loadSamples({ applause: '/audio/cc-cheer.mp3' })
 
   // Collect votes + cheers off the custom channels (keyed by pid: a reconnecting
   // phone's re-vote overwrites instead of double-counting).
