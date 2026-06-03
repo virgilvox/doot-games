@@ -11,10 +11,29 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 > timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
 > fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
 
-> **Prompt cap + driver-can-start + GoatCounter analytics (2026-06-03). COMMITTED to `main`
-> locally, NOT yet pushed** (HEAD `9238762`; origin still `1fdc219`). All gates green:
-> typecheck (incl. `nuxi`), **351 tests** (+3), the web build; driver-start verified in a
-> real browser (`scripts/driver-start-smoke.mjs`).
+> **Quick-wins cluster + driver-can-start + GoatCounter analytics (2026-06-03). PUSHED +
+> DEPLOYED** (HEAD `a4abdb8`; deploy run green, spot-checked live: doot.games + stats.doot.games
+> both 200). All gates green: typecheck (incl. `nuxi`), **355 tests** (+10), the web build;
+> browser-verified (`scripts/driver-start-smoke.mjs`, `scripts/own-answer-smoke.mjs`).
+> - **Rank consensus-drift:** already fixed (per-player shuffle seed); added a regression test.
+> - **Docker base image digest-pinned** (`NODE_IMAGE` ARG, node:22-alpine by sha256); the pinned
+>   build deployed green. Shared-store rate-limiting caveat already in `docs/deploy.md`.
+> - **Circuit Cypher:** optional "match arena colors to the theme" lobby toggle (derives the two
+>   rapper colors from `--c1..--c5` with a contrast guard, default off = neon) + driver-can-start
+>   over its `/x/drive` transport.
+> - **E18 own-answer hiding for fill/split votes:** the renderer computes `ownMakeText` (the
+>   player's own make submission rendered via the source block's toVoteText) and the judge view
+>   hides the matching option/scenario; split pre-fills the hidden vote. Was broken for fill (only
+>   quip worked). Pure helper tested + browser-verified (neither player sees their own story).
+> - **Connector-directory item still open:** square logo asset + public docs with 3+ examples +
+>   a reviewer test account (the terms-acceptance + claude.ai connect handshake remain owner-only).
+> - **GoatCounter still needs owner activation:** the container + TLS + DNS are live, but log in
+>   needs `goatcounter db create site -vhost=stats.doot.games -user.email=...` on the droplet, then
+>   `GOATCOUNTER_URL=https://stats.doot.games` in `/opt/doot/.env` + redeploy to switch tracking on.
+
+> **Original commit batch (now superseded by the deployed state above):** prompt cap, driver-start,
+> GoatCounter wiring. All gates green: typecheck (incl. `nuxi`), the web build; driver-start
+> verified in a real browser (`scripts/driver-start-smoke.mjs`).
 > - **Prompt overflow closed (`bcf2727`).** Shared `PROMPT_MAX = 400` + `promptText()` in the
 >   sdk, used by all 16 prompt-bearing blocks. Editor form enforces a `maxlength` + live counter
 >   (introspector now reads a string `.max()` as `maxLength`) and blocks save on overflow; the
