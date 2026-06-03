@@ -231,3 +231,63 @@ describe('vote block derive edge cases', () => {
     expect((answer as VoteAnswer).authors).toEqual({ o0: 'A', o1: 'B' })
   })
 })
+
+describe('vote block timeout safety net (E16)', () => {
+  // The make (quip) content carries the canned safety pool. A and B submitted; C is
+  // eligible (joinedAtIndex 0) but never submitted, so it gets a safety answer.
+  const withPool = (): DeriveContext<VoteContent> => ({
+    content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30 },
+    sources: [
+      {
+        index: 0,
+        content: { prompt: 'Q', safetyAnswers: ['(silence)', 'pass'] },
+        inputs: new Map<string, unknown>([
+          ['A', { text: 'apple' }],
+          ['B', { text: 'banana' }],
+        ]),
+        render: textRender,
+      },
+    ],
+    players,
+    shuffle: identityShuffle,
+  })
+
+  it('fills an eligible non-submitter with a safety answer, flagged in the withheld key', () => {
+    const { publish, answer } = voteBlock.derive!(withPool())
+    const ans = answer as VoteAnswer
+    const cOpt = publish.options.find((o) => ans.authors[o.id] === 'C')
+    expect(cOpt).toBeTruthy()
+    expect(['(silence)', 'pass']).toContain(cOpt!.text) // a canned answer
+    expect(ans.safety).toContain(cOpt!.id) // flagged as safety
+    expect(ans.safety).not.toContain('o0') // a real submitter is not flagged
+  })
+
+  it('scores a safety answer at half', () => {
+    const { publish, answer } = voteBlock.derive!(withPool())
+    const ans = answer as VoteAnswer
+    const cOptId = publish.options.find((o) => ans.authors[o.id] === 'C')!.id
+    // A and B both vote for C's (safety) answer: it sweeps the round.
+    const votes = new Map<string, VoteInput>([
+      ['A', { choice: cOptId }],
+      ['B', { choice: cOptId }],
+    ])
+    const board = Object.fromEntries(
+      (voteBlock.aggregate!({ rounds: [{ index: 1, content: publish }], inputsFor: () => votes, answerFor: () => answer, players }).leaderboard ?? []).map(
+        (e) => [e.name, e.score],
+      ),
+    )
+    // A real sweep is 1000 share + 500 sweep = 1500; the safety answer earns half.
+    expect(board.Cy).toBe(750)
+  })
+
+  it('adds no safety option when the make round has no pool (default off)', () => {
+    const { publish, answer } = voteBlock.derive!({
+      content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30 },
+      sources: [{ index: 0, content: { prompt: 'Q' }, inputs: new Map([['A', { text: 'apple' }]]), render: textRender }],
+      players, // B and C absent, but no safety pool, so no fill
+      shuffle: identityShuffle,
+    })
+    expect(publish.options).toEqual([{ id: 'o0', text: 'apple' }])
+    expect((answer as VoteAnswer).safety).toBeUndefined()
+  })
+})

@@ -61,6 +61,9 @@ export interface VoteInput {
 export interface VoteAnswer {
   authors: Record<string, string>
   names: Record<string, string>
+  /** Option ids that were auto-filled as a timeout "safety" answer; these score at
+   *  half (the player ran out of time, so no dead air and no zero, but no full win). */
+  safety?: string[]
 }
 /** The public reveal payload phones read for personal feedback. */
 export interface VoteRevealSummary {
@@ -87,6 +90,14 @@ function tally(
     counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
   }
   return counts
+}
+
+/** A stable index in [0, n) from a player id, so a player's safety answer is
+ *  deterministic (reconnect-safe) and varied across players, without Math.random. */
+function stableIndex(pid: string, n: number): number {
+  let h = 0
+  for (let i = 0; i < pid.length; i++) h = (h * 31 + pid.charCodeAt(i)) >>> 0
+  return h % n
 }
 
 export const voteBlock = defineBlock<VoteContent, VoteInput>({
@@ -126,7 +137,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
       | undefined
     const sourceIsTopical = !!sc && !sc.template && !sc.blanks && !sc.couplets
     const sourcePrompt = sourceIsTopical ? sc.prompt : undefined
-    const entries: Array<{ pid: string; text: string }> = []
+    const entries: Array<{ pid: string; text: string; safety?: boolean }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {
         // `render` turns the source submission into votable text (a Quip's text,
@@ -134,14 +145,29 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         const text = source.render(input).trim()
         if (text) entries.push({ pid, text })
       }
+      // Timeout safety net: an eligible player who never submitted gets a canned
+      // "safety" answer (deterministic per player) from the make block's pool, so
+      // the gallery has no gap and nobody is stuck at zero. Scored at half (below).
+      const pool = ((source.content as { safetyAnswers?: string[] }).safetyAnswers ?? [])
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (pool.length) {
+        const submitted = new Set(source.inputs.keys())
+        for (const p of ctx.players) {
+          if (p.joinedAtIndex > source.index || submitted.has(p.id)) continue
+          entries.push({ pid: p.id, text: pool[stableIndex(p.id, pool.length)]!, safety: true })
+        }
+      }
     }
     const shuffled = ctx.shuffle(entries)
     const options = shuffled.map((e, i) => ({ id: `o${i}`, text: e.text }))
     const authors: Record<string, string> = {}
     const names: Record<string, string> = {}
+    const safety: string[] = []
     shuffled.forEach((e, i) => {
       authors[`o${i}`] = e.pid
       names[e.pid] = ctx.players.find((p) => p.id === e.pid)?.name ?? 'Someone'
+      if (e.safety) safety.push(`o${i}`)
     })
     return {
       publish: {
@@ -155,7 +181,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         // not an answer, so it isn't subject to withholding.
         hideUntilReveal: ctx.content.hideUntilReveal,
       },
-      answer: { authors, names } satisfies VoteAnswer,
+      answer: { authors, names, ...(safety.length ? { safety } : {}) } satisfies VoteAnswer,
     }
   },
 
@@ -190,7 +216,9 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
     const nameOf = (pid: string) => names.get(pid) ?? 'Someone'
     const bars: Array<{ label: string; count: number; note?: string }> = []
     ctx.rounds.forEach((round, ri) => {
-      const authors = (ctx.answerFor(round.index) as VoteAnswer | undefined)?.authors ?? {}
+      const ans = ctx.answerFor(round.index) as VoteAnswer | undefined
+      const authors = ans?.authors ?? {}
+      const safety = new Set(ans?.safety ?? [])
       const inputs = ctx.inputsFor(round.index)
       const counts = tally(round.content.options, inputs, authors)
       const total = [...counts.values()].reduce((a, b) => a + b, 0)
@@ -199,9 +227,15 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         const pid = authors[opt.id]
         if (!pid) continue
         const votes = counts.get(opt.id) ?? 0
-        const pts = (voteSharePoints(votes, total) + sweepBonus(votes, total)) * mult + pityPoints(votes)
+        let pts = (voteSharePoints(votes, total) + sweepBonus(votes, total)) * mult + pityPoints(votes)
+        // A timed-out "safety" answer scores at half: no zero, but no full win.
+        if (safety.has(opt.id)) pts = Math.round(pts / 2)
         scores.set(pid, (scores.get(pid) ?? 0) + pts)
-        bars.push({ label: opt.text, count: votes, note: `${nameOf(pid)} - ${votes} vote${votes === 1 ? '' : 's'}` })
+        bars.push({
+          label: opt.text,
+          count: votes,
+          note: `${nameOf(pid)} - ${votes} vote${votes === 1 ? '' : 's'}${safety.has(opt.id) ? ' (safety)' : ''}`,
+        })
       }
     })
     // Leaderboard from the union of the live roster and everyone who scored, so a

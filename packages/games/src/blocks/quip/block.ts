@@ -24,6 +24,10 @@ export const quipContentSchema = z.object({
     .nullable()
     .default(60)
     .describe('Seconds to write an answer. Turn off for an untimed round.'),
+  safetyAnswers: z
+    .array(z.string())
+    .default([])
+    .describe('Canned "safety" answers. A player who runs out of time gets one (scored at half) so there is no dead air, no zeros.'),
 })
 export type QuipContent = z.infer<typeof quipContentSchema>
 export interface QuipInput {
@@ -39,6 +43,7 @@ export const quipBlock = defineBlock<QuipContent, QuipInput>({
     placeholder: '',
     maxLength: 80,
     timer: 60,
+    safetyAnswers: [],
   }),
   defaultTimer: 60,
   timerOf: (c) => c.timer,

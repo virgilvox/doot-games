@@ -43,10 +43,22 @@ const PROMPT_POOL: string[] = [
 
 const ROUNDS_PER_GAME = 3
 
+/** Deliberately bland throwaway answers for a player who runs out of time, so the
+ *  vote gallery has no gap and nobody is stuck at zero. The safety answer scores at
+ *  half, so it never out-earns a real joke. Quiplash's "Safety Quip". */
+const SAFETY_QUIPS: string[] = [
+  'I plead the fifth',
+  '(stunned silence)',
+  'My mind went blank',
+  'No comment',
+  'Uhh... pass',
+  'The dog ate my answer',
+]
+
 /** Build one quip+vote pair for a prompt. The vote round derives from the quip. */
 function pair(prompt: string): RoundInstance[] {
   return [
-    { block: 'quip', content: { prompt, placeholder: '', maxLength: 80, timer: 60 } },
+    { block: 'quip', content: { prompt, placeholder: '', maxLength: 80, timer: 60, safetyAnswers: SAFETY_QUIPS } },
     // The vote round derives its options from the quip round (the previous round,
     // which is `from`'s default), so no `from` needed here.
     { block: 'vote', content: { prompt: 'Which answer wins?', options: [], mode: 'field', timer: 30 } },
