@@ -25,6 +25,17 @@ pushed" notes in the entries below are superseded._
 > - **Cover art** for the 7 newer flagships (Backronym, Open Mic, Hivemind, Most Likely To,
 >   Ballpark, Faker, Truth or Share) plus the Buzzer game: bespoke gradients + line motifs in
 >   `GameCover.vue`, matching the original seven (they had been falling back to generic art).
+> - **Truth or Share, spicier prompts + a real editor preview.** Rewrote all four prompt decks
+>   (truth/share x mild/spicy) to be genuinely high stakes: many spicy SHARE prompts let the
+>   picker or the room choose what gets revealed (e.g. "let the picker choose a word, search it
+>   in your messages, share the top result") so nothing can be pre-curated; the pass is still
+>   always free. Also gave the parked `spotlight` block preview-only PlayerInput/HostDisplay
+>   cards so the editor preview shows the game instead of a blank box (it was the one game whose
+>   editor preview was empty).
+> - **New-games preview/editor audit (this session):** swept every new game's editor at 1440px
+>   (truth-or-share, faker, hivemind, most-likely, ballpark, buzzer, fib-finder, sketch-spot,
+>   backronym, open-mic, circuit-cypher). No console errors or crashes; all phone + big-screen
+>   previews render content. Truth or Share was the only blank one (now fixed).
 >
 > **Editor redesign + two-phase recipes + homepage rename (2026-06-02, PUSHED + DEPLOYED
 > via CI).** The approved editor task is done and deployed. Three feature commits plus an

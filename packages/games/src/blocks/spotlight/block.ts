@@ -9,12 +9,16 @@
  * The content is the show config: the spice tier, the number of turns, and the
  * prompt decks. There are two kinds of prompt, since the target chooses how to play
  * each turn: TRUTH prompts (answer in words) and SHARE prompts (show a photo). Each
- * kind has a family-friendly (mild) and a spicier (still party-appropriate) deck.
+ * kind has a mild and a spicy deck.
  * Nothing is withheld at this layer (what reaches the big screen is governed live by
  * the host's turn flow over the relay, not by answer redaction).
+ *
+ * The PlayerInput/HostDisplay below are never mounted during a real game (the game
+ * overrides `components`); they exist only so the schema editor's preview pane shows
+ * a meaningful card describing the game instead of an empty box.
  */
 import { type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
-import { defineComponent, h } from 'vue'
+import { type PropType, defineComponent, h } from 'vue'
 
 export const spotlightContentSchema = z.object({
   tier: z.enum(['mild', 'spicy']).default('mild').describe('Default spice tier (the host can switch it in the lobby).'),
@@ -30,9 +34,45 @@ export type SpotlightContent = z.infer<typeof spotlightContentSchema>
  *  channels, not as a normal round submission. */
 export type SpotlightInput = Record<string, never>
 
-// Never rendered (the game overrides components); a minimal stub keeps the block
-// contract satisfied without an extra .vue file.
-const Stub = defineComponent({ name: 'SpotlightStub', render: () => h('div') })
+const pill =
+  'padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px;background:var(--surface);border:var(--bd) solid var(--line-soft);text-transform:capitalize'
+
+// Editor-preview only (see the file header). The phone card describes the
+// player's choice; the big-screen card describes the show.
+const SpotlightPlayer = defineComponent({
+  name: 'SpotlightPlayerPreview',
+  props: { content: { type: Object as PropType<SpotlightContent>, default: () => ({}) } },
+  setup() {
+    return () =>
+      h('div', { style: 'display:flex;flex-direction:column;gap:14px;text-align:center' }, [
+        h('div', { style: 'font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)' }, 'Truth or Share'),
+        h('p', { style: 'margin:0;font-size:15px;line-height:1.5;color:var(--ink-soft)' }, 'When the spotlight lands on you, pick Truth (answer out loud) or Share (a photo), then answer or pass. Passing is always free.'),
+        h('div', { style: 'display:flex;gap:10px' }, [
+          h('span', { style: 'flex:1;padding:14px;border-radius:12px;font-weight:800;background:var(--surface-2);border:var(--bd) solid var(--line-soft)' }, 'Truth'),
+          h('span', { style: 'flex:1;padding:14px;border-radius:12px;font-weight:800;background:var(--surface-2);border:var(--bd) solid var(--line-soft)' }, 'Share'),
+        ]),
+      ])
+  },
+})
+const SpotlightHost = defineComponent({
+  name: 'SpotlightHostPreview',
+  props: { content: { type: Object as PropType<SpotlightContent>, default: () => ({}) } },
+  setup(props) {
+    return () => {
+      const tier = props.content?.tier ?? 'mild'
+      const turns = props.content?.turns ?? 5
+      return h('div', { style: 'text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center' }, [
+        h('div', { style: 'font-family:var(--font-display,inherit);font-size:24px;font-weight:800' }, 'Truth or Share'),
+        h('p', { style: 'margin:0;font-size:15px;color:var(--ink-soft);max-width:36ch;line-height:1.5' }, 'The spotlight rotates each turn. One player is put on the spot, picks Truth or Share, answers or passes, and the room reacts.'),
+        h('div', { style: 'display:flex;gap:10px' }, [
+          h('span', { style: pill }, `${turns} turns`),
+          h('span', { style: pill }, `${tier} tier`),
+        ]),
+        h('p', { style: 'margin:0;font-size:13px;color:var(--mute)' }, 'Host this game to run the live spotlight.'),
+      ])
+    }
+  },
+})
 
 export const spotlightBlock = defineBlock<SpotlightContent, SpotlightInput>({
   kind: 'spotlight',
@@ -43,8 +83,8 @@ export const spotlightBlock = defineBlock<SpotlightContent, SpotlightInput>({
   timerOf: () => null,
   emptyInput: () => ({}),
   isComplete: () => true,
-  PlayerInput: Stub,
-  HostDisplay: Stub,
+  PlayerInput: SpotlightPlayer,
+  HostDisplay: SpotlightHost,
   // The game computes its own results (room.host.finish), like Circuit Cypher; no
   // aggregate needed. A tiny stat keeps it non-empty if ever scored generically.
   aggregate: (): ResultsFragment => ({ stats: [] }),
