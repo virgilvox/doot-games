@@ -75,8 +75,13 @@ each group; `[size]` is a rough effort hint.
 
 ### Circuit Cypher polish (D13 follow-ups)
 - [ ] Real **two-phone, on-device** playtest (touch + device WebGL/audio/TTS). `[testing]`
-- [ ] Optional **themed arena colors** (currently the deliberate neon cyan/magenta battle
-  palette; could derive from theme accents). `[small]`
+- [x] Optional **themed arena colors**: a lobby toggle "Match arena colors to the theme" derives
+  the two rapper colors + gold from the active theme's `--c1..--c5` accent palette, with a contrast
+  guard that picks the most-distant pair and falls back to the neon cyan/magenta if the accents are
+  near-monochrome. Default off (the neon identity stays the default).
+- [x] **Driver can start the game** also wired into Circuit Cypher (its `/x/drive` transport):
+  `primaryDrive` starts from the lobby + the driver phone gets a Start button; audio armed on any
+  host lobby interaction. Verified for guess / quiz-or-die / circuit-cypher (`scripts/driver-start-smoke.mjs`).
 
 ## E. Roadmap
 - [ ] **E16. Robustness** (`docs/flagship-games.md` §6) - partially wired:

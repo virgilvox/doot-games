@@ -62,9 +62,62 @@ const room = injectDootRoom()
 
 const MAX_PAIRING_ROUNDS = 3
 // The neon battle palette (the rap-battle identity); also fed to the 3D arena.
-const LEFT_COLOR = '#16e0ff'
-const RIGHT_COLOR = '#ff2d9b'
-const GOLD = '#ffd23f'
+// Kept as the default; the host can optionally derive the arena colors from the
+// active theme's accent palette instead (see `themeArena` + `arenaColors`).
+const NEON = { left: '#16e0ff', right: '#ff2d9b', gold: '#ffd23f' }
+const themeArena = ref(false)
+
+/** Parse a hex or rgb() CSS color to [r,g,b], or null if unrecognized. */
+function parseColor(s: string): [number, number, number] | null {
+  const t = s.trim()
+  if (t.startsWith('#')) {
+    const h = t.slice(1)
+    const n = h.length === 3 ? h.replace(/./g, (c) => c + c) : h
+    if (n.length < 6) return null
+    return [Number.parseInt(n.slice(0, 2), 16), Number.parseInt(n.slice(2, 4), 16), Number.parseInt(n.slice(4, 6), 16)]
+  }
+  const m = t.match(/(\d+)\D+(\d+)\D+(\d+)/)
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+}
+/** Euclidean RGB distance, a rough "are these two colors visually distinct" gauge. */
+function colorDist(a: string, b: string): number {
+  const x = parseColor(a)
+  const y = parseColor(b)
+  if (!x || !y) return 0
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2])
+}
+// Derive a left/right/gold arena palette from the active theme's accent tokens
+// (--c1..--c5, the chart palette). The two rapper colors must read as clearly
+// different across the room, so if the first two accents are too close we pick the
+// most-distant pair; if the whole palette is near-monochrome we keep the neon.
+function readThemeArena(): { left: string; right: string; gold: string } | null {
+  if (typeof window === 'undefined') return null
+  const cs = getComputedStyle(document.documentElement)
+  const cands = ['--c1', '--c2', '--c3', '--c4', '--c5'].map((n) => cs.getPropertyValue(n).trim()).filter(Boolean)
+  if (cands.length < 2) return null
+  let left = cands[0]!
+  let right = cands[1]!
+  if (colorDist(left, right) < 120) {
+    let best = -1
+    for (let i = 0; i < cands.length; i++) {
+      for (let j = i + 1; j < cands.length; j++) {
+        const d = colorDist(cands[i]!, cands[j]!)
+        if (d > best) {
+          best = d
+          left = cands[i]!
+          right = cands[j]!
+        }
+      }
+    }
+    if (best < 120) return null // accents too monochrome for a two-sided battle
+  }
+  const gold = cands.find((c) => c !== left && c !== right) ?? NEON.gold
+  return { left, right, gold }
+}
+const arenaColors = computed(() => (themeArena.value ? (readThemeArena() ?? NEON) : NEON))
+const LEFT_COLOR = computed(() => arenaColors.value.left)
+const RIGHT_COLOR = computed(() => arenaColors.value.right)
+const GOLD = computed(() => arenaColors.value.gold)
 /** Seconds (ms) a human gets to perform their verse live in players-perform mode. */
 const LIVE_PERFORM_MS = 30000
 // Pacing (ms). Deliberately unhurried so the show breathes like the mockup.
@@ -472,7 +525,7 @@ function runCountdown(side: 'A' | 'B') {
     } else {
       countNum.value = null
       audio.value?.countBeep(true)
-      card.value = { big: 'DROP IT', color: side === 'A' ? LEFT_COLOR : RIGHT_COLOR }
+      card.value = { big: 'DROP IT', color: side === 'A' ? LEFT_COLOR.value : RIGHT_COLOR.value }
       schedule(() => enter(side === 'A' ? 'performA' : 'performB'), PACE.drop)
     }
   }
@@ -576,7 +629,7 @@ function enter(step: Fine) {
       )
       break
     case 'banner':
-      card.value = { kicker: 'NOW BATTLING', big: `BATTLE ${matchupIndex.value + 1}`, sub: `${nameL} VS ${nameR}`, color: GOLD }
+      card.value = { kicker: 'NOW BATTLING', big: `BATTLE ${matchupIndex.value + 1}`, sub: `${nameL} VS ${nameR}`, color: GOLD.value }
       countNum.value = null
       karaoke.value = null
       confetti.value = false
@@ -585,7 +638,7 @@ function enter(step: Fine) {
       sayThenAdvance(`Matchup ${matchupIndex.value + 1}. ${nameL} versus ${nameR}!`, 'introA', PACE.banner)
       break
     case 'introA':
-      card.value = { kicker: 'NOW ON THE MIC', big: nameL, color: LEFT_COLOR }
+      card.value = { kicker: 'NOW ON THE MIC', big: nameL, color: LEFT_COLOR.value }
       audio.value?.cheer()
       publishBattle()
       sayThenAdvance(
@@ -608,13 +661,13 @@ function enter(step: Fine) {
       break
     case 'completeA':
       karaoke.value = null
-      card.value = hypeCard(LEFT_COLOR)
+      card.value = hypeCard(LEFT_COLOR.value)
       audio.value?.cheer()
       publishBattle()
       schedule(() => enter('introB'), PACE.complete)
       break
     case 'introB':
-      card.value = { kicker: 'NOW ON THE MIC', big: nameR, color: RIGHT_COLOR }
+      card.value = { kicker: 'NOW ON THE MIC', big: nameR, color: RIGHT_COLOR.value }
       audio.value?.cheer()
       publishBattle()
       sayThenAdvance(
@@ -637,7 +690,7 @@ function enter(step: Fine) {
       break
     case 'completeB':
       karaoke.value = null
-      card.value = hypeCard(RIGHT_COLOR)
+      card.value = hypeCard(RIGHT_COLOR.value)
       audio.value?.cheer()
       publishBattle()
       schedule(() => enter('vote'), PACE.complete)
@@ -677,7 +730,7 @@ function showResult() {
   card.value = {
     kicker: 'WINNER OF THE ROUND',
     big: side === 'tie' ? 'TIE!' : (name ?? 'TIE!'),
-    color: side === 'left' ? LEFT_COLOR : side === 'right' ? RIGHT_COLOR : GOLD,
+    color: side === 'left' ? LEFT_COLOR.value : side === 'right' ? RIGHT_COLOR.value : GOLD.value,
   }
   confetti.value = true
   audio.value?.airhorn()
@@ -716,6 +769,9 @@ const firstToJoin = ref(true)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {
+  // Picking a driver is a host gesture: arm audio now so a later remote start
+  // from that phone still has audible beat + robot voices on this big screen.
+  armAudio()
   room.host.setDriver(pid || null)
 }
 watch([firstToJoin, () => room.players.value.length], () => {
@@ -725,6 +781,15 @@ watch([firstToJoin, () => room.players.value.length], () => {
 })
 let lastDriveNonce: number | null = null
 function primaryDrive() {
+  // From the lobby, the driver's intent starts the game (audio armed by the host
+  // picking the driver / any lobby tap, so the remote start still has sound).
+  if (room.phase.value === 'lobby') {
+    if (room.host.can('start')) {
+      armAudio()
+      room.host.start()
+    }
+    return
+  }
   if (room.phase.value !== 'active') return
   if (mode.value === 'write') {
     if (room.host.can('open')) room.host.openVoting()
@@ -781,13 +846,20 @@ function finishTournament() {
   room.host.finish(summary as unknown as RelayValue)
 }
 
-function startGame() {
-  // A user gesture: prime/resume the audio context AND the speech engine now so
-  // the beat and the robot voices actually play when the battle starts later (the
-  // first real line is fired from a timer, which some browsers would otherwise
-  // drop unless speech was activated within an interaction).
+// Prime/resume the audio context AND the speech engine inside a host gesture so
+// the beat and robot voices actually play when the battle starts (the first line
+// fires from a timer, which some browsers drop unless speech was activated in an
+// interaction). Idempotent + host-only, so any lobby interaction can arm it and a
+// later remote start from the delegated MC's phone still has sound.
+let armed = false
+function armAudio() {
+  if (armed || !room.isHost.value) return
+  armed = true
   audio.value?.setMuted(muted.value)
   primeSpeech()
+}
+function startGame() {
+  armAudio()
   room.host.start()
 }
 
@@ -908,7 +980,7 @@ onUnmounted(() => {
 
 <template>
   <!-- LOBBY -->
-  <div v-if="room.phase.value === 'lobby'" class="lobby">
+  <div v-if="room.phase.value === 'lobby'" class="lobby" @pointerdown="armAudio">
     <section class="panel ticket-card">
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
@@ -943,6 +1015,11 @@ onUnmounted(() => {
       <label class="mute-row">
         <input type="checkbox" :checked="!muted" @change="setMuted(!($event.target as HTMLInputElement).checked)" />
         <span class="kicker">Music and robot voices</span>
+      </label>
+
+      <label class="mute-row">
+        <input type="checkbox" :checked="themeArena" @change="themeArena = ($event.target as HTMLInputElement).checked" />
+        <span class="kicker">Match arena colors to the theme</span>
       </label>
 
       <div class="perform-pick">

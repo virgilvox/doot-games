@@ -158,7 +158,11 @@ watch([() => battle.value?.i, () => battle.value?.view, () => battle.value?.perf
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">
       <h2>You're in the cypher!</h2>
-      <p>Get your bars ready. Keep this page open.</p>
+      <template v-if="room.isDriver.value">
+        <p><Icon name="mc" :size="15" /> You're the MC. Start the cypher when everyone's in.</p>
+        <button class="btn btn-primary btn-block btn-lg" @click="drive">Start the cypher →</button>
+      </template>
+      <p v-else>Get your bars ready. Keep this page open.</p>
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">

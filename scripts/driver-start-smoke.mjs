@@ -93,11 +93,17 @@ const run = async () => {
     // QoD leaves the lobby: the cinematic stage replaces the qod-lobby.
     leftLobby: () => !document.querySelector('.qod-lobby') && !!document.querySelector('.stageMain, .qod-stage, .stage'),
   })
+  results.cypher = await runOne(browser, {
+    slug: 'circuit-cypher (custom-flow host, /x/drive)',
+    hostUrl: `${BASE}/host/circuit-cypher`,
+    startLabel: /start the cypher/i,
+    // CC leaves the lobby into the write phase (the .lobby panel is gone).
+    leftLobby: () => !document.querySelector('.lobby'),
+  })
   await browser.close()
   log('\n=== RESULT ===')
-  log(`guess driver-start: ${results.guess ? 'PASS' : 'FAIL'}`)
-  log(`quiz-or-die driver-start: ${results.qod ? 'PASS' : 'FAIL'}`)
-  if (!results.guess || !results.qod) process.exit(1)
+  for (const [k, v] of Object.entries(results)) log(`${k} driver-start: ${v ? 'PASS' : 'FAIL'}`)
+  if (Object.values(results).some((v) => !v)) process.exit(1)
 }
 
 run().catch((e) => {
