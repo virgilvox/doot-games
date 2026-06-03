@@ -56,6 +56,13 @@ const FLAGSHIP: Record<string, { from: string; to: string; motif: string }> = {
   'sketch-spot': { from: '--c3', to: '--c2', motif: 'sketch' },
   'circuit-cypher': { from: '--c5', to: '--primary', motif: 'cypher' },
   'what-you-didnt-know': { from: '--c1', to: '--c4', motif: 'buzzer' },
+  backronym: { from: '--c3', to: '--c5', motif: 'acronym' },
+  'open-mic': { from: '--c5', to: '--c2', motif: 'mic' },
+  hivemind: { from: '--c2', to: '--c4', motif: 'hive' },
+  'most-likely': { from: '--primary', to: '--c2', motif: 'crowd' },
+  ballpark: { from: '--c3', to: '--c1', motif: 'dial' },
+  faker: { from: '--c5', to: '--c1', motif: 'mask' },
+  'truth-or-share': { from: '--c4', to: '--c5', motif: 'spotlight' },
 }
 
 // A flagship's curated gradient, else a stable, well-separated accent pair per title.
@@ -77,6 +84,7 @@ const motif = computed(() => {
   if (t === 'draw') return 'squiggle'
   if (t === 'poll') return 'bars'
   if (t === 'rank') return 'rank'
+  if (t === 'buzzer') return 'buzzer'
   return 'grid'
 })
 const initial = computed(() => (props.title || '?').charAt(0).toUpperCase())
@@ -193,6 +201,73 @@ const SF = 'rgba(255,255,255,.32)'
         <path d="M98 108 a52 46 0 0 1 104 0 z" :fill="S" />
         <ellipse cx="150" cy="92" rx="34" ry="9" :fill="SF" />
         <rect x="88" y="108" width="124" height="18" rx="8" :fill="SF" />
+      </template>
+
+      <!-- Backronym: three initials (tiles) expanding into a phrase (lines). -->
+      <template v-else-if="motif === 'acronym'">
+        <rect x="40" y="28" width="40" height="40" rx="9" :fill="SF" />
+        <rect x="92" y="28" width="40" height="40" rx="9" :fill="SF" />
+        <rect x="144" y="28" width="40" height="40" rx="9" :fill="SF" />
+        <rect x="52" y="42" width="16" height="12" rx="3" :fill="S" />
+        <rect x="104" y="42" width="16" height="12" rx="3" :fill="S" />
+        <rect x="156" y="42" width="16" height="12" rx="3" :fill="S" />
+        <rect x="40" y="84" width="155" height="12" rx="5" :fill="S" />
+        <rect x="40" y="106" width="205" height="12" rx="5" :fill="SF" />
+      </template>
+
+      <!-- Open Mic: a microphone between two sound arcs. -->
+      <template v-else-if="motif === 'mic'">
+        <rect x="138" y="30" width="24" height="48" rx="12" :fill="S" />
+        <path d="M124 66 a26 26 0 0 0 52 0" fill="none" :stroke="S" stroke-width="6" stroke-linecap="round" />
+        <line x1="150" y1="92" x2="150" y2="112" :stroke="S" stroke-width="6" stroke-linecap="round" />
+        <line x1="132" y1="114" x2="168" y2="114" :stroke="S" stroke-width="6" stroke-linecap="round" />
+        <path d="M100 46 a40 40 0 0 0 0 56" fill="none" :stroke="SF" stroke-width="5" stroke-linecap="round" />
+        <path d="M200 46 a40 40 0 0 1 0 56" fill="none" :stroke="SF" stroke-width="5" stroke-linecap="round" />
+      </template>
+
+      <!-- Hivemind: a honeycomb flower, the crowd as one mind (center bright). -->
+      <template v-else-if="motif === 'hive'">
+        <path d="M132 70 L141 54 L159 54 L168 70 L159 86 L141 86 Z" :fill="S" />
+        <path d="M105 54 L114 38 L132 38 L141 54 L132 70 L114 70 Z" :fill="SF" />
+        <path d="M159 54 L168 38 L186 38 L195 54 L186 70 L168 70 Z" :fill="SF" />
+        <path d="M105 86 L114 70 L132 70 L141 86 L132 102 L114 102 Z" :fill="SF" />
+        <path d="M159 86 L168 70 L186 70 L195 86 L186 102 L168 102 Z" :fill="SF" />
+        <path d="M132 38 L141 22 L159 22 L168 38 L159 54 L141 54 Z" :fill="SF" />
+        <path d="M132 102 L141 86 L159 86 L168 102 L159 118 L141 118 Z" :fill="SF" />
+      </template>
+
+      <!-- Most Likely To: three people, the room's pick crowned and bright. -->
+      <template v-else-if="motif === 'crowd'">
+        <circle cx="96" cy="58" r="13" :fill="SF" />
+        <path d="M74 104 a22 20 0 0 1 44 0 Z" :fill="SF" />
+        <circle cx="204" cy="58" r="13" :fill="SF" />
+        <path d="M182 104 a22 20 0 0 1 44 0 Z" :fill="SF" />
+        <circle cx="150" cy="56" r="17" :fill="S" />
+        <path d="M120 112 a30 26 0 0 1 60 0 Z" :fill="S" />
+        <path d="M150 16 l4 11 12 1 -9 8 3 12 -10 -7 -10 7 3 -12 -9 -8 12 -1 z" :fill="S" />
+      </template>
+
+      <!-- Ballpark: a gauge with the needle pointing near the answer. -->
+      <template v-else-if="motif === 'dial'">
+        <path d="M62 104 A88 88 0 0 1 238 104" fill="none" :stroke="SF" stroke-width="8" stroke-linecap="round" />
+        <line x1="150" y1="16" x2="150" y2="28" :stroke="SF" stroke-width="5" stroke-linecap="round" />
+        <line x1="80" y1="58" x2="89" y2="66" :stroke="SF" stroke-width="5" stroke-linecap="round" />
+        <line x1="220" y1="58" x2="211" y2="66" :stroke="SF" stroke-width="5" stroke-linecap="round" />
+        <line x1="150" y1="104" x2="196" y2="52" :stroke="S" stroke-width="8" stroke-linecap="round" />
+        <circle cx="150" cy="104" r="10" :fill="S" />
+        <circle cx="199" cy="47" r="7" :fill="S" />
+      </template>
+
+      <!-- Faker: a bandit's mask, one player bluffing behind it. -->
+      <template v-else-if="motif === 'mask'">
+        <path fill-rule="evenodd" :fill="S" d="M58 56 Q150 40 242 56 Q250 90 210 96 Q176 100 152 86 Q150 85 148 86 Q124 100 90 96 Q50 90 58 56 Z M99 70 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 Z M175 70 a13 13 0 1 0 26 0 a13 13 0 1 0 -26 0 Z" />
+      </template>
+
+      <!-- Truth or Share: a spotlight beam picking out the star on the spot. -->
+      <template v-else-if="motif === 'spotlight'">
+        <rect x="128" y="10" width="44" height="14" rx="5" :fill="S" />
+        <path d="M132 24 L96 128 L204 128 L168 24 Z" :fill="SF" />
+        <path d="M150 66 l8 24 25 1 -20 15 7 24 -20 -14 -20 14 7 -24 -20 -15 25 -1 z" :fill="S" />
       </template>
 
       <template v-else>
