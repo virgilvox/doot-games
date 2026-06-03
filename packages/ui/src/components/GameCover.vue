@@ -63,6 +63,7 @@ const FLAGSHIP: Record<string, { from: string; to: string; motif: string }> = {
   ballpark: { from: '--c3', to: '--c1', motif: 'dial' },
   faker: { from: '--c5', to: '--c1', motif: 'mask' },
   'truth-or-share': { from: '--c4', to: '--c5', motif: 'spotlight' },
+  'quiz-or-die': { from: '--c1', to: '--c5', motif: 'skull' },
 }
 
 // A flagship's curated gradient, else a stable, well-separated accent pair per title.
@@ -127,6 +128,19 @@ const SF = 'rgba(255,255,255,.32)'
       <template v-else-if="motif === 'burst'">
         <line v-for="a in 10" :key="a" :x1="150 + Math.cos((a - 1) * 0.628) * 16" :y1="70 + Math.sin((a - 1) * 0.628) * 16" :x2="150 + Math.cos((a - 1) * 0.628) * 42" :y2="70 + Math.sin((a - 1) * 0.628) * 42" :stroke="a % 2 ? S : SF" stroke-width="7" stroke-linecap="round" />
         <circle cx="150" cy="70" r="14" :fill="S" />
+      </template>
+
+      <!-- Quiz or Die: a skull flanked by a question mark, the deadly quiz. -->
+      <template v-else-if="motif === 'skull'">
+        <path d="M118 44c0-22 18-34 32-34s32 12 32 34c0 14-6 20-6 30 0 6-4 8-10 8h-32c-6 0-10-2-10-8 0-10-6-16-6-30z" :fill="SF" />
+        <circle cx="138" cy="52" r="9" :fill="S" />
+        <circle cx="162" cy="52" r="9" :fill="S" />
+        <path d="M146 66 l4 8 4-8z" :fill="S" />
+        <rect x="138" y="92" width="5" height="14" rx="2" :fill="S" />
+        <rect x="148" y="92" width="5" height="14" rx="2" :fill="S" />
+        <rect x="158" y="92" width="5" height="14" rx="2" :fill="S" />
+        <path d="M214 50c0-9 7-15 14-15s13 5 13 13c0 9-11 9-12 18" fill="none" :stroke="S" stroke-width="7" stroke-linecap="round" />
+        <circle cx="229" cy="92" r="5" :fill="S" />
       </template>
 
       <!-- Quip Clash: two chat bubbles trading a quip. -->

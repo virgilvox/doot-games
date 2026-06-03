@@ -11,6 +11,55 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 > timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
 > fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
 
+> **QUIZ OR DIE + an audit-driven Truth or Share / profile polish (2026-06-02, PUSHED to
+> `main`, deploying via CI).** A new cinematic custom-flow game built from the `quiz-or-die (3).html` mockup. The
+> host screen is the shared TV (a horror stage: a narrating cartoon-villain host, a burlap-doll
+> cast, trivia, the Cellar minigames, a finale Escape race); phones are controllers. Real players
+> only (no bots): a no-answer counts as wrong and goes to the Cellar, the dead play on as ghosts
+> and can steal a body in the finale. Gates green: typecheck (incl. `nuxi`), **348 tests**, the
+> web build; a real-browser smoke (`scripts/qod-smoke.mjs`, host + 2 phones) runs the whole show
+> intro -> trivia -> all four Cellar minigames -> death -> finale -> ending with 0 console/page
+> errors, and the editor preview shows the phone + big-screen cards with 0 overflow at 1440/390.
+> - **Custom-flow over `/x/`** like Truth or Share / Circuit Cypher: a parked `cellar` block holds
+>   the trivia bank + finale categories; the host parks the engine and drives `/x/show` (retained
+>   master state) plus per-player intent channels (`ans/cup/spin/roll/money/fin`). The host is the
+>   sole authority and reads the unredacted bank from its local `room.config`.
+> - **Answer withholding** is honored by hand (the engine reveal path is bypassed):
+>   `redactQuestionForPublish` strips the correct index from every published question, the `cellar`
+>   block has `redactContent`/`answerOf`, and `REDACTION_RULES.cellar` closes the saved-config API
+>   path (verified: the phone never sees the answer before reveal).
+> - **Files:** `games/quiz-or-die.ts`, `QuizOrDieHost.vue`, `QuizOrDiePlayer.vue`,
+>   `quiz-or-die-logic.ts` (+`.test.ts`, 26 pure tests), `quiz-or-die-audio.ts` (ported WebAudio
+>   SFX + synth villain voice, SSR-safe), `quiz-or-die-cast.ts` (SVG cast), `quiz-or-die-show.ts`
+>   (transport types), `blocks/cellar/block.ts`. Registered in registry/catalog/index/visuals,
+>   a `skull` cover motif in `GameCover.vue`, and horror fonts (Creepster/Nosifer/Special
+>   Elite/VT323) added to `nuxt.config.ts`.
+> - **The mockup's title/character overlap is fixed** by abandoning the fixed-16:9 absolute layout
+>   for a named-row CSS grid (roster / title / content / caption) inside the responsive `<Stage>`,
+>   so the title can never sit behind the doll gallery or the villain (the villain is confined to
+>   the content cell).
+> - **Known limits (consistent with the other custom-flow games):** a host reload mid-show restarts
+>   the show (in-memory state is not resumable), and the roster is frozen at Start (latecomers get a
+>   spectator card). Owner on-device pass still worth doing for the audio (synth villain voice + the
+>   procedural horror SFX can't be asserted headless).
+> - **Audit-driven fixes shipped in the same batch (owner-reported + a deep self-audit):**
+>   - **Truth or Share light-on-light text.** Its `class="card"` collided with the global
+>     discovery-card style (white `var(--surface)` background), so the light-on-dark spotlight text
+>     rendered on a white box. Renamed to `.spot-card`; text now reads on the dark stage.
+>   - **Truth or Share photo resolution + a latent send bug.** The CLASP core caps a published value
+>     at a 65535-byte frame (Uint16 length, no chunking), so a large photo would throw `Payload too
+>     large` and never send (the old fixed 560px/0.5 had no guard and could already hit this).
+>     Replaced with a **budget-aware compressor** (`compressPhoto`) that aims high (1024px) and steps
+>     size/quality down only as far as needed to fit ~56KB, so shares are sharper than before AND
+>     always send. Verified end to end (a 3.7MB source compresses, sends, and renders; 0 errors).
+>   - **Game covers on user profiles.** `u/[handle].vue` was the only games list not passing
+>     `:image="g.coverImage"` to `GameCover` (the API already returned it), so uploaded covers fell
+>     back to generated art there. Wired it through; verified the `<img>` renders.
+>   - **QUIZ OR DIE Cellar intro flicker.** The Cellar published a `chalice` view ~3s before a
+>     minigame was chosen, briefly flashing an empty chalice for non-chalice rounds. Added a neutral
+>     `intro` step ("Down to the Cellar"). Also wired the `redactQuestionForPublish` guard into the
+>     host's question publishes (it existed + was tested but wasn't being called).
+
 > **Editor details rework + MCP two-phase authoring (2026-06-02, PUSHED + DEPLOYED, HEAD
 > `3f1c97b`).** From owner playtest feedback. Gates green: typecheck (incl. `nuxi`), 320 tests,
 > the web build; editor audit 0 overflow at 1440/900/390.

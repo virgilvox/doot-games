@@ -38,6 +38,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'ballpark', name: 'Ballpark', version: '0.1.0', flagship: true, description: 'Numeric trivia where the closest guess wins. Get in the ballpark.' },
   { id: 'faker', name: 'Faker', version: '0.1.0', flagship: true, description: 'Everyone gets a secret word except one faker. Give a clue, then sniff out who is bluffing.' },
   { id: 'truth-or-share', name: 'Truth or Share', version: '0.1.0', flagship: true, description: 'Put someone in the spotlight with a prompt, answer or pass, and the room reacts. Pick well and you score too.' },
+  { id: 'quiz-or-die', name: 'Quiz or Die', version: '0.1.0', flagship: true, description: 'A deadly quiz show. Answer right and walk free; answer wrong and meet the host in the Cellar. The last one out the door survives.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -70,4 +71,8 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   // Faker's secret word is delivered privately per-player; strip it from the public
   // config so a non-owner (or a spectator) never reads the word from a saved game.
   faker: { word: '' },
+  // Quiz or Die's trivia keys (per-question correct index) + finale "belongs"
+  // flags live in the cellar block content: blank the answer-bearing arrays so a
+  // non-owner viewing a saved game can't read the answers.
+  cellar: { questions: [], finalCats: [] },
 }

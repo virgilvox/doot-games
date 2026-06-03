@@ -39,7 +39,7 @@ export default defineNuxtConfig({
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Creepster&family=Nosifer&family=Special+Elite&family=VT323&display=swap',
         },
       ],
       // Inject the generated theme tokens server-side so there is no FOUC.

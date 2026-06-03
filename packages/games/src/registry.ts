@@ -18,6 +18,7 @@ import { mostLikely } from './games/mostlikely'
 import { openMic } from './games/openmic'
 import { poll } from './games/poll'
 import { quipClash } from './games/quipclash'
+import { quizOrDie } from './games/quiz-or-die'
 import { rank } from './games/rank'
 import { rate } from './games/rate'
 import { sketchSpot } from './games/sketchspot'
@@ -48,6 +49,7 @@ export const builtinPlugins: GamePlugin[] = [
   ballpark,
   faker,
   truthOrShare,
+  quizOrDie,
   custom,
 ]
 
