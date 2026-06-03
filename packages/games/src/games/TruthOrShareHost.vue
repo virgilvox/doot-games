@@ -380,35 +380,35 @@ onMounted(() => {
     </div>
 
     <!-- pick: the picker is choosing a target -->
-    <div v-if="phase === 'pick'" class="card">
+    <div v-if="phase === 'pick'" class="spot-card">
       <div class="kicker"><Icon name="eye" :size="18" /> On the spot</div>
       <h1 class="big">{{ turn.pickerName }} is choosing</h1>
       <p class="sub">Who gets put on the spot this turn?</p>
     </div>
 
     <!-- mode: the target chooses truth or share -->
-    <div v-else-if="phase === 'mode'" class="card">
+    <div v-else-if="phase === 'mode'" class="spot-card">
       <div class="kicker">{{ turn.pickerName }} put them on the spot</div>
       <h1 class="big spotlit">{{ turn.target?.name }}</h1>
       <p class="sub">Truth or Share? It's their call, on their phone.</p>
     </div>
 
     <!-- prompt: the picker is choosing the prompt for the chosen mode -->
-    <div v-else-if="phase === 'prompt'" class="card">
+    <div v-else-if="phase === 'prompt'" class="spot-card">
       <div class="kicker">{{ turn.target?.name }} chose <b>{{ modeLabel }}</b></div>
       <h1 class="big">{{ turn.pickerName }} is picking a {{ modeLabel.toLowerCase() }}</h1>
       <p class="sub">{{ turn.mode === 'share' ? 'A photo to ask for...' : 'A question to ask...' }}</p>
     </div>
 
     <!-- respond: the target is answering / lining up a photo -->
-    <div v-else-if="phase === 'respond'" class="card">
+    <div v-else-if="phase === 'respond'" class="spot-card">
       <div class="kicker">{{ turn.pickerName }} asks {{ turn.target?.name }} ({{ modeLabel }})</div>
       <h1 class="prompt">{{ turn.prompt }}</h1>
       <p class="sub">{{ turn.mode === 'share' ? turn.target?.name + ' is lining up a photo...' : turn.target?.name + ' is answering on their phone...' }}</p>
     </div>
 
     <!-- react: the answer / photo is shown, the room reacts -->
-    <div v-else-if="phase === 'react'" class="card wide">
+    <div v-else-if="phase === 'react'" class="spot-card wide">
       <div class="kicker">{{ turn.target?.name }} {{ turn.hasPhoto ? 'shared' : 'answered' }}</div>
       <img v-if="turn.hasPhoto && pendingPhoto" :src="pendingPhoto" alt="" class="shared-photo" />
       <blockquote v-else class="answer">{{ turn.response }}</blockquote>
@@ -419,7 +419,7 @@ onMounted(() => {
     </div>
 
     <!-- result -->
-    <div v-else-if="phase === 'result'" class="card">
+    <div v-else-if="phase === 'result'" class="spot-card">
       <div class="kicker"><Icon name="crown" :size="18" /> Turn done</div>
       <template v-if="turn.passed">
         <h1 class="big">{{ turn.target?.name ? turn.target.name + ' passed' : 'Skipped' }}</h1>
@@ -506,7 +506,7 @@ onMounted(() => {
   border-radius: 6px; color: #f6f0ff; backdrop-filter: blur(4px);
 }
 .tag.spice { color: #ffc46b; border-color: rgba(255, 196, 107, 0.5); }
-.intro, .card {
+.intro, .spot-card {
   position: relative;
   z-index: 1;
   width: min(820px, 92%);
@@ -516,7 +516,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
 }
-.card.wide { width: min(900px, 94%); }
+.spot-card.wide { width: min(900px, 94%); }
 .kicker { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffc46b; font-size: 15px; }
 .kicker b { color: #fff; }
 .title { font-weight: 900; font-size: clamp(30px, 6vw, 60px); }
@@ -550,14 +550,14 @@ onMounted(() => {
   color: #fff;
 }
 .shared-photo {
-  max-width: min(560px, 90%);
-  max-height: 48vh;
+  max-width: min(760px, 92%);
+  max-height: 58vh;
   border-radius: 14px;
   border: 3px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   object-fit: contain;
 }
-.shared-photo.sm { max-height: 34vh; }
+.shared-photo.sm { max-height: 40vh; }
 .react-live { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-weight: 800; color: #cfc6e0; text-transform: capitalize; }
 .score-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .score-chip { background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 999px; padding: 8px 16px; font-weight: 700; }

@@ -92,8 +92,20 @@ async function onPhotoPick(e: Event) {
     compressing.value = false
   }
 }
-/** Read, downscale (longest side <= 560px), and re-encode as a small JPEG so the
- *  bitmap fits comfortably in a relay value (it never touches storage). */
+// The CLASP relay caps one published value at a 64KB frame, so the photo data URL
+// must fit a byte budget (a comfortable margin under 65535). We aim HIGH (a large,
+// sharp image) and step the size/quality down only as far as needed to fit, so the
+// share is as crisp as the transport allows and always sends.
+// Budget leaves headroom under the 65535 frame cap for the SET message overhead
+// (address + header). The floor sizes/qualities keep even a worst-case high-entropy
+// (noisy) image comfortably under the cap, so the share always sends.
+const PHOTO_BUDGET = 56000 // data URL chars
+const PHOTO_SIZES = [1024, 880, 760, 640, 540, 460, 380]
+const PHOTO_QUALITIES = [0.72, 0.62, 0.52, 0.44, 0.36]
+
+/** Read, then re-encode to the best JPEG data URL that fits the relay budget (it
+ *  never touches storage). Returns the highest size/quality under budget; falls back
+ *  to the smallest attempt if even that is somehow over. */
 async function compressPhoto(file: File): Promise<string> {
   const dataUrl = await new Promise<string>((res, rej) => {
     const r = new FileReader()
@@ -107,17 +119,24 @@ async function compressPhoto(file: File): Promise<string> {
     im.onerror = () => rej(new Error('decode'))
     im.src = dataUrl
   })
-  const max = 560
-  const scale = Math.min(1, max / Math.max(img.width || max, img.height || max))
-  const w = Math.max(1, Math.round((img.width || max) * scale))
-  const h = Math.max(1, Math.round((img.height || max) * scale))
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const ctx = c.getContext('2d')
-  if (!ctx) return dataUrl
-  ctx.drawImage(img, 0, 0, w, h)
-  return c.toDataURL('image/jpeg', 0.5)
+  let smallest = ''
+  for (const max of PHOTO_SIZES) {
+    const scale = Math.min(1, max / Math.max(img.width || max, img.height || max))
+    const w = Math.max(1, Math.round((img.width || max) * scale))
+    const h = Math.max(1, Math.round((img.height || max) * scale))
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const ctx = c.getContext('2d')
+    if (!ctx) return smallest || dataUrl
+    ctx.drawImage(img, 0, 0, w, h)
+    for (const q of PHOTO_QUALITIES) {
+      const out = c.toDataURL('image/jpeg', q)
+      smallest = out // each step is smaller than the last; keep the latest as fallback
+      if (out.length <= PHOTO_BUDGET) return out
+    }
+  }
+  return smallest || dataUrl
 }
 function sendTruth() {
   const t = turn.value
