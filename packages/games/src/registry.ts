@@ -5,6 +5,7 @@
 import type { GamePlugin } from '@doot-games/sdk'
 import { backronym } from './games/backronym'
 import { ballpark } from './games/ballpark'
+import { buzzer } from './games/buzzer'
 import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
 import { draw } from './games/draw'
@@ -31,6 +32,7 @@ export const builtinPlugins: GamePlugin[] = [
   poll,
   rank,
   draw,
+  buzzer,
   voteBox,
   quipClash,
   madLibs,
