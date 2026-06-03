@@ -11,6 +11,23 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **MCP connector completed (2026-06-03). COMMITTED to `main` locally, not yet pushed.** The
+> Connect-with-Claude MCP can now set everything about a game, not just its rounds. All gates green:
+> typecheck (incl. `nuxi`), **374 tests** (+3), the web build; `/mcp` route + 401 auth gate verified.
+> - **Game settings over MCP:** `save_game`/`update_game` accept `description`, `visibility`
+>   (private/unlisted/public), `remixable`, `coverImage`, `tags` (args override the same fields in
+>   the spec header). New **`set_game_meta`** changes those on an existing game without re-sending
+>   rounds (`patchGameMeta` extended for description/cover/tags/theme).
+> - **Cover image:** `upload_image` reframed to host round images AND covers, with the size/crop
+>   guidance baked into the tool + the format guide (16:9 landscape, ~1200×675; cards center-crop to a
+>   wide strip, the detail page shows it full at 16:9).
+> - **Every block reachable:** added a `## faker` markdown block (Hidden Faker -> faker+accuse). The
+>   markdown header now parses `description`/`visibility`(or `published`)/`remixable`/`cover`/`tags`.
+> - **`doot_format_guide` rewritten end to end:** every block, how two-phase make/judge rounds derive
+>   at runtime, Mad Libs, the faker, cover sizing/cropping, visibility/remixable. Docs synced
+>   (`markdown-games.md`, `connect-claude.md`). Parser metadata + faker unit-tested; full tool flow is
+>   owner-verified on the live OAuth connect (can't exercise past the 401 here).
+
 > **E16 robustness pack (2026-06-03). PUSHED + DEPLOYED.** Tie handling, timeout safety net, and
 > content-filter tiers. All gates green: typecheck (incl. `nuxi`), **371 tests** (+14), the web build.
 > - **Co-crown tie handling.** A top-score tie reads "Ann & Bob tie for the win" / "N-way tie: ..."

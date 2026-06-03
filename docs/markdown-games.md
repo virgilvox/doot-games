@@ -29,12 +29,20 @@ prompt: Pineapple on pizza?
 Rules:
 
 - `# Title` (one, at the top) sets the game title.
-- `theme: <id>` (optional, before the first round) picks a theme. Ids: `doot`,
-  `cutesie`, `cyber`, `professional`, `playful`.
+- **Header fields** (optional, above the first `## round`) set game-level metadata:
+  - `theme: <id>` picks a theme. Ids: `doot`, `cutesie`, `cyber`, `professional`, `playful`.
+  - `description: <text>` a one-liner shown on cards + the detail page (≤300 chars).
+  - `visibility: <private|unlisted|public>` (default `private`). `public` lists it in
+    discovery; `unlisted` is link-only. (`published: yes` also means public.)
+  - `remixable: <yes|no>` (default no) lets others copy the game into their own editor.
+  - `cover: <url>` a cover image URL. Upload one first (via the MCP `upload_image` or the
+    editor) and paste the returned URL. Best as a **16:9 landscape** (e.g. 1200×675); cards
+    center-crop it to a wide strip, the detail page shows the full image.
+  - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `poll`, `rank`, `rate`, `draw`, `hivemind`,
-  `mostlikely`, `ballpark`, `buzzer`, and the two-phase `quip` / `fill`). You can
-  repeat and mix them in any order.
+  `mostlikely`, `ballpark`, `buzzer`, the two-phase `quip` / `fill`, and the
+  hidden-imposter `faker`). You can repeat and mix them in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -168,7 +176,12 @@ points: 200
 ## Two-phase rounds (write, then vote)
 
 These collect a written answer from everyone, then build the next round's vote from
-those answers automatically. One heading expands to both rounds.
+those answers automatically. One heading expands to **two** rounds: a **make** round
+(everyone submits privately) and a **judge** round whose options are built **at run time**
+from those submissions, anonymized and shuffled, for the room to vote on. You never write
+the judge options yourself, they *are* the players' answers, and a player can't vote for
+their own. (Mad Libs works this way: players fill the blanks blind, then the completed
+stories become the gallery the room votes on.)
 
 ### `quip`: everyone writes, then the room votes
 Write & Vote (Quiplash). Fields: `prompt`, `timer` (default 60), `maxlength`,
@@ -204,8 +217,23 @@ template: The {animal} learned to {verb} just to impress a {noun}.
 - noun: a person
 ```
 
-> Faker, Truth or Share, Circuit Cypher, and Open Mic have custom flows that markdown
-> does not author. Open one from the Create page and remix it instead.
+### `faker`: hidden imposter (social deduction)
+Hidden Faker (`faker` → `accuse`). Everyone is shown a `category:` and a secret `word:`
+except one random player (the faker), who is told only the category. Everyone gives a
+one-word clue, then the room accuses who the faker is. The secret word is withheld from
+the big screen, the faker, and the public config. Fields: `category:`, `word:` (the
+secret), `prompt` (the clue instruction), `timer` (default 45), `voteprompt:` (the
+accusation question), `votetimer:`. Pick a word every non-faker can hint at.
+
+```markdown
+## faker
+category: In the kitchen
+word: Toaster
+```
+
+> Truth or Share, Circuit Cypher, Open Mic, Quiz or Die, and "What, You Didn't Know
+> That?" have custom flows that markdown does not author. Open one from the Create page
+> and remix it instead.
 
 ## A full example (mixed blocks)
 
