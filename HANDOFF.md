@@ -7,8 +7,20 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
-> **Audit of the new games + a CRITICAL roster fix (2026-06-02, COMMITTED locally, then
-> pushed).** Played each new game with the "host screen IS the shared TV" + "few players"
+> **NEXT TASK (approved, not started): the editor redesign + primitive exposure + a homepage
+> rename.** Best done in a fresh session (see the kickoff prompt the owner has). In short:
+> (1) homepage `index.vue`: rename the "Create by vibe" section heading to **"Create with
+> blocks"** (kicker -> "Start from a block"); (2) expose the two-phase **recipes** (Write &
+> Vote = quip->vote, Mad Lib & Vote = fill->vote, Would You & Split = fill->split, Lie Detector
+> = quip->fibvote with an authored truth, Sketch & Vote = draw->drawvote, Hidden Faker =
+> faker->accuse) + **buzzer** in the Custom editor's Add panel (add quip/vote/fill/split/
+> fibvote/buzzer to `custom.ts` blocks; a recipe inserts the make+judge pair in one click;
+> hide make-only blocks quip/fill/bars/faker/spotlight from the standalone list); (3) rebuild
+> `GameEditor.client.vue` as a **three-pane layout** (left: rounds rail + Add panel; center:
+> the selected round's form; right: a persistent host/phone preview), replacing the accordion
+> (`expanded` -> `selected`); below ~1000px the preview collapses to a drawer.
+>
+> **Audit of the new games + a CRITICAL roster fix (2026-06-02, PUSHED + DEPLOYED).** Played each new game with the "host screen IS the shared TV" + "few players"
 > lens (the same lens that caught the Truth or Share gate). Findings:
 > - **Most Likely To was broken (engine bug, now fixed).** Players never built `room.players`:
 >   the roster subscriptions (`playerProfile`/`playerPing` wildcards) were in a host/viewer-only
@@ -23,7 +35,7 @@ pushed" notes in the entries below are superseded._
 >   (count-only, answer withheld until the needle), Faker (word off the big screen), Open Mic
 >   (write-phase count-only), Backronym/quip->vote (`hideUntilReveal`). All clean.
 >
-> **Truth or Share rebuilt to the full spec (2026-06-02, COMMITTED locally, not pushed).**
+> **Truth or Share rebuilt to the full spec (2026-06-02, PUSHED + DEPLOYED).**
 > The first cut was text-only with a host "vet it first" moderation gate, which was broken:
 > the host screen IS the shared big screen, so the gate showed the answer to the whole room
 > anyway. Rebuilt: each turn the picker puts someone on the spot, the TARGET chooses **Truth**
