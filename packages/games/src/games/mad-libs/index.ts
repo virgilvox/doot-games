@@ -125,6 +125,17 @@ const STORY_POOL: Story[] = [
 
 const ROUNDS_PER_GAME = 3
 
+/** Pre-written full stories for a player who runs out of time, so the gallery has
+ *  no gap and nobody is stuck at zero (scored at half, so they never out-win a real
+ *  one). Generic enough to land under any of the templates. */
+const SAFETY_STORIES: string[] = [
+  'I ran out of time, so picture something deeply embarrassing here.',
+  'My answer was a masterpiece. You will simply have to imagine it.',
+  'The dog ate my Mad Lib.',
+  'Error 404: brilliant answer not found.',
+  'I panicked and wrote nothing. This is that nothing.',
+]
+
 function pair(story: Story): RoundInstance[] {
   return [
     {
@@ -136,6 +147,7 @@ function pair(story: Story): RoundInstance[] {
         blanks: story.blanks,
         maxLength: 30,
         timer: 75,
+        safetyAnswers: SAFETY_STORIES,
       },
     },
     { block: 'vote', content: { prompt: 'Funniest story wins', options: [], mode: 'field', timer: 30 } },

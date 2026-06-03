@@ -45,6 +45,10 @@ export const fillContentSchema = z.object({
     .boolean()
     .default(false)
     .describe('Show the sentence with blanks above the inputs. Off = players fill in blind (funnier reveal).'),
+  safetyAnswers: z
+    .array(z.string())
+    .default([])
+    .describe('Canned full-sentence "safety" answers. A player who runs out of time gets one (scored at half) so there is no dead air, no zeros.'),
 })
 export type FillContent = z.infer<typeof fillContentSchema>
 export interface FillInput {
@@ -73,6 +77,7 @@ export const fillBlock = defineBlock<FillContent, FillInput>({
     maxLength: 30,
     timer: 75,
     showTemplate: false,
+    safetyAnswers: [],
   }),
   defaultTimer: 75,
   timerOf: (c) => c.timer,

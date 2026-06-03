@@ -43,6 +43,13 @@ function toTimer(v: string | undefined, fallback: number | null): number | null 
   return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
+/** Parse a `safety: a | b | c` line into a list. Pipe-separated (not comma) so a
+ *  canned answer can contain commas. Empty/missing -> []. */
+function pipeList(v: string | undefined): string[] {
+  if (!v) return []
+  return v.split('|').map((s) => s.trim()).filter(Boolean)
+}
+
 function slugId(label: string, index: number): string {
   const base = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 16)
   return `${base || 'item'}-${index}`
@@ -242,6 +249,7 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
           placeholder: p.placeholder ?? '',
           maxLength: Number.isFinite(ml) && ml > 0 ? ml : 80,
           timer: toTimer(p.timer, 60),
+          safetyAnswers: pipeList(p.safety),
         },
       }
       if (p.truth != null && p.truth.trim()) {
@@ -288,6 +296,7 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
           maxLength,
           timer: toTimer(p.timer, 75),
           showTemplate: isSplit,
+          safetyAnswers: pipeList(p.safety),
         },
       }
       if (isSplit) {

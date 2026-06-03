@@ -211,6 +211,14 @@ describe('parseMarkdownGame', () => {
     expect(parseMarkdownGame('# Just a title').warnings.join(' ')).toMatch(/No rounds/)
   })
 
+  it('parses safety: into a quip/fill safety pool (pipe-separated, comma-safe)', () => {
+    const q = parseMarkdownGame('## quip\nprompt: P\nsafety: oops, nothing | I plead the fifth')
+    expect((q.rounds[0]!.content as { safetyAnswers: string[] }).safetyAnswers).toEqual(['oops, nothing', 'I plead the fifth'])
+    const f = parseMarkdownGame('## fill\ntemplate: The {a} sat.\nsafety: a full story | another one')
+    expect((f.rounds[0]!.content as { safetyAnswers: string[] }).safetyAnswers).toEqual(['a full story', 'another one'])
+    for (const r of [...q.rounds, ...f.rounds]) expect(SCHEMAS[r.block]?.safeParse(r.content).success ?? true).toBe(true)
+  })
+
   it('clamps a runaway prompt to PROMPT_MAX and warns, so the host stage cannot overflow', () => {
     const long = 'x'.repeat(900)
     const { rounds, warnings } = parseMarkdownGame(`## poll\nprompt: ${long}\n- A\n- B`)

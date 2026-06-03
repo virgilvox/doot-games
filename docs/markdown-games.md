@@ -174,7 +174,9 @@ those answers automatically. One heading expands to both rounds.
 Write & Vote (Quiplash). Fields: `prompt`, `timer` (default 60), `maxlength`,
 `voteprompt:` and `votetimer:` (default 30). Add `truth: <the real answer>` to turn
 it into **Lie Detector** (Fibbage): players write a believable lie to your trivia
-question (the `prompt`), then hunt the one true answer.
+question (the `prompt`), then hunt the one true answer. Optional `safety: a | b | c`
+(pipe-separated): canned answers handed to anyone who runs out of time, so there is
+no dead air and no zero (scored at half, so they never out-win a real answer).
 
 ```markdown
 ## quip
@@ -191,7 +193,8 @@ Mad Libs. Write the sentence in `template:` with `{placeholders}`; the blanks ar
 taken from the placeholders automatically. Add `- id: hint` lines to label them.
 Fields: `prompt`, `template:`, `timer` (default 75), `maxlength`, `voteprompt:` /
 `votetimer:`. Add `split: true` for **Would You & Split**: players complete a visible
-dilemma, then the room votes yes/no on each.
+dilemma, then the room votes yes/no on each. Optional `safety: a | b | c`
+(pipe-separated): canned full-sentence answers for anyone who runs out of time.
 
 ```markdown
 ## fill

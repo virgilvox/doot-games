@@ -49,6 +49,32 @@ describe('buildDeriveContent', () => {
     const derive = buildDeriveContent(plugin, config, 'seed', players)
     expect(derive(0, () => new Map())).toBeUndefined() // round 0 is a quip (no derive)
   })
+
+  it('fills an eligible non-submitter with a safety answer through the real runtime path', () => {
+    // The quip round carries a safety pool; Bea is eligible (joinedAtIndex 0) but
+    // never submits, so the derived vote round must include her safety answer,
+    // flagged in the withheld key. Ada submitted; a late joiner (Cy, index 1) must NOT.
+    const safetyConfig: GameComposition = {
+      title: 'T',
+      rounds: [
+        { block: 'quip', content: { prompt: 'P', placeholder: '', maxLength: 80, timer: null, safetyAnswers: ['(blank stare)'] } },
+        { block: 'vote', content: { prompt: 'V', options: [], mode: 'field', timer: 30 } },
+      ],
+    }
+    const roster = () => [
+      { id: 'A', name: 'Ada', joinedAtIndex: 0 },
+      { id: 'B', name: 'Bea', joinedAtIndex: 0 },
+      { id: 'C', name: 'Cy', joinedAtIndex: 1 }, // joined at the vote round: not eligible for the quip
+    ]
+    const derive = buildDeriveContent(plugin, safetyConfig, 'seed', roster)
+    const out = derive(1, (i) => (i === 0 ? new Map([['A', { text: 'apple' }]]) : new Map()))
+    const publish = out?.publish as { options: Array<{ id: string; text: string }> }
+    const answer = out?.answer as { authors: Record<string, string>; safety?: string[] }
+    const bea = publish.options.find((o) => answer.authors[o.id] === 'B')
+    expect(bea?.text).toBe('(blank stare)') // Bea got the safety answer
+    expect(answer.safety).toContain(bea!.id) // flagged
+    expect(Object.values(answer.authors)).not.toContain('C') // the late joiner is not filled
+  })
   it('threads the source round answer key into the derive context (faker -> accuse)', () => {
     // A 'probe' block whose derive echoes back the source answer it was handed, to
     // prove the getAnswerKey accessor reaches sources[i].answer.
