@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { fillBlock } from '../blocks/fill/block'
 import { quipBlock } from '../blocks/quip/block'
 import { voteBlock } from '../blocks/vote/block'
-import { buildDeriveContent, buildRevealSummary, ownMakeText, seededShuffle } from './derive'
+import { buildDeriveContent, buildRevealSummary, crownHeadline, ownMakeText, seededShuffle } from './derive'
 
 describe('seededShuffle', () => {
   it('is deterministic for a given seed', () => {
@@ -115,6 +115,26 @@ describe('ownMakeText (hide your own answer in a judge round)', () => {
   it('is empty for a non-judge round or a player with no submission', () => {
     expect(ownMakeText(plugin, config, 0, () => ({ text: 'apple' }))).toBe('') // quip is not a judge
     expect(ownMakeText(plugin, config, 1, () => undefined)).toBe('') // no submission
+  })
+})
+
+describe('crownHeadline (tie handling / co-crown)', () => {
+  it('crowns a single winner', () => {
+    expect(crownHeadline([{ name: 'Ann', score: 900 }, { name: 'Bob', score: 400 }])).toBe('Ann wins')
+  })
+  it('co-crowns a two-way tie at the top', () => {
+    expect(crownHeadline([{ name: 'Ann', score: 900 }, { name: 'Bob', score: 900 }, { name: 'Cal', score: 100 }])).toBe(
+      'Ann & Bob tie for the win',
+    )
+  })
+  it('names an N-way tie', () => {
+    const lb = [{ name: 'Ann', score: 500 }, { name: 'Bob', score: 500 }, { name: 'Cal', score: 500 }]
+    expect(crownHeadline(lb)).toBe('3-way tie: Ann, Bob & Cal')
+  })
+  it('returns null when nobody scored above 0 (so the caller falls back)', () => {
+    expect(crownHeadline([{ name: 'Ann', score: 0 }, { name: 'Bob', score: 0 }])).toBeNull()
+    expect(crownHeadline([])).toBeNull()
+    expect(crownHeadline(undefined)).toBeNull()
   })
 })
 

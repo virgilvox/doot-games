@@ -1,5 +1,6 @@
 <script setup lang="ts">
 /** Final standings, winner emphasized. Reads the SDK's LeaderboardEntry shape. */
+import { computed } from 'vue'
 import Avatar from './Avatar.vue'
 
 interface Entry {
@@ -8,21 +9,33 @@ interface Entry {
   score: number
   detail?: string
 }
-withDefaults(defineProps<{ entries: Entry[]; highlight?: string | null; max?: number }>(), {
+const props = withDefaults(defineProps<{ entries: Entry[]; highlight?: string | null; max?: number }>(), {
   highlight: null,
   max: 8,
 })
+
+// Competition ranking so a tie shares a place: co-leaders all get rank 1 (★) and
+// the next entry is rank 3, not 2. Only crown (★) when the top score is above 0.
+const ranked = computed(() =>
+  props.entries
+    .map((e) => ({
+      ...e,
+      rank: 1 + props.entries.filter((o) => o.score > e.score).length,
+      leader: e.score > 0 && !props.entries.some((o) => o.score > e.score),
+    }))
+    .slice(0, props.max),
+)
 </script>
 
 <template>
   <ol class="lb">
     <li
-      v-for="(e, i) in entries.slice(0, max)"
+      v-for="e in ranked"
       :key="e.id ?? e.name"
       class="lb-row"
-      :class="{ first: i === 0, me: highlight && e.name === highlight }"
+      :class="{ first: e.leader, me: highlight && e.name === highlight }"
     >
-      <span class="rank">{{ i === 0 ? '★' : i + 1 }}</span>
+      <span class="rank">{{ e.leader ? '★' : e.rank }}</span>
       <span class="who">
         <Avatar :name="e.name" :id="e.id ?? e.name" :size="30" />
         <span class="nm">{{ e.name }}</span>

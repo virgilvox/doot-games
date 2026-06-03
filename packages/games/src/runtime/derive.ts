@@ -121,6 +121,22 @@ export interface ScoreGameContext {
   answerKeys: Record<number, unknown>
 }
 
+/**
+ * The win headline, with co-crowning on a top-score tie: "Ann wins", "Ann & Bob
+ * tie for the win", "3-way tie: Ann, Bob & Cal". Returns null when nobody scored
+ * above 0 (so "Nobody wins at 0" never shows), letting the caller fall back to a
+ * block headline. Pure + tested.
+ */
+export function crownHeadline(leaderboard?: Array<{ name: string; score: number }>): string | null {
+  if (!leaderboard?.length) return null
+  const max = Math.max(...leaderboard.map((e) => (typeof e.score === 'number' ? e.score : 0)))
+  if (max <= 0) return null
+  const winners = leaderboard.filter((e) => e.score === max).map((e) => e.name)
+  if (winners.length === 1) return `${winners[0]} wins`
+  if (winners.length === 2) return `${winners[0]} & ${winners[1]} tie for the win`
+  return `${winners.length}-way tie: ${winners.slice(0, -1).join(', ')} & ${winners[winners.length - 1]}`
+}
+
 /** Group rounds by block, run each block's aggregate, and merge the fragments. */
 export function scoreGame(
   plugin: GamePlugin,
@@ -155,13 +171,9 @@ export function scoreGame(
     { label: 'Players', value: ctx.players.length },
     ...fragments.flatMap((f) => f.stats ?? []),
   ]
-  // Only crown a winner when the top score is actually above zero, otherwise
-  // "Nobody wins at 0" reads oddly; fall back to a block headline.
-  const top = leaderboard?.[0]
-  const headline =
-    top && typeof top.score === 'number' && top.score > 0
-      ? `${top.name} wins`
-      : (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
+  // Crown the winner(s) only when the top score is above zero (else "Nobody wins
+  // at 0" reads oddly); co-crown a top-score tie; fall back to a block headline.
+  const headline = crownHeadline(leaderboard) ?? (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
 
   return { headline, leaderboard, awards, distributions, stats }
 }
