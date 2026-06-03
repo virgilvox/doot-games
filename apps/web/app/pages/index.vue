@@ -30,7 +30,7 @@ const trending = computed(() => publicGames.value.slice(0, 8))
 const fresh = computed(() => [...publicGames.value].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8))
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
-// "Create by vibe": the core building-block types to start authoring from. The
+// "Create with blocks": the core building-block types to start authoring from. The
 // flagship "Games From Doot" are remixable too (and live in their own rail + on
 // /create), so we keep this row to just the primitives for a clean, uniform grid.
 const vibes = gameCatalog.filter((c) => !c.flagship && c.id !== 'custom')

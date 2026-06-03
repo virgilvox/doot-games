@@ -126,7 +126,7 @@ interface Recipe {
 const ALL_RECIPES: Recipe[] = [
   { id: 'write-vote', name: 'Write & Vote', description: 'Everyone writes an answer, then the room votes for the best one.', make: 'quip', judge: 'vote' },
   { id: 'madlib-vote', name: 'Mad Lib & Vote', description: 'Players fill in the blanks, then vote on the funniest result.', make: 'fill', judge: 'vote' },
-  { id: 'would-you-split', name: 'Would You & Split', description: 'Players write would-you-rather prompts, then the room splits for or against each.', make: 'fill', judge: 'split' },
+  { id: 'would-you-split', name: 'Would You & Split', description: 'Players write would-you dares, then the room votes yes or no on each.', make: 'fill', judge: 'split' },
   { id: 'lie-detector', name: 'Lie Detector', description: 'Players write convincing lies; you set the real truth; the room hunts it down.', make: 'quip', judge: 'fibvote' },
   { id: 'sketch-vote', name: 'Sketch & Vote', description: 'Everyone draws the prompt, then votes for the best drawing.', make: 'draw', judge: 'drawvote' },
   { id: 'hidden-faker', name: 'Hidden Faker', description: 'One player secretly fakes knowing the word; everyone gives a clue, then the room accuses.', make: 'faker', judge: 'accuse' },
@@ -439,8 +439,24 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
     e.returnValue = ''
   }
 }
-onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
-onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
+// Escape closes the topmost transient surface (overlay, drawer, or menu), the
+// standard dismissal a keyboard user expects from a modal.
+function onKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return
+  if (showAdd.value) showAdd.value = false
+  else if (showDetails.value) showDetails.value = false
+  else if (showImport.value) showImport.value = false
+  else if (showPreviewDrawer.value) showPreviewDrawer.value = false
+  else if (showMore.value) showMore.value = false
+}
+onMounted(() => {
+  window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener('keydown', onKeydown)
+})
+onScopeDispose(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>
@@ -556,7 +572,7 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
                 <p>
                   You don't fill in the {{ derivedNoun(cur) }} here. Whatever players write in
                   Round {{ sourceIndexFor(selected)! + 1 }} ({{ sourceName(selected) }}) becomes the answers
-                  everyone votes on, shuffled and anonymized. You only set the prompt and timer below.
+                  everyone votes on, shuffled and anonymized. You fill in the prompt, timer, and any other fields below.
                 </p>
               </div>
               <div class="ed-derived-body" v-else>
