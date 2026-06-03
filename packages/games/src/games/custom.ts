@@ -7,15 +7,21 @@
 import { defineGame } from '@doot-games/sdk'
 import { accuseBlock } from '../blocks/accuse/block'
 import { ballparkBlock } from '../blocks/ballpark/block'
+import { buzzerBlock } from '../blocks/buzzer/block'
 import { drawBlock } from '../blocks/draw/block'
 import { drawVoteBlock } from '../blocks/drawvote/block'
 import { fakerBlock } from '../blocks/faker/block'
+import { fibBlock } from '../blocks/fibvote/block'
+import { fillBlock } from '../blocks/fill/block'
 import { guessBlock } from '../blocks/guess/block'
 import { hivemindBlock } from '../blocks/hivemind/block'
 import { mostLikelyBlock } from '../blocks/mostlikely/block'
 import { pollBlock } from '../blocks/poll/block'
+import { quipBlock } from '../blocks/quip/block'
 import { rankBlock } from '../blocks/rank/block'
 import { rateBlock } from '../blocks/rate/block'
+import { splitBlock } from '../blocks/split/block'
+import { voteBlock } from '../blocks/vote/block'
 
 export const custom = defineGame({
   manifest: {
@@ -27,12 +33,12 @@ export const custom = defineGame({
     capabilities: ['timer', 'drawing'],
     minPlayers: 1,
   },
-  // drawvote is here so a markdown/MCP draw-then-vote game (a `## draw` round
-  // with `vote: true` expands to draw + drawvote) can host and edit as a Custom
-  // game. It is derived (built from the prior draw round), so the editor's
-  // add-round menu hides it; it is only created by the markdown expansion.
-  // faker + accuse are the hidden-role pair: `faker` assigns the secret roles,
-  // `accuse` is derived from it (so the add-round menu hides accuse like drawvote).
+  // Custom composes every block so the editor can build any first-party pattern
+  // by hand. The make blocks (quip/fill/faker) and the derived judge blocks
+  // (vote/split/fibvote/drawvote/accuse) are the two halves of the two-phase
+  // "recipes" the editor's Add panel inserts as a pair; a judge block is never
+  // offered alone (the editor hides anything with a `derive`), and a make-only
+  // block is offered only inside a recipe. buzzer is a standalone trivia block.
   blocks: [
     guessBlock,
     rateBlock,
@@ -43,6 +49,12 @@ export const custom = defineGame({
     hivemindBlock,
     mostLikelyBlock,
     ballparkBlock,
+    buzzerBlock,
+    quipBlock,
+    voteBlock,
+    fillBlock,
+    splitBlock,
+    fibBlock,
     fakerBlock,
     accuseBlock,
   ],
