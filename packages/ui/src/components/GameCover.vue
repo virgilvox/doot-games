@@ -236,15 +236,15 @@ const SF = 'rgba(255,255,255,.32)'
         <path d="M132 102 L141 86 L159 86 L168 102 L159 118 L141 118 Z" :fill="SF" />
       </template>
 
-      <!-- Most Likely To: three people, the room's pick crowned and bright. -->
+      <!-- Most Likely To: three people, the room's pick bright and crowned. -->
       <template v-else-if="motif === 'crowd'">
-        <circle cx="96" cy="58" r="13" :fill="SF" />
-        <path d="M74 104 a22 20 0 0 1 44 0 Z" :fill="SF" />
-        <circle cx="204" cy="58" r="13" :fill="SF" />
-        <path d="M182 104 a22 20 0 0 1 44 0 Z" :fill="SF" />
-        <circle cx="150" cy="56" r="17" :fill="S" />
-        <path d="M120 112 a30 26 0 0 1 60 0 Z" :fill="S" />
-        <path d="M150 16 l4 11 12 1 -9 8 3 12 -10 -7 -10 7 3 -12 -9 -8 12 -1 z" :fill="S" />
+        <circle cx="96" cy="60" r="13" :fill="SF" />
+        <path d="M74 106 a22 20 0 0 1 44 0 Z" :fill="SF" />
+        <circle cx="204" cy="60" r="13" :fill="SF" />
+        <path d="M182 106 a22 20 0 0 1 44 0 Z" :fill="SF" />
+        <circle cx="150" cy="58" r="17" :fill="S" />
+        <path d="M120 114 a30 26 0 0 1 60 0 Z" :fill="S" />
+        <path d="M131 38 L137 25 L143.5 33 L150 22 L156.5 33 L163 25 L169 38 Z" :fill="S" />
       </template>
 
       <!-- Ballpark: a gauge with the needle pointing near the answer. -->
