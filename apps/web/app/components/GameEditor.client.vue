@@ -239,9 +239,11 @@ function clearPreviews() {
   for (const k of Object.keys(previewInputs)) delete previewInputs[Number(k)]
 }
 
-// The Add panel and Import open as overlays. Game details (cover/description/
-// tags/forkable) are inline, not a modal.
+// The Add panel and Import open as overlays. Game details are inline in the top
+// bar: description + tags under the title, the cover as a small popover off an
+// icon, and "Remixable" as a checkbox next to the visibility picker.
 const showAdd = ref(false)
+const showCover = ref(false)
 function addSingle(kind: string) {
   const block = getBlock(plugin!, kind)
   if (!block) return
@@ -443,6 +445,7 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   if (showAdd.value) showAdd.value = false
   else if (showImport.value) showImport.value = false
+  else if (showCover.value) showCover.value = false
   else if (showPreviewDrawer.value) showPreviewDrawer.value = false
 }
 onMounted(() => {
@@ -463,7 +466,28 @@ onScopeDispose(() => {
         <div class="ed-bar-title">
           <span class="kicker">{{ headerLabel }} · {{ plugin.manifest.name }}</span>
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
-          <input v-model="description" class="ed-desc" maxlength="300" placeholder="Add a one-line description (shown on cards)" aria-label="Game description" />
+          <div class="ed-meta-row">
+            <div class="ed-cover">
+              <button
+                type="button"
+                class="ed-cover-btn"
+                :class="{ set: !!coverImage }"
+                :aria-expanded="showCover"
+                :title="coverImage ? 'Change cover image' : 'Add a cover image'"
+                aria-label="Cover image"
+                @click="showCover = !showCover"
+              >
+                <img v-if="coverImage" :src="coverImage" alt="" />
+                <svg v-else viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="9" cy="10" r="2" /><path d="M21 15l-5-4-9 8" /></svg>
+              </button>
+              <div v-if="showCover" class="ed-cover-pop">
+                <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
+              </div>
+              <button v-if="showCover" type="button" class="ed-pop-scrim" aria-hidden="true" tabindex="-1" @click="showCover = false" />
+            </div>
+            <input v-model="description" class="ed-desc" maxlength="300" placeholder="Add a one-line description (shown on cards)" aria-label="Game description" />
+          </div>
+          <input v-model="tagsText" class="ed-tags" placeholder="Tags: trivia, party, music" aria-label="Tags (comma-separated)" />
         </div>
         <div class="ed-bar-actions">
           <div class="ed-swatches" role="group" aria-label="Theme">
@@ -485,6 +509,10 @@ onScopeDispose(() => {
             <option value="unlisted">Unlisted (link only)</option>
             <option value="public">Public (listed)</option>
           </select>
+          <label class="ed-remix" title="Let others remix (copy) this game to make their own version">
+            <input type="checkbox" v-model="forkable" />
+            <span>Remixable</span>
+          </label>
           <button type="button" class="ed-toggle" :class="{ on: showImport }" aria-label="Import a game from text" @click="showImport = true">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
             Import
@@ -541,24 +569,6 @@ onScopeDispose(() => {
             </li>
           </ol>
           <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
-
-          <!-- Game-level metadata (cover, tags, sharing). Inline + collapsed by
-               default so it is one click away without crowding the editor. The
-               description lives under the title; visibility is in the top bar. -->
-          <details class="ed-meta">
-            <summary>Cover, tags &amp; sharing</summary>
-            <div class="ed-meta-body">
-              <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
-              <label class="sf-field">
-                <span class="sf-label">Tags (comma-separated)</span>
-                <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
-              </label>
-              <label class="sf-toggle">
-                <input type="checkbox" v-model="forkable" />
-                <span>Let others fork (copy) this game</span>
-              </label>
-            </div>
-          </details>
         </nav>
 
         <!-- CENTER: the selected round's form -->
@@ -787,7 +797,9 @@ onScopeDispose(() => {
 
 <style scoped>
 .editor {
-  padding: 0 0 60px;
+  /* padding-bottom only, so the global .wrap's horizontal padding (which aligns
+     the editor with the site nav) is preserved. */
+  padding-bottom: 60px;
 }
 /* ── Sticky top bar ─────────────────────────────────────────────────────── */
 .ed-bar {
@@ -827,23 +839,105 @@ onScopeDispose(() => {
   outline: none;
   border-bottom-color: var(--primary);
 }
+/* Description row: a small cover-image button + the one-line description. */
+.ed-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  width: min(520px, 100%);
+}
+.ed-cover {
+  position: relative;
+  flex: none;
+}
+.ed-cover-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.12s;
+}
+.ed-cover-btn:hover {
+  border-color: var(--line);
+}
+.ed-cover-btn.set {
+  border-color: var(--primary);
+}
+.ed-cover-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ed-cover-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ed-cover-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 300px;
+  max-width: 80vw;
+  padding: 12px;
+  background: var(--surface);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2);
+}
+.ed-pop-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+  border: none;
+  cursor: default;
+}
 .ed-desc {
-  display: block;
-  margin-top: 2px;
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   color: var(--ink-soft);
   background: transparent;
   border: none;
-  padding: 2px 2px;
-  width: min(520px, 100%);
+  border-bottom: 1px solid transparent;
+  padding: 4px 2px;
   font-family: inherit;
 }
-.ed-desc::placeholder {
+.ed-desc::placeholder,
+.ed-tags::placeholder {
   color: var(--mute);
 }
-.ed-desc:focus {
+.ed-desc:focus,
+.ed-tags:focus {
   outline: none;
   color: var(--ink);
+  border-bottom-color: var(--line-soft);
+}
+.ed-tags {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 3px 2px;
+  width: min(520px, 100%);
+  font-family: inherit;
 }
 .ed-bar-actions {
   display: flex;
@@ -854,6 +948,28 @@ onScopeDispose(() => {
 .ed-vis {
   width: auto;
   min-width: 130px;
+}
+/* "Remixable" checkbox, sized to match the visibility picker next to it. */
+.ed-remix {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 13px;
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ed-remix input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--primary);
 }
 .ed-swatches {
   display: flex;
@@ -909,39 +1025,6 @@ onScopeDispose(() => {
   background: var(--ink);
   color: var(--bg);
   border-color: var(--line);
-}
-/* Inline game-level metadata (cover, tags, sharing), a collapsed disclosure at
-   the foot of the rounds rail. */
-.ed-meta {
-  margin-top: 6px;
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.ed-meta > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 11px 13px;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--ink);
-}
-.ed-meta > summary::-webkit-details-marker {
-  display: none;
-}
-.ed-meta > summary::after {
-  content: "+";
-  float: right;
-  font-weight: 800;
-  color: var(--ink-soft);
-}
-.ed-meta[open] > summary::after {
-  content: "−";
-}
-.ed-meta-body {
-  display: grid;
-  gap: 12px;
-  padding: 4px 13px 14px;
 }
 .ed-note {
   color: var(--ink-soft);
