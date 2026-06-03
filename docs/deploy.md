@@ -67,11 +67,14 @@ so the next deploy starts it. To switch it on:
    docker-compose.deploy.yml exec goatcounter goatcounter db create site
    -vhost=stats.doot.games -user.email=you@example.com` (it prompts for a
    password). Log in at `https://stats.doot.games`.
-5. **Turn on tracking:** add `GOATCOUNTER_URL=https://stats.doot.games` to
-   `/opt/doot/.env` and redeploy. The app loads GoatCounter's `count.js` and
-   reports a pageview on load and on every SPA route change
-   (`app/plugins/analytics.client.ts`). With the var unset, no tracking script
-   is loaded at all.
+5. **Turn on tracking:** add `NUXT_PUBLIC_GOATCOUNTER_URL=https://stats.doot.games`
+   to `/opt/doot/.env` and recreate the app (`docker compose up -d --force-recreate
+   app`). The `NUXT_PUBLIC_` prefix is required: Nuxt only overrides
+   `runtimeConfig.public` from env at runtime via that prefix (a plain
+   `GOATCOUNTER_URL` is baked at build time and won't take effect). The app then
+   loads GoatCounter's `count.js`, which counts the entry page; the plugin
+   (`app/plugins/analytics.client.ts`) adds each SPA route change. With the var
+   unset, no tracking script is loaded at all.
 
 The GoatCounter SQLite file lives under `./data/goatcounter`; back it up the
 same way as the app DB below.

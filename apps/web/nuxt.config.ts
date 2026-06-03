@@ -52,8 +52,10 @@ export default defineNuxtConfig({
       relayUrl: process.env.CLASP_RELAY_URL || 'wss://relay.clasp.to',
       baseUrl: process.env.PUBLIC_BASE_URL || '',
       // Origin of the self-hosted GoatCounter instance (e.g. https://stats.doot.games).
-      // Empty = analytics off, so the tracking script is never loaded. See
-      // plugins/analytics.client.ts and docs/deploy.md.
+      // Empty = analytics off, so the tracking script is never loaded. Set at
+      // RUNTIME via NUXT_PUBLIC_GOATCOUNTER_URL (Nuxt's public-runtimeConfig env
+      // convention; a plain build-time GOATCOUNTER_URL is the fallback default).
+      // See plugins/analytics.client.ts and docs/deploy.md.
       goatcounterUrl: process.env.GOATCOUNTER_URL || '',
     },
   },
