@@ -171,10 +171,10 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
         </div>
       </section>
 
-      <!-- Create by vibe: pick a core building block to build from -->
+      <!-- Create with blocks: pick a core building block to build from -->
       <section class="section">
         <div class="section-head">
-          <div><span class="kicker">Pick a lane</span><h2>Create by vibe</h2></div>
+          <div><span class="kicker">Start from a block</span><h2>Create with blocks</h2></div>
           <NuxtLink class="more" to="/create">See all &rarr;</NuxtLink>
         </div>
         <div class="vibes">
