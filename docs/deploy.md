@@ -47,6 +47,35 @@ droplet, and set the domain in `docker/Caddyfile`. Then push to `main`.
 > `postgres://` `DATABASE_URL` currently falls back to SQLite with a warning).
 > Prefer the `deploy.yml` path above.
 
+## Analytics (GoatCounter)
+
+Traffic analytics are an **opt-in, self-hosted GoatCounter** instance: a single
+Go binary on its own SQLite file (`./data/goatcounter` on the droplet), behind
+Caddy at **`stats.doot.games`**. It is privacy-friendly (no cookies, no personal
+data) and idles at ~25-50MB, so it fits the 1GB droplet; the compose service is
+capped at 128MB so it can never starve the app. The `goatcounter` service and the
+`stats.doot.games` Caddy block ship in `docker-compose.deploy.yml` / `Caddyfile`,
+so the next deploy starts it. To switch it on:
+
+1. **DNS:** add an A record for `stats.doot.games` pointing at the droplet (same
+   IP as `doot.games`). Caddy provisions the TLS cert automatically.
+2. **On a 1GB droplet, add swap first** (cheap OOM insurance, since you are
+   adding a container): `fallocate -l 1G /swapfile && chmod 600 /swapfile &&
+   mkswap /swapfile && swapon /swapfile`, then persist it in `/etc/fstab`.
+3. **Deploy** (push to `main`) so the `goatcounter` container comes up.
+4. **Create the first site + login:** `docker compose -f
+   docker-compose.deploy.yml exec goatcounter goatcounter db create site
+   -vhost=stats.doot.games -user.email=you@example.com` (it prompts for a
+   password). Log in at `https://stats.doot.games`.
+5. **Turn on tracking:** add `GOATCOUNTER_URL=https://stats.doot.games` to
+   `/opt/doot/.env` and redeploy. The app loads GoatCounter's `count.js` and
+   reports a pageview on load and on every SPA route change
+   (`app/plugins/analytics.client.ts`). With the var unset, no tracking script
+   is loaded at all.
+
+The GoatCounter SQLite file lives under `./data/goatcounter`; back it up the
+same way as the app DB below.
+
 ## Backups
 
 The durable state is the SQLite file at `/opt/doot/data/doot.sqlite`. Back it up

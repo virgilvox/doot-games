@@ -14,6 +14,23 @@ services:
     expose:
       - '3000'
 
+  # Privacy-friendly web analytics (GoatCounter): a single Go binary on its own
+  # SQLite file under ./data/goatcounter, so it shares the app's persistence
+  # story and adds no extra database. Caddy terminates TLS and serves it at
+  # stats.doot.games (see the Caddyfile). Memory-capped so it can't starve the
+  # app on a small droplet (it idles at ~25-50MB). Tracking only switches on once
+  # GOATCOUNTER_URL is set in the app's env (see docs/deploy.md); the dashboard
+  # is reachable as soon as you create the first site.
+  goatcounter:
+    image: arp242/goatcounter:2.7.0
+    restart: unless-stopped
+    command: ['serve', '-listen=:8080', '-tls=none', '-automigrate']
+    mem_limit: 128m
+    volumes:
+      - ./data/goatcounter:/home/goatcounter/goatcounter-data
+    expose:
+      - '8080'
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped

@@ -6,6 +6,18 @@ doot.games {
 	reverse_proxy app:3000
 }
 
+# Privacy-friendly analytics (self-hosted GoatCounter). Both the login dashboard
+# and the count.js tracking endpoint live here; the tracking script on doot.games
+# points at this origin (set GOATCOUNTER_URL=https://stats.doot.games in the app
+# env to switch it on). A separate subdomain keeps it off the app origin, like
+# plugins.doot.games. The Host header reaches GoatCounter unchanged, so it must
+# match the site's vhost you create (stats.doot.games). Self-hosters: use a
+# `stats.` subdomain of your own domain and point GOATCOUNTER_URL at it.
+stats.doot.games {
+	encode zstd gzip
+	reverse_proxy goatcounter:8080
+}
+
 # Untrusted-plugin origin. A deliberately SEPARATE ORIGIN from doot.games so a
 # sandboxed plugin lands on a cookieless, session-less host (the Sandpack/itch.io
 # lesson; see docs/external-plugins.md + docs/plugin-authoring-roadmap.md). This
