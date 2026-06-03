@@ -11,6 +11,33 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 > timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
 > fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
 
+> **Prompt cap + driver-can-start + GoatCounter analytics (2026-06-03). COMMITTED to `main`
+> locally, NOT yet pushed** (HEAD `9238762`; origin still `1fdc219`). All gates green:
+> typecheck (incl. `nuxi`), **351 tests** (+3), the web build; driver-start verified in a
+> real browser (`scripts/driver-start-smoke.mjs`).
+> - **Prompt overflow closed (`bcf2727`).** Shared `PROMPT_MAX = 400` + `promptText()` in the
+>   sdk, used by all 16 prompt-bearing blocks. Editor form enforces a `maxlength` + live counter
+>   (introspector now reads a string `.max()` as `maxLength`) and blocks save on overflow; the
+>   markdown/MCP parser clamps `prompt`/`voteprompt` with a warning.
+> - **Driver can start the game (`8796049`).** New `'start'` control intent so a designated
+>   driver (MC on their phone) can kick the game off from the lobby, not just advance rounds.
+>   Generic GameHost maps it to `host.start()` in the lobby + a driver Start button on the
+>   generic player. **Quiz or Die** (the asked-for case): `startGame()` is split into an
+>   idempotent `armAudio()` (fired by any host lobby interaction, incl. picking a driver) and
+>   `beginShow()` (host button OR a driver's remote start), so a remote start still has audible
+>   audio on the big screen; QoD lobby gains a driver picker and the QoD phone a Start button.
+> - **GoatCounter analytics (`9238762`), opt-in.** Privacy-friendly, cookie-free pageviews as a
+>   single Go binary on its own SQLite file (no new DB), behind Caddy at `stats.doot.games`,
+>   memory-capped at 128MB for the 1GB droplet. Ships in `docker-compose.deploy.yml` + `Caddyfile`;
+>   tracking only switches on when `GOATCOUNTER_URL` is set (gated `analytics.client.ts` loads
+>   `count.js` + counts SPA route changes). **Owner prerequisites before deploy** (in `docs/deploy.md`):
+>   add a `stats.doot.games` A record, add a swap file on the 1GB droplet, deploy, create the site
+>   (`goatcounter db create site`), then set `GOATCOUNTER_URL` and redeploy.
+> - **DB/volume note (owner to verify on the droplet):** durable state is a single SQLite file at
+>   `/opt/doot/data/doot.sqlite` (accounts + saved games + bookmarks); images are on Spaces; live
+>   room state is on the relay. Whether `/opt/doot/data` is on a DO block volume vs. the root disk
+>   is a provisioning detail not visible from the repo, check with `df -h /opt/doot/data` + `mount`.
+
 > **QUIZ OR DIE flagship + look-restore + per-game-folder reorg (2026-06-03).** The QUIZ OR DIE
 > game and the Truth or Share / profile fixes (bullets below) were PUSHED + DEPLOYED. A follow-up
 > batch is **BUILT locally, not yet pushed**: a faithful re-port of the mockup's look, the per-game

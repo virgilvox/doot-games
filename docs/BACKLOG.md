@@ -122,9 +122,12 @@ each group; `[size]` is a rough effort hint.
   in a vote gallery to its per-player input and unmask the author before reveal
   (drawvote/fibvote/split). Not an answer-key leak; document as best-effort or use opaque
   per-round input keys. `[medium]`
-- [ ] **Extreme prompt overflow.** A 600+ char prompt can scroll past the host control bar
-  (column overflow was removed to stop clipping the answer glow). A `prompt.max()` closes
-  it, at the cost of rejecting very long prompts in the editor. `[small]`
+- [x] **Extreme prompt overflow.** Closed (committed local, not yet pushed): a shared
+  `PROMPT_MAX = 400` + `promptText()` helper in the sdk, used by every prompt-bearing block,
+  so the cap lives in one place. The editor form enforces it (a `maxlength` + live counter on
+  the prompt textarea, via the introspector's new `maxLength`) and blocks save on overflow,
+  and the markdown/MCP parser clamps `prompt`/`voteprompt` with a warning. New tests: introspect
+  `maxLength`, the markdown clamp.
 
 ## G. Adapted game ideas (remaining, ranked behind the cheap-wins batch)
 From an external idea dump; the cheap-wins batch (Backronym/Open Mic/Hivemind/Most Likely
