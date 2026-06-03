@@ -179,6 +179,29 @@ describe('rank block aggregate', () => {
     expect(bars?.[0]).toMatchObject({ label: 'A', display: '#1' }) // unanimous first
     expect(frag?.leaderboard).toBeUndefined() // consensus, no winner
   })
+
+  it('seeds emptyInput with a per-player SHUFFLE so passive ballots do not crown the authored order', () => {
+    const content = {
+      ...rankBlock.defaultContent(),
+      items: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+        { id: 'c', label: 'C' },
+        { id: 'd', label: 'D' },
+      ],
+    }
+    const ids = content.items.map((i) => i.id)
+    // Every seeded ballot is a valid full permutation (so a no-op lock-in counts).
+    for (let i = 0; i < 50; i++) {
+      const seeded = rankBlock.emptyInput(content).order
+      expect([...seeded].sort()).toEqual([...ids].sort())
+      expect(rankBlock.isComplete?.(content, { order: seeded })).toBe(true)
+    }
+    // The seed is shuffled, not the authored order: across many players the first
+    // slot is not always the authored item 'a' (the consensus-drift the seed fixes).
+    const firsts = new Set(Array.from({ length: 50 }, () => rankBlock.emptyInput(content).order[0]))
+    expect(firsts.size).toBeGreaterThan(1)
+  })
 })
 
 describe('distributionToBars (results rendering)', () => {

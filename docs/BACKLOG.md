@@ -182,8 +182,10 @@ into the same composition with a custom 3D standup-club host: `ComedyStage.vue` 
 
 ## Misc / docs / known trades
 - [ ] PRD §8 still documents the pre-block plugin contract - reconcile with the block model.
-- [ ] **Rank** `emptyInput` seeds the authored order (documented consensus-drift trade);
-  revisit with a per-player shuffle or a "must reorder" gate.
+- [x] **Rank** `emptyInput` now seeds a **per-player shuffle** (not the authored order), so a
+  player who locks in without reordering casts a noise ballot instead of crowning the author's
+  declared order (the consensus-drift fix the backlog called for). Regression test in
+  `blocks/aggregate.test.ts` (every seed is a full permutation; the first slot varies across players).
 - [ ] Docker base image not digest-pinned; rate-limiting is per-instance (move to a shared
   store before running multiple app containers).
 - [ ] The dead per-round answer publish (a harmless write-only relay channel).
