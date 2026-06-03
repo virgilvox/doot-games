@@ -11,8 +11,12 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 > timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
 > fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
 
-> **QUIZ OR DIE + an audit-driven Truth or Share / profile polish (2026-06-02, PUSHED to
-> `main`, deploying via CI).** A new cinematic custom-flow game built from the `quiz-or-die (3).html` mockup. The
+> **QUIZ OR DIE flagship + look-restore + per-game-folder reorg (2026-06-03).** The QUIZ OR DIE
+> game and the Truth or Share / profile fixes (bullets below) were PUSHED + DEPLOYED. A follow-up
+> batch is **BUILT locally, not yet pushed**: a faithful re-port of the mockup's look, the per-game
+> folder reorganization + the QuizOrDieHost monolith split, and audit-driven consistency fixes
+> (see the last three bullets). All gates green: typecheck (incl. `nuxi`), 348 tests, the web build.
+> A new cinematic custom-flow game built from the `quiz-or-die (3).html` mockup. The
 > host screen is the shared TV (a horror stage: a narrating cartoon-villain host, a burlap-doll
 > cast, trivia, the Cellar minigames, a finale Escape race); phones are controllers. Real players
 > only (no bots): a no-answer counts as wrong and goes to the Cellar, the dead play on as ghosts
@@ -28,16 +32,25 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 >   `redactQuestionForPublish` strips the correct index from every published question, the `cellar`
 >   block has `redactContent`/`answerOf`, and `REDACTION_RULES.cellar` closes the saved-config API
 >   path (verified: the phone never sees the answer before reveal).
-> - **Files:** `games/quiz-or-die.ts`, `QuizOrDieHost.vue`, `QuizOrDiePlayer.vue`,
->   `quiz-or-die-logic.ts` (+`.test.ts`, 26 pure tests), `quiz-or-die-audio.ts` (ported WebAudio
->   SFX + synth villain voice, SSR-safe), `quiz-or-die-cast.ts` (SVG cast), `quiz-or-die-show.ts`
->   (transport types), `blocks/cellar/block.ts`. Registered in registry/catalog/index/visuals,
->   a `skull` cover motif in `GameCover.vue`, and horror fonts (Creepster/Nosifer/Special
->   Elite/VT323) added to `nuxt.config.ts`.
-> - **The mockup's title/character overlap is fixed** by abandoning the fixed-16:9 absolute layout
->   for a named-row CSS grid (roster / title / content / caption) inside the responsive `<Stage>`,
->   so the title can never sit behind the doll gallery or the villain (the villain is confined to
->   the content cell).
+> - **Files (per-game folder):** `games/quiz-or-die/` holds `index.ts` (the `defineGame`), `Host.vue`
+>   (thin stage) + `Host.css`, `Player.vue`, `useQuizShow.ts` (the show "director": the relay-driven
+>   sequencer + state + audio, lifted out of the .vue), `logic.ts` (+`.test.ts`, 26 pure tests),
+>   `audio.ts` (ported WebAudio SFX + synth villain voice, SSR-safe), `cast.ts` (SVG cast),
+>   `show.ts` (transport types). Plus `blocks/cellar/block.ts`. Registered in
+>   registry/catalog/index/visuals, a `skull` cover motif in `GameCover.vue`, and horror fonts
+>   (Creepster/Nosifer/Special Elite/VT323) in `nuxt.config.ts`.
+> - **Look re-port (owner feedback: the first cut lost the mockup's character).** Faithfully restored
+>   the cinematic stage: the checkerboard perspective **floor**, the **centered animated host** during
+>   the intro (then in the wings), the **torn/crooked parchment answer ribbons** (clip-path + per-card
+>   rotation + coloured chips), the per-phase **scene backdrops** (night/curtain/dungeon), the dripping
+>   Nosifer category, the teal flip clock + "ANSWER NOW!", and a **working wheel** (spins to the
+>   computed sector). Layered absolute stage inside a fluid 16:9 box (no overlap). **Voice** now
+>   defaults to real OS speech (synth fallback), primed in the Start gesture. Lobby room-code overflow
+>   fixed (ticket column widened).
+> - **Reorg + monolith split (separation of concerns).** EVERY game now lives in its own folder
+>   `games/<id>/index.ts` (folder name == `manifest.id`); custom-flow helpers are uniformly `logic.ts`;
+>   `index.ts` exports the complete block + game set. QuizOrDieHost was split into `useQuizShow.ts`
+>   (director) + thin `Host.vue` + external `Host.css`. The convention is now documented in CLAUDE.md.
 > - **Known limits (consistent with the other custom-flow games):** a host reload mid-show restarts
 >   the show (in-memory state is not resumable), and the roster is frozen at Start (latecomers get a
 >   spectator card). Owner on-device pass still worth doing for the audio (synth villain voice + the
