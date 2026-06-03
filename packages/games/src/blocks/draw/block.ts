@@ -4,14 +4,14 @@
  * withholding). Drawings travel as normalized vector strokes over the relay,  * small, replayable, and renderable at any size (see @doot-games/ui's draw
  * format). The Pixi surface lives in `DrawCanvas`; the host gallery uses SVG.
  */
-import { type BlockResultsContext, type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import { type BlockResultsContext, type ResultsFragment, defineBlock, promptText, z } from '@doot-games/sdk'
 import type { DrawValue } from '@doot-games/ui'
 import DrawHost from './DrawHost.vue'
 import DrawPlayer from './DrawPlayer.vue'
 import DrawReveal from './DrawReveal.vue'
 
 export const drawContentSchema = z.object({
-  prompt: z.string().default('Draw the prompt!'),
+  prompt: promptText('Draw the prompt!'),
   /** Optional reference image shown beside the prompt. */
   image: z.string().default('').describe('Optional reference picture shown beside the prompt.'),
   timer: z

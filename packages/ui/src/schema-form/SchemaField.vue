@@ -131,10 +131,12 @@ function toggleNullableNumber(on: boolean) {
     <textarea
       class="sf-textarea"
       rows="2"
+      :maxlength="node.maxLength"
       :value="(modelValue as string) ?? ''"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
     <p v-if="hint" class="sf-hint">{{ hint }}</p>
+    <p v-if="node.maxLength" class="sf-hint sf-count">{{ ((modelValue as string) ?? '').length }} / {{ node.maxLength }}</p>
   </label>
 
   <!-- correct: pick the right option -->
@@ -189,6 +191,7 @@ function toggleNullableNumber(on: boolean) {
     <span class="sf-label">{{ label }}</span>
     <input
       class="sf-input"
+      :maxlength="node.maxLength"
       :value="(modelValue as string) ?? ''"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />

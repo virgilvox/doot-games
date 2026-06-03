@@ -10,6 +10,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import RateHost from './RateHost.vue'
@@ -32,7 +33,7 @@ export type RateScale = z.infer<typeof rateScaleSchema>
 
 export const rateContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen, e.g. what is being rated.'),
-  prompt: z.string().default('Rate this'),
+  prompt: promptText('Rate this'),
   image: z.string().default('').describe('Optional picture of the thing being rated.'),
   timer: z
     .number()

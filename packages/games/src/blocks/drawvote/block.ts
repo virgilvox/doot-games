@@ -15,6 +15,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import type { DrawValue } from '@doot-games/ui'
@@ -27,7 +28,7 @@ export const drawOptionSchema = z.object({ id: z.string(), drawing: z.custom<Dra
 export type DrawVoteOption = z.infer<typeof drawOptionSchema>
 
 export const drawVoteContentSchema = z.object({
-  prompt: z.string().default('Which drawing wins?'),
+  prompt: promptText('Which drawing wins?'),
   options: z.array(drawOptionSchema).default([]),
   aspect: z.number().positive().default(0.7).describe('Drawing shape (height / width), matched to the draw round.'),
   timer: z

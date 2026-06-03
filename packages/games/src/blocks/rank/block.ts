@@ -8,6 +8,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import RankHost from './RankHost.vue'
@@ -15,7 +16,7 @@ import RankPlayer from './RankPlayer.vue'
 import RankReveal from './RankReveal.vue'
 
 export const rankContentSchema = z.object({
-  prompt: z.string().default('Rank these'),
+  prompt: promptText('Rank these'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
   timer: z
     .number()

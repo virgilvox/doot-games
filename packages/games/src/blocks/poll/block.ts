@@ -8,6 +8,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import PollHost from './PollHost.vue'
@@ -15,7 +16,7 @@ import PollPlayer from './PollPlayer.vue'
 import PollReveal from './PollReveal.vue'
 
 export const pollContentSchema = z.object({
-  prompt: z.string().default('What do you think?'),
+  prompt: promptText('What do you think?'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
   timer: z
     .number()

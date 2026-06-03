@@ -8,6 +8,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import GuessHost from './GuessHost.vue'
@@ -25,7 +26,7 @@ export const guessOptionSchema = z.object({
 
 export const guessContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen, e.g. a category.'),
-  prompt: z.string().default('Who is this?'),
+  prompt: promptText('Who is this?'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
   timer: z
     .number()

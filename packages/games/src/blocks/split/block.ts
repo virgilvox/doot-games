@@ -12,6 +12,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import { closenessToHalf, roundMultiplier, splitPoints } from '../scoring'
@@ -23,10 +24,7 @@ export const splitScenarioSchema = z.object({ id: z.string(), text: z.string() }
 export type SplitScenario = z.infer<typeof splitScenarioSchema>
 
 export const splitContentSchema = z.object({
-  prompt: z
-    .string()
-    .default('Would you? Vote yes or no on each')
-    .describe('The instruction shown above the yes/no scenarios.'),
+  prompt: promptText('Would you? Vote yes or no on each').describe('The instruction shown above the yes/no scenarios.'),
   scenarios: z.array(splitScenarioSchema).default([]),
   timer: z
     .number()

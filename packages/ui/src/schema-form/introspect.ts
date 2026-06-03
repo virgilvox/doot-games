@@ -22,6 +22,8 @@ export interface FieldMeta {
   defaultValue?: unknown
   /** A `.describe()` hint from the schema, shown as help text under the field. */
   description?: string
+  /** A `.max(n)` cap on a string field, surfaced as the input's `maxlength`. */
+  maxLength?: number
 }
 
 export type FieldNode = FieldMeta &
@@ -61,6 +63,20 @@ interface ZodDef {
   entries?: Record<string, unknown>
   discriminator?: string
   options?: ZodLike[]
+  /** Zod 4 string checks, e.g. `.max(n)` -> `{ _zod: { def: { check: 'max_length', maximum: n } } }`. */
+  checks?: Array<{ _zod?: { def?: { check?: string; maximum?: number } } }>
+}
+
+/** The smallest `.max(n)` length cap on a Zod string def, if any. */
+function maxLengthOf(def: ZodDef): number | undefined {
+  let max: number | undefined
+  for (const c of def.checks ?? []) {
+    const d = c?._zod?.def
+    if (d?.check === 'max_length' && typeof d.maximum === 'number') {
+      max = max === undefined ? d.maximum : Math.min(max, d.maximum)
+    }
+  }
+  return max
 }
 
 /**
@@ -146,8 +162,11 @@ export function describeSchema(schema: unknown): FieldNode {
   if (!def) return { kind: 'unknown', ...meta }
 
   switch (def.type) {
-    case 'string':
+    case 'string': {
+      const maxLength = maxLengthOf(def)
+      if (maxLength !== undefined) meta.maxLength = maxLength
       return { kind: 'string', ...meta }
+    }
     case 'number':
       return { kind: 'number', ...meta }
     case 'boolean':

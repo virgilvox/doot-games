@@ -7,7 +7,7 @@
  * Like Quip, this scores nothing itself and shows only a count on the big screen
  * (the words are withheld until the story is revealed in the vote round).
  */
-import { type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import { type ResultsFragment, defineBlock, promptText, z } from '@doot-games/sdk'
 import FillHost from './FillHost.vue'
 import FillPlayer from './FillPlayer.vue'
 
@@ -20,7 +20,7 @@ export type FillBlank = z.infer<typeof fillBlankSchema>
 
 export const fillContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen.'),
-  prompt: z.string().default('Fill in the blanks (no peeking at the story!)'),
+  prompt: promptText('Fill in the blanks (no peeking at the story!)'),
   /** Template with `{id}` placeholders matching blank ids. */
   template: z
     .string()

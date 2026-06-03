@@ -15,6 +15,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import MostLikelyHost from './MostLikelyHost.vue'
@@ -22,7 +23,7 @@ import MostLikelyPlayer from './MostLikelyPlayer.vue'
 import MostLikelyReveal from './MostLikelyReveal.vue'
 
 export const mostLikelyContentSchema = z.object({
-  prompt: z.string().default('Most likely to...'),
+  prompt: promptText('Most likely to...'),
   timer: z
     .number()
     .int()

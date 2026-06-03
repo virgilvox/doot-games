@@ -488,6 +488,10 @@
   color: var(--mute);
   margin: 4px 0 0;
 }
+.sf-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .sf-error {
   font-size: 13px;
   color: var(--primary);

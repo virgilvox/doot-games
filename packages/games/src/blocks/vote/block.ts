@@ -15,6 +15,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import { BASE_POINTS, pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
@@ -26,10 +27,9 @@ export const voteOptionSchema = z.object({ id: z.string(), text: z.string() })
 export type VoteOption = z.infer<typeof voteOptionSchema>
 
 export const voteContentSchema = z.object({
-  prompt: z
-    .string()
-    .default('Which answer wins?')
-    .describe('Used only if the previous round has no prompt; normally players see "Best answer: <the previous prompt>".'),
+  prompt: promptText('Which answer wins?').describe(
+    'Used only if the previous round has no prompt; normally players see "Best answer: <the previous prompt>".',
+  ),
   options: z.array(voteOptionSchema).default([]),
   mode: z
     .enum(['field', 'head-to-head'])

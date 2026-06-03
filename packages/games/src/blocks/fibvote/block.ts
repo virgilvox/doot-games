@@ -16,6 +16,7 @@ import {
   type DeriveContext,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import { type ResultsFragment } from '@doot-games/sdk'
@@ -39,10 +40,9 @@ function norm(s: string): string {
 }
 
 export const fibContentSchema = z.object({
-  prompt: z
-    .string()
-    .default('Which one is TRUE?')
-    .describe('Used only if the make round has no prompt; normally players see the trivia question itself.'),
+  prompt: promptText('Which one is TRUE?').describe(
+    'Used only if the make round has no prompt; normally players see the trivia question itself.',
+  ),
   /** The real answer. Hidden from players, mixed into the options as the one
    *  true choice; stripped to '' in the published content. */
   truth: z.string().default('').describe('The real answer. Mixed in with the lies; players must spot it.'),

@@ -45,6 +45,19 @@ describe('describeSchema', () => {
     expect(field(node, 'plain')?.description).toBeUndefined()
   })
 
+  it('reads a string .max() cap as maxLength, including through a default wrapper', () => {
+    const node = describeSchema(
+      z.object({
+        prompt: z.string().max(400).default('hi'),
+        capped: z.string().max(80),
+        plain: z.string(),
+      }),
+    )
+    expect(field(node, 'prompt')?.maxLength).toBe(400)
+    expect(field(node, 'capped')?.maxLength).toBe(80)
+    expect(field(node, 'plain')?.maxLength).toBeUndefined()
+  })
+
   it('marks optional fields', () => {
     const node = field(describeSchema(z.object({ image: z.string().optional() })), 'image')
     expect(node?.kind).toBe('string')

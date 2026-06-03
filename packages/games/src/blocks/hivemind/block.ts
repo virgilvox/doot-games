@@ -14,6 +14,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import { BASE_POINTS } from '../scoring'
@@ -22,7 +23,7 @@ import HivemindPlayer from './HivemindPlayer.vue'
 import HivemindReveal from './HivemindReveal.vue'
 
 export const hivemindContentSchema = z.object({
-  prompt: z.string().default('Name something you find in a kitchen.'),
+  prompt: promptText('Name something you find in a kitchen.'),
   placeholder: z.string().default('').describe('Greyed-out hint text inside the empty answer box.'),
   maxLength: z.number().int().positive().max(120).default(40).describe('Max characters in an answer.'),
   timer: z

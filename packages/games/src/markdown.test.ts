@@ -210,4 +210,13 @@ describe('parseMarkdownGame', () => {
     expect(parseMarkdownGame('## bogus\nprompt: x').warnings.join(' ')).toMatch(/Unknown block/)
     expect(parseMarkdownGame('# Just a title').warnings.join(' ')).toMatch(/No rounds/)
   })
+
+  it('clamps a runaway prompt to PROMPT_MAX and warns, so the host stage cannot overflow', () => {
+    const long = 'x'.repeat(900)
+    const { rounds, warnings } = parseMarkdownGame(`## poll\nprompt: ${long}\n- A\n- B`)
+    const prompt = (rounds[0]!.content as { prompt: string }).prompt
+    expect(prompt.length).toBe(400)
+    expect(warnings.join(' ')).toMatch(/shortened to 400 characters/)
+    expect(SCHEMAS.poll!.safeParse(rounds[0]!.content).success).toBe(true)
+  })
 })

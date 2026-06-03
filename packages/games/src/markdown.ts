@@ -21,7 +21,7 @@
  * imports) so it can run anywhere; the editor validates the result against each
  * block's schema.
  */
-import type { RoundInstance } from '@doot-games/sdk'
+import { PROMPT_MAX, type RoundInstance } from '@doot-games/sdk'
 
 export interface ParsedGame {
   title: string
@@ -351,7 +351,13 @@ export function parseMarkdownGame(md: string): ParsedGame {
     const kv = t.match(/^([a-zA-Z][\w-]*)\s*:\s*(.*)$/)
     if (kv) {
       const key = (kv[1] ?? '').toLowerCase()
-      const value = (kv[2] ?? '').trim()
+      let value = (kv[2] ?? '').trim()
+      // Clamp prompts to the shared cap so a runaway markdown prompt can't
+      // overflow the host stage (the same PROMPT_MAX the block schemas enforce).
+      if ((key === 'prompt' || key === 'voteprompt') && value.length > PROMPT_MAX) {
+        warnings.push(`A ${key} was shortened to ${PROMPT_MAX} characters (it was ${value.length}).`)
+        value = value.slice(0, PROMPT_MAX)
+      }
       if (cur) cur.props[key] = value
       else if (key === 'theme') themeId = value.toLowerCase()
       continue

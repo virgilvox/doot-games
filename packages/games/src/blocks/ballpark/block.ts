@@ -15,6 +15,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import { BASE_POINTS, roundMultiplier } from '../scoring'
@@ -28,7 +29,7 @@ export const CLOSEST_BONUS = 250
 
 export const ballparkContentSchema = z.object({
   subject: z.string().default('').describe('Optional category shown on the big screen.'),
-  prompt: z.string().default('How many?'),
+  prompt: promptText('How many?'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
   unit: z.string().default('').describe('Optional unit shown after the number, e.g. "km", "%", "years".'),
   answer: z

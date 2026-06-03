@@ -15,6 +15,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import BuzzerHost from './BuzzerHost.vue'
@@ -32,7 +33,7 @@ export const buzzerOptionSchema = z.object({
 
 export const buzzerContentSchema = z.object({
   subject: z.string().default('').describe('The round/category name shown on the marquee, e.g. "What, You Didn\'t Know That?".'),
-  prompt: z.string().default('What, you didn\'t know that?'),
+  prompt: promptText('What, you didn\'t know that?'),
   image: z.string().default('').describe('Optional picture/clue shown with the question.'),
   timer: z
     .number()

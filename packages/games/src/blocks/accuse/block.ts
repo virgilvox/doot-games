@@ -22,6 +22,7 @@ import {
   type ResultsFragment,
   type RevealContext,
   defineBlock,
+  promptText,
   z,
 } from '@doot-games/sdk'
 import type { FakerAnswer, FakerContent, FakerInput } from '../faker/block'
@@ -42,7 +43,7 @@ export const accuseClueSchema = z.object({
 export type AccuseClue = z.infer<typeof accuseClueSchema>
 
 export const accuseContentSchema = z.object({
-  prompt: z.string().default('Who is the faker?'),
+  prompt: promptText('Who is the faker?'),
   category: z.string().default(''),
   clues: z.array(accuseClueSchema).default([]),
   timer: z

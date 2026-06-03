@@ -8,12 +8,12 @@
  * (showing the texts here would spoil the anonymized vote). It is meant to be
  * composed before a `vote` round; see the Quip Clash game.
  */
-import { type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
+import { type ResultsFragment, defineBlock, promptText, z } from '@doot-games/sdk'
 import QuipHost from './QuipHost.vue'
 import QuipPlayer from './QuipPlayer.vue'
 
 export const quipContentSchema = z.object({
-  prompt: z.string().default('Finish the sentence...'),
+  prompt: promptText('Finish the sentence...'),
   /** Optional placeholder text shown inside the empty answer box on the phone. */
   placeholder: z.string().default('').describe('Greyed-out hint text inside the empty answer box.'),
   maxLength: z.number().int().positive().max(280).default(80).describe('Max characters in an answer.'),
