@@ -17,15 +17,28 @@ export const REACTION_KINDS: ReactionKind[] = ['laugh', 'love', 'wow', 'oof']
 export const REACT_POINTS = 10
 export const PICKER_CUT = 0.5
 
-/** The phases of one spotlight turn. `moderate` is the host-only gate: the target's
- *  answer is held until the host approves it, so nothing reaches the big screen
- *  unvetted. */
-export type TurnPhase = 'pick' | 'respond' | 'moderate' | 'react' | 'result'
+/** A target does a TRUTH (type an answer) or a SHARE (snap/upload a photo). The
+ *  target chooses which; the picker then supplies the prompt for that mode. */
+export type SpotMode = 'truth' | 'share'
+
+/**
+ * The phases of one spotlight turn (a four-step volley, faithful to the design:
+ * the picker puts someone on the spot, the target chooses truth or share, the
+ * picker supplies the prompt for that mode, the target responds, the room reacts):
+ *  - pick:    the picker chooses who is on the spot
+ *  - mode:    the target chooses Truth or Share
+ *  - prompt:  the picker chooses (or writes) a prompt for that mode
+ *  - respond: the target answers (truth = text) or shares (a photo)
+ *  - react:   the answer/photo is shown to the room, which reacts
+ *  - result:  the scores for the turn
+ */
+export type TurnPhase = 'pick' | 'mode' | 'prompt' | 'respond' | 'react' | 'result'
 
 /** The retained turn state the host publishes on `/x/turn` for every client. The
- *  target's `response` is ONLY present from `react` onward (after the host approves
- *  it); during `pick`/`respond`/`moderate` it is absent, so an answer never shows
- *  before the moderation gate. */
+ *  target's `response` is held back until `react`/`result`; a shared PHOTO never
+ *  travels in the turn state at all (it goes on its own `/x/photo` channel, read
+ *  only by the host's big screen), so the response only reaches the room when the
+ *  host advances to `react` after the target chose to share it. */
 export interface TurnState {
   i: number
   total: number
@@ -36,11 +49,17 @@ export interface TurnState {
    *  from the host's view of the room rather than its own presence snapshot (which
    *  can lag). The picker's UI excludes itself. */
   roster?: Array<{ pid: string; name: string }>
+  target?: { pid: string; name: string } | null
+  /** Which mode the target chose (set from the `mode` phase onward). */
+  mode?: SpotMode | null
   /** The prompts dealt to the picker to choose from (shown only to the picker). */
   choices?: string[]
-  target?: { pid: string; name: string } | null
   prompt?: string | null
+  /** A truth answer (text), present only at react/result. */
   response?: string | null
+  /** True when the target shared a photo (the bitmap rides the `/x/photo` channel
+   *  to the host's big screen, not the turn state). Set at react. */
+  hasPhoto?: boolean
   passed?: boolean
   reactions?: (Record<ReactionKind, number> & { total: number }) | null
   targetPts?: number
@@ -48,14 +67,14 @@ export interface TurnState {
 }
 
 /**
- * The MODERATION GATE as a pure rule: a target's answer may only appear in the
- * public turn state once the host has approved it (phase `react` or `result`). For
- * any earlier phase this strips the response, so the host can never accidentally
- * publish an unvetted answer to the room. The host runs every publish through this.
+ * Withholding as a pure rule: a target's typed answer may only appear in the public
+ * turn state once the host advances to `react` (after the target chose to answer).
+ * Before that it is stripped, so a turn published mid-volley never carries the
+ * answer. (A shared photo is never in the turn state at all, see `TurnState`.)
  */
 export function redactTurnForPublish(state: TurnState): TurnState {
-  const approved = state.phase === 'react' || state.phase === 'result'
-  if (approved) return state
+  const shown = state.phase === 'react' || state.phase === 'result'
+  if (shown) return state
   return { ...state, response: null }
 }
 

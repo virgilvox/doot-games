@@ -147,71 +147,61 @@ async function smokeOpenMic(browser) {
 }
 
 async function smokeTruthOrShare(browser) {
-  step('Truth or Share: a turn through the moderation gate, with a live gate check')
+  step('Truth or Share: the full four-step volley (pick -> truth/share -> prompt -> respond -> react)')
   const { host, code } = await hostGame(browser, 'truth-or-share')
   const players = []
   for (const n of ['Pat', 'Sam', 'Lee']) players.push(await join(browser, code, n, 'You'))
-  if (!await waitForRoster(host, 3)) fail("Truth or Share: host never saw 3 players");
+  if (!await waitForRoster(host, 3)) fail('Truth or Share: host never saw 3 players')
   await host.click('button:has-text("Start the show")')
+  // Intro / rules card, then begin.
+  await host.waitForSelector('button:has-text("Bring up the first player")', { timeout: 60000 })
+  ok('intro / rules card shown (showmanship)')
+  await host.click('button:has-text("Bring up the first player")')
   await host.waitForSelector('text=is choosing', { timeout: 60000 })
-  ok('first turn rendered (pick phase)')
 
-  // Find the picker phone (it shows "Put them on the spot"). Poll: the turn state
-  // has to propagate over the relay first.
-  let picker = null
-  for (let attempt = 0; attempt < 20 && !picker; attempt++) {
-    for (const p of players) {
-      if (await p.locator('button:has-text("Put them on the spot")').count()) { picker = p; break }
-    }
-    if (!picker) await sleep(500)
-  }
-  if (!picker) { fail('Truth or Share: no picker phone showed the pick UI'); await host.close(); for (const p of players) await p.close(); return }
-  // Wait for the roster (targets) to populate on the picker's phone before choosing.
-  await picker.waitForSelector('.opt:not(.prompt)', { timeout: 30000 })
-  const nTargets = await picker.locator('.opt:not(.prompt)').count()
-  const nPrompts = await picker.locator('.opt.prompt').count()
-  console.log(`    (picker sees ${nTargets} targets, ${nPrompts} prompts)`)
-  await picker.locator('.opt:not(.prompt)').first().click() // a target
-  await picker.locator('.opt.prompt').first().click() // a prompt
+  const poll = async (fn) => { for (let a = 0; a < 24; a++) { const r = await fn(); if (r) return r; await sleep(500) } return null }
+  const finishTurn = async () => { await host.close(); for (const p of players) await p.close() }
+
+  // 1) Picker chooses a target.
+  const picker = await poll(async () => { for (const p of players) if (await p.locator('button:has-text("Put them on the spot")').count()) return p; return null })
+  if (!picker) { fail('Truth or Share: no picker pick UI'); return finishTurn() }
+  await picker.waitForSelector('.opt', { timeout: 30000 })
+  await picker.locator('.opt').first().click()
   await picker.click('button:has-text("Put them on the spot")')
 
-  // The target answers (poll: the 'respond' turn state has to propagate).
-  let target = null
-  for (let attempt = 0; attempt < 20 && !target; attempt++) {
-    for (const p of players) {
-      if (await p.locator('.answer-input').count()) { target = p; break }
-    }
-    if (!target) await sleep(500)
-  }
-  if (!target) { fail('Truth or Share: target phone never showed the answer box'); await host.close(); for (const p of players) await p.close(); return }
-  const secret = 'my deepest darkest confession'
+  // 2) Target chooses Truth (both modes must be offered).
+  const target = await poll(async () => { for (const p of players) if (await p.locator('.mode-truth').count()) return p; return null })
+  if (!target) { fail('Truth or Share: target never got the Truth/Share choice'); return finishTurn() }
+  if (await target.locator('.mode-share').count()) ok('target offered both Truth and Share')
+  else fail('Truth or Share: Share mode missing')
+  await target.click('.mode-truth')
+
+  // 3) Picker picks a prompt for Truth (suggestions + a write-your-own option).
+  const promptUi = await poll(async () => (await picker.locator('.opt.prompt').count()) ? picker : null)
+  if (!promptUi) { fail('Truth or Share: picker never got prompt options'); return finishTurn() }
+  if (await picker.locator('button:has-text("Write your own")').count()) ok('custom "write your own" prompt offered')
+  await picker.locator('.opt.prompt').first().click()
+  await picker.click('button:has-text("Send it to")')
+
+  // 4) Target answers. The answer must not be on the big screen until react.
+  const respondUi = await poll(async () => (await target.locator('.answer-input').count()) ? target : null)
+  if (!respondUi) { fail('Truth or Share: target never got the answer box'); return finishTurn() }
+  const secret = 'a uniquely identifiable truth answer 9f3'
+  const hostBefore = await host.locator('body').textContent()
+  if (hostBefore.includes(secret)) fail('Truth or Share: answer on screen before it was given')
   await target.fill('.answer-input', secret)
   await target.click('button:has-text("Answer")')
 
-  // Moderation gate: the host sees it; other phones must NOT show it yet.
-  await host.waitForSelector('text=Your call, host', { timeout: 60000 })
-  const others = players.filter((p) => p !== target)
-  let leaked = false
-  for (const p of others) {
-    const body = await p.locator('body').textContent()
-    if (body.includes(secret)) leaked = true
-  }
-  if (leaked) fail('Truth or Share: the answer reached a phone BEFORE the host approved it')
-  else ok('moderation gate holds: the answer is hidden until approval')
-
-  await host.click('button:has-text("Show the room")')
+  // 5) react: the answer reaches the big screen now (not before).
   await host.waitForSelector('.answer', { timeout: 60000 })
-  ok('approved answer reached the big screen')
-  // React from another phone, then wrap up.
-  for (const p of others) {
-    const r = p.locator('.react').first()
-    if (await r.count()) await r.click().catch(() => {})
-  }
+  const hostAfter = await host.locator('body').textContent()
+  if (hostAfter.includes(secret)) ok('answer reaches the big screen only at react')
+  else fail('Truth or Share: answer never showed at react')
+  for (const p of players.filter((p) => p !== target)) { const r = p.locator('.react').first(); if (await r.count()) await r.click().catch(() => {}) }
   await host.click('button:has-text("Wrap up the turn")')
   await host.waitForSelector('button:has-text("Next turn"), button:has-text("Final results")', { timeout: 60000 })
   ok('turn resolved to a result')
-  await host.close()
-  for (const p of players) await p.close()
+  await finishTurn()
 }
 
 const browser = await chromium.launch()

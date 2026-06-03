@@ -72,25 +72,25 @@ describe('scoreTurn (reaction-cut)', () => {
   })
 })
 
-describe('redactTurnForPublish (the moderation gate)', () => {
+describe('redactTurnForPublish (answer withholding)', () => {
   const base: TurnState = {
     i: 0,
     total: 5,
-    phase: 'moderate',
+    phase: 'respond',
     pickerPid: 'a',
     pickerName: 'Ada',
     target: { pid: 'b', name: 'Bo' },
     prompt: 'a prompt',
-    response: 'the secret answer',
+    response: 'the answer',
   }
-  it('hides the answer before the host approves it', () => {
-    for (const phase of ['pick', 'respond', 'moderate'] as const) {
+  it('hides a truth answer until the target chooses to share it (react)', () => {
+    for (const phase of ['pick', 'mode', 'prompt', 'respond'] as const) {
       expect(redactTurnForPublish({ ...base, phase }).response).toBeNull()
     }
   })
-  it('lets the answer through once approved (react/result)', () => {
-    expect(redactTurnForPublish({ ...base, phase: 'react' }).response).toBe('the secret answer')
-    expect(redactTurnForPublish({ ...base, phase: 'result' }).response).toBe('the secret answer')
+  it('lets the answer through at react/result', () => {
+    expect(redactTurnForPublish({ ...base, phase: 'react' }).response).toBe('the answer')
+    expect(redactTurnForPublish({ ...base, phase: 'result' }).response).toBe('the answer')
   })
 })
 

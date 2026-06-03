@@ -7,9 +7,11 @@
  * that satisfy the block contract.
  *
  * The content is the show config: the spice tier, the number of turns, and the
- * dealt prompt deck. There is no answer key and nothing withheld at this layer (the
- * moderation gate that decides what reaches the big screen is enforced live by the
- * host over the relay, not by answer redaction).
+ * prompt decks. There are two kinds of prompt, since the target chooses how to play
+ * each turn: TRUTH prompts (answer in words) and SHARE prompts (show a photo). Each
+ * kind has a family-friendly (mild) and a spicier (still party-appropriate) deck.
+ * Nothing is withheld at this layer (what reaches the big screen is governed live by
+ * the host's turn flow over the relay, not by answer redaction).
  */
 import { type ResultsFragment, defineBlock, z } from '@doot-games/sdk'
 import { defineComponent, h } from 'vue'
@@ -17,8 +19,10 @@ import { defineComponent, h } from 'vue'
 export const spotlightContentSchema = z.object({
   tier: z.enum(['mild', 'spicy']).default('mild').describe('Default spice tier (the host can switch it in the lobby).'),
   turns: z.number().int().positive().max(40).default(5).describe('How many spotlight turns to play.'),
-  mild: z.array(z.string()).default([]).describe('The family-friendly prompt deck.'),
-  spicy: z.array(z.string()).default([]).describe('The spicier (still party-appropriate) prompt deck.'),
+  truthsMild: z.array(z.string()).default([]).describe('Family-friendly truth questions.'),
+  truthsSpicy: z.array(z.string()).default([]).describe('Spicier truth questions.'),
+  sharesMild: z.array(z.string()).default([]).describe('Family-friendly photo-share prompts.'),
+  sharesSpicy: z.array(z.string()).default([]).describe('Spicier photo-share prompts.'),
 })
 export type SpotlightContent = z.infer<typeof spotlightContentSchema>
 
@@ -34,7 +38,7 @@ export const spotlightBlock = defineBlock<SpotlightContent, SpotlightInput>({
   kind: 'spotlight',
   name: 'Spotlight',
   contentSchema: spotlightContentSchema,
-  defaultContent: () => ({ tier: 'mild', turns: 5, mild: [], spicy: [] }),
+  defaultContent: () => ({ tier: 'mild', turns: 5, truthsMild: [], truthsSpicy: [], sharesMild: [], sharesSpicy: [] }),
   defaultTimer: null,
   timerOf: () => null,
   emptyInput: () => ({}),

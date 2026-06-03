@@ -126,7 +126,16 @@ To/Ballpark) shipped first. These need new primitives, so they're real builds, n
 compositions. (**Open Mic** was later reworked from the thin `quip->vote(perform)` composition
 into the same composition with a custom 3D standup-club host: `ComedyStage.vue` +
 `OpenMicHost.vue` + hardened TTS. Committed local, not yet pushed.)
-- [~] **G1. Truth or Share** - the owner's headline idea. **TEXT DARES SHIPPED** (committed
+- [x] **G1. Truth or Share** - the owner's headline idea, now built to the full spec: the
+  TARGET chooses **Truth** (answer in words) or **Share** (a photo), the picker then supplies
+  the prompt for that mode (or writes their own), and the answer/photo only hits the big
+  screen at `react` (no broken "host vets it privately" gate, since the host screen IS the
+  shared TV; consent is the target's own choice + a free pass). Photos are downscaled
+  on-device and sent over the relay (`/x/photo`, never S3), shown on the host big screen only.
+  Added an intro/rules card + per-phase showmanship and a spotlight stage. Earlier text-only
+  cut below, superseded:
+- [~] **(superseded) G1 text-dares cut** - the first pass shipped text-only with a host
+  moderation gate (committed
   local, not yet pushed): the **directed/spotlight** game as a custom-flow game over the
   proven `/x/` transport (picker → target → respond → react), a **host moderation gate**
   (the target's answer is vetted before it reaches the big screen, enforced by the pure tested

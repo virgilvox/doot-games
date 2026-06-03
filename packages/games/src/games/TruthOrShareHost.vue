@@ -1,31 +1,36 @@
 <script setup lang="ts">
 /**
- * Truth or Share host: the directed/spotlight show. A custom-flow Host that parks
- * the engine on the single `spotlight` round and drives every turn over the relay's
- * custom channels (the proven Circuit Cypher transport):
+ * Truth or Share host: the directed/spotlight show on the big screen. A custom-flow
+ * Host that parks the engine on the single `spotlight` round and drives every turn
+ * over the relay's custom channels:
+ *   - `/x/turn`     (host -> all, retained): the current turn state + phase
+ *   - `/x/pick`     (picker -> host): the chosen target, then the chosen prompt
+ *   - `/x/mode`     (target -> host): Truth or Share
+ *   - `/x/response` (target -> host): a typed truth answer, or a pass
+ *   - `/x/photo`    (target -> host): a downscaled photo for a Share (relay only,
+ *                    never S3; read by the host's big screen, not echoed to phones)
+ *   - `/x/react`    (room -> host): one playful reaction per player
  *
- *  - `/x/turn`   (host -> all, retained): the current turn state + phase.
- *  - `/x/pick`   (picker -> host): the chosen target + prompt.
- *  - `/x/response` (target -> host): the typed answer, or a pass.
- *  - `/x/react`  (room -> host): one playful reaction per player.
- *
- * The MODERATION GATE: the target's answer lands on `/x/response/<i>/<pid>` and the
- * host reviews it privately; it is only copied into the public `/x/turn` (and onto
- * the big screen) once the host approves. (Soft caveat, like the rest of Doot's
- * relay: a determined devtools user could read the raw response address; the gate
- * governs what the room SEES, it is not cryptographic secrecy. Passing is always
- * free, no penalty.) All scoring is the pure logic in `truthshare.ts`.
+ * The flow each turn is a four-step volley: the picker puts someone on the spot, the
+ * TARGET chooses Truth or Share, the picker supplies the prompt for that mode, the
+ * target responds, then the room reacts. There is no host "vet it first" gate: the
+ * host screen IS the room's screen, so nothing private is possible there. Consent is
+ * the target's own choice, they pick truth vs share, confirm their photo on their
+ * own phone, and a pass is always free. The answer/photo only reaches the big screen
+ * at `react`, after the target chose to share it. Scoring is the pure reaction-cut
+ * logic in `truthshare.ts`.
  */
 import type { RelayValue } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, DButton, Icon, RoomTicket, RosterChips } from '@doot-games/ui'
-import { type Ref, computed, inject, onMounted, onUnmounted, ref } from 'vue'
+import { type Ref, computed, inject, onMounted, ref } from 'vue'
 import type { SpotlightContent } from '../blocks/spotlight/block'
 import GameResults from '../runtime/GameResults.vue'
 import {
   REACTION_KINDS,
   type ReactionKind,
+  type SpotMode,
   type TurnInput,
   type TurnState,
   countReactions,
@@ -46,7 +51,7 @@ const joinUrl = computed(() => {
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 
-// ── Lobby ───────────────────────────────────────────────────────────────────
+// ── Lobby controls ──────────────────────────────────────────────────────────
 const tier = ref<'mild' | 'spicy'>('mild')
 const roundConfig = inject<{ min: number; max: number; default: number; label: string; value: number } | null>('dootRoundConfig', null)
 const roundChoices = computed(() => {
@@ -66,23 +71,28 @@ function setCap(raw: string) {
 
 // ── Turn state ──────────────────────────────────────────────────────────────
 const turns = computed(() => content.value?.turns ?? 5)
-const deck = computed(() => (content.value ? (tier.value === 'spicy' ? content.value.spicy : content.value.mild) : []))
+function deckFor(mode: SpotMode): string[] {
+  const c = content.value
+  if (!c) return []
+  if (mode === 'share') return tier.value === 'spicy' ? c.sharesSpicy : c.sharesMild
+  return tier.value === 'spicy' ? c.truthsSpicy : c.truthsMild
+}
 const order = ref<string[]>([]) // frozen picker rotation
 const turnIndex = ref(0)
 const turn = ref<TurnState | null>(null)
-const names = new Map<string, string>() // pid -> name, captured as we go
+const intro = ref(false) // the rules card, shown once after Start
+const names = new Map<string, string>()
 const results: TurnInput[] = []
-// The target's pending answer, held HOST-SIDE until the host approves it.
-const pendingResponse = ref<{ text: string; passed: boolean } | null>(null)
-// Reactions for the current turn, keyed by pid (one each, overwritten).
+// A shared photo, held host-side and rendered on the big screen only (never echoed
+// into the turn state, so it never travels to other phones).
+const pendingPhoto = ref<string | null>(null)
 const reactionsByPid = new Map<string, ReactionKind>()
 const reactionTick = ref(0)
 const confetti = ref(false)
 
 const phase = computed(() => turn.value?.phase ?? null)
-const inGame = computed(() => room.phase.value === 'active' && !!turn.value)
+const inGame = computed(() => room.phase.value === 'active' && !intro.value && !!turn.value)
 const rosterName = (pid: string) => room.players.value.find((p) => p.id === pid)?.name ?? names.get(pid) ?? 'Someone'
-
 const liveReactions = computed(() => {
   void reactionTick.value
   return countReactions(reactionsByPid.values())
@@ -98,17 +108,11 @@ function publishTurn(extra: Partial<TurnState> = {}) {
     ...turn.value,
     ...extra,
   }
-  // The moderation gate, enforced in one pure place: an answer never reaches the
-  // public turn state before the host approves it (phase react/result).
   const base = redactTurnForPublish(merged)
   turn.value = base
   room.publishExtra('turn', base as unknown as RelayValue)
 }
 
-/** The picker for turn `i`: the rotation slot, or the next PRESENT player in the
- *  rotation if that one has left, so a departed picker is substituted WITHOUT
- *  consuming a turn (the turn counter stays bounded by `turns`). '' if the room is
- *  empty. */
 function presentPickerFor(i: number): string {
   const present = new Set(room.players.value.map((p) => p.id))
   for (let k = 0; k < order.value.length; k++) {
@@ -125,11 +129,11 @@ function startTurn(i: number) {
   }
   const pickerPid = presentPickerFor(i)
   if (!pickerPid) {
-    finish() // nobody left to pick
+    finish()
     return
   }
   turnIndex.value = i
-  pendingResponse.value = null
+  pendingPhoto.value = null
   reactionsByPid.clear()
   reactionTick.value++
   confetti.value = false
@@ -141,33 +145,23 @@ function startTurn(i: number) {
     pickerPid,
     pickerName: rosterName(pickerPid),
     roster: room.players.value.map((p) => ({ pid: p.id, name: p.name })),
-    choices: dealPrompts(deck.value, room.runtime.room, i),
     target: null,
+    mode: null,
     prompt: null,
     response: null,
   }
   publishTurn()
 }
 
-/** Host approves the held answer: it now reaches the room. */
-function approve() {
-  if (phase.value !== 'moderate' || !pendingResponse.value) return
-  publishTurn({ phase: 'react', response: pendingResponse.value.text, passed: false })
-}
-/** Host skips the answer (off-color, or a stall): treated as a pass, no points. */
-function skipAnswer() {
-  if (!turn.value) return
-  recordAndResult(true)
-}
-/** Picker is stuck (left, or stalling): skip the whole turn. */
-function skipTurn() {
-  if (!turn.value) return
-  recordAndResult(true)
-}
-
 function endReactions() {
   if (phase.value !== 'react') return
   recordAndResult(false)
+}
+/** Host can move a turn along if a picker or target stalls (or things get weird):
+ *  scores it as a pass (no points, no penalty). */
+function skipTurn() {
+  if (!turn.value) return
+  recordAndResult(true)
 }
 
 function recordAndResult(passed: boolean) {
@@ -182,13 +176,12 @@ function recordAndResult(passed: boolean) {
   }
   const { targetPts, pickerPts } = scoreTurn(input)
   results.push(input)
-  if (!passed && !input.passed && tally.total > 0) {
-    confetti.value = true
-  }
+  if (!input.passed && tally.total > 0) confetti.value = true
   publishTurn({
     phase: 'result',
     passed: input.passed,
     response: passed ? null : t.response ?? null,
+    hasPhoto: passed ? false : t.hasPhoto ?? false,
     reactions: tally,
     targetPts,
     pickerPts,
@@ -219,32 +212,52 @@ function startGame() {
   order.value = room.players.value.map((p) => p.id)
   for (const p of room.players.value) names.set(p.id, p.name)
   room.host.start()
+  intro.value = true // show the rules before the first turn
+}
+function begin() {
+  intro.value = false
   startTurn(0)
 }
 function playAgain() {
   if (typeof window !== 'undefined') window.location.reload()
 }
 
+const modeLabel = computed(() => (turn.value?.mode === 'share' ? 'Share' : turn.value?.mode === 'truth' ? 'Truth' : ''))
+
 onMounted(() => {
-  // Picker chose a target + prompt. The channel key is `pick/<i>/<pid>`, so the
-  // pid is segment [2] (segment [1] is the turn index).
+  // Picker chose a target (phase pick) OR a prompt (phase prompt). Key: `pick/<i>/<pid>`.
   room.onExtra('pick/*/*', (v, key) => {
     const parts = key.split('/')
     const i = Number(parts[1])
     const pid = parts[2]
     const t = turn.value
-    if (!t || t.phase !== 'pick' || i !== t.i || pid !== t.pickerPid) return
-    const pick = v as { targetPid?: string; promptIndex?: number } | null
-    const targetPid = pick?.targetPid
-    const pi = pick?.promptIndex
-    if (!targetPid || targetPid === t.pickerPid || pi == null) return
-    const prompt = t.choices?.[pi]
-    if (!prompt) return
-    names.set(targetPid, rosterName(targetPid))
-    publishTurn({ phase: 'respond', target: { pid: targetPid, name: rosterName(targetPid) }, prompt, choices: undefined })
+    if (!t || i !== t.i || pid !== t.pickerPid) return
+    const data = v as { targetPid?: string; promptIndex?: number; customPrompt?: string } | null
+    if (!data) return
+    if (t.phase === 'pick' && data.targetPid && data.targetPid !== t.pickerPid) {
+      names.set(data.targetPid, rosterName(data.targetPid))
+      publishTurn({ phase: 'mode', target: { pid: data.targetPid, name: rosterName(data.targetPid) } })
+      return
+    }
+    if (t.phase === 'prompt') {
+      const custom = (data.customPrompt ?? '').trim()
+      const prompt = custom || (data.promptIndex != null ? t.choices?.[data.promptIndex] : '')
+      if (!prompt) return
+      publishTurn({ phase: 'respond', prompt, choices: undefined })
+    }
   })
-  // Target answered (or passed). Held host-side until approved. Key is
-  // `response/<i>/<pid>`, so the pid is segment [2].
+  // Target chose Truth or Share. Key: `mode/<i>/<pid>`.
+  room.onExtra('mode/*/*', (v, key) => {
+    const parts = key.split('/')
+    const i = Number(parts[1])
+    const pid = parts[2]
+    const t = turn.value
+    if (!t || t.phase !== 'mode' || i !== t.i || pid !== t.target?.pid) return
+    const mode = (v as { mode?: SpotMode } | null)?.mode
+    if (mode !== 'truth' && mode !== 'share') return
+    publishTurn({ phase: 'prompt', mode, choices: dealPrompts(deckFor(mode), room.runtime.room, t.i) })
+  })
+  // Target answered a Truth, or passed. Key: `response/<i>/<pid>`.
   room.onExtra('response/*/*', (v, key) => {
     const parts = key.split('/')
     const i = Number(parts[1])
@@ -254,16 +267,26 @@ onMounted(() => {
     const r = v as { text?: string; passed?: boolean } | null
     if (!r) return
     if (r.passed) {
-      pendingResponse.value = { text: '', passed: true }
       recordAndResult(true)
       return
     }
     const text = (r.text ?? '').trim()
     if (!text) return
-    pendingResponse.value = { text, passed: false }
-    publishTurn({ phase: 'moderate' }) // response withheld from the room until approved
+    publishTurn({ phase: 'react', response: text, hasPhoto: false })
   })
-  // A room reaction (one per pid, overwritten).
+  // Target shared a photo (downscaled bitmap, relay-only). Key: `photo/<i>/<pid>`.
+  room.onExtra('photo/*/*', (v, key) => {
+    const parts = key.split('/')
+    const i = Number(parts[1])
+    const pid = parts[2]
+    const t = turn.value
+    if (!t || t.phase !== 'respond' || i !== t.i || pid !== t.target?.pid) return
+    const media = (v as { media?: string } | null)?.media
+    if (!media || typeof media !== 'string') return
+    pendingPhoto.value = media
+    publishTurn({ phase: 'react', response: null, hasPhoto: true })
+  })
+  // A room reaction (one per pid, overwritten). Key: `react/<i>/<pid>`.
   room.onExtra('react/*/*', (v, key) => {
     const parts = key.split('/')
     const i = Number(parts[1])
@@ -271,12 +294,11 @@ onMounted(() => {
     const kind = (v as { kind?: ReactionKind } | null)?.kind
     if (i !== turnIndex.value || !pid || phase.value !== 'react') return
     if (!kind || !REACTION_KINDS.includes(kind)) return
-    if (pid === turn.value?.target?.pid) return // the target doesn't react to themselves
+    if (pid === turn.value?.target?.pid) return
     reactionsByPid.set(pid, kind)
     reactionTick.value++
   })
 })
-onUnmounted(() => {})
 </script>
 
 <template>
@@ -295,17 +317,7 @@ onUnmounted(() => {})
       <div v-if="roundConfig" class="round-pick">
         <span class="kicker">{{ roundConfig.label }}</span>
         <div class="round-opts" role="group" :aria-label="roundConfig.label">
-          <button
-            v-for="n in roundChoices"
-            :key="n"
-            type="button"
-            class="round-opt"
-            :class="{ on: roundConfig.value === n }"
-            :aria-pressed="roundConfig.value === n"
-            @click="roundConfig.value = n"
-          >
-            {{ n }}
-          </button>
+          <button v-for="n in roundChoices" :key="n" type="button" class="round-opt" :class="{ on: roundConfig.value === n }" :aria-pressed="roundConfig.value === n" @click="roundConfig.value = n">{{ n }}</button>
         </div>
       </div>
 
@@ -322,22 +334,13 @@ onUnmounted(() => {})
           <input type="checkbox" :checked="playerCap != null" @change="toggleCap(($event.target as HTMLInputElement).checked)" />
           <span class="kicker">Limit how many can join</span>
         </label>
-        <input
-          v-if="playerCap != null"
-          type="number"
-          min="1"
-          inputmode="numeric"
-          class="cap-input"
-          :value="playerCap ?? 20"
-          aria-label="Maximum players"
-          @input="setCap(($event.target as HTMLInputElement).value)"
-        />
+        <input v-if="playerCap != null" type="number" min="1" inputmode="numeric" class="cap-input" :value="playerCap ?? 20" aria-label="Maximum players" @input="setCap(($event.target as HTMLInputElement).value)" />
       </div>
 
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="!content || room.players.value.length < 1" @click="startGame">Start the show</DButton>
       </div>
-      <p class="note">Each turn one player puts another on the spot. Answer or pass (passing is always free); the room reacts. You need at least three players.</p>
+      <p class="note">Each turn, one player puts another on the spot. The chosen player picks Truth (answer out loud) or Share (show a photo), then does it, or passes. Passing is always free. You need at least three players.</p>
     </section>
   </div>
 
@@ -351,47 +354,64 @@ onUnmounted(() => {})
     </div>
   </div>
 
+  <!-- INTRO / RULES -->
+  <div v-else-if="room.phase.value === 'active' && intro" class="stage">
+    <div class="spot" />
+    <div class="intro">
+      <div class="kicker"><Icon name="eye" :size="18" /> Truth or Share</div>
+      <h1 class="title">Who is brave tonight?</h1>
+      <ol class="rules">
+        <li><b>One player picks</b> who is on the spot.</li>
+        <li><b>That player chooses</b>: tell a <b>Truth</b>, or <b>Share</b> a photo.</li>
+        <li><b>They do it</b>, or pass. Passing is always free.</li>
+        <li><b>The room reacts.</b> Big reactions score, and the picker takes a cut, so pick someone good.</li>
+      </ol>
+      <DButton variant="primary" size="lg" @click="begin">Bring up the first player</DButton>
+    </div>
+  </div>
+
   <!-- THE SHOW -->
-  <div v-else-if="inGame && turn" class="show">
-    <ConfettiBurst v-if="confetti" class="show-confetti" />
+  <div v-else-if="inGame && turn" class="stage">
+    <ConfettiBurst v-if="confetti" class="stage-confetti" />
+    <div class="spot" :class="{ hot: phase === 'react' || phase === 'respond' }" />
     <div class="hud">
       <span class="tag">TURN {{ turn.i + 1 }} / {{ turn.total }}</span>
       <span class="tag spice">{{ tier === 'spicy' ? 'SPICY' : 'MILD' }}</span>
     </div>
 
-    <!-- pick -->
+    <!-- pick: the picker is choosing a target -->
     <div v-if="phase === 'pick'" class="card">
       <div class="kicker"><Icon name="eye" :size="18" /> On the spot</div>
       <h1 class="big">{{ turn.pickerName }} is choosing</h1>
-      <p class="sub">Picking who to put in the spotlight, and with what.</p>
-      <DButton variant="ghost" @click="skipTurn">Skip this turn</DButton>
+      <p class="sub">Who gets put on the spot this turn?</p>
     </div>
 
-    <!-- respond -->
+    <!-- mode: the target chooses truth or share -->
+    <div v-else-if="phase === 'mode'" class="card">
+      <div class="kicker">{{ turn.pickerName }} put them on the spot</div>
+      <h1 class="big spotlit">{{ turn.target?.name }}</h1>
+      <p class="sub">Truth or Share? It's their call, on their phone.</p>
+    </div>
+
+    <!-- prompt: the picker is choosing the prompt for the chosen mode -->
+    <div v-else-if="phase === 'prompt'" class="card">
+      <div class="kicker">{{ turn.target?.name }} chose <b>{{ modeLabel }}</b></div>
+      <h1 class="big">{{ turn.pickerName }} is picking a {{ modeLabel.toLowerCase() }}</h1>
+      <p class="sub">{{ turn.mode === 'share' ? 'A photo to ask for...' : 'A question to ask...' }}</p>
+    </div>
+
+    <!-- respond: the target is answering / lining up a photo -->
     <div v-else-if="phase === 'respond'" class="card">
-      <div class="kicker">{{ turn.pickerName }} asks {{ turn.target?.name }}</div>
+      <div class="kicker">{{ turn.pickerName }} asks {{ turn.target?.name }} ({{ modeLabel }})</div>
       <h1 class="prompt">{{ turn.prompt }}</h1>
-      <p class="sub">{{ turn.target?.name }} is answering on their phone...</p>
-      <DButton variant="ghost" @click="skipTurn">Skip this turn</DButton>
+      <p class="sub">{{ turn.mode === 'share' ? turn.target?.name + ' is lining up a photo...' : turn.target?.name + ' is answering on their phone...' }}</p>
     </div>
 
-    <!-- moderate (host-only gate) -->
-    <div v-else-if="phase === 'moderate'" class="card moderate">
-      <div class="kicker"><Icon name="mask" :size="18" /> Your call, host</div>
-      <h2 class="prompt-sm">{{ turn.prompt }}</h2>
-      <blockquote class="answer-preview">{{ pendingResponse?.text }}</blockquote>
-      <p class="sub">Only you can see this. Show it to the room, or skip it.</p>
-      <div class="mod-actions">
-        <DButton variant="primary" size="lg" @click="approve">Show the room</DButton>
-        <DButton variant="ghost" @click="skipAnswer">Skip it</DButton>
-      </div>
-    </div>
-
-    <!-- react -->
-    <div v-else-if="phase === 'react'" class="card">
-      <div class="kicker">{{ turn.target?.name }} answered</div>
-      <h2 class="prompt-sm">{{ turn.prompt }}</h2>
-      <blockquote class="answer">{{ turn.response }}</blockquote>
+    <!-- react: the answer / photo is shown, the room reacts -->
+    <div v-else-if="phase === 'react'" class="card wide">
+      <div class="kicker">{{ turn.target?.name }} {{ turn.hasPhoto ? 'shared' : 'answered' }}</div>
+      <img v-if="turn.hasPhoto && pendingPhoto" :src="pendingPhoto" alt="" class="shared-photo" />
+      <blockquote v-else class="answer">{{ turn.response }}</blockquote>
       <div class="react-live">
         <span v-for="k in REACTION_KINDS" :key="k" class="rc">{{ k }}: {{ liveReactions[k] }}</span>
       </div>
@@ -402,22 +422,28 @@ onUnmounted(() => {})
     <div v-else-if="phase === 'result'" class="card">
       <div class="kicker"><Icon name="crown" :size="18" /> Turn done</div>
       <template v-if="turn.passed">
-        <h2 class="big">{{ turn.target?.name ? turn.target.name + ' passed' : 'Skipped' }}</h2>
+        <h1 class="big">{{ turn.target?.name ? turn.target.name + ' passed' : 'Skipped' }}</h1>
         <p class="sub">No points, no penalty. Passing is always free.</p>
       </template>
       <template v-else>
-        <blockquote class="answer">{{ turn.response }}</blockquote>
+        <img v-if="turn.hasPhoto && pendingPhoto" :src="pendingPhoto" alt="" class="shared-photo sm" />
+        <blockquote v-else class="answer">{{ turn.response }}</blockquote>
         <div class="score-row">
           <span class="score-chip">{{ turn.target?.name }} <b>+{{ turn.targetPts }}</b></span>
           <span class="score-chip">{{ turn.pickerName }} (picked) <b>+{{ turn.pickerPts }}</b></span>
         </div>
         <p class="sub">{{ turn.reactions?.total ?? 0 }} {{ (turn.reactions?.total ?? 0) === 1 ? 'reaction' : 'reactions' }} from the room.</p>
       </template>
-      <DButton variant="primary" size="lg" @click="nextTurn">{{ turn.i + 1 >= turn.total ? 'Final results' : 'Next turn' }}</DButton>
+    </div>
+
+    <!-- controls -->
+    <div class="ctrls">
+      <button v-if="phase !== 'react' && phase !== 'result'" type="button" class="ctrl-skip" @click="skipTurn">Skip turn</button>
+      <DButton v-if="phase === 'result'" variant="primary" @click="nextTurn">{{ turn.i + 1 >= turn.total ? 'Final results' : 'Next turn' }}</DButton>
     </div>
   </div>
 
-  <div v-else class="show"><p class="loading">Setting up the spotlight…</p></div>
+  <div v-else class="stage"><p class="loading">Setting up the spotlight…</p></div>
 </template>
 
 <style scoped>
@@ -429,15 +455,9 @@ onUnmounted(() => {})
 .round-pick, .tier-pick { margin-top: 16px; }
 .round-opts, .seg { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .round-opt, .seg-btn {
-  min-width: 44px;
-  padding: 9px 16px;
-  border-radius: 10px;
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
+  min-width: 44px; padding: 9px 16px; border-radius: 10px;
+  border: var(--bd) solid var(--line-soft); background: var(--surface);
+  color: var(--ink); font: inherit; font-weight: 800; cursor: pointer;
 }
 .round-opt.on, .seg-btn.on { background: var(--primary); color: var(--primary-ink); border-color: var(--line); }
 .cap-pick { margin-top: 16px; }
@@ -446,56 +466,123 @@ onUnmounted(() => {})
 .cap-row .kicker, .round-pick > .kicker, .tier-pick > .kicker { font-size: 15px; }
 .cap-input { display: block; margin-top: 8px; width: 110px; padding: 9px 12px; border-radius: 10px; border: var(--bd) solid var(--line-soft); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; }
 .lobby-actions { margin-top: 18px; }
-.note { margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
+.note { margin-top: 12px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
 
 .results-wrap { flex: 1; display: flex; flex-direction: column; }
 .results-next { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 24px; }
 
-.show { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-.show-confetti { position: absolute; inset: 0; pointer-events: none; }
-.hud { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; }
-.tag {
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 1px;
-  padding: 7px 12px;
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface-2);
-  border-radius: 6px;
-  color: var(--ink-soft);
+/* The spotlight stage: a dark, theatrical frame with a soft cone of light. */
+.stage {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--c5, var(--primary)) 22%, #0c0a14), #0c0a14);
+  color: #f6f0ff;
+  min-height: 70vh;
 }
-.tag.spice { color: var(--primary); border-color: var(--primary); }
-.card {
-  width: min(760px, 100%);
+.spot {
+  position: absolute;
+  top: -18%;
+  left: 50%;
+  width: 70%;
+  height: 120%;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 42% at 50% 30%, rgba(255, 240, 210, 0.22), transparent 70%);
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  opacity: 0.7;
+}
+.spot.hot { opacity: 1; }
+.stage-confetti { position: absolute; inset: 0; pointer-events: none; }
+.hud { position: absolute; top: 16px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 20px; }
+.tag {
+  font-weight: 800; font-size: 13px; letter-spacing: 1px; padding: 7px 12px;
+  border: 2px solid rgba(255, 255, 255, 0.22); background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px; color: #f6f0ff; backdrop-filter: blur(4px);
+}
+.tag.spice { color: #ffc46b; border-color: rgba(255, 196, 107, 0.5); }
+.intro, .card {
+  position: relative;
+  z-index: 1;
+  width: min(820px, 92%);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
 }
-.kicker { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); font-size: 15px; }
-.big { font-size: clamp(30px, 6vw, 60px); font-weight: 900; }
-.prompt { font-size: clamp(26px, 5vw, 48px); font-weight: 800; line-height: 1.1; }
-.prompt-sm { font-size: clamp(20px, 3.4vw, 30px); font-weight: 800; color: var(--ink-soft); }
-.sub { color: var(--ink-soft); max-width: 36ch; line-height: 1.45; }
-.answer, .answer-preview {
+.card.wide { width: min(900px, 94%); }
+.kicker { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #ffc46b; font-size: 15px; }
+.kicker b { color: #fff; }
+.title { font-weight: 900; font-size: clamp(30px, 6vw, 60px); }
+.rules {
+  text-align: left;
+  margin: 4px 0 8px;
+  padding-left: 26px;
+  display: grid;
+  gap: 10px;
+  font-size: clamp(15px, 2.4vw, 20px);
+  line-height: 1.4;
+  color: #e9e2f5;
+  max-width: 32ch;
+}
+.rules b { color: #fff; }
+.big { font-weight: 900; font-size: clamp(30px, 6vw, 64px); line-height: 1.02; }
+.spotlit { text-shadow: 0 0 40px rgba(255, 240, 210, 0.55); color: #fff; }
+.prompt { font-weight: 800; font-size: clamp(26px, 5vw, 48px); line-height: 1.1; max-width: 22ch; }
+.sub { color: #cfc6e0; max-width: 40ch; line-height: 1.45; font-size: clamp(15px, 2.4vw, 19px); }
+.answer {
   margin: 0;
   width: 100%;
-  background: var(--surface-2);
-  border: var(--bd) solid var(--line);
-  border-left: 5px solid var(--primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-left: 5px solid #ffc46b;
   border-radius: var(--radius);
-  padding: 20px 24px;
-  font-size: clamp(20px, 4vw, 32px);
-  font-weight: 700;
-  line-height: 1.35;
+  padding: 22px 26px;
+  font-size: clamp(22px, 4.2vw, 36px);
+  font-weight: 800;
+  line-height: 1.3;
+  color: #fff;
 }
-.answer-preview { border-left-color: var(--c4); }
-.moderate { gap: 14px; }
-.mod-actions, .score-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-.react-live { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; font-weight: 800; color: var(--ink-soft); text-transform: capitalize; }
-.score-chip { background: var(--surface-2); border: var(--bd) solid var(--line); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
-.score-chip b { color: var(--c5); }
+.shared-photo {
+  max-width: min(560px, 90%);
+  max-height: 48vh;
+  border-radius: 14px;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+.shared-photo.sm { max-height: 34vh; }
+.react-live { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-weight: 800; color: #cfc6e0; text-transform: capitalize; }
+.score-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.score-chip { background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 999px; padding: 8px 16px; font-weight: 700; }
+.score-chip b { color: #ffc46b; }
+.ctrls {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 2;
+}
+.ctrl-skip {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: #cfc6e0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.ctrl-skip:hover { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
 .loading { color: var(--ink-soft); }
 @media (max-width: 900px) { .lobby { grid-template-columns: 1fr; } }
 </style>

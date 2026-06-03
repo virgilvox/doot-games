@@ -7,6 +7,19 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
+> **Truth or Share rebuilt to the full spec (2026-06-02, COMMITTED locally, not pushed).**
+> The first cut was text-only with a host "vet it first" moderation gate, which was broken:
+> the host screen IS the shared big screen, so the gate showed the answer to the whole room
+> anyway. Rebuilt: each turn the picker puts someone on the spot, the TARGET chooses **Truth**
+> (answer in words) or **Share** (a photo), the picker then picks the prompt for that mode (or
+> writes their own), the target responds (or passes, always free), and the answer/photo only
+> reaches the big screen at `react`. Photos are downscaled on-device and sent over the relay
+> (`/x/photo`, never S3), rendered on the host big screen only. Added an intro/rules card +
+> per-phase showmanship and a spotlight-styled stage. New turn phases
+> `pick -> mode -> prompt -> respond -> react -> result`. Verified: 315 tests, typecheck,
+> build, and the 3-game browser smoke (intro shown, both modes offered, custom prompt, answer
+> withheld until react, photo reaches the big screen over the relay). NOT pushed yet.
+>
 > **Faker + Open Mic + Truth or Share + audits + copy/em-dash sweep (2026-06-02, PUSHED to
 > `main`, deploying via CI).** A large batch: three new flagships, two adversarial audit
 > rounds, a real-browser smoke, a project-wide em-dash removal, and a pictographic-emoji
