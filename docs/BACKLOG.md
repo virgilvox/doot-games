@@ -94,11 +94,19 @@ each group; `[size]` is a rough effort hint.
     **"advance as soon as everyone has answered"** toggle (auto-locks the round when
     all eligible players are in; host still controls reveal/next). Both on the generic
     host page (GameHost); Circuit Cypher keeps its own choreographed timing.
-  - **timeout safety net**: auto-fill an unsubmitted free-text round at 50% (no dead air);
+  - [x] **timeout safety net** (quip -> vote): a quip round carries `safetyAnswers`; the vote
+    derive fills eligible non-submitters with a deterministic canned answer (no gap, no zero),
+    flagged in the withheld key, and the aggregate scores it at half. Wired into Quip Clash;
+    unit-tested. **Follow-ups:** extend to fill/split/bars judges + a markdown `safety:` field.
+  - [x] **tie handling** (co-crown): a top-score tie reads "A & B tie for the win" / "N-way
+    tie: ..."; the leaderboard uses competition ranking so co-leaders share the star. Pure
+    `crownHeadline`, unit-tested. (Split's per-scenario closeness already has no single winner.)
   - **content-filter tiers** (off / moderate / strict) + family/adult prompt tracks;
-  - **audience-as-discounted-bloc** voting (`audienceWeight` exists in `scoring.ts` but is
-    not wired into any game);
-  - tie handling (split / co-crown) + custom prompt packs via a share code.
+  - **audience-as-discounted-bloc** voting - NOTE: `audienceWeight` does NOT exist in code (the
+    earlier backlog claim was wrong; flagship-games §258 lists it as a *planned* pure fn). There
+    is no audience/spectator role today (only a player cap), so this needs a **role split**
+    (player vs. audience) + weighted/capped tallies first - a feature, not a wiring. `[medium]`
+  - custom prompt packs via a share code.
 - [ ] **E18. Smaller engine gaps:**
   - [x] `PlayerReveal` everywhere - added to **poll / rank / rate / draw** (poll: you-vs-room
     top pick; rate: your score vs the room average per category; rank: the consensus order

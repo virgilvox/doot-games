@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the three-pane schema-driven editor (single rounds or one-click two-phase recipes, or import from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **355 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive + secret per-player content), the **block SDK** (20 blocks), a five-pack **theme system**, the theme-aware **UI library**, **twenty-two games** built from composable blocks, fifteen flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher (a robot rap battle), "What, You Didn't Know That?" (a trivia gameshow with buzz-ins), Fib Finder, Sketch & Spot, Backronym, Open Mic, Hivemind (read the room), Most Likely To, Ballpark (closest-guess trivia), Faker (social deduction), Truth or Share (spotlight dares), and Quiz or Die (a Trivia-Murder-Party-style horror show)) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, an account-linked **Connect with Claude** (MCP) integration, and the **Nuxt shell**. Still ahead: the external-plugin sandbox. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the three-pane schema-driven editor (single rounds or one-click two-phase recipes, or import from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **362 tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive + secret per-player content), the **block SDK** (20 blocks), a five-pack **theme system**, the theme-aware **UI library**, **twenty-two games** built from composable blocks, fifteen flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher (a robot rap battle), "What, You Didn't Know That?" (a trivia gameshow with buzz-ins), Fib Finder, Sketch & Spot, Backronym, Open Mic, Hivemind (read the room), Most Likely To, Ballpark (closest-guess trivia), Faker (social deduction), Truth or Share (spotlight dares), and Quiz or Die (a Trivia-Murder-Party-style horror show)) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, an account-linked **Connect with Claude** (MCP) integration, and the **Nuxt shell**. Still ahead: the external-plugin sandbox. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -52,7 +52,7 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 
 ## Features
 
-- 🎮 **Twelve built-in games**, five flagship **"Games From Doot"** that are ready to play and replayable (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, and "What, You Didn't Know That?"), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
+- 🎮 **Twenty-two built-in games**, fifteen flagship **"Games From Doot"** that are ready to play and replayable (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?", Quiz or Die, Fib Finder, and more), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
 - 🧩 **Blocks + compositions**, a *block* is a round kind (content schema + Player/Host views + aggregate + answer-withholding); a *game* composes blocks. Most games are ~20 lines and need no components. Import a whole game from a [markdown spec](./docs/markdown-games.md).
 - 🎨 **Theming**, cute, cyber, professional, and playful packs out of the box; per-game accent and title overrides.
 - ♻️ **Reconnect by name**, no login, no local-storage dependency.
@@ -67,7 +67,7 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 | --- | --- |
 | Framework | **Nuxt** (Nuxt 4 line) + **Vue 3**, TypeScript strict |
 | Real-time | **CLASP** (`@clasp-to/core`) pub/sub relay |
-| Canvas / heavy animation | **Pixi 8** via **[`vue3-pixi`](https://github.com/hairyf/vue3-pixi)**, *CSS first, Pixi only where it earns its place* |
+| Canvas / heavy animation | **Pixi 8**, mounted directly via a thin client-only composable (the `DrawCanvas` surface), *CSS first, Pixi only where it earns its place* |
 | Database | **Drizzle ORM** over **libSQL/SQLite** (zero-config; Postgres is a follow-up for scale) |
 | Auth | **better-auth** + argon2id (optional, non-blocking) |
 | Validation | **Zod** (API, manifests, game configs) |
@@ -75,7 +75,7 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 | Infra | **Docker Compose** + **Caddy** (automatic HTTPS) |
 | Tooling | **pnpm** workspaces, **Biome**, **Vitest** |
 
-> **Animation philosophy:** plain CSS is the default for motion, it's lighter, accessible by default, and renders identically everywhere. Pixi (through `vue3-pixi`) is reserved for the drawing surface, mini-games, and particle-heavy results moments. See [PRD §6](./Doot-PRD.md) and [`CLAUDE.md`](./CLAUDE.md).
+> **Animation philosophy:** plain CSS is the default for motion, it's lighter, accessible by default, and renders identically everywhere. Pixi (mounted directly via a thin composable) is reserved for the drawing surface, mini-games, and particle-heavy results moments. See [PRD §6](./Doot-PRD.md) and [`CLAUDE.md`](./CLAUDE.md).
 
 ## Try the prototype
 
@@ -101,7 +101,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 
 # 3. Verify the workspace
-pnpm test                   # 355 tests (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
+pnpm test                   # 362 tests (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
 pnpm -r typecheck
 
 #, or, bring up the full local stack (app + Postgres + MinIO)
