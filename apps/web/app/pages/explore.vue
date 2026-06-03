@@ -84,7 +84,7 @@ const featured = computed(() => flagshipGames[0] ?? null)
         </div>
 
         <!-- featured Game From Doot -->
-        <NuxtLink v-if="featured" :to="`/host/${featured.id}`" class="feature">
+        <NuxtLink v-if="featured" :to="`/game/${featured.id}`" class="feature">
           <div class="fcontent">
             <span class="fkick">Featured · Game From Doot</span>
             <h2>{{ featured.name }}</h2>
@@ -99,7 +99,7 @@ const featured = computed(() => flagshipGames[0] ?? null)
       <section v-if="doot.length" class="section">
         <div class="section-head"><div><span class="kicker">Ready to play</span><h2>Games From Doot</h2></div></div>
         <div class="grid">
-          <NuxtLink v-for="g in doot" :key="g.id" :to="`/host/${g.id}`" class="card">
+          <NuxtLink v-for="g in doot" :key="g.id" :to="`/game/${g.id}`" class="card">
             <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
               <div class="card-title">{{ g.name }}</div>

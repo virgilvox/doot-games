@@ -105,7 +105,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => a.name.localeCompare(b
           <NuxtLink class="more" to="/explore">See all &rarr;</NuxtLink>
         </div>
         <div class="rail">
-          <NuxtLink v-for="g in flagshipsSorted" :key="g.id" :to="`/host/${g.id}`" class="card rail-card">
+          <NuxtLink v-for="g in flagshipsSorted" :key="g.id" :to="`/game/${g.id}`" class="card rail-card">
             <GameCover :title="g.name" :type="g.id" />
             <div class="card-body">
               <div class="card-title">{{ g.name }}</div>

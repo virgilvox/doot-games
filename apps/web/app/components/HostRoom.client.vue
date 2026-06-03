@@ -141,7 +141,7 @@ const playerCount = computed(() => room.players.value.length)
 <template>
   <Stage>
     <template #bar>
-      <DootLogo :size="40" />
+      <NuxtLink to="/" class="home-link" aria-label="Doot home"><DootLogo :size="40" /></NuxtLink>
       <div class="bar-right">
         <span class="chip">{{ playerCount }} {{ playerCount === 1 ? 'player' : 'players' }}</span>
         <span class="chip" :class="room.connected.value ? 'live' : 'dead'">
@@ -155,6 +155,16 @@ const playerCount = computed(() => room.players.value.length)
 </template>
 
 <style scoped>
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  border-radius: 10px;
+}
+.home-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
 .bar-right {
   display: flex;
   align-items: center;
