@@ -91,10 +91,50 @@ const uploadReason = computed(() =>
 )
 provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload(), reason: uploadReason })
 
-// Derived blocks (e.g. drawvote) only make sense paired with the make round that
-// feeds them, so they are not offered as a standalone "add round" option; they
-// still render/host when present (created by the markdown draw-vote expansion).
-const blockChoices = computed(() => plugin.blocks.filter((b) => !b.derive))
+// ── Add-round model ───────────────────────────────────────────────────────
+// Standalone blocks the author can add on their own. A derived "judge" block
+// (vote/split/fibvote/drawvote/accuse) needs a make round feeding it, so it is
+// never offered alone; a make-only block (quip/fill/...) collects input but
+// scores nothing by itself, so it is only offered inside a two-phase recipe.
+const MAKE_ONLY = new Set(['quip', 'fill', 'bars', 'faker', 'spotlight'])
+const singleBlocks = computed(() => plugin!.blocks.filter((b) => !b.derive && !MAKE_ONLY.has(b.kind)))
+// One-line "what is this" for each standalone block, shown on the Add cards.
+const SINGLE_DESC: Record<string, string> = {
+  guess: 'Multiple choice with one right answer.',
+  rate: 'Score things on a scale.',
+  poll: 'An opinion vote, no right answer.',
+  rank: 'Players drag items into order.',
+  draw: 'Players sketch the prompt.',
+  hivemind: 'Free-text answers; score by matching the crowd.',
+  mostlikely: 'Vote on who in the room fits the prompt.',
+  ballpark: 'Closest numeric guess wins.',
+  buzzer: 'First correct buzz takes the points.',
+}
+function singleDesc(kind: string): string {
+  return SINGLE_DESC[kind] ?? ''
+}
+// Two-phase recipes: each inserts a make round + the judge round derived from
+// it, the only way to build a Jackbox-style game by hand. Offered only when the
+// plugin composes BOTH halves (so a single-type editor shows none).
+interface Recipe {
+  id: string
+  name: string
+  description: string
+  make: string
+  judge: string
+}
+const ALL_RECIPES: Recipe[] = [
+  { id: 'write-vote', name: 'Write & Vote', description: 'Everyone writes an answer, then the room votes for the best one.', make: 'quip', judge: 'vote' },
+  { id: 'madlib-vote', name: 'Mad Lib & Vote', description: 'Players fill in the blanks, then vote on the funniest result.', make: 'fill', judge: 'vote' },
+  { id: 'would-you-split', name: 'Would You & Split', description: 'Players write would-you-rather prompts, then the room splits for or against each.', make: 'fill', judge: 'split' },
+  { id: 'lie-detector', name: 'Lie Detector', description: 'Players write convincing lies; you set the real truth; the room hunts it down.', make: 'quip', judge: 'fibvote' },
+  { id: 'sketch-vote', name: 'Sketch & Vote', description: 'Everyone draws the prompt, then votes for the best drawing.', make: 'draw', judge: 'drawvote' },
+  { id: 'hidden-faker', name: 'Hidden Faker', description: 'One player secretly fakes knowing the word; everyone gives a clue, then the room accuses.', make: 'faker', judge: 'accuse' },
+]
+const recipes = computed(() => {
+  const kinds = new Set(plugin!.blocks.map((b) => b.kind))
+  return ALL_RECIPES.filter((r) => kinds.has(r.make) && kinds.has(r.judge))
+})
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
   return getBlock(plugin!, inst.block)
 }
@@ -185,28 +225,58 @@ function resetPreview(i: number) {
 // so they show their open, no-answers-yet state.
 const previewMode = ref<'phone' | 'host'>('phone')
 
-// Default to the first ADDABLE block (blockChoices hides derived blocks), so the
-// bound value always matches what the dropdown actually shows.
-const addKind = ref(blockChoices.value[0]?.kind ?? '')
-function addRound() {
-  const block = getBlock(plugin!, addKind.value)
+// The selected round drives the center form and the right-pane preview. Below
+// ~1000px the preview collapses into a drawer (showPreviewDrawer).
+const selected = ref(0)
+const showPreviewDrawer = ref(false)
+const cur = computed(() => config.rounds[selected.value])
+function select(i: number) {
+  selected.value = i
+  showPreviewDrawer.value = false
+}
+// previewInputs is keyed by round index; clear it on any structural change so a
+// shifted round never shows the previous occupant's in-progress input.
+function clearPreviews() {
+  for (const k of Object.keys(previewInputs)) delete previewInputs[Number(k)]
+}
+
+// The Add panel (an overlay) offers Single rounds + Two-phase recipes; the bar's
+// "More" menu holds Details + Import (which also open as overlays).
+const showAdd = ref(false)
+const showMore = ref(false)
+function addSingle(kind: string) {
+  const block = getBlock(plugin!, kind)
   if (!block) return
   config.rounds.push({ block: block.kind, content: block.defaultContent() })
+  selected.value = config.rounds.length - 1
+  showAdd.value = false
+}
+function addRecipe(recipe: Recipe) {
+  const make = getBlock(plugin!, recipe.make)
+  const judge = getBlock(plugin!, recipe.judge)
+  if (!make || !judge) return
+  // Push the make round then the judge round derived from it; the judge's
+  // default source is the round right above it, so adjacency wires the pair.
+  config.rounds.push({ block: make.kind, content: make.defaultContent() })
+  config.rounds.push({ block: judge.kind, content: judge.defaultContent() })
+  selected.value = config.rounds.length - 2 // land on the make round
+  showAdd.value = false
 }
 function removeRound(i: number) {
   config.rounds.splice(i, 1)
-  delete previewInputs[i]
+  clearPreviews()
+  if (selected.value >= config.rounds.length) selected.value = Math.max(0, config.rounds.length - 1)
+  else if (selected.value > i) selected.value -= 1
 }
 function moveRound(i: number, dir: -1 | 1) {
   const j = i + dir
   if (j < 0 || j >= config.rounds.length) return
   const [r] = config.rounds.splice(i, 1)
   config.rounds.splice(j, 0, r!)
-}
-
-const expanded = ref<number | null>(0)
-function toggle(i: number) {
-  expanded.value = expanded.value === i ? null : i
+  clearPreviews()
+  // Keep the selection following the round the author just moved.
+  if (selected.value === i) selected.value = j
+  else if (selected.value === j) selected.value = i
 }
 
 // Import a whole game from a markdown spec (see docs/markdown-games.md). Rounds
@@ -282,8 +352,8 @@ function importMarkdown() {
   if (parsed.themeId && themes.some((t) => t.id === parsed.themeId)) themeId.value = parsed.themeId
   if (kept.length) {
     config.rounds.splice(0, config.rounds.length, ...kept)
-    for (const k of Object.keys(previewInputs)) delete previewInputs[Number(k)]
-    expanded.value = 0
+    clearPreviews()
+    selected.value = 0
   }
   importWarnings.value = [
     ...parsed.warnings,
@@ -376,130 +446,49 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 <template>
   <main>
     <div class="wrap editor">
-      <header class="ed-head">
-        <div>
+      <!-- Sticky top bar: title (left) + a compact actions cluster (right). -->
+      <header class="ed-bar">
+        <div class="ed-bar-title">
           <span class="kicker">{{ headerLabel }} · {{ plugin.manifest.name }}</span>
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
         </div>
-        <div class="ed-actions">
-          <div class="ed-settings" role="group" aria-label="Game settings">
-            <div class="ed-field">
-              <span class="ed-label">Theme</span>
-              <div class="ed-swatches" role="group" aria-label="Theme">
-                <button
-                  v-for="t in themeList"
-                  :key="t.id"
-                  type="button"
-                  class="ed-swatch"
-                  :class="{ on: themeId === t.id }"
-                  :title="t.name"
-                  :aria-label="`Theme: ${t.name}`"
-                  :aria-pressed="themeId === t.id"
-                  :style="{ background: `linear-gradient(135deg, ${t.tokens.primary}, ${t.tokens.c1})` }"
-                  @click="themeId = t.id"
-                />
-              </div>
+        <div class="ed-bar-actions">
+          <div class="ed-swatches" role="group" aria-label="Theme">
+            <button
+              v-for="t in themeList"
+              :key="t.id"
+              type="button"
+              class="ed-swatch"
+              :class="{ on: themeId === t.id }"
+              :title="t.name"
+              :aria-label="`Theme: ${t.name}`"
+              :aria-pressed="themeId === t.id"
+              :style="{ background: `linear-gradient(135deg, ${t.tokens.primary}, ${t.tokens.c1})` }"
+              @click="themeId = t.id"
+            />
+          </div>
+          <select v-model="visibility" class="sf-select ed-vis" aria-label="Visibility" :title="visibilityNote">
+            <option value="private">Private</option>
+            <option value="unlisted">Unlisted (link only)</option>
+            <option value="public">Public (listed)</option>
+          </select>
+          <div class="ed-more">
+            <button type="button" class="ed-toggle" :class="{ on: showMore }" :aria-expanded="showMore" aria-haspopup="true" aria-label="More options" @click="showMore = !showMore">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+              More
+            </button>
+            <div v-if="showMore" class="ed-more-menu" role="menu">
+              <button type="button" role="menuitem" @click="showDetails = true; showMore = false">Details</button>
+              <button type="button" role="menuitem" @click="showImport = true; showMore = false">Import from text</button>
             </div>
-            <label class="ed-field">
-              <span class="ed-label">Visibility</span>
-              <select v-model="visibility" class="sf-select" aria-label="Visibility" :title="visibilityNote">
-                <option value="private">Private</option>
-                <option value="unlisted">Unlisted (link only)</option>
-                <option value="public">Public (listed)</option>
-              </select>
-            </label>
-            <button type="button" class="ed-toggle" :class="{ on: showDetails }" :aria-pressed="showDetails" @click="showDetails = !showDetails">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h5l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z" /></svg>
-              Details
-            </button>
-            <button type="button" class="ed-toggle" :class="{ on: showImport }" :aria-pressed="showImport" @click="showImport = !showImport">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
-              Import
-            </button>
+            <button v-if="showMore" type="button" class="ed-more-scrim" aria-hidden="true" tabindex="-1" @click="showMore = false" />
           </div>
-          <div class="ed-primary">
-            <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
-              {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
-            </button>
-            <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
-          </div>
+          <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
+            {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
+          </button>
+          <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
         </div>
       </header>
-
-      <div v-if="showDetails" class="ed-details">
-        <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
-        <label class="sf-field">
-          <span class="sf-label">Description</span>
-          <textarea v-model="description" class="sf-textarea" rows="2" maxlength="300" placeholder="One line about your game (shown on cards)." />
-        </label>
-        <label class="sf-field">
-          <span class="sf-label">Tags (comma-separated)</span>
-          <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
-        </label>
-        <label class="sf-toggle">
-          <input type="checkbox" v-model="forkable" />
-          <span>Let others fork (copy) this game</span>
-        </label>
-      </div>
-
-      <div v-if="showImport" class="ed-import">
-        <div class="ed-import-head">
-          <div>
-            <strong>Build a whole game from a text spec.</strong>
-            <p class="ed-import-lead">
-              Don't want to fill in rounds by hand? Write (or have an AI write) a short spec and paste it
-              here, then Import. It replaces the rounds below.
-            </p>
-          </div>
-          <a href="https://github.com/virgilvox/doot-games/blob/main/docs/markdown-games.md" target="_blank" rel="noopener" class="ed-import-doc">Full guide ↗</a>
-        </div>
-
-        <div class="ed-import-actions ed-import-actions--top">
-          <button class="btn btn-primary btn-sm" type="button" @click="copyAiPrompt">
-            {{ copiedPrompt ? 'Copied! Paste it into your AI assistant' : 'Copy an AI prompt' }}
-          </button>
-          <button class="btn btn-ghost btn-sm" type="button" @click="loadExample">Load an example</button>
-        </div>
-        <p class="ed-import-tip">
-          New here? Click <b>Copy an AI prompt</b>, paste it into your AI assistant with your topic, and paste
-          what it gives you back into the box below. Or click <b>Load an example</b> to see the format.
-        </p>
-
-        <textarea
-          v-model="markdownText"
-          class="sf-textarea ed-import-text"
-          rows="10"
-          placeholder="# My Game&#10;theme: cyber&#10;&#10;## guess&#10;prompt: Who is this?&#10;timer: 20&#10;- Option A (correct)&#10;- Option B"
-        />
-        <div class="ed-import-actions">
-          <button class="btn btn-primary btn-sm" :disabled="!markdownText.trim()" @click="importMarkdown">Import</button>
-          <button class="btn btn-ghost btn-sm" @click="showImport = false">Cancel</button>
-        </div>
-        <ul v-if="importWarnings.length" class="ed-import-warn">
-          <li v-for="(w, i) in importWarnings" :key="i">{{ w }}</li>
-        </ul>
-
-        <details class="ed-import-fmt">
-          <summary>The format, in brief</summary>
-          <div class="ed-import-fmt-body">
-            <p>
-              <code>#&nbsp;Title</code> at the top, an optional <code>theme:</code>, then one
-              <code>##&nbsp;type</code> heading per round with <code>key: value</code> lines and
-              <code>-&nbsp;item</code> choices. Round types you can use:
-            </p>
-            <ul>
-              <li><b>guess</b>: multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
-              <li><b>poll</b>: opinion, no right answer. Just list the choices.</li>
-              <li><b>rank</b>: players drag items into order. List the items.</li>
-              <li><b>rate</b>: score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
-              <li><b>draw</b>: players sketch the prompt. Add <code>vote: true</code> to draw then vote on the gallery (best drawing wins).</li>
-            </ul>
-            <p class="ed-import-tip">
-              Unknown lines are ignored; rounds that need attention are flagged below once imported.
-            </p>
-          </div>
-        </details>
-      </div>
 
       <p v-if="!valid" class="ed-note">
         Fix the highlighted rounds and give the game a title to start hosting.
@@ -514,142 +503,284 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
         <p class="ed-saved-vis">{{ visibilityNote }}</p>
       </div>
 
-      <ol class="ed-rounds">
-        <li
-          v-for="(round, i) in config.rounds"
-          :key="i"
-          class="ed-round"
-          :class="{ open: expanded === i, bad: errors[i] }"
-          :style="{ '--round-accent': blockColor(round) }"
-        >
-          <button type="button" class="ed-round-head" @click="toggle(i)">
-            <GameTypeIcon :type="round.block" :size="34" />
-            <span class="ed-round-n">Round {{ i + 1 }}</span>
-            <span class="ed-round-kind">{{ blockFor(round)?.name ?? round.block }}</span>
-            <span class="ed-round-subject">{{ summaryOf(round) }}</span>
-            <span v-if="errors[i]" class="ed-round-err" :title="errors[i]">needs attention</span>
-            <span class="ed-round-controls" @click.stop>
-              <button type="button" class="sf-icon-btn" :disabled="i === 0" aria-label="Move up" @click="moveRound(i, -1)">↑</button>
-              <button type="button" class="sf-icon-btn" :disabled="i === config.rounds.length - 1" aria-label="Move down" @click="moveRound(i, 1)">↓</button>
-              <button type="button" class="sf-icon-btn" aria-label="Remove round" @click="removeRound(i)">✕</button>
-            </span>
-          </button>
+      <!-- 3-pane body: rounds rail | selected round | persistent preview. -->
+      <div class="ed-body">
+        <!-- LEFT: rounds navigator -->
+        <nav class="ed-rail" aria-label="Rounds">
+          <button type="button" class="ed-add-btn" @click="showAdd = true">+ Add round</button>
+          <ol v-if="config.rounds.length" class="ed-rail-list">
+            <li
+              v-for="(round, i) in config.rounds"
+              :key="i"
+              class="ed-rail-item"
+              :class="{ on: selected === i, bad: errors[i] }"
+              :style="{ '--round-accent': blockColor(round) }"
+            >
+              <button type="button" class="ed-chip" :aria-current="selected === i" @click="select(i)">
+                <GameTypeIcon :type="round.block" :size="28" />
+                <span class="ed-chip-main">
+                  <span class="ed-chip-top">
+                    <span class="ed-chip-n">Round {{ i + 1 }}</span>
+                    <span class="ed-chip-kind">{{ blockFor(round)?.name ?? round.block }}</span>
+                  </span>
+                  <span class="ed-chip-sub">{{ summaryOf(round) }}</span>
+                </span>
+                <span v-if="errors[i]" class="ed-chip-dot" :title="errors[i]" aria-label="needs attention" />
+              </button>
+              <span class="ed-chip-controls">
+                <button type="button" class="sf-icon-btn" :disabled="i === 0" aria-label="Move up" @click="moveRound(i, -1)">↑</button>
+                <button type="button" class="sf-icon-btn" :disabled="i === config.rounds.length - 1" aria-label="Move down" @click="moveRound(i, 1)">↓</button>
+                <button type="button" class="sf-icon-btn" aria-label="Remove round" @click="removeRound(i)">✕</button>
+              </span>
+            </li>
+          </ol>
+          <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
+        </nav>
 
-          <div v-if="expanded === i" class="ed-round-body">
-            <div class="ed-form">
-              <!-- Judge rounds (Vote/Split) are built from the previous round's
-                   answers at runtime; explain that instead of showing the empty
-                   option fields. -->
-              <div v-if="isDerived(round)" class="ed-derived" :class="{ bad: errors[i] }">
-                <svg class="ed-derived-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8" /></svg>
-                <div class="ed-derived-body" v-if="sourceIndexFor(i) !== null">
-                  <strong>Built automatically from Round {{ sourceIndexFor(i)! + 1 }}.</strong>
-                  <p>
-                    You don't fill in the {{ derivedNoun(round) }} here. Whatever players write in
-                    Round {{ sourceIndexFor(i)! + 1 }} ({{ sourceName(i) }}) becomes the answers everyone
-                    votes on, shuffled and anonymized. You only set the prompt and timer below.
-                  </p>
-                </div>
-                <div class="ed-derived-body" v-else>
-                  <strong>This round needs a writing round before it.</strong>
-                  <p>
-                    A {{ blockFor(round)?.name }} round builds its {{ derivedNoun(round) }} from the answers
-                    collected in the round right above it. Add a Quip or Fill round before this one.
-                  </p>
-                </div>
+        <!-- CENTER: the selected round's form -->
+        <section class="ed-center">
+          <template v-if="cur">
+            <div class="ed-center-head" :style="{ '--round-accent': blockColor(cur) }">
+              <GameTypeIcon :type="cur.block" :size="30" />
+              <div>
+                <span class="ed-chip-kind">{{ blockFor(cur)?.name ?? cur.block }}</span>
+                <h2 class="ed-center-title">Round {{ selected + 1 }}</h2>
               </div>
-              <SchemaForm
-                v-if="blockFor(round)"
-                :schema="blockFor(round)!.contentSchema"
-                :hide="derivedFieldsOf(round)"
-                :model-value="contentOf(round)"
-                @update:model-value="onContentUpdate(i, $event)"
-              />
-              <p v-if="errors[i]" class="sf-error" role="alert">{{ errors[i] }}</p>
             </div>
-            <aside class="ed-preview">
-              <div class="ed-preview-head" role="group" aria-label="Preview surface">
-                <button
-                  type="button"
-                  class="ed-pt-btn"
-                  :class="{ on: previewMode === 'phone' }"
-                  :aria-pressed="previewMode === 'phone'"
-                  @click="previewMode = 'phone'"
-                >
-                  Phone
-                </button>
-                <button
-                  type="button"
-                  class="ed-pt-btn"
-                  :class="{ on: previewMode === 'host' }"
-                  :aria-pressed="previewMode === 'host'"
-                  @click="previewMode = 'host'"
-                >
-                  Big screen
-                </button>
+            <!-- Judge rounds (Vote/Split/...) build their content from the prior
+                 round at runtime; explain it instead of showing empty fields. -->
+            <div v-if="isDerived(cur)" class="ed-derived" :class="{ bad: errors[selected] }">
+              <svg class="ed-derived-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 0 1 0 10h-2M8 12h8" /></svg>
+              <div class="ed-derived-body" v-if="sourceIndexFor(selected) !== null">
+                <strong>Built automatically from Round {{ sourceIndexFor(selected)! + 1 }}.</strong>
+                <p>
+                  You don't fill in the {{ derivedNoun(cur) }} here. Whatever players write in
+                  Round {{ sourceIndexFor(selected)! + 1 }} ({{ sourceName(selected) }}) becomes the answers
+                  everyone votes on, shuffled and anonymized. You only set the prompt and timer below.
+                </p>
               </div>
-
-              <!-- PHONE: what each player taps on their own device -->
-              <div v-if="previewMode === 'phone'" class="ed-phone panel">
-                <div class="kicker">{{ blockFor(round)?.name }}</div>
-                <h3 class="ed-phone-prompt">{{ promptOf(round) }}</h3>
-                <img
-                  v-if="contentOf(round).image"
-                  :src="contentOf(round).image as string"
-                  alt=""
-                  class="ed-phone-img"
-                />
-                <!-- Derived rounds have no authored options to preview; show a
-                     representative sample of what players will see at runtime. -->
-                <template v-if="isDerived(round)">
-                  <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
-                  <ul class="ed-sample">
-                    <li>An answer a player wrote</li>
-                    <li>Another player's answer</li>
-                    <li>A third answer</li>
-                  </ul>
-                </template>
-                <PlayerPreview
-                  v-else-if="blockFor(round) && !errors[i]"
-                  :block="blockFor(round)!"
-                  :content="round.content"
-                  :model-value="previewValue(i)"
-                  @update:model-value="previewInputs[i] = $event"
-                />
-                <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
+              <div class="ed-derived-body" v-else>
+                <strong>This round needs a writing round before it.</strong>
+                <p>
+                  A {{ blockFor(cur)?.name }} round builds its {{ derivedNoun(cur) }} from the answers
+                  collected in the round right above it. Add a Quip or Fill round before this one.
+                </p>
               </div>
-
-              <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
-              <div v-else class="ed-bigscreen panel">
-                <div class="ed-bs-prompt-area">
-                  <h3 class="ed-bs-prompt">{{ promptOf(round) }}</h3>
-                  <img
-                    v-if="contentOf(round).image"
-                    :src="contentOf(round).image as string"
-                    alt=""
-                    class="ed-bs-img"
-                  />
-                </div>
-                <div v-if="isDerived(round)" class="ed-bs-board">
-                  <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
-                </div>
-                <!-- inert: the big-screen board is a non-interactive preview, so its
-                     controls (e.g. a host "peek" button) stay out of mouse + tab reach. -->
-                <div v-else-if="blockFor(round) && !errors[i]" class="ed-bs-board" inert>
-                  <HostPreview :block="blockFor(round)!" :content="round.content" :index="i" />
-                </div>
-                <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
-              </div>
-            </aside>
+            </div>
+            <SchemaForm
+              v-if="blockFor(cur)"
+              :schema="blockFor(cur)!.contentSchema"
+              :hide="derivedFieldsOf(cur)"
+              :model-value="contentOf(cur)"
+              @update:model-value="onContentUpdate(selected, $event)"
+            />
+            <p v-if="errors[selected]" class="sf-error" role="alert">{{ errors[selected] }}</p>
+          </template>
+          <div v-else class="ed-empty">
+            <GameTypeIcon type="custom" :size="46" />
+            <h2>Add your first round</h2>
+            <p>Pick a single round, or a two-phase recipe like Write &amp; Vote, from the Add panel.</p>
+            <button type="button" class="btn btn-primary" @click="showAdd = true">+ Add round</button>
           </div>
-        </li>
-      </ol>
+        </section>
 
-      <div class="ed-add">
-        <select v-model="addKind" class="sf-select" aria-label="Block kind to add">
-          <option v-for="b in blockChoices" :key="b.kind" :value="b.kind">{{ b.name }}</option>
-        </select>
-        <button type="button" class="btn btn-ghost" @click="addRound">+ Add round</button>
+        <!-- RIGHT: persistent preview (a drawer below ~1000px). -->
+        <aside class="ed-preview-pane" :class="{ open: showPreviewDrawer }" aria-label="Round preview">
+          <div class="ed-preview-bar">
+            <div class="ed-preview-head" role="group" aria-label="Preview surface">
+              <button type="button" class="ed-pt-btn" :class="{ on: previewMode === 'phone' }" :aria-pressed="previewMode === 'phone'" @click="previewMode = 'phone'">Phone</button>
+              <button type="button" class="ed-pt-btn" :class="{ on: previewMode === 'host' }" :aria-pressed="previewMode === 'host'" @click="previewMode = 'host'">Big screen</button>
+            </div>
+            <button type="button" class="ed-drawer-close" aria-label="Close preview" @click="showPreviewDrawer = false">✕</button>
+          </div>
+
+          <template v-if="cur">
+            <!-- PHONE: what each player taps on their own device -->
+            <div v-if="previewMode === 'phone'" class="ed-phone panel">
+              <div class="kicker">{{ blockFor(cur)?.name }}</div>
+              <h3 class="ed-phone-prompt">{{ promptOf(cur) }}</h3>
+              <img v-if="contentOf(cur).image" :src="contentOf(cur).image as string" alt="" class="ed-phone-img" />
+              <template v-if="isDerived(cur)">
+                <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
+                <ul class="ed-sample">
+                  <li>An answer a player wrote</li>
+                  <li>Another player's answer</li>
+                  <li>A third answer</li>
+                </ul>
+              </template>
+              <PlayerPreview
+                v-else-if="blockFor(cur) && !errors[selected]"
+                :block="blockFor(cur)!"
+                :content="cur.content"
+                :model-value="previewValue(selected)"
+                @update:model-value="previewInputs[selected] = $event"
+              />
+              <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
+            </div>
+
+            <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
+            <div v-else class="ed-bigscreen panel">
+              <div class="ed-bs-prompt-area">
+                <h3 class="ed-bs-prompt">{{ promptOf(cur) }}</h3>
+                <img v-if="contentOf(cur).image" :src="contentOf(cur).image as string" alt="" class="ed-bs-img" />
+              </div>
+              <div v-if="isDerived(cur)" class="ed-bs-board">
+                <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
+              </div>
+              <!-- inert: a non-interactive preview, so host controls stay out of reach. -->
+              <div v-else-if="blockFor(cur) && !errors[selected]" class="ed-bs-board" inert>
+                <HostPreview :block="blockFor(cur)!" :content="cur.content" :index="selected" />
+              </div>
+              <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
+            </div>
+          </template>
+          <p v-else class="ed-preview-hint">Add a round to see a preview.</p>
+        </aside>
+        <button v-if="showPreviewDrawer" type="button" class="ed-drawer-scrim" aria-label="Close preview" @click="showPreviewDrawer = false" />
+      </div>
+
+      <!-- Narrow-screen floating button to open the preview drawer. -->
+      <button v-if="cur" type="button" class="ed-preview-fab" @click="showPreviewDrawer = true">Preview</button>
+
+      <!-- ── Overlays ──────────────────────────────────────────────────── -->
+
+      <!-- Add panel: Single rounds + Two-phase recipes -->
+      <div v-if="showAdd" class="ed-overlay" @click.self="showAdd = false">
+        <div class="ed-sheet" role="dialog" aria-label="Add a round" aria-modal="true">
+          <div class="ed-sheet-head">
+            <h2>Add a round</h2>
+            <button type="button" class="ed-drawer-close" aria-label="Close" @click="showAdd = false">✕</button>
+          </div>
+          <div class="ed-sheet-body">
+            <h3 class="ed-sheet-sub">Single rounds</h3>
+            <div class="ed-add-grid">
+              <button
+                v-for="b in singleBlocks"
+                :key="b.kind"
+                type="button"
+                class="ed-add-card"
+                :style="{ '--round-accent': gameVisual(b.kind).color }"
+                @click="addSingle(b.kind)"
+              >
+                <GameTypeIcon :type="b.kind" :size="30" />
+                <span class="ed-add-name">{{ b.name }}</span>
+                <span class="ed-add-desc">{{ singleDesc(b.kind) }}</span>
+              </button>
+            </div>
+
+            <template v-if="recipes.length">
+              <h3 class="ed-sheet-sub">Two-phase recipes</h3>
+              <p class="ed-sheet-note">Each one adds a writing round plus the judging round built from it, in one click.</p>
+              <div class="ed-add-grid">
+                <button
+                  v-for="r in recipes"
+                  :key="r.id"
+                  type="button"
+                  class="ed-add-card"
+                  :style="{ '--round-accent': gameVisual(r.make).color }"
+                  @click="addRecipe(r)"
+                >
+                  <GameTypeIcon :type="r.make" :size="30" />
+                  <span class="ed-add-name">{{ r.name }}</span>
+                  <span class="ed-add-desc">{{ r.description }}</span>
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details overlay -->
+      <div v-if="showDetails" class="ed-overlay" @click.self="showDetails = false">
+        <div class="ed-sheet ed-sheet--narrow" role="dialog" aria-label="Game details" aria-modal="true">
+          <div class="ed-sheet-head">
+            <h2>Details</h2>
+            <button type="button" class="ed-drawer-close" aria-label="Close" @click="showDetails = false">✕</button>
+          </div>
+          <div class="ed-sheet-body ed-details">
+            <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
+            <label class="sf-field">
+              <span class="sf-label">Description</span>
+              <textarea v-model="description" class="sf-textarea" rows="2" maxlength="300" placeholder="One line about your game (shown on cards)." />
+            </label>
+            <label class="sf-field">
+              <span class="sf-label">Tags (comma-separated)</span>
+              <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
+            </label>
+            <label class="sf-toggle">
+              <input type="checkbox" v-model="forkable" />
+              <span>Let others fork (copy) this game</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import overlay -->
+      <div v-if="showImport" class="ed-overlay" @click.self="showImport = false">
+        <div class="ed-sheet" role="dialog" aria-label="Import from text" aria-modal="true">
+          <div class="ed-sheet-head">
+            <h2>Import from text</h2>
+            <button type="button" class="ed-drawer-close" aria-label="Close" @click="showImport = false">✕</button>
+          </div>
+          <div class="ed-sheet-body ed-import">
+            <div class="ed-import-head">
+              <div>
+                <strong>Build a whole game from a text spec.</strong>
+                <p class="ed-import-lead">
+                  Don't want to fill in rounds by hand? Write (or have an AI write) a short spec and paste it
+                  here, then Import. It replaces the rounds below.
+                </p>
+              </div>
+              <a href="https://github.com/virgilvox/doot-games/blob/main/docs/markdown-games.md" target="_blank" rel="noopener" class="ed-import-doc">Full guide ↗</a>
+            </div>
+
+            <div class="ed-import-actions ed-import-actions--top">
+              <button class="btn btn-primary btn-sm" type="button" @click="copyAiPrompt">
+                {{ copiedPrompt ? 'Copied! Paste it into your AI assistant' : 'Copy an AI prompt' }}
+              </button>
+              <button class="btn btn-ghost btn-sm" type="button" @click="loadExample">Load an example</button>
+            </div>
+            <p class="ed-import-tip">
+              New here? Click <b>Copy an AI prompt</b>, paste it into your AI assistant with your topic, and paste
+              what it gives you back into the box below. Or click <b>Load an example</b> to see the format.
+            </p>
+
+            <textarea
+              v-model="markdownText"
+              class="sf-textarea ed-import-text"
+              rows="10"
+              placeholder="# My Game&#10;theme: cyber&#10;&#10;## guess&#10;prompt: Who is this?&#10;timer: 20&#10;- Option A (correct)&#10;- Option B"
+            />
+            <div class="ed-import-actions">
+              <button class="btn btn-primary btn-sm" :disabled="!markdownText.trim()" @click="importMarkdown">Import</button>
+              <button class="btn btn-ghost btn-sm" @click="showImport = false">Cancel</button>
+            </div>
+            <ul v-if="importWarnings.length" class="ed-import-warn">
+              <li v-for="(w, i) in importWarnings" :key="i">{{ w }}</li>
+            </ul>
+
+            <details class="ed-import-fmt">
+              <summary>The format, in brief</summary>
+              <div class="ed-import-fmt-body">
+                <p>
+                  <code>#&nbsp;Title</code> at the top, an optional <code>theme:</code>, then one
+                  <code>##&nbsp;type</code> heading per round with <code>key: value</code> lines and
+                  <code>-&nbsp;item</code> choices. Round types you can use:
+                </p>
+                <ul>
+                  <li><b>guess</b>: multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
+                  <li><b>poll</b>: opinion, no right answer. Just list the choices.</li>
+                  <li><b>rank</b>: players drag items into order. List the items.</li>
+                  <li><b>rate</b>: score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
+                  <li><b>draw</b>: players sketch the prompt. Add <code>vote: true</code> to draw then vote on the gallery (best drawing wins).</li>
+                </ul>
+                <p class="ed-import-tip">
+                  Unknown lines are ignored; rounds that need attention are flagged below once imported.
+                </p>
+              </div>
+            </details>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -657,77 +788,64 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 <style scoped>
 .editor {
-  padding: 28px 0 60px;
+  padding: 0 0 60px;
 }
-.ed-head {
+/* ── Sticky top bar ─────────────────────────────────────────────────────── */
+.ed-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  padding: 16px 0 12px;
   margin-bottom: 12px;
+  background: var(--bg);
+  border-bottom: var(--bd) solid var(--line-soft);
+}
+.ed-bar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 260px;
 }
 .ed-title {
   display: block;
-  margin-top: 8px;
-  font-size: clamp(26px, 4vw, 38px);
+  font-size: clamp(20px, 2.4vw, 30px);
   font-weight: 800;
   background: transparent;
   border: none;
   border-bottom: 2px solid var(--line-soft);
   color: var(--ink);
-  padding: 4px 2px;
-  width: min(520px, 80vw);
+  padding: 3px 2px;
+  width: min(520px, 100%);
   font-family: inherit;
 }
 .ed-title:focus {
   outline: none;
   border-bottom-color: var(--primary);
 }
-.ed-actions {
+.ed-bar-actions {
   display: flex;
-  align-items: flex-end;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-/* Group the game settings (theme, visibility, details, import) into one boxed
-   cluster so they read as settings, not lost among the action buttons. */
-.ed-settings {
-  display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 14px;
 }
-.ed-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.ed-field .sf-select {
+.ed-vis {
   width: auto;
   min-width: 130px;
-}
-/* Clearly readable label, not muted grey. */
-.ed-label {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink);
 }
 .ed-swatches {
   display: flex;
   gap: 6px;
   align-items: center;
-  height: 42px;
 }
 .ed-swatch {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 8px;
   border: 2px solid var(--line);
   cursor: pointer;
@@ -741,12 +859,15 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   outline: 3px solid var(--ink);
   outline-offset: 1px;
 }
+/* ── "More" overflow (Details + Import) ─────────────────────────────────── */
+.ed-more {
+  position: relative;
+}
 .ed-toggle {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  align-self: flex-end;
-  height: 42px;
+  height: 40px;
   padding: 0 14px;
   font-family: inherit;
   font-weight: 700;
@@ -761,11 +882,8 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
 .ed-toggle svg {
   width: 17px;
   height: 17px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  fill: currentColor;
+  stroke: none;
 }
 .ed-toggle:hover {
   border-color: var(--line);
@@ -775,33 +893,42 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   color: var(--bg);
   border-color: var(--line);
 }
-.ed-primary {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  margin-left: auto;
+.ed-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--surface);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
 }
-@media (max-width: 760px) {
-  .ed-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .ed-actions {
-    width: 100%;
-  }
-  .ed-settings {
-    flex: 1 1 100%;
-  }
-  .ed-primary {
-    margin-left: 0;
-    width: 100%;
-  }
-  .ed-primary .btn {
-    flex: 1 1 auto;
-  }
-  .ed-title {
-    width: 100%;
-  }
+.ed-more-menu button {
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+.ed-more-menu button:hover {
+  background: var(--surface-2);
+}
+.ed-more-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: transparent;
+  border: none;
+  cursor: default;
 }
 .ed-note {
   color: var(--ink-soft);
@@ -809,24 +936,8 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   margin: 0 0 16px;
 }
 .ed-details {
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 15px;
-  background: var(--surface);
-  padding: 16px;
-  margin: 0 0 18px;
   display: grid;
   gap: 14px;
-}
-.btn-on {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-.ed-import {
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 15px;
-  background: var(--surface);
-  padding: 16px;
-  margin: 0 0 18px;
 }
 .ed-import-head {
   display: flex;
@@ -939,30 +1050,74 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   color: var(--primary);
   word-break: break-all;
 }
-.ed-rounds {
+/* ── 3-pane body ────────────────────────────────────────────────────────── */
+.ed-body {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr) clamp(360px, 32vw, 460px);
+  gap: 20px;
+  align-items: start;
+}
+/* LEFT: rounds navigator */
+.ed-rail {
+  position: sticky;
+  top: 84px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.ed-add-btn {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--primary-ink);
+  background: var(--primary);
+  border: none;
+  border-radius: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+}
+.ed-add-btn:hover {
+  filter: brightness(1.05);
+}
+.ed-rail-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
-.ed-round {
+.ed-rail-item {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
   border: var(--bd) solid var(--line-soft);
-  border-left: 5px solid var(--round-accent, var(--line-soft));
-  border-radius: 15px;
+  border-left: 4px solid var(--round-accent, var(--line-soft));
+  border-radius: 12px;
   background: var(--surface);
   overflow: hidden;
 }
-.ed-round.bad {
+.ed-rail-item.on {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink) inset;
+}
+.ed-rail-item.bad {
   border-color: color-mix(in srgb, var(--primary) 55%, var(--line-soft));
   border-left-color: var(--primary);
 }
-.ed-round-head {
-  width: 100%;
+.ed-chip {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 6px 10px 11px;
   background: none;
   border: none;
   cursor: pointer;
@@ -970,84 +1125,140 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   color: var(--ink);
   font-family: inherit;
 }
-.ed-round-n {
-  font-weight: 800;
-  font-size: 14px;
+.ed-chip-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-.ed-round-kind {
-  font-size: 12px;
+.ed-chip-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ed-chip-n {
+  font-weight: 800;
+  font-size: 13px;
+}
+.ed-chip-kind {
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--ink);
   background: color-mix(in srgb, var(--round-accent, var(--primary)) 22%, transparent);
-  padding: 3px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
 }
-.ed-round-subject {
+.ed-chip-sub {
   color: var(--ink-soft);
-  font-size: 14px;
-  flex: 1;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ed-round-err {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--primary);
+.ed-chip-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--primary);
 }
-.ed-round-controls {
-  display: flex;
-  gap: 6px;
-}
-.ed-round-body {
-  display: grid;
-  grid-template-columns: 1fr minmax(240px, 340px);
-  gap: 22px;
-  padding: 4px 16px 20px;
-}
-.ed-preview-label,
-.ed-preview-hint {
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--mute);
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-.ed-phone {
-  border-radius: 16px;
-  padding: 18px;
+.ed-chip-controls {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  position: sticky;
-  top: 16px;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  border-left: var(--bd) solid var(--line-soft);
 }
-.ed-phone-prompt {
+.ed-rail-empty {
+  color: var(--ink-soft);
+  font-size: 14px;
+  padding: 8px 4px;
+}
+/* CENTER: the selected round's form */
+.ed-center {
+  min-width: 0;
+}
+.ed-center-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.ed-center-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 2px 0 0;
+}
+.ed-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 60px 20px;
+  border: var(--bd) dashed var(--line-soft);
+  border-radius: 16px;
+  color: var(--ink-soft);
+}
+.ed-empty h2 {
   font-size: 20px;
   font-weight: 800;
+  color: var(--ink);
+  margin: 0;
 }
-.ed-phone-img {
-  width: 100%;
-  max-height: 200px;
-  object-fit: contain;
-  border-radius: 12px;
+.ed-empty p {
+  max-width: 42ch;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* RIGHT: persistent preview (a drawer below ~1000px) */
+.ed-preview-pane {
+  position: sticky;
+  top: 84px;
+  align-self: start;
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ed-drawer-close {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--surface-2);
   border: var(--bd) solid var(--line-soft);
+  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
 }
-.ed-preview-hint {
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--ink-soft);
-  font-weight: 500;
+.ed-preview-bar .ed-drawer-close {
+  display: none;
+}
+.ed-drawer-scrim {
+  display: none;
+}
+.ed-preview-fab {
+  display: none;
 }
 /* Preview surface toggle: phone vs the big screen. */
 .ed-preview-head {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  margin-bottom: 8px;
   background: var(--surface-2);
   border: var(--bd) solid var(--line-soft);
   border-radius: 999px;
@@ -1069,6 +1280,29 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   background: var(--primary);
   color: var(--primary-ink);
 }
+.ed-preview-hint {
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.ed-phone {
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ed-phone-prompt {
+  font-size: 20px;
+  font-weight: 800;
+}
+.ed-phone-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
+}
 /* Big-screen (host) preview: a framed "stage" distinct from the phone card. */
 .ed-bigscreen {
   border-radius: 16px;
@@ -1076,8 +1310,6 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   display: flex;
   flex-direction: column;
   gap: 14px;
-  position: sticky;
-  top: 16px;
   background: var(--surface-2);
 }
 .ed-bs-prompt-area {
@@ -1163,19 +1395,180 @@ onScopeDispose(() => window.removeEventListener('beforeunload', onBeforeUnload))
   color: var(--ink-soft);
   background: var(--surface-2);
 }
-.ed-add {
+/* ── Overlays (Add panel, Details, Import) ──────────────────────────────── */
+.ed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
   display: flex;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(24px, 5vh) 16px 24px;
+  background: rgba(0, 0, 0, 0.42);
+  overflow: auto;
+}
+.ed-sheet {
+  width: min(720px, 100%);
+  background: var(--surface);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+.ed-sheet--narrow {
+  width: min(520px, 100%);
+}
+.ed-sheet-head {
+  display: flex;
   align-items: center;
-  margin-top: 18px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: var(--bd) solid var(--line-soft);
 }
-.ed-add .sf-select {
-  width: auto;
-  min-width: 160px;
+.ed-sheet-head h2 {
+  font-size: 19px;
+  font-weight: 800;
+  margin: 0;
 }
-@media (max-width: 820px) {
-  .ed-round-body {
+.ed-sheet-body {
+  padding: 18px;
+}
+.ed-sheet-sub {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 10px;
+}
+.ed-sheet-sub:not(:first-child) {
+  margin-top: 22px;
+}
+.ed-sheet-note {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: -4px 0 12px;
+}
+.ed-add-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.ed-add-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 14px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-left: 4px solid var(--round-accent, var(--line-soft));
+  border-radius: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+  transition: border-color 0.12s, transform 0.08s;
+}
+.ed-add-card:hover {
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+.ed-add-name {
+  font-weight: 800;
+  font-size: 15px;
+  margin-top: 4px;
+}
+.ed-add-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+/* ── Two-phase "built automatically" explainer ──────────────────────────── */
+.ed-derived {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--round-accent, var(--primary)) 12%, var(--surface));
+  border: var(--bd) solid color-mix(in srgb, var(--round-accent, var(--primary)) 40%, var(--line-soft));
+  border-radius: 13px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.ed-derived.bad {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--line-soft));
+}
+/* ── Responsive: collapse to one column, preview behind a drawer ─────────── */
+@media (max-width: 1000px) {
+  .ed-body {
     grid-template-columns: 1fr;
+  }
+  .ed-rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  /* The preview becomes a right-side drawer; a FAB opens it. */
+  .ed-preview-pane {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    width: min(420px, 92vw);
+    max-height: none;
+    padding: 16px;
+    background: var(--bg);
+    border-left: var(--bd) solid var(--line-soft);
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.28);
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+  }
+  .ed-preview-pane.open {
+    transform: translateX(0);
+  }
+  .ed-preview-bar .ed-drawer-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ed-drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(0, 0, 0, 0.42);
+    border: none;
+  }
+  .ed-preview-fab {
+    display: inline-flex;
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 50;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--primary-ink);
+    background: var(--primary);
+    border: none;
+    border-radius: 999px;
+    padding: 12px 20px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  }
+}
+@media (max-width: 640px) {
+  .ed-bar {
+    align-items: stretch;
+  }
+  .ed-bar-actions {
+    width: 100%;
+  }
+  .ed-bar-actions .btn {
+    flex: 1 1 auto;
   }
 }
 </style>
