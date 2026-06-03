@@ -3,13 +3,17 @@
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
 _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every push to
-`main` deploys to prod via CI, no staging). Everything through HEAD `2f5d95f` is **pushed to
+`main` deploys to prod via CI, no staging). Everything through HEAD `3f1c97b` is **pushed to
 `main` and deployed** (verified live: `/api/health` ok, the editors + Create page 200). Any
 "committed locally, not yet pushed" notes in the older entries below are superseded._
+>
+> _Deploy note: the CI build pulls an un-pinned Docker base image, so a Docker Hub registry
+> timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
+> fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
 
-> **Editor details rework + MCP two-phase authoring (2026-06-02, committed locally).** From
-> owner playtest feedback. Gates green: typecheck (incl. `nuxi`), 320 tests, the web build;
-> editor audit 0 overflow at 1440/900/390.
+> **Editor details rework + MCP two-phase authoring (2026-06-02, PUSHED + DEPLOYED, HEAD
+> `3f1c97b`).** From owner playtest feedback. Gates green: typecheck (incl. `nuxi`), 320 tests,
+> the web build; editor audit 0 overflow at 1440/900/390.
 > - **Editor top bar.** Game details moved out of the rail disclosure into the top bar: the
 >   description and a `Tags:` input sit under the title, the **cover image** is a small icon +
 >   popover next to the description, and **Remixable** is a checkbox beside the visibility picker.
