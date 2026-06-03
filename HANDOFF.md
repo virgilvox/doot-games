@@ -3,13 +3,47 @@
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
 _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every push to
-`main` deploys to prod via CI, no staging). The 2026-06-02 session's commits have been
-**pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
-pushed" notes in the entries below are superseded._
+`main` deploys to prod via CI, no staging). Everything through HEAD `2f5d95f` is **pushed to
+`main` and deployed** (verified live: `/api/health` ok, the editors + Create page 200). Any
+"committed locally, not yet pushed" notes in the older entries below are superseded._
 
-> **Editor + catalog follow-ups (2026-06-02, committed locally).** A batch of fixes on top of
-> the editor redesign, from owner playtest feedback. All gates green: typecheck (incl. `nuxi`),
-> 315 tests, the web build; editor audit shows 0 overflow at 1440/900/390.
+> **WHERE THINGS STAND (2026-06-02). No task in flight.** Doot is built, deployed, and live
+> with **21 games (14 flagships)** and the full authoring loop (three-pane editor with one-click
+> two-phase recipes + markdown import + Connect-with-Claude). Remaining work, roughly by tier
+> (full detail + `[size]` hints in [`docs/BACKLOG.md`](./docs/BACKLOG.md)):
+>
+> - **Owner-only verification (can't be automated, small).** A two-device on-device playtest of
+>   **Truth or Share photo-share** over the relay (the new spicy SHARE prompts lean on it) and of
+>   **Circuit Cypher / Open Mic** TTS + WebGL. Plus the **Claude connector directory** submission
+>   (BACKLOG F): a square logo, public docs with 3+ examples + a reviewer test account, then
+>   accept the directory terms and run the live connect+save handshake.
+> - **Robustness for party play (E16, medium, the recommended next build).** Timeout safety net
+>   (auto-fill an unsubmitted free-text round at 50% so there is no dead air), **content-filter
+>   tiers** (off / moderate / strict, which matters more now that Truth or Share is spicy),
+>   audience-as-discounted-bloc voting (`audienceWeight` exists in `scoring.ts` but is unwired),
+>   and tie handling (split / co-crown).
+> - **Security hardening (medium, documented trade-offs).** The **delegated-driver forge** (add a
+>   driver PIN, or keep `reveal` host-only) and **soft two-phase anonymity** (opaque per-round
+>   input keys). Neither is a fresh regression.
+> - **Infra / scale (E17, medium).** OAuth / magic-link, **Postgres** behind `useDb()` for
+>   multi-instance scale, and upload hardening (presigned-POST size + content-type policy).
+> - **The big platform feature (E15, large).** The **external-plugin runtime**: a sandboxed
+>   iframe on `plugins.doot.games` + the typed postMessage bridge wired into the app +
+>   manifest-by-URL with a SHA pin. The bridge and the locked-down origin already exist; wiring
+>   them to users is the PRD phase-two headline. Security-critical; see `docs/external-plugins.md`.
+> - **More games.** D14 the full "What, You Didn't Know That?" gameshow (4-contestant panel +
+>   audience steal + content packs) `[large]`; The Big Reveal / Talking Points `[large]`; G3 the
+>   closeness family (**Over/Under, Spectrum**, reuses `ballpark`) `[medium]`; G4 Doodle Chain
+>   (a pipeline primitive) `[large]`; G5 Quick Draw (real-time strokes + fuzzy match) `[large]`;
+>   G6 companion mode (Call It, Buzzword Bingo) `[medium]`; G7 Hot Seat / Two Truths `[large]`.
+> - **Small polish.** A `prompt.max()` for the extreme-overflow case, themed Circuit Cypher arena
+>   colors, Rank's authored-order seed, the own-answer hiding gap on fill/split votes, a Docker
+>   base-image digest pin, and reconciling PRD §8 with the block model.
+
+> **Editor + catalog follow-ups + Truth or Share polish (2026-06-02, PUSHED + DEPLOYED, HEAD
+> `2f5d95f`).** A batch of fixes on top of the editor redesign, from owner playtest feedback,
+> plus a new-games preview audit. All gates green: typecheck (incl. `nuxi`), 315 tests, the web
+> build; editor audit shows 0 overflow at 1440/900/390.
 > - **Buzzer is now a game type** (`games/buzzer.ts`, registry + catalog, `flagship: false`), so
 >   first-correct trivia has a one-click card in the Create "Blocks and Custom" row and a
 >   hostable `/editor/buzzer`, like the other primitives. It was previously only addable as a
