@@ -11,19 +11,26 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
-> **E16 robustness: tie handling + timeout safety net (2026-06-03). COMMITTED to `main` locally,
-> not yet pushed.** All gates green: typecheck (incl. `nuxi`), **362 tests** (+5), the web build.
-> - **Co-crown tie handling.** A top-score tie now reads "Ann & Bob tie for the win" / "N-way
->   tie: ..." (pure `crownHeadline` in `runtime/derive.ts`), and the `Leaderboard` uses competition
->   ranking so co-leaders share the star and the next entry is rank 3 (star only when score > 0).
-> - **Timeout "Safety Quip"** (quip -> vote). A quip round carries `safetyAnswers`; the vote derive
->   fills eligible players who never submitted with a deterministic canned answer (no gap in the
->   gallery, no zero), flagged in the withheld key, and the aggregate scores it at half so it never
->   out-earns a real joke. Off by default (empty pool); wired into Quip Clash. Unit-tested.
-> - **Re-scoped:** `audienceWeight` does NOT exist in code (the backlog claim was wrong); it needs
->   a player-vs-audience role split first, so it's a feature, not a wiring. Deferred (see BACKLOG E16).
+> **E16 robustness pack (2026-06-03). PUSHED + DEPLOYED.** Tie handling, timeout safety net, and
+> content-filter tiers. All gates green: typecheck (incl. `nuxi`), **371 tests** (+14), the web build.
+> - **Co-crown tie handling.** A top-score tie reads "Ann & Bob tie for the win" / "N-way tie: ..."
+>   (pure `crownHeadline` in `runtime/derive.ts`); the `Leaderboard` uses competition ranking so
+>   co-leaders share the star and the next entry is rank 3 (star only when score > 0).
+> - **Timeout "Safety Quip"** (quip + fill -> vote). The make round carries `safetyAnswers`; the vote
+>   derive fills eligible non-submitters with a deterministic canned answer (no gap, no zero), flagged
+>   in the withheld key, and the aggregate scores it at half. Wired into Quip Clash + Mad Libs, a
+>   markdown `safety: a | b | c` field, off by default elsewhere. **Follow-up:** split/fibvote/bars.
+> - **Content-filter tiers** (off / moderate / strict) for free-text galleries. A host lobby picker
+>   (shown for quip/fill games); HostRoom masks the derived gallery text before publish
+>   (`runtime/contentFilter.ts`). **Follow-up:** the word list is a minimal slur-free starter, swap in
+>   `obscenity` for comprehensive coverage; and family/adult **prompt-pack tracks** (tag built-in pools).
+> - **Re-scoped:** `audienceWeight` does NOT exist in code (the backlog claim was wrong); it needs a
+>   player-vs-audience role split first, so it's a feature, not a wiring. Deferred (see BACKLOG E16).
 > - **Owner direction:** the delegated-driver forge (driver PIN / HMAC) was judged overkill for a
 >   casual party app and set aside (left as a documented soft limitation).
+> - **Audit:** the recent scoring changes were reviewed + a real-runtime-path safety-net test added;
+>   no correctness bugs, only acceptable cosmetic edges (departed-player gallery clutter, all-zero
+>   leaderboard showing every entry at rank 1).
 
 > **Quick-wins cluster + driver-can-start + GoatCounter analytics (2026-06-03). PUSHED +
 > DEPLOYED.** All gates green throughout: typecheck (incl. `nuxi`), **355 tests** (+7), the web

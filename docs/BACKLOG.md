@@ -101,7 +101,11 @@ each group; `[size]` is a rough effort hint.
   - [x] **tie handling** (co-crown): a top-score tie reads "A & B tie for the win" / "N-way
     tie: ..."; the leaderboard uses competition ranking so co-leaders share the star. Pure
     `crownHeadline`, unit-tested. (Split's per-scenario closeness already has no single winner.)
-  - **content-filter tiers** (off / moderate / strict) + family/adult prompt tracks;
+  - [x] **content-filter tiers** (off / moderate / strict) for the free-text galleries: a host
+    lobby picker (shown for quip/fill games); HostRoom masks the derived gallery text before
+    publish (`runtime/contentFilter.ts`, pure + tested). **Follow-ups:** the word list is a minimal
+    slur-free starter, swap in a maintained lib (`obscenity`) for comprehensive coverage; and the
+    **family/adult prompt-pack tracks** (tag built-in pools by tier, like Truth or Share's mild/spicy).
   - **audience-as-discounted-bloc** voting - NOTE: `audienceWeight` does NOT exist in code (the
     earlier backlog claim was wrong; flagship-games §258 lists it as a *planned* pure fn). There
     is no audience/spectator role today (only a player cap), so this needs a **role split**
