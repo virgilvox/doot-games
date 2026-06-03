@@ -7,7 +7,13 @@ each group; `[size]` is a rough effort hint.
 
 ## Done (for context, do not redo)
 - Consumer bugs A1–A5, author features B6–B9.
-- 14 games incl. 7 flagships; the catalog IA; saved games + optional auth + uploads.
+- 21 games incl. 14 flagships; the catalog IA; saved games + optional auth + uploads.
+- **Editor redesign + two-phase recipes** (2026-06-02) - the schema editor is a
+  three-pane layout (rounds rail + selected-round form + persistent host/phone
+  preview) whose Add panel inserts single rounds or one-click make+judge "recipes"
+  (Write & Vote, Mad Lib & Vote, Would You & Split, Lie Detector, Sketch & Vote,
+  Hidden Faker), so every first-party two-phase game is buildable by hand, not only
+  via markdown. Homepage "Create by vibe" -> "Create with blocks". See HANDOFF.
 - **D13 Circuit Cypher** - full 3D animated rap-battle tournament (custom flow), MC
   voice, per-player verses, live-perform mode, co-host driving. Deployed. (Polish
   follow-ups tracked under "Circuit Cypher polish" below.)

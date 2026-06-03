@@ -171,6 +171,19 @@ field-name conventions get nicer controls for free:
 So naming your fields with these conventions gives good editor ergonomics. When the
 generic form can't express something, set `Editor` on the block.
 
+The editor is a three-pane layout: a rounds rail on the left (reorder/remove + an
+**Add** panel), the selected round's auto-form in the center, and a persistent
+host/phone preview on the right. The Add panel offers **Single rounds** (guess,
+rate, poll, rank, draw, hivemind, most-likely, ballpark, buzzer) and **Two-phase
+recipes** that insert a make+judge pair in one click, Write & Vote (`quip`→`vote`),
+Mad Lib & Vote (`fill`→`vote`), Would You & Split (`fill`→`split`), Lie Detector
+(`quip`→`fibvote`, you author the truth), Sketch & Vote (`draw`→`drawvote`), and
+Hidden Faker (`faker`→`accuse`). A judge block is never offered on its own (it needs
+a make round above it), so the Custom editor (`/editor/custom`) can build every
+first-party two-phase pattern by hand, not just via markdown import. Recipes are
+filtered to the blocks a given game type composes, so a single-type editor shows
+only its own block.
+
 From the editor you **Host now** (stows an in-memory draft and opens `/host/<type>`)
 or **Save** (POSTs to `/api/games`, returns a shareable `/g/<id>`). Saving needs an
 optional account; hosting and playing never do. Each saved game has a visibility
@@ -185,7 +198,9 @@ optional account; hosting and playing never do. Each saved game has a visibility
   internally consistent across reconnects but differs from other rooms. Use
   `seededShuffle(seed)` from `@doot-games/games` for a deterministic shuffle. (Way 3.)
 - **Markdown import:** the editor can build a whole game from a markdown spec
-  (guess/rate/poll/rank/draw blocks). Format: [`docs/markdown-games.md`](./markdown-games.md).
+  (guess/poll/rank/rate/draw/hivemind/mostlikely/ballpark; a `## draw` round with
+  `vote: true` expands to draw-then-vote). Format:
+  [`docs/markdown-games.md`](./markdown-games.md).
 
 ---
 

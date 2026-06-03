@@ -7,18 +7,39 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
-> **NEXT TASK (approved, not started): the editor redesign + primitive exposure + a homepage
-> rename.** Best done in a fresh session (see the kickoff prompt the owner has). In short:
-> (1) homepage `index.vue`: rename the "Create by vibe" section heading to **"Create with
-> blocks"** (kicker -> "Start from a block"); (2) expose the two-phase **recipes** (Write &
-> Vote = quip->vote, Mad Lib & Vote = fill->vote, Would You & Split = fill->split, Lie Detector
-> = quip->fibvote with an authored truth, Sketch & Vote = draw->drawvote, Hidden Faker =
-> faker->accuse) + **buzzer** in the Custom editor's Add panel (add quip/vote/fill/split/
-> fibvote/buzzer to `custom.ts` blocks; a recipe inserts the make+judge pair in one click;
-> hide make-only blocks quip/fill/bars/faker/spotlight from the standalone list); (3) rebuild
-> `GameEditor.client.vue` as a **three-pane layout** (left: rounds rail + Add panel; center:
-> the selected round's form; right: a persistent host/phone preview), replacing the accordion
-> (`expanded` -> `selected`); below ~1000px the preview collapses to a drawer.
+> **Editor redesign + two-phase recipes + homepage rename (2026-06-02, PUSHED + DEPLOYING
+> via CI).** The approved editor task is done and deploying. Three feature commits plus an
+> audit/polish commit and a docs sweep. All gates green: typecheck (incl. `nuxi`), 314 tests,
+> the web build; `scripts/editor-audit.mjs` shows 0 horizontal overflow at 1440/900/390.
+> - **Homepage** (`index.vue`): the "Create by vibe" section is now **"Create with blocks"**
+>   (kicker "Pick a lane" -> "Start from a block"); cards still link to `/editor/<block>`.
+> - **Primitive exposure:** the Custom palette (`games/custom.ts`) now composes every block
+>   (added quip/vote/fill/split/fibvote/buzzer; faker/accuse were already there). The editor's
+>   Add panel offers **Single rounds** (guess/rate/poll/rank/draw/hivemind/most-likely/
+>   ballpark/buzzer) and **Two-phase recipes** that insert a make+judge pair in one click:
+>   Write & Vote (quip->vote), Mad Lib & Vote (fill->vote), Would You & Split (fill->split),
+>   Lie Detector (quip->fibvote, author sets the truth), Sketch & Vote (draw->drawvote),
+>   Hidden Faker (faker->accuse). Recipes are filtered to the blocks a plugin composes (a
+>   single-type editor shows none; quip-clash shows just Write & Vote). Make-only blocks
+>   (quip/fill/bars/faker/spotlight) and derived judges are hidden from the standalone list.
+>   **This makes every first-party two-phase pattern buildable by hand, the real unlock**
+>   (previously only the markdown importer could build them).
+> - **Three-pane editor** (`GameEditor.client.vue`, all script logic kept, template + styles
+>   rewritten): left rounds rail (chips + reorder/remove + an Add overlay), center selected-
+>   round form + derived explainer, right persistent host/phone preview keyed to the selection
+>   (the accordion `expanded` became `selected`). Below ~1000px it collapses to one column with
+>   the preview behind a drawer + FAB; Details/Import are overlay sheets, not inline pushers;
+>   Escape dismisses the topmost overlay/drawer/menu.
+> - **Audit pass (this session):** confirmed all six recipe pairings match the shipped
+>   flagships exactly (quip/fill/faker make -> vote/split/fibvote/drawvote/accuse judge). Fixed
+>   an inaccurate derived-explainer line (it claimed "only the prompt and timer" but `fibvote`
+>   also needs the truth and `vote` has a mode field) -> "the prompt, timer, and any other
+>   fields". Added the Escape-to-dismiss handler for the new overlays/drawer. New
+>   `scripts/editor-audit.mjs` (Playwright) drives the Add panel and checks overflow at three
+>   widths incl. the drawer.
+> - **Docs synced:** README (314 tests, 21 games, 14 flagships, 19 blocks), `docs/architecture.md`,
+>   `docs/authoring-a-game.md` (the recipe + three-pane editor, markdown block list),
+>   `packages/games/README.md`, and `CLAUDE.md` (block roster + editor recipes).
 >
 > **Audit of the new games + a CRITICAL roster fix (2026-06-02, PUSHED + DEPLOYED).** Played each new game with the "host screen IS the shared TV" + "few players"
 > lens (the same lens that caught the Truth or Share gate). Findings:

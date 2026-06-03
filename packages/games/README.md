@@ -3,12 +3,19 @@
 First-party blocks, games, the generic renderer, and the registry.
 
 **Public surface**
-- Blocks: `guessBlock`, `rateBlock`, `pollBlock`, `rankBlock`, `drawBlock`,
-  `quipBlock`, `voteBlock`, `fillBlock`, `splitBlock`, plus pure scoring knobs
+- Blocks (19): the standalone kinds `guessBlock`, `rateBlock`, `pollBlock`,
+  `rankBlock`, `drawBlock`, `hivemindBlock`, `mostLikelyBlock`, `ballparkBlock`,
+  `buzzerBlock`; the two-phase **make** kinds `quipBlock`, `fillBlock`, `fakerBlock`
+  (plus the custom-flow `barsBlock`, `spotlightBlock`); and the two-phase **judge**
+  kinds `voteBlock`, `splitBlock`, `fibBlock`, `drawVoteBlock`, `accuseBlock` (each
+  derives its content from the round above it). Plus pure scoring knobs
   (`blocks/scoring.ts`: `voteSharePoints`, `roundMultiplier`, `sweepBonus`,
   `pityPoints`, `closenessToHalf`, `splitPoints`, `speedDecay`).
-- Games (10): `guess`, `rate`, `poll`, `rank`, `draw`, `voteBox`, `custom`, and the
-  three flagships `quipClash`, `madLibs`, `splitRoom` (ready-to-play, content pools).
+- Games (21): the single-block `guess`, `rate`, `poll`, `rank`, `draw`; `voteBox`
+  (`[guess, rate]`); `custom` (composes every block); and 14 flagship "Games From
+  Doot", `quipClash`, `madLibs`, `splitRoom`, `fibFinder`, `sketchSpot`,
+  `circuitCypher`, `whatYouDidntKnow`, `backronym`, `openMic`, `hivemind`,
+  `mostLikely`, `ballpark`, `faker`, `truthOrShare` (ready-to-play, content pools).
 - Registry: `builtinPlugins`, `getPlugin`, `listPlugins`.
 - Renderer: `GameHost`, `GamePlayer`, `GameResults` (generic) + `derive.ts`
   (`gameRounds`, `redactGameConfig`, `gameAnswerKeys`, `scoreGame`, `getBlock`,
