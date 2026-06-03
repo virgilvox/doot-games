@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { accuseBlock } from './blocks/accuse/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
 import { drawVoteBlock } from './blocks/drawvote/block'
+import { fakerBlock } from './blocks/faker/block'
 import { fibBlock } from './blocks/fibvote/block'
 import { fillBlock } from './blocks/fill/block'
 import { guessBlock } from './blocks/guess/block'
@@ -32,6 +34,8 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   fibvote: fibBlock.contentSchema,
   fill: fillBlock.contentSchema,
   split: splitBlock.contentSchema,
+  faker: fakerBlock.contentSchema,
+  accuse: accuseBlock.contentSchema,
 }
 
 const SAMPLE = `# Movie Night
@@ -203,6 +207,43 @@ describe('parseMarkdownGame', () => {
     const { rounds } = parseMarkdownGame('## fill\nsplit: true\ntemplate: Would you {action} for {amount}?')
     expect(rounds.map((r) => r.block)).toEqual(['fill', 'split'])
     expect((rounds[0]!.content as { showTemplate: boolean }).showTemplate).toBe(true) // visible dilemma
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+  })
+
+  it('parses game-level metadata from the spec header', () => {
+    const g = parseMarkdownGame(
+      [
+        '# My Party',
+        'theme: cyber',
+        'description: A wild night.',
+        'visibility: public',
+        'remixable: yes',
+        'cover: https://img.example/c.jpg',
+        'tags: trivia, party, mixed',
+        '## poll',
+        'prompt: P',
+        '- A',
+        '- B',
+      ].join('\n'),
+    )
+    expect(g.themeId).toBe('cyber')
+    expect(g.description).toBe('A wild night.')
+    expect(g.visibility).toBe('public')
+    expect(g.forkable).toBe(true)
+    expect(g.coverImage).toBe('https://img.example/c.jpg')
+    expect(g.tags).toEqual(['trivia', 'party', 'mixed'])
+  })
+
+  it('maps "published: yes" to public and leaves visibility unset when absent', () => {
+    expect(parseMarkdownGame('# G\npublished: yes\n## poll\nprompt: P\n- A\n- B').visibility).toBe('public')
+    expect(parseMarkdownGame('# G\n## poll\nprompt: P\n- A\n- B').visibility).toBeUndefined()
+  })
+
+  it('expands ## faker into faker + accuse (Hidden Faker), withholding the word from the public config', () => {
+    const { rounds } = parseMarkdownGame('## faker\ncategory: In the kitchen\nword: Toaster')
+    expect(rounds.map((r) => r.block)).toEqual(['faker', 'accuse'])
+    const faker = rounds[0]!.content as { category: string; word: string }
+    expect(faker).toMatchObject({ category: 'In the kitchen', word: 'Toaster' })
     for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
   })
 

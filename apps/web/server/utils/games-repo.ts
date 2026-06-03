@@ -265,15 +265,33 @@ export async function cloneGame(id: string, requesterId: string): Promise<{ id: 
   return { id: newGameId }
 }
 
-/** Quick metadata toggles (visibility / forkable), owner only. */
+/**
+ * Patch a game's display/visibility metadata WITHOUT touching its rounds, owner
+ * only. Each field is changed only when present; an explicit empty string/array
+ * clears the column, an omitted field is left as-is. Returns false if no such
+ * game is owned by the user (or no fields were given).
+ */
 export async function patchGameMeta(
   id: string,
   ownerId: string,
-  fields: { visibility?: Visibility; forkable?: boolean },
+  fields: {
+    visibility?: Visibility
+    forkable?: boolean
+    description?: string
+    coverImage?: string
+    tags?: string[]
+    themeId?: string
+  },
 ): Promise<boolean> {
-  const set: Record<string, unknown> = { updatedAt: Date.now() }
+  const set: Record<string, unknown> = {}
   if (fields.visibility) set.visibility = fields.visibility
   if (typeof fields.forkable === 'boolean') set.forkable = fields.forkable
+  if (fields.description !== undefined) set.description = fields.description.length ? fields.description : null
+  if (fields.coverImage !== undefined) set.coverImage = fields.coverImage.length ? fields.coverImage : null
+  if (fields.tags !== undefined) set.tags = fields.tags.length ? JSON.stringify(fields.tags) : null
+  if (fields.themeId) set.themeId = fields.themeId
+  if (Object.keys(set).length === 0) return false // nothing to change
+  set.updatedAt = Date.now()
   const db = await useDb()
   const res = await db.update(games).set(set).where(and(eq(games.id, id), eq(games.ownerId, ownerId)))
   return (res.rowsAffected ?? 0) > 0

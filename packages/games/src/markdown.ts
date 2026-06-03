@@ -26,6 +26,17 @@ import { PROMPT_MAX, type RoundInstance } from '@doot-games/sdk'
 export interface ParsedGame {
   title: string
   themeId?: string
+  /** Game-level metadata from the spec header (above the first round). Optional;
+   *  a save tool merges these with any explicit tool arguments. */
+  description?: string
+  /** 'private' (owner only) | 'unlisted' (anyone with the link) | 'public' (listed). */
+  visibility?: 'private' | 'unlisted' | 'public'
+  /** Whether others may copy/remix the game into their own editor. */
+  forkable?: boolean
+  /** A cover image URL (from upload_image), shown on cards + the detail page. */
+  coverImage?: string
+  /** Up to a handful of short discovery tags. */
+  tags?: string[]
   rounds: RoundInstance[]
   warnings: string[]
 }
@@ -310,18 +321,54 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         { block: 'vote', content: { prompt: p.voteprompt ?? 'Funniest story wins', options: [], mode: 'field', timer: toTimer(p.votetimer, 30) } },
       ]
     }
+    // `## faker` is the hidden-imposter game (faker -> accuse): everyone but one
+    // secret faker is told the WORD; all give a one-word clue; then the room accuses.
+    // The secret word is withheld from the big screen + the public config.
+    case 'faker': {
+      return [
+        {
+          block: 'faker',
+          content: {
+            category: p.category ?? 'Animals',
+            word: p.word ?? 'Elephant',
+            prompt: p.prompt ?? 'Give a one-word clue that proves you know the word, without giving it away.',
+            timer: toTimer(p.timer, 45),
+          },
+        },
+        {
+          block: 'accuse',
+          content: { prompt: p.voteprompt ?? 'Who is the faker?', category: '', clues: [], timer: toTimer(p.votetimer, 45) },
+        },
+      ]
+    }
     default:
       warnings.push(
-        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, rate, poll, rank, draw, buzzer, hivemind, mostlikely, ballpark, quip, fill.`,
+        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, poll, rank, rate, draw, buzzer, hivemind, mostlikely, ballpark, quip, fill, faker.`,
       )
       return []
   }
+}
+
+/** Map header `visibility:` (or `published:`) to the canonical enum, or undefined. */
+function parseVisibility(v: string): ParsedGame['visibility'] {
+  const s = v.trim().toLowerCase()
+  if (s === 'public' || s === 'published' || s === 'listed') return 'public'
+  if (s === 'unlisted' || s === 'link' || s === 'link-only') return 'unlisted'
+  if (s === 'private' || s === 'hidden') return 'private'
+  if (/^(yes|true|on)$/.test(s)) return 'public' // `published: yes`
+  if (/^(no|false|off)$/.test(s)) return 'private'
+  return undefined
 }
 
 export function parseMarkdownGame(md: string): ParsedGame {
   const lines = md.replace(/\r\n/g, '\n').split('\n')
   let title = 'Imported game'
   let themeId: string | undefined
+  let description: string | undefined
+  let visibility: ParsedGame['visibility']
+  let forkable: boolean | undefined
+  let coverImage: string | undefined
+  let tags: string[] | undefined
   const rounds: RoundInstance[] = []
   const warnings: string[] = []
   let cur: RawRound | null = null
@@ -368,12 +415,19 @@ export function parseMarkdownGame(md: string): ParsedGame {
         value = value.slice(0, PROMPT_MAX)
       }
       if (cur) cur.props[key] = value
+      // Header fields (above the first "## round") set game-level metadata.
       else if (key === 'theme') themeId = value.toLowerCase()
+      else if (key === 'description' || key === 'desc') description = value.slice(0, 300)
+      else if (key === 'visibility' || key === 'published') visibility = parseVisibility(value)
+      else if (key === 'remixable' || key === 'forkable') forkable = isTruthy(value)
+      else if (key === 'cover' || key === 'coverimage' || key === 'cover-image') coverImage = value
+      else if (key === 'tags')
+        tags = value.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 8)
       continue
     }
   }
   flush()
 
   if (!rounds.length) warnings.push('No rounds found. Add at least one "## <block>" heading.')
-  return { title, themeId, rounds, warnings }
+  return { title, themeId, description, visibility, forkable, coverImage, tags, rounds, warnings }
 }
