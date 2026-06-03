@@ -6,6 +6,11 @@ state) and `docs/flagship-games.md` (designs). Items are roughly ordered within
 each group; `[size]` is a rough effort hint.
 
 ## Done (for context, do not redo)
+- **2026-06-03 quick-wins + features (deployed):** driver-can-start (a delegated driver starts
+  the game from their phone, generic + Quiz or Die + Circuit Cypher); **GoatCounter analytics**
+  LIVE at `stats.doot.games` (opt-in via `NUXT_PUBLIC_GOATCOUNTER_URL`); prompt cap (`PROMPT_MAX`);
+  E18 own-answer hiding for fill/split votes; Circuit Cypher optional theme arena colors; Docker
+  base-image digest pin; Rank shuffle regression test. See HANDOFF.
 - Consumer bugs A1–A5, author features B6–B9.
 - 21 games incl. 14 flagships; the catalog IA; saved games + optional auth + uploads.
 - **Editor redesign + two-phase recipes** (2026-06-02) - the schema editor is a

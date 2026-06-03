@@ -2,59 +2,51 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every push to
-`main` deploys to prod via CI, no staging). Everything through HEAD `3f1c97b` is **pushed to
-`main` and deployed** (verified live: `/api/health` ok, the editors + Create page 200). Any
-"committed locally, not yet pushed" notes in the older entries below are superseded._
+_Last updated: 2026-06-03. Branch: `main` (the GitHub **default** branch; every push to
+`main` deploys to prod via CI, no staging). Everything on `main` is **pushed and deployed**
+(verified live: `doot.games` + `stats.doot.games` 200). Any "committed locally, not yet
+pushed" notes in the older entries below are superseded._
 >
-> _Deploy note: the CI build pulls an un-pinned Docker base image, so a Docker Hub registry
-> timeout can fail a deploy transiently (it did once for `3f1c97b`; a `gh run rerun --failed`
-> fixed it). Pinning the base image by digest (a `docs/BACKLOG.md` item) would remove this._
+> _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
+> `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
+> or break a deploy._
 
 > **Quick-wins cluster + driver-can-start + GoatCounter analytics (2026-06-03). PUSHED +
-> DEPLOYED** (HEAD `a4abdb8`; deploy run green, spot-checked live: doot.games + stats.doot.games
-> both 200). All gates green: typecheck (incl. `nuxi`), **355 tests** (+10), the web build;
-> browser-verified (`scripts/driver-start-smoke.mjs`, `scripts/own-answer-smoke.mjs`).
-> - **Rank consensus-drift:** already fixed (per-player shuffle seed); added a regression test.
-> - **Docker base image digest-pinned** (`NODE_IMAGE` ARG, node:22-alpine by sha256); the pinned
->   build deployed green. Shared-store rate-limiting caveat already in `docs/deploy.md`.
-> - **Circuit Cypher:** optional "match arena colors to the theme" lobby toggle (derives the two
->   rapper colors from `--c1..--c5` with a contrast guard, default off = neon) + driver-can-start
->   over its `/x/drive` transport.
-> - **E18 own-answer hiding for fill/split votes:** the renderer computes `ownMakeText` (the
+> DEPLOYED.** All gates green throughout: typecheck (incl. `nuxi`), **355 tests** (+7), the web
+> build; behavior changes browser-verified (`scripts/driver-start-smoke.mjs`,
+> `scripts/own-answer-smoke.mjs`). Spot-checked live (doot.games + stats.doot.games 200).
+> - **Driver can start the game** (the owner ask). New `'start'` control intent so a designated
+>   driver (the MC on their phone) can kick the game off from the lobby, not just advance rounds.
+>   Wired into the generic GameHost (`host.start()` in lobby + a driver Start button) **and both
+>   custom-flow games**: Quiz or Die and Circuit Cypher (its `/x/drive` transport). For the
+>   audio-heavy games, `startGame()` was split into an idempotent `armAudio()` (fired by any host
+>   lobby interaction, incl. picking a driver) + `beginShow()` (host button OR a driver's remote
+>   start), so a remote start still has audible sound on the big screen.
+> - **GoatCounter analytics is LIVE.** Privacy-friendly, cookie-free pageviews as a single Go
+>   binary on its own SQLite file (no new DB), behind Caddy at `stats.doot.games`, mem-capped at
+>   128MB for the 1GB droplet. Dashboard at `https://stats.doot.games` (owner login). Activation
+>   env on the droplet is **`NUXT_PUBLIC_GOATCOUNTER_URL`** in `/opt/doot/.env` (the `NUXT_PUBLIC_`
+>   prefix is required to override `runtimeConfig.public` at runtime; a plain `GOATCOUNTER_URL`
+>   bakes at build and stays ''). The gated plugin (`app/plugins/analytics.client.ts`) drives
+>   counts on `script.onload` + each SPA route change, because count.js's own onload auto-count
+>   never fires for an async script injected after page load. Verified: real `POST /count` 200
+>   beacons. (A couple of test pageviews incl. a stray `/_diag_test` are in the stats.)
+> - **Prompt overflow closed.** Shared `PROMPT_MAX = 400` + `promptText()` in the sdk, used by all
+>   16 prompt-bearing blocks. The editor form enforces a `maxlength` + live counter (introspector
+>   now reads a string `.max()` as `maxLength`) and blocks save on overflow; the markdown/MCP
+>   parser clamps `prompt`/`voteprompt` with a warning.
+> - **E18 own-answer hiding for fill/split votes.** The renderer computes `ownMakeText` (the
 >   player's own make submission rendered via the source block's toVoteText) and the judge view
->   hides the matching option/scenario; split pre-fills the hidden vote. Was broken for fill (only
->   quip worked). Pure helper tested + browser-verified (neither player sees their own story).
-> - **Connector-directory item still open:** square logo asset + public docs with 3+ examples +
->   a reviewer test account (the terms-acceptance + claude.ai connect handshake remain owner-only).
-> - **GoatCounter is LIVE** (activated 2026-06-03): dashboard at `https://stats.doot.games`, real
->   `POST /count` 200 beacons verified for `/` and `/explore`. Runtime env on the droplet is
->   **`NUXT_PUBLIC_GOATCOUNTER_URL`** (the `NUXT_PUBLIC_` prefix is required for a runtime override of
->   `runtimeConfig.public`; a plain `GOATCOUNTER_URL` bakes at build). The plugin drives counts on
->   `script.onload` + route change (count.js's own onload auto-count never fires for an async script
->   injected after page load). A couple of test pageviews (incl. a stray `/_diag_test`) are in the stats.
-
-> **Original commit batch (now superseded by the deployed state above):** prompt cap, driver-start,
-> GoatCounter wiring. All gates green: typecheck (incl. `nuxi`), the web build; driver-start
-> verified in a real browser (`scripts/driver-start-smoke.mjs`).
-> - **Prompt overflow closed (`bcf2727`).** Shared `PROMPT_MAX = 400` + `promptText()` in the
->   sdk, used by all 16 prompt-bearing blocks. Editor form enforces a `maxlength` + live counter
->   (introspector now reads a string `.max()` as `maxLength`) and blocks save on overflow; the
->   markdown/MCP parser clamps `prompt`/`voteprompt` with a warning.
-> - **Driver can start the game (`8796049`).** New `'start'` control intent so a designated
->   driver (MC on their phone) can kick the game off from the lobby, not just advance rounds.
->   Generic GameHost maps it to `host.start()` in the lobby + a driver Start button on the
->   generic player. **Quiz or Die** (the asked-for case): `startGame()` is split into an
->   idempotent `armAudio()` (fired by any host lobby interaction, incl. picking a driver) and
->   `beginShow()` (host button OR a driver's remote start), so a remote start still has audible
->   audio on the big screen; QoD lobby gains a driver picker and the QoD phone a Start button.
-> - **GoatCounter analytics (`9238762`), opt-in.** Privacy-friendly, cookie-free pageviews as a
->   single Go binary on its own SQLite file (no new DB), behind Caddy at `stats.doot.games`,
->   memory-capped at 128MB for the 1GB droplet. Ships in `docker-compose.deploy.yml` + `Caddyfile`;
->   tracking only switches on when `GOATCOUNTER_URL` is set (gated `analytics.client.ts` loads
->   `count.js` + counts SPA route changes). **Owner prerequisites before deploy** (in `docs/deploy.md`):
->   add a `stats.doot.games` A record, add a swap file on the 1GB droplet, deploy, create the site
->   (`goatcounter db create site`), then set `GOATCOUNTER_URL` and redeploy.
+>   hides the matching option/scenario (split pre-fills the hidden vote so the round still
+>   completes). Was broken for fill (only quip worked). Pure helper tested + browser-verified.
+> - **Circuit Cypher** optional "match arena colors to the theme" lobby toggle (derives the two
+>   rapper colors from `--c1..--c5` with a contrast guard, default off = the neon identity).
+> - **Docker base image digest-pinned** + **Rank** per-player-shuffle seed got a regression test
+>   (it was already fixed in code).
+> - **Still open:** the Claude connector-directory submission (square logo + public docs with 3+
+>   examples + a reviewer test account; the terms-acceptance + claude.ai connect handshake are
+>   owner-only). And the **delegated-driver forge** security hole is now more pertinent since the
+>   driver can start games (see "Known limitations" below) - the recommended next build.
 > - **DB/volume note (owner to verify on the droplet):** durable state is a single SQLite file at
 >   `/opt/doot/data/doot.sqlite` (accounts + saved games + bookmarks); images are on Spaces; live
 >   room state is on the relay. Whether `/opt/doot/data` is on a DO block volume vs. the root disk
