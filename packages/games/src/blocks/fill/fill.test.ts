@@ -1,6 +1,6 @@
 import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
-import { madLibs } from '../../games/madlibs'
+import { madLibs } from '../../games/mad-libs'
 import { buildDeriveContent } from '../../runtime/derive'
 import { type FillContent, type FillInput, fillBlock, renderFilled } from './block'
 

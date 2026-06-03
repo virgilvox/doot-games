@@ -15,7 +15,7 @@
  */
 import { type RelayClient, type RelayValue, addr, createClaspRelay, createRoom, makeRoomCode } from '@doot-games/engine'
 import { describe, expect, it } from 'vitest'
-import { quipClash } from './games/quipclash'
+import { quipClash } from './games/quip-clash'
 import { voteBox } from './games/votebox'
 import {
   buildDeriveContent,

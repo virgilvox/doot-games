@@ -5,8 +5,8 @@ import { backronym } from './backronym'
 import { ballpark } from './ballpark'
 import { faker } from './faker'
 import { hivemind } from './hivemind'
-import { mostLikely } from './mostlikely'
-import { openMic } from './openmic'
+import { mostLikely } from './most-likely'
+import { openMic } from './open-mic'
 import { builtinPlugins } from '../registry'
 
 /**

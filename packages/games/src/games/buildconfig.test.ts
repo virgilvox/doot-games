@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { RoundInstance } from '@doot-games/sdk'
 import { circuitCypher } from './circuit-cypher'
-import { madLibs } from './madlibs'
-import { quipClash } from './quipclash'
-import { splitRoom } from './splitroom'
+import { madLibs } from './mad-libs'
+import { quipClash } from './quip-clash'
+import { splitRoom } from './split-room'
 
 // Each of these flagships pairs a make + judge round, so N items => 2N engine
 // rounds. (Circuit Cypher is a custom-flow tournament with a single write round,

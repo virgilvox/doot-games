@@ -15,7 +15,7 @@ import {
 } from '@doot-games/engine'
 import type { GameComposition, ScorePlayer } from '@doot-games/sdk'
 import { afterEach, describe, expect, it } from 'vitest'
-import { quipClash } from '../games/quipclash'
+import { quipClash } from '../games/quip-clash'
 import { buildDeriveContent, buildRevealSummary } from './derive'
 
 class FakeHub {

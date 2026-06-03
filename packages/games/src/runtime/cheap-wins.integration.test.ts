@@ -21,7 +21,7 @@ import type { GameComposition, GamePlugin, ScorePlayer } from '@doot-games/sdk'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ballpark } from '../games/ballpark'
 import { hivemind } from '../games/hivemind'
-import { mostLikely } from '../games/mostlikely'
+import { mostLikely } from '../games/most-likely'
 import {
   buildDeriveContent,
   buildRevealSummary,
