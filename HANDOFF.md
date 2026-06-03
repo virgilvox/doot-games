@@ -27,9 +27,12 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 >   quip worked). Pure helper tested + browser-verified (neither player sees their own story).
 > - **Connector-directory item still open:** square logo asset + public docs with 3+ examples +
 >   a reviewer test account (the terms-acceptance + claude.ai connect handshake remain owner-only).
-> - **GoatCounter still needs owner activation:** the container + TLS + DNS are live, but log in
->   needs `goatcounter db create site -vhost=stats.doot.games -user.email=...` on the droplet, then
->   `GOATCOUNTER_URL=https://stats.doot.games` in `/opt/doot/.env` + redeploy to switch tracking on.
+> - **GoatCounter is LIVE** (activated 2026-06-03): dashboard at `https://stats.doot.games`, real
+>   `POST /count` 200 beacons verified for `/` and `/explore`. Runtime env on the droplet is
+>   **`NUXT_PUBLIC_GOATCOUNTER_URL`** (the `NUXT_PUBLIC_` prefix is required for a runtime override of
+>   `runtimeConfig.public`; a plain `GOATCOUNTER_URL` bakes at build). The plugin drives counts on
+>   `script.onload` + route change (count.js's own onload auto-count never fires for an async script
+>   injected after page load). A couple of test pageviews (incl. a stray `/_diag_test`) are in the stats.
 
 > **Original commit batch (now superseded by the deployed state above):** prompt cap, driver-start,
 > GoatCounter wiring. All gates green: typecheck (incl. `nuxi`), the web build; driver-start
