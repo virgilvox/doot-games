@@ -17,11 +17,22 @@ const props = withDefaults(
     live?: number
     /** Cover height in px (default 150); the featured hero uses a taller value. */
     height?: number
+    /** Optional aspect ratio (e.g. "16 / 9"). When set, the cover sizes by ratio
+     *  to its container width instead of a fixed height, so a 16:9 cover image
+     *  shows in full (no crop), e.g. on a game detail page. */
+    ratio?: string | null
     /** Optional uploaded cover image. When set (and it loads), it fills the cover
      *  instead of the generated gradient art; a broken URL falls back to the art. */
     image?: string | null
   }>(),
-  { type: '', live: 0, height: 150, image: null },
+  { type: '', live: 0, height: 150, ratio: null, image: null },
+)
+const coverStyle = computed(() =>
+  // `height: auto` overrides the global `.cover { height: 150px }` (the discovery-
+  // card cover) so the aspect-ratio sizes from the container width, not a fixed height.
+  props.ratio
+    ? { background: grad.value, aspectRatio: props.ratio, height: 'auto' }
+    : { background: grad.value, height: `${props.height}px` },
 )
 
 // Show the uploaded image only if it actually loads; otherwise keep the
@@ -102,7 +113,7 @@ const SF = 'rgba(255,255,255,.32)'
 </script>
 
 <template>
-  <div class="cover" :style="{ background: grad, height: `${height}px` }">
+  <div class="cover" :style="coverStyle">
     <img v-if="showImage" class="cover-img" :src="coverSrc!" alt="" @error="imageFailed = true" />
     <svg v-if="!showImage" class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <template v-if="motif === 'q'">

@@ -25,7 +25,7 @@ useHead(() => ({ title: `${game.value?.name} on Doot` }))
     <div class="wrap" style="max-width: 760px">
       <article v-if="game" class="detail">
         <div class="detail-cover">
-          <GameCover :title="game.name" :type="game.id" :height="240" />
+          <GameCover :title="game.name" :type="game.id" ratio="16 / 9" />
         </div>
         <span class="kicker">{{ game.flagship ? 'Game From Doot' : 'Building block' }}</span>
         <h1 class="detail-title">{{ game.name }}</h1>
