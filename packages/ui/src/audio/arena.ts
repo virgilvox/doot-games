@@ -46,8 +46,22 @@ export interface ArenaAudio {
   laugh(big?: boolean): void
   /** A "ba-dum-tss" rimshot, for a punchline landing. */
   rimshot(): void
+  /** A real applause + cheer burst (the loaded sample if present, else the synth cheer). */
+  applause(): void
   /** A countdown tick; pass `true` for the final "GO" double-beep. */
   countBeep(go?: boolean): void
+  /** Decode real one-shot SFX samples (crowd laughter / applause) so `laugh()`,
+   *  `cheer()` and `applause()` play recordings instead of the synth. Best-effort:
+   *  failures leave the synth fallbacks in place. Safe to call before `start()`. */
+  loadSamples(urls: { laugh?: string; laughBig?: string; applause?: string }): Promise<void>
+  /** Decode music tracks (e.g. rap beats). Once any load, `start()` plays one of
+   *  them on a loop in place of the generated beat; with none loaded the synth beat
+   *  plays. Best-effort. Safe to call before `start()`. */
+  loadMusic(urls: string[]): Promise<void>
+  /** How many music tracks decoded successfully (0 = the synth beat will be used). */
+  trackCount(): number
+  /** Switch to a specific decoded track (wraps by modulo); no-op with none loaded. */
+  playTrack(index: number): void
   /** Current analyser energy + bins for the stage's per-frame reactivity. */
   levels(): ArenaLevels
   /** Beat phase in beats (for sub-beat-accurate visual sync). */
@@ -80,6 +94,13 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
   let step = 0
   let nextTime = 0
   let timer: ReturnType<typeof setTimeout> | null = null
+  // Decoded real-audio samples (crowd laughter/applause) and music tracks (rap
+  // beats). All optional: when none are loaded the engine stays fully synthesized,
+  // so the generated beat + synth SFX remain the back-pocket fallback.
+  const sfxBuf: { laugh?: AudioBuffer; laughBig?: AudioBuffer; applause?: AudioBuffer } = {}
+  let musicBuffers: AudioBuffer[] = []
+  let trackSrc: AudioBufferSourceNode | null = null
+  let usingTrack = false
 
   function makeNoise(c: AudioContext): AudioBuffer {
     const len = c.sampleRate * 1.0
@@ -298,19 +319,86 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
     o.stop(t + dur + 0.02)
   }
 
+  // ---- real-audio playback (optional samples + music tracks) ----
+  function playBuffer(buf: AudioBuffer, vol: number): void {
+    if (!ctx || !master) return
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    const g = ctx.createGain()
+    g.gain.value = vol
+    src.connect(g)
+    g.connect(master) // through master so the analyser sees it (the crowd bobs to it)
+    src.start()
+  }
+  // The synth crowd cheer (extracted so applause()/cheer() can fall back to it).
+  function cheerBurst(): void {
+    if (!ctx || !master || !noiseBuf) return
+    const t = ctx.currentTime
+    const n = ctx.createBufferSource()
+    n.buffer = noiseBuf
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.setValueAtTime(700, t)
+    bp.frequency.exponentialRampToValueAtTime(2600, t + 0.5)
+    bp.Q.value = 0.7
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0, t)
+    g.gain.linearRampToValueAtTime(0.4, t + 0.15)
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.4)
+    n.connect(bp)
+    bp.connect(g)
+    g.connect(master)
+    n.start(t)
+    n.stop(t + 1.5)
+  }
+  // Loop a decoded music track through the `music` bus (so duck() works under it).
+  function startTrack(index: number): void {
+    if (!ctx || !music || !musicBuffers.length) return
+    try {
+      trackSrc?.stop()
+    } catch {
+      /* already stopped */
+    }
+    const buf = musicBuffers[((index % musicBuffers.length) + musicBuffers.length) % musicBuffers.length]
+    if (!buf) return
+    const src = ctx.createBufferSource()
+    src.buffer = buf
+    src.loop = true
+    src.connect(music)
+    src.start()
+    trackSrc = src
+    usingTrack = true
+  }
+  async function decode(url: string): Promise<AudioBuffer | null> {
+    if (!ctx) return null
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return null
+      const arr = await res.arrayBuffer()
+      return await ctx.decodeAudioData(arr)
+    } catch {
+      return null
+    }
+  }
+
   return {
     async start(): Promise<void> {
       if (playing || !canPlayArenaAudio()) return
       try {
         if (!ctx) init()
         await ctx?.resume()
-        if (beat && !padStarted) startPad()
+        if (beat && !padStarted && !usingTrack) startPad()
         if (playing) return
         playing = true
         if (beat) {
-          step = 0
-          nextTime = (ctx?.currentTime ?? 0) + 0.08
-          loop()
+          // Prefer a real track if any decoded; otherwise run the synth beat.
+          if (musicBuffers.length) {
+            startTrack(0)
+          } else {
+            step = 0
+            nextTime = (ctx?.currentTime ?? 0) + 0.08
+            loop()
+          }
         }
       } catch {
         playing = false
@@ -318,6 +406,12 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
     },
     stop(): void {
       playing = false
+      try {
+        trackSrc?.stop()
+      } catch {
+        /* already stopped */
+      }
+      trackSrc = null
       if (timer) clearTimeout(timer)
       timer = null
       if (master && ctx) {
@@ -367,26 +461,18 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
       })
     },
     cheer(): void {
-      if (!ctx || !master || !noiseBuf) return
-      const t = ctx.currentTime
-      const n = ctx.createBufferSource()
-      n.buffer = noiseBuf
-      const bp = ctx.createBiquadFilter()
-      bp.type = 'bandpass'
-      bp.frequency.setValueAtTime(700, t)
-      bp.frequency.exponentialRampToValueAtTime(2600, t + 0.5)
-      bp.Q.value = 0.7
-      const g = ctx.createGain()
-      g.gain.setValueAtTime(0.0, t)
-      g.gain.linearRampToValueAtTime(0.4, t + 0.15)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 1.4)
-      n.connect(bp)
-      bp.connect(g)
-      g.connect(master)
-      n.start(t)
-      n.stop(t + 1.5)
+      if (sfxBuf.applause) {
+        playBuffer(sfxBuf.applause, 0.75)
+        return
+      }
+      cheerBurst()
     },
     laugh(big = false): void {
+      const buf = big ? (sfxBuf.laughBig ?? sfxBuf.laugh) : (sfxBuf.laugh ?? sfxBuf.laughBig)
+      if (buf) {
+        playBuffer(buf, big ? 0.95 : 0.72)
+        return
+      }
       if (!ctx || !master || !noiseBuf) return
       const t = ctx.currentTime
       const dur = big ? 1.7 : 1.1
@@ -451,6 +537,35 @@ export function createArenaAudio(opts: { bpm?: number; beat?: boolean } = {}): A
       g.connect(master)
       n.start(t + 0.32)
       n.stop(t + 0.95)
+    },
+    applause(): void {
+      if (sfxBuf.applause) {
+        playBuffer(sfxBuf.applause, 0.9)
+        return
+      }
+      cheerBurst()
+    },
+    async loadSamples(urls: { laugh?: string; laughBig?: string; applause?: string }): Promise<void> {
+      if (!ctx) init()
+      await Promise.all(
+        (Object.entries(urls) as Array<[keyof typeof sfxBuf, string | undefined]>).map(async ([k, url]) => {
+          if (!url) return
+          const buf = await decode(url)
+          if (buf) sfxBuf[k] = buf
+        }),
+      )
+    },
+    async loadMusic(urls: string[]): Promise<void> {
+      if (!ctx) init()
+      const bufs = await Promise.all(urls.map((u) => decode(u)))
+      musicBuffers = bufs.filter((b): b is AudioBuffer => !!b)
+    },
+    trackCount(): number {
+      return musicBuffers.length
+    },
+    playTrack(index: number): void {
+      if (!musicBuffers.length) return
+      startTrack(index)
     },
     countBeep(go = false): void {
       if (!ctx) return

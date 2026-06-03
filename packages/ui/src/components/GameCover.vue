@@ -52,6 +52,7 @@ watch(
 const FLAGSHIP_COVER: Record<string, string> = {
   'quiz-or-die': '/covers/quiz-or-die.jpg',
   'circuit-cypher': '/covers/circuit-cypher.jpg',
+  'open-mic': '/covers/open-mic.jpg',
 }
 const coverSrc = computed(() => props.image || FLAGSHIP_COVER[props.type] || null)
 const showImage = computed(() => !!coverSrc.value && !imageFailed.value)

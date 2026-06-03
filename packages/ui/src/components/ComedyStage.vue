@@ -82,6 +82,27 @@ function radialTex() {
   return t
 }
 
+/** A soft vertical-gradient alpha for the spotlight beam: bright up at the lamp,
+ *  fading to nothing before it reaches the comic, so the beam reads as light rather
+ *  than a hard slab painted over the performer. */
+function beamTex() {
+  const c = document.createElement('canvas')
+  c.width = 8
+  c.height = 128
+  const g = c.getContext('2d')
+  if (!g) return null
+  const grad = g.createLinearGradient(0, 0, 0, 128)
+  grad.addColorStop(0, 'rgba(255,255,255,0.85)')
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.32)')
+  grad.addColorStop(0.78, 'rgba(255,255,255,0.06)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 8, 128)
+  const t = new THREE.Texture(c)
+  t.needsUpdate = true
+  return t
+}
+
 /** A canvas-drawn exposed-brick texture for the back wall. */
 function brickTex() {
   const c = document.createElement('canvas')
@@ -258,16 +279,20 @@ function buildStool() {
 }
 
 function buildCrowd() {
-  const headMat = new THREE.MeshStandardMaterial({ color: 0x070509, metalness: 0.1, roughness: 1, emissive: 0x180c04, emissiveIntensity: 0.5 })
-  for (let row = 0; row < 2; row++) {
-    for (let i = 0; i < 12; i++) {
+  // Slightly emissive so the warm house light gives the silhouettes form against the
+  // dark room (a clear crowd, not invisible black blobs).
+  const headMat = new THREE.MeshStandardMaterial({ color: 0x0d0a12, metalness: 0.1, roughness: 1, emissive: 0x3a2008, emissiveIntensity: 0.65 })
+  for (let row = 0; row < 3; row++) {
+    const perRow = 14
+    for (let i = 0; i < perRow; i++) {
       const h = new THREE.Group()
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12), headMat)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 12), headMat)
       h.add(head)
-      const shoulders = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.5, 0.7, 12), headMat)
-      shoulders.position.y = -0.62
+      const shoulders = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.56, 0.78, 12), headMat)
+      shoulders.position.y = -0.66
       h.add(shoulders)
-      h.position.set((i - 5.5) * 1.15 + row * 0.55, 0.1 - row * 0.1, 8.5 + row * 1.6)
+      // Stagger the rows, tier them up toward the back so the further rows peek over.
+      h.position.set((i - (perRow - 1) / 2) * 1.12 + (row % 2) * 0.55, 1.0 + row * 0.62, 6.8 + row * 1.5)
       h.userData = { phase: (i * 1.7 + row * 3.1) % 6.28 }
       crowd.push(h)
       scene.add(h)
@@ -317,17 +342,17 @@ function frame() {
 
   // Spotlight: warm + bright on a kill, cool + dim on a bomb, steady while performing.
   const warm = props.mood === 'bomb' ? 0x5577aa : colorOfSpot()
-  const targetI = props.mood === 'bomb' ? 0.8 : props.performing ? 3.0 : props.mood === 'kill' ? 3.6 : 1.6
+  const targetI = props.mood === 'bomb' ? 1.0 : props.performing ? 3.6 : props.mood === 'kill' ? 4.2 : 2.4
   spot.color.set(warm)
   spot.intensity = THREE.MathUtils.lerp(spot.intensity, targetI * (1 + laugh * 0.4), dt * 4)
-  spotCone.material.opacity = THREE.MathUtils.lerp(spotCone.material.opacity, props.mood === 'bomb' ? 0.04 : 0.12 + laugh * 0.08, dt * 4)
+  spotCone.material.opacity = THREE.MathUtils.lerp(spotCone.material.opacity, props.mood === 'bomb' ? 0.02 : 0.055 + laugh * 0.05, dt * 4)
 
   if (robot) animComedian(robot, dt, idle, laugh)
 
   const swayAmt = props.calm ? 0 : 1
   camera.position.x = Math.sin(idle * 0.25) * 0.4 * swayAmt
-  camera.position.y = 3.4 + Math.sin(idle * 0.4) * 0.12 * swayAmt
-  camera.lookAt(0, 3.0, 0)
+  camera.position.y = 4.2 + Math.sin(idle * 0.4) * 0.12 * swayAmt
+  camera.lookAt(0, 2.5, 0) // tilt down a touch so a row of audience silhouettes sits along the foreground
 
   crowd.forEach((h) => {
     const bob = Math.sin(idle * 2.2 + h.userData.phase) * (0.06 + laugh * 0.5)
@@ -387,25 +412,50 @@ async function build(el: HTMLDivElement) {
   glowTex = radialTex()
 
   camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 200)
-  camera.position.set(0, 3.4, 12)
-  camera.lookAt(0, 3.0, 0)
+  camera.position.set(0, 4.2, 12)
+  camera.lookAt(0, 2.5, 0)
 
-  scene.add(new THREE.HemisphereLight(0x4a3320, 0x05030a, 0.5))
-  scene.add(new THREE.AmbientLight(0x2a1f16, 0.6))
+  scene.add(new THREE.HemisphereLight(0x5a3f26, 0x07040c, 0.65))
+  scene.add(new THREE.AmbientLight(0x2f231a, 0.75))
+  // A warm front fill so the comedian's face/chest read instead of going to silhouette.
+  const fill = new THREE.PointLight(0xffcf96, 0.7, 34)
+  fill.position.set(0, 4.5, 9)
+  scene.add(fill)
+  // A dim warm wash at the back of the room so the audience silhouettes have form.
+  const houseLight = new THREE.PointLight(0xff9a52, 0.5, 46)
+  houseLight.position.set(0, 5, 15)
+  scene.add(houseLight)
 
-  // The warm key spotlight on the comedian.
-  spot = new THREE.SpotLight(colorOfSpot(), 1.6, 40, 0.5, 0.6, 1.2)
+  // The warm key spotlight on the comedian (brighter + tighter so it pops the comic).
+  spot = new THREE.SpotLight(colorOfSpot(), 2.4, 44, 0.42, 0.7, 1.1)
   spot.position.set(0, 11, 5)
   spot.target.position.set(0, 2.5, 0)
   scene.add(spot, spot.target)
-  // A faint volumetric cone for the spotlight beam.
+  // A soft volumetric beam (gradient alpha, low opacity) that fades out before the
+  // comic, so it frames rather than washes over the performer.
   spotCone = new THREE.Mesh(
-    new THREE.ConeGeometry(2.6, 10, 28, 1, true),
-    new THREE.MeshBasicMaterial({ color: colorOfSpot(), transparent: true, opacity: 0.12, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.ConeGeometry(2.3, 9.5, 36, 1, true),
+    new THREE.MeshBasicMaterial({
+      map: beamTex() ?? undefined,
+      color: colorOfSpot(),
+      transparent: true,
+      opacity: 0.06,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
   )
-  spotCone.position.set(0, 6, 2.5)
+  spotCone.position.set(0, 6.7, 1.6)
   spotCone.rotation.x = Math.PI
   scene.add(spotCone)
+  // A warm pool of light on the stage floor under the comic.
+  const pool = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.5, 7.5),
+    new THREE.MeshBasicMaterial({ map: glowTex, color: colorOfSpot(), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
+  )
+  pool.rotation.x = -Math.PI / 2
+  pool.position.set(0, 0.06, 0.8)
+  scene.add(pool)
 
   // Wood stage floor.
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x2a1c12, metalness: 0.2, roughness: 0.85 }))

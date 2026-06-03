@@ -142,6 +142,56 @@ const curBit = computed(() => bits.value[bitIndex.value] ?? null)
 const card = ref<{ kicker?: string; big: string; sub?: string } | null>(null)
 const confetti = ref(false)
 
+// ── Opening showmanship (a club intro the first time the show goes live) ──────
+const intro = ref<{ kicker?: string; big: string; sub?: string } | null>(null)
+let introPlayed = false
+function runIntro() {
+  if (introPlayed) return
+  introPlayed = true
+  const beats: Array<{ card: { kicker?: string; big: string; sub?: string }; say: string; hold: number; fx?: () => void }> = [
+    {
+      card: { kicker: 'TONIGHT AT THE', big: 'DOOT COMEDY CELLAR' },
+      say: 'Goooood evening, and welcome to the Doot Comedy Cellar!',
+      hold: 2600,
+      fx: () => audio.value?.applause(),
+    },
+    {
+      card: { kicker: 'OPEN MIC NIGHT', big: 'Grab the mic', sub: 'The crowd decides who killed' },
+      say: "It's open mic night. Our comics step up, you write the bits, and the room votes for the funniest.",
+      hold: 3400,
+      fx: () => audio.value?.cheer(),
+    },
+    {
+      card: { kicker: "FIRST UP, TONIGHT'S PREMISE", big: premise.value || 'Warm up the crowd', sub: 'Pens out, comics' },
+      say: premise.value ? `First premise: ${premise.value}` : 'Let us warm up the crowd.',
+      hold: 2600,
+    },
+  ]
+  let i = 0
+  const run = () => {
+    if (i >= beats.length) {
+      intro.value = null
+      return
+    }
+    const b = beats[i++]
+    if (!b) {
+      intro.value = null
+      return
+    }
+    intro.value = b.card
+    b.fx?.()
+    sayThenAdvance(b.say, run, b.hold)
+  }
+  run()
+}
+function skipIntro() {
+  introPlayed = true
+  clearTimers()
+  cancelSpeech()
+  pending.value = null
+  intro.value = null
+}
+
 const pending = ref<null | (() => void)>(null)
 let timers: ReturnType<typeof setTimeout>[] = []
 function schedule(fn: () => void, ms: number) {
@@ -383,7 +433,10 @@ watch(
 function startGame() {
   audio.value?.setMuted(muted.value)
   primeSpeech()
+  void audio.value?.start()
   room.host.start()
+  // A short club-open flourish over the first writing round.
+  runIntro()
 }
 function playAgain() {
   if (typeof window !== 'undefined') window.location.reload()
@@ -400,6 +453,9 @@ onMounted(() => {
   warmUpSpeech()
   audio.value = createArenaAudio({ beat: false }) // a club, not a beat
   audio.value.setMuted(muted.value)
+  // Real crowd laughter + applause (CC BY, lonemonk/freesound via Commons); the
+  // engine keeps its synth fallback if these fail to load.
+  void audio.value.loadSamples({ laugh: '/audio/laugh.mp3', laughBig: '/audio/laugh-big.mp3', applause: '/audio/applause.mp3' })
 })
 onUnmounted(() => {
   if (ticker) clearInterval(ticker)
@@ -570,7 +626,14 @@ onUnmounted(() => {
         <span class="tag">OPEN MIC</span>
         <span class="tag">PREMISE {{ Math.floor(index / 2) + 1 }}</span>
       </div>
-      <div class="write">
+      <!-- opening showmanship flourish (over the first writing round) -->
+      <div v-if="intro" :key="`intro-${intro.big}`" class="stage-card intro-card" @click="skipIntro">
+        <div v-if="intro.kicker" class="kicker">{{ intro.kicker }}</div>
+        <div class="big pop">{{ intro.big }}</div>
+        <div v-if="intro.sub" class="sub">{{ intro.sub }}</div>
+      </div>
+
+      <div v-show="!intro" class="write">
         <div class="kicker">TONIGHT'S PREMISE</div>
         <h1 class="premise">{{ premise }}</h1>
         <div class="lockin mono">{{ lockCount.locked }}<span v-if="state === 'open'"> / {{ lockCount.total }}</span> {{ lockCount.locked === 1 ? 'bit' : 'bits' }} in</div>
@@ -733,6 +796,12 @@ onUnmounted(() => {
 .stage-card .kicker { font-size: clamp(13px, 3.2vw, 20px); letter-spacing: 3px; opacity: 0.85; margin-bottom: 10px; color: #ffb648; }
 .stage-card .big { font-weight: 900; font-size: clamp(36px, 9vw, 96px); line-height: 0.98; text-shadow: 0 0 26px rgba(255, 182, 72, 0.4); }
 .stage-card .sub { font-family: var(--font-body, monospace); font-size: clamp(15px, 3.2vw, 24px); margin-top: 16px; opacity: 0.9; max-width: 26ch; }
+.intro-card {
+  background: radial-gradient(120% 90% at 50% 40%, rgba(20, 10, 6, 0.5), rgba(8, 4, 2, 0.82));
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 3;
+}
 .pop { animation: pop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes pop {
   0% { transform: scale(1.5); opacity: 0; filter: blur(8px); }
