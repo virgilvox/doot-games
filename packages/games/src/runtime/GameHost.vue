@@ -10,6 +10,7 @@ import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@d
 import { ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips } from '@doot-games/ui'
 import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
+import type { FilterTier } from './contentFilter'
 import { getBlock, scoreGame } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
@@ -42,6 +43,11 @@ const timersOff = inject<Ref<boolean>>('dootTimersOff', ref(false))
 // On by default; the host can turn it off to control the pacing themselves. It
 // only locks the round; the host/driver still chooses when to reveal and move on.
 const autoAdvance = ref(true)
+// Optional content filter (off / moderate / strict), provided by HostRoom. Masks
+// flagged words in the derived gallery before publish. Only meaningful for games
+// with free-text answers (quip/fill -> a vote gallery), so the picker is gated.
+const contentFilter = inject<Ref<FilterTier>>('dootContentFilter', ref('off'))
+const hasFreeTextGallery = computed(() => props.plugin.blocks.some((b) => b.kind === 'quip' || b.kind === 'fill'))
 function toggleCap(on: boolean) {
   playerCap.value = on ? 20 : null
 }
@@ -334,6 +340,19 @@ watch(
         />
         <span class="kicker">Advance as soon as everyone has answered</span>
       </label>
+      <div v-if="hasFreeTextGallery" class="cohost-pick">
+        <span class="kicker">Filter answers on the big screen</span>
+        <select
+          class="cohost-select"
+          aria-label="Content filter"
+          :value="contentFilter"
+          @change="contentFilter = ($event.target as HTMLSelectElement).value as FilterTier"
+        >
+          <option value="off">Off (anything goes)</option>
+          <option value="moderate">Moderate (mask strong language)</option>
+          <option value="strict">Strict (family-friendly)</option>
+        </select>
+      </div>
       <div class="cohost-pick">
         <span class="kicker">Who drives the game</span>
         <select

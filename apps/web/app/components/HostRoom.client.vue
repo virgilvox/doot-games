@@ -12,9 +12,11 @@ import {
   buildAssignContent,
   buildDeriveContent,
   buildRevealSummary,
+  type FilterTier,
   gameAnswerKeys,
   gameRounds,
   getPlugin,
+  maskDerivedPublish,
   redactGameConfig,
 } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
@@ -81,6 +83,12 @@ watch(playerCap, (cap) => {
 const timersOff = ref(false)
 provide('dootTimersOff', timersOff)
 
+// Optional content filter (off / moderate / strict), set from the lobby. Masks the
+// flagged words in the derived gallery text before it is published, so the room
+// never sees them on the big screen. Read at derive time (lobby-only choice).
+const contentFilter = ref<FilterTier>('off')
+provide('dootContentFilter', contentFilter)
+
 /** Null out every round's timer when the host turned timers off. */
 function applyTimers(config: GameComposition): GameComposition {
   if (!timersOff.value) return config
@@ -103,6 +111,7 @@ function resolveConfig(): GameComposition {
 
 function load() {
   const config = resolveConfig()
+  const baseDerive = buildDeriveContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i))
   const meta: RoomMeta = {
     pluginId: game.manifest.id,
     pluginVersion: game.manifest.version,
@@ -117,7 +126,11 @@ function load() {
     answerKeys: gameAnswerKeys(game, config) as unknown as Record<number, RelayValue>,
     // Two-phase wiring: derive a round's content from earlier inputs at runtime,
     // and publish a public reveal summary so phones can show personal feedback.
-    deriveContent: buildDeriveContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
+    // The derive output is run through the host's content filter before publish.
+    deriveContent: ((index: number, inputsFor: (i: number) => Map<string, unknown>) => {
+      const out = baseDerive(index, inputsFor)
+      return out ? { ...out, publish: maskDerivedPublish(out.publish, contentFilter.value) } : out
+    }) as never,
     assignContent: buildAssignContent(game, config, roomCode, getPlayers) as never,
     revealSummary: buildRevealSummary(
       game,
