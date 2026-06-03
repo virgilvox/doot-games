@@ -57,7 +57,6 @@ const description = ref(source?.description ?? '')
 const tagsText = ref((source?.tags ?? []).join(', '))
 const coverImage = ref(source?.coverImage ?? '')
 const forkable = ref(source?.forkable ?? false)
-const showDetails = ref(false)
 const headerLabel = computed(() => (isFork.value ? 'Forking' : editId.value ? 'Editing' : 'New'))
 // Plain-language meaning of each visibility level, shown next to the picker and
 // when a game is saved (so "I shared the link but my friend gets a 404" never
@@ -240,10 +239,9 @@ function clearPreviews() {
   for (const k of Object.keys(previewInputs)) delete previewInputs[Number(k)]
 }
 
-// The Add panel (an overlay) offers Single rounds + Two-phase recipes; the bar's
-// "More" menu holds Details + Import (which also open as overlays).
+// The Add panel and Import open as overlays. Game details (cover/description/
+// tags/forkable) are inline, not a modal.
 const showAdd = ref(false)
-const showMore = ref(false)
 function addSingle(kind: string) {
   const block = getBlock(plugin!, kind)
   if (!block) return
@@ -444,10 +442,8 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   if (showAdd.value) showAdd.value = false
-  else if (showDetails.value) showDetails.value = false
   else if (showImport.value) showImport.value = false
   else if (showPreviewDrawer.value) showPreviewDrawer.value = false
-  else if (showMore.value) showMore.value = false
 }
 onMounted(() => {
   window.addEventListener('beforeunload', onBeforeUnload)
@@ -467,6 +463,7 @@ onScopeDispose(() => {
         <div class="ed-bar-title">
           <span class="kicker">{{ headerLabel }} · {{ plugin.manifest.name }}</span>
           <input v-model="config.title" class="ed-title" placeholder="Game title" aria-label="Game title" />
+          <input v-model="description" class="ed-desc" maxlength="300" placeholder="Add a one-line description (shown on cards)" aria-label="Game description" />
         </div>
         <div class="ed-bar-actions">
           <div class="ed-swatches" role="group" aria-label="Theme">
@@ -488,17 +485,10 @@ onScopeDispose(() => {
             <option value="unlisted">Unlisted (link only)</option>
             <option value="public">Public (listed)</option>
           </select>
-          <div class="ed-more">
-            <button type="button" class="ed-toggle" :class="{ on: showMore }" :aria-expanded="showMore" aria-haspopup="true" aria-label="More options" @click="showMore = !showMore">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
-              More
-            </button>
-            <div v-if="showMore" class="ed-more-menu" role="menu">
-              <button type="button" role="menuitem" @click="showDetails = true; showMore = false">Details</button>
-              <button type="button" role="menuitem" @click="showImport = true; showMore = false">Import from text</button>
-            </div>
-            <button v-if="showMore" type="button" class="ed-more-scrim" aria-hidden="true" tabindex="-1" @click="showMore = false" />
-          </div>
+          <button type="button" class="ed-toggle" :class="{ on: showImport }" aria-label="Import a game from text" @click="showImport = true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+            Import
+          </button>
           <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
             {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
           </button>
@@ -551,6 +541,24 @@ onScopeDispose(() => {
             </li>
           </ol>
           <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
+
+          <!-- Game-level metadata (cover, tags, sharing). Inline + collapsed by
+               default so it is one click away without crowding the editor. The
+               description lives under the title; visibility is in the top bar. -->
+          <details class="ed-meta">
+            <summary>Cover, tags &amp; sharing</summary>
+            <div class="ed-meta-body">
+              <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
+              <label class="sf-field">
+                <span class="sf-label">Tags (comma-separated)</span>
+                <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
+              </label>
+              <label class="sf-toggle">
+                <input type="checkbox" v-model="forkable" />
+                <span>Let others fork (copy) this game</span>
+              </label>
+            </div>
+          </details>
         </nav>
 
         <!-- CENTER: the selected round's form -->
@@ -706,31 +714,6 @@ onScopeDispose(() => {
         </div>
       </div>
 
-      <!-- Details overlay -->
-      <div v-if="showDetails" class="ed-overlay" @click.self="showDetails = false">
-        <div class="ed-sheet ed-sheet--narrow" role="dialog" aria-label="Game details" aria-modal="true">
-          <div class="ed-sheet-head">
-            <h2>Details</h2>
-            <button type="button" class="ed-drawer-close" aria-label="Close" @click="showDetails = false">✕</button>
-          </div>
-          <div class="ed-sheet-body ed-details">
-            <ImageField label="Cover image" :model-value="coverImage" @update:model-value="coverImage = $event" />
-            <label class="sf-field">
-              <span class="sf-label">Description</span>
-              <textarea v-model="description" class="sf-textarea" rows="2" maxlength="300" placeholder="One line about your game (shown on cards)." />
-            </label>
-            <label class="sf-field">
-              <span class="sf-label">Tags (comma-separated)</span>
-              <input v-model="tagsText" class="sf-input" placeholder="trivia, party, music" />
-            </label>
-            <label class="sf-toggle">
-              <input type="checkbox" v-model="forkable" />
-              <span>Let others fork (copy) this game</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
       <!-- Import overlay -->
       <div v-if="showImport" class="ed-overlay" @click.self="showImport = false">
         <div class="ed-sheet" role="dialog" aria-label="Import from text" aria-modal="true">
@@ -844,6 +827,24 @@ onScopeDispose(() => {
   outline: none;
   border-bottom-color: var(--primary);
 }
+.ed-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  padding: 2px 2px;
+  width: min(520px, 100%);
+  font-family: inherit;
+}
+.ed-desc::placeholder {
+  color: var(--mute);
+}
+.ed-desc:focus {
+  outline: none;
+  color: var(--ink);
+}
 .ed-bar-actions {
   display: flex;
   align-items: center;
@@ -875,10 +876,7 @@ onScopeDispose(() => {
   outline: 3px solid var(--ink);
   outline-offset: 1px;
 }
-/* ── "More" overflow (Details + Import) ─────────────────────────────────── */
-.ed-more {
-  position: relative;
-}
+/* Import button in the top bar (an icon + label that opens the Import overlay). */
 .ed-toggle {
   display: inline-flex;
   align-items: center;
@@ -898,8 +896,11 @@ onScopeDispose(() => {
 .ed-toggle svg {
   width: 17px;
   height: 17px;
-  fill: currentColor;
-  stroke: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .ed-toggle:hover {
   border-color: var(--line);
@@ -909,51 +910,43 @@ onScopeDispose(() => {
   color: var(--bg);
   border-color: var(--line);
 }
-.ed-more-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 40;
-  display: grid;
-  gap: 2px;
-  min-width: 180px;
-  padding: 6px;
-  background: var(--surface);
+/* Inline game-level metadata (cover, tags, sharing), a collapsed disclosure at
+   the foot of the rounds rail. */
+.ed-meta {
+  margin-top: 6px;
   border: var(--bd) solid var(--line-soft);
   border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  background: var(--surface);
 }
-.ed-more-menu button {
-  text-align: left;
-  font: inherit;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ink);
-  background: none;
-  border: none;
-  border-radius: 8px;
-  padding: 9px 11px;
+.ed-meta > summary {
   cursor: pointer;
+  list-style: none;
+  padding: 11px 13px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
 }
-.ed-more-menu button:hover {
-  background: var(--surface-2);
+.ed-meta > summary::-webkit-details-marker {
+  display: none;
 }
-.ed-more-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: transparent;
-  border: none;
-  cursor: default;
+.ed-meta > summary::after {
+  content: "+";
+  float: right;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+.ed-meta[open] > summary::after {
+  content: "−";
+}
+.ed-meta-body {
+  display: grid;
+  gap: 12px;
+  padding: 4px 13px 14px;
 }
 .ed-note {
   color: var(--ink-soft);
   font-size: 14px;
   margin: 0 0 16px;
-}
-.ed-details {
-  display: grid;
-  gap: 14px;
 }
 .ed-import-head {
   display: flex;
@@ -1411,11 +1404,13 @@ onScopeDispose(() => {
   color: var(--ink-soft);
   background: var(--surface-2);
 }
-/* ── Overlays (Add panel, Details, Import) ──────────────────────────────── */
+/* ── Overlays (Add panel, Import) ───────────────────────────────────────── */
+/* z-index sits above the global .topbar (z-index 500) so a modal is never
+   clipped behind the site header. */
 .ed-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 600;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -1429,9 +1424,6 @@ onScopeDispose(() => {
   border: var(--bd) solid var(--line-soft);
   border-radius: 18px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
-}
-.ed-sheet--narrow {
-  width: min(520px, 100%);
 }
 .ed-sheet-head {
   display: flex;
@@ -1524,13 +1516,14 @@ onScopeDispose(() => {
     max-height: none;
     overflow: visible;
   }
-  /* The preview becomes a right-side drawer; a FAB opens it. */
+  /* The preview becomes a right-side drawer; a FAB opens it. All three sit
+     above the global .topbar (z-index 500). */
   .ed-preview-pane {
     position: fixed;
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 70;
+    z-index: 620;
     width: min(420px, 92vw);
     max-height: none;
     padding: 16px;
@@ -1552,7 +1545,7 @@ onScopeDispose(() => {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 65;
+    z-index: 610;
     background: rgba(0, 0, 0, 0.42);
     border: none;
   }
@@ -1561,7 +1554,7 @@ onScopeDispose(() => {
     position: fixed;
     right: 18px;
     bottom: 18px;
-    z-index: 50;
+    z-index: 590;
     align-items: center;
     gap: 6px;
     font: inherit;

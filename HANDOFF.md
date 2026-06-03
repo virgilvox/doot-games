@@ -7,8 +7,27 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
-> **Editor redesign + two-phase recipes + homepage rename (2026-06-02, PUSHED + DEPLOYING
-> via CI).** The approved editor task is done and deploying. Three feature commits plus an
+> **Editor + catalog follow-ups (2026-06-02, committed locally).** A batch of fixes on top of
+> the editor redesign, from owner playtest feedback. All gates green: typecheck (incl. `nuxi`),
+> 315 tests, the web build; editor audit shows 0 overflow at 1440/900/390.
+> - **Buzzer is now a game type** (`games/buzzer.ts`, registry + catalog, `flagship: false`), so
+>   first-correct trivia has a one-click card in the Create "Blocks and Custom" row and a
+>   hostable `/editor/buzzer`, like the other primitives. It was previously only addable as a
+>   round inside Custom (it is the only single block with no standalone game).
+> - **Editor Details inlined, not a modal.** The description is a one-line input under the title;
+>   cover image, tags, and "let others fork" moved into a collapsed "Cover, tags & sharing"
+>   disclosure at the foot of the rounds rail. Dropped the Details modal and the "More" menu;
+>   Import is now a direct bar button.
+> - **Modal z-index fix.** The global `.topbar` is `z-index: 500`; the editor overlays were
+>   `z-index: 60`, so every modal (Add round, Import) and the preview drawer rendered *under*
+>   the site header and looked clipped. Raised the overlay/drawer/scrim/FAB z-indices above 500.
+> - **Homepage** "Create with blocks" now leads with **Custom**, then the single-block primitives.
+> - **Cover art** for the 7 newer flagships (Backronym, Open Mic, Hivemind, Most Likely To,
+>   Ballpark, Faker, Truth or Share) plus the Buzzer game: bespoke gradients + line motifs in
+>   `GameCover.vue`, matching the original seven (they had been falling back to generic art).
+>
+> **Editor redesign + two-phase recipes + homepage rename (2026-06-02, PUSHED + DEPLOYED
+> via CI).** The approved editor task is done and deployed. Three feature commits plus an
 > audit/polish commit and a docs sweep. All gates green: typecheck (incl. `nuxi`), 314 tests,
 > the web build; `scripts/editor-audit.mjs` shows 0 horizontal overflow at 1440/900/390.
 > - **Homepage** (`index.vue`): the "Create by vibe" section is now **"Create with blocks"**
