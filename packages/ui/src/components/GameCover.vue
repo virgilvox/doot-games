@@ -35,7 +35,15 @@ watch(
     imageFailed.value = false
   },
 )
-const showImage = computed(() => !!props.image && !imageFailed.value)
+// Flagship games can ship a real in-game screenshot as their cover (served from
+// `/public/covers`); an uploaded `image` still wins, and a dead URL falls back to
+// the generated gradient art.
+const FLAGSHIP_COVER: Record<string, string> = {
+  'quiz-or-die': '/covers/quiz-or-die.jpg',
+  'circuit-cypher': '/covers/circuit-cypher.jpg',
+}
+const coverSrc = computed(() => props.image || FLAGSHIP_COVER[props.type] || null)
+const showImage = computed(() => !!coverSrc.value && !imageFailed.value)
 
 const ACCENTS = ['--c1', '--c2', '--c3', '--c4', '--c5', '--primary']
 function hash(s: string): number {
@@ -95,7 +103,7 @@ const SF = 'rgba(255,255,255,.32)'
 
 <template>
   <div class="cover" :style="{ background: grad, height: `${height}px` }">
-    <img v-if="showImage" class="cover-img" :src="image!" alt="" @error="imageFailed = true" />
+    <img v-if="showImage" class="cover-img" :src="coverSrc!" alt="" @error="imageFailed = true" />
     <svg v-if="!showImage" class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <template v-if="motif === 'q'">
         <circle cx="150" cy="62" r="40" fill="none" :stroke="SF" stroke-width="10" />
