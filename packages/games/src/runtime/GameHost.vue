@@ -272,6 +272,10 @@ watch(
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
+      <div class="lobby-head">
+        <h2 class="lobby-title">{{ plugin.manifest.name }}</h2>
+        <p v-if="plugin.manifest.description" class="lobby-desc">{{ plugin.manifest.description }}</p>
+      </div>
       <div class="roster-head">
         <div class="kicker">In the room</div>
         <span class="count mono">{{ room.players.value.length }} joined</span>
@@ -437,6 +441,20 @@ watch(
   grid-template-columns: 1.1fr 0.9fr;
   gap: 18px;
   align-items: start;
+}
+.lobby-head {
+  margin-bottom: 14px;
+}
+.lobby-title {
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+.lobby-desc {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
 }
 .ticket-card {
   padding: 30px;

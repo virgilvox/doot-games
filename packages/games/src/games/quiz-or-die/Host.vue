@@ -49,6 +49,10 @@ const {
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
+      <div class="lobby-head">
+        <h2 class="lobby-title">{{ plugin.manifest.name }}</h2>
+        <p class="lobby-desc">{{ plugin.manifest.description }}</p>
+      </div>
       <div class="roster-head">
         <div class="kicker">The condemned</div>
         <span class="count mono">{{ room.players.value.length }} checked in</span>
