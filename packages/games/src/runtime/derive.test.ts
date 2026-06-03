@@ -1,8 +1,9 @@
 import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
+import { fillBlock } from '../blocks/fill/block'
 import { quipBlock } from '../blocks/quip/block'
 import { voteBlock } from '../blocks/vote/block'
-import { buildDeriveContent, buildRevealSummary, seededShuffle } from './derive'
+import { buildDeriveContent, buildRevealSummary, ownMakeText, seededShuffle } from './derive'
 
 describe('seededShuffle', () => {
   it('is deterministic for a given seed', () => {
@@ -73,6 +74,47 @@ describe('buildDeriveContent', () => {
       i === 0 ? { fakerPid: 'A', word: 'Banana' } : undefined,
     )
     expect(derive(1, () => new Map())?.answer).toEqual({ fakerPid: 'A', word: 'Banana' })
+  })
+})
+
+describe('ownMakeText (hide your own answer in a judge round)', () => {
+  it('renders the voter own quip text so the vote view can hide it', () => {
+    const text = ownMakeText(plugin, config, 1, (i) => (i === 0 ? { text: 'apple' } : undefined))
+    expect(text).toBe('apple')
+  })
+
+  it('renders a fill submission via the source block toVoteText (the fill->vote gap)', () => {
+    const fillPlugin = { ...(plugin as object), blocks: [fillBlock, voteBlock] } as never
+    const fillConfig: GameComposition = {
+      title: 'T',
+      rounds: [
+        {
+          block: 'fill',
+          content: {
+            prompt: 'P',
+            template: 'My {animal} can {verb}.',
+            blanks: [
+              { id: 'animal', label: 'animal' },
+              { id: 'verb', label: 'verb' },
+            ],
+            timer: null,
+            showTemplate: false,
+          },
+        },
+        { block: 'vote', content: { prompt: 'V', options: [], mode: 'field', timer: 30 } },
+      ],
+    }
+    const text = ownMakeText(fillPlugin, fillConfig, 1, (i) =>
+      i === 0 ? { values: { animal: 'cat', verb: 'fly' } } : undefined,
+    )
+    // Matches exactly what the derive renders as the option text, so the player UI
+    // can hide it. The old `.text`-only path returned '' here (the bug).
+    expect(text).toBe('My cat can fly.')
+  })
+
+  it('is empty for a non-judge round or a player with no submission', () => {
+    expect(ownMakeText(plugin, config, 0, () => ({ text: 'apple' }))).toBe('') // quip is not a judge
+    expect(ownMakeText(plugin, config, 1, () => undefined)).toBe('') // no submission
   })
 })
 

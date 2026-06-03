@@ -10,7 +10,7 @@ import type { GameComposition, GamePlugin } from '@doot-games/sdk'
 import { Icon } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
-import { getBlock } from './derive'
+import { getBlock, ownMakeText } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -47,6 +47,16 @@ watch(image, () => {
 const showImage = computed(() => !!image.value && !failedImage.value)
 const submitted = computed(() => room.inputFor(index.value) !== undefined)
 const eligible = computed(() => index.value >= room.joinedAtIndex.value)
+
+// On a judge round (vote/split/...), the votable text built from THIS player's own
+// make submission, so the judge view can hide their own option and they can't vote
+// for themselves. Empty for non-judge rounds. Computed locally from the player's
+// own input, so the public gallery never carries author info (stays anonymous).
+const myMakeText = computed(() =>
+  config.value && block.value?.derive
+    ? ownMakeText(props.plugin, config.value, index.value, (i) => room.inputFor(i))
+    : '',
+)
 
 // ── Co-host / MC drive controls ────────────────────────────────────────────
 // When the host has delegated driving to this player, mirror the host's "what's
@@ -160,7 +170,12 @@ function reloadPage() {
       <div class="kicker">{{ block.name }}</div>
       <h2 class="prompt">{{ prompt }}</h2>
       <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
-      <component :is="block.PlayerInput" :content="content" v-model="value" />
+      <component
+        :is="block.PlayerInput"
+        :content="content"
+        :my-make-text="block.derive ? myMakeText : undefined"
+        v-model="value"
+      />
       <button class="btn btn-primary btn-block btn-lg" :disabled="!canSubmit" @click="submit">
         Lock it in
       </button>

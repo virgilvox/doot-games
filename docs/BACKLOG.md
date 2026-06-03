@@ -99,8 +99,13 @@ each group; `[size]` is a rough effort hint.
     top pick; rate: your score vs the room average per category; rank: the consensus order
     with your #1 called out; draw: your own drawing back on your phone). Pure `revealSummary`
     unit-tested (`blocks/reveals.test.ts`); committed to `main` locally, not yet pushed.
-  - own-answer hiding does not fire for **fill / split** votes (wire the reserved
-    `assignment` / `promptFor` per-player path, currently unused by the renderer);
+  - [x] own-answer hiding now fires for **fill / split** votes (not just quip): the generic
+    player renderer computes `ownMakeText` (this player's own make submission rendered to the
+    same votable text the derive produced, for ANY make block) and passes it to the judge view,
+    which hides the matching option (vote) / scenario (split, pre-filling its vote so the round
+    still completes). Computed locally, so the gallery stays anonymous. Pure helper unit-tested
+    (`runtime/derive.test.ts`); verified in a browser (`scripts/own-answer-smoke.mjs`: neither
+    player sees their own story in mad-libs or split-room).
   - **admin role** + DB-backed official games + versioning.
 - [ ] **E15. External-plugin runtime** - sandboxed iframe on a separate `plugins.doot.games`
   origin + a typed postMessage bridge + manifest-by-URL with a SHA pin. Security-critical;

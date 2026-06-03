@@ -225,6 +225,39 @@ export function buildDeriveContent(
 }
 
 /**
+ * The votable text a judge round would build from one player's OWN make-round
+ * submission, computed locally on that player's phone. Lets a judge player view
+ * hide/disable the voter's own option (so nobody votes for themselves) WITHOUT
+ * the public config ever carrying author info, which would deanonymize the
+ * gallery. Mirrors `buildDeriveContent`'s source resolution + render exactly, so
+ * the text matches the option/scenario the derive produced. Returns '' when this
+ * is not a judge round, there is no source, or the player has no submission.
+ */
+export function ownMakeText(
+  plugin: GamePlugin,
+  config: GameComposition,
+  judgeIndex: number,
+  getInput: (sourceIndex: number) => unknown,
+): string {
+  const inst = config.rounds[judgeIndex]
+  const block = inst ? getBlock(plugin, inst.block) : undefined
+  if (!inst || !block?.derive) return ''
+  const from = inst.from ?? (judgeIndex > 0 ? [judgeIndex - 1] : [])
+  const srcIndex = from[0]
+  if (srcIndex == null || srcIndex < 0) return ''
+  const srcInst = config.rounds[srcIndex]
+  if (!srcInst) return ''
+  const myInput = getInput(srcIndex)
+  if (myInput == null) return ''
+  const srcBlock = getBlock(plugin, srcInst.block)
+  return (
+    srcBlock?.toVoteText?.(srcInst.content, myInput) ??
+    (myInput as { text?: string } | undefined)?.text ??
+    ''
+  ).trim()
+}
+
+/**
  * Build the engine's `assignContent` callback from the blocks: for a round whose
  * block declares `assignContent` (the hidden-role pattern), run its pure
  * assignment over the current roster and return the SECRET per-player content map
