@@ -2,7 +2,13 @@
 # server output on a slim Node image. The same image runs locally and on a
 # droplet; only environment variables differ.
 
-FROM node:22-alpine AS build
+# Pin the base image by digest for reproducible builds, so a surprise upstream
+# change to the `node:22-alpine` tag can't silently alter (or break) a deploy.
+# This is node:22-alpine as of 2026-05-14. To bump: `docker manifest inspect
+# node:22-alpine` (or the Docker Hub tag page) and update the digest below.
+ARG NODE_IMAGE=node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920
+
+FROM ${NODE_IMAGE} AS build
 RUN corepack enable
 WORKDIR /app
 
@@ -24,7 +30,7 @@ RUN set -eux; \
     mkdir -p /tmp/libsql-native; \
     cp -a "$NATIVE/." /tmp/libsql-native/
 
-FROM node:22-alpine AS run
+FROM ${NODE_IMAGE} AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000

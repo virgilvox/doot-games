@@ -186,6 +186,8 @@ into the same composition with a custom 3D standup-club host: `ComedyStage.vue` 
   player who locks in without reordering casts a noise ballot instead of crowning the author's
   declared order (the consensus-drift fix the backlog called for). Regression test in
   `blocks/aggregate.test.ts` (every seed is a full permutation; the first slot varies across players).
-- [ ] Docker base image not digest-pinned; rate-limiting is per-instance (move to a shared
-  store before running multiple app containers).
+- [x] Docker base image is now **digest-pinned** (`docker/Dockerfile`: a global `NODE_IMAGE`
+  ARG pins `node:22-alpine` by sha256 for both stages, with a bump note). Rate-limiting is
+  still per-instance; the move-to-a-shared-store caveat before running multiple app containers
+  is documented in `docs/deploy.md` ("Scaling later").
 - [ ] The dead per-round answer publish (a harmless write-only relay channel).
