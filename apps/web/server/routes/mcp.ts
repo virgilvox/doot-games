@@ -56,6 +56,13 @@ Block kinds:
 * "## hivemind": everyone answers a prompt in free text and scores by MATCHING the crowd (the "read the room" game). Fields: prompt, timer (default 30). Pick prompts with an obvious popular answer ("Name a color of the rainbow"). No "- " items.
 * "## mostlikely": the room votes a PLAYER from the lobby for a "most likely to..." prompt. Fields: prompt, timer (default 20). The options are the players, so no "- " items. Keep prompts party-safe.
 * "## ballpark": numeric trivia, closest guess wins. Fields: subject (optional), prompt, image, "answer:" (the true NUMBER, hidden from players until reveal), "unit:" (optional, e.g. km, %, years), timer (default 30). No "- " items. Use facts nobody knows exactly.
+* "## buzzer": first-correct trivia, the fastest right answer scores the most. Fields: subject (optional), prompt, image, timer (default 20), "points:" (what the question is worth, default 100; raise it each round to escalate). List 2 or more "- choice"; mark the right one with "(correct)".
+
+Two-phase rounds (a writing round, then a vote on the anonymized answers - one heading expands to both):
+* "## quip": everyone writes an answer, then the room votes for the best (Write & Vote / Quiplash). Fields: prompt, timer (default 60), maxlength, "voteprompt:" and "votetimer:" (default 30). Add "truth: <the real answer>" to make it Lie Detector instead: players write a believable LIE to your trivia question (the prompt) and then must spot the one true answer.
+* "## fill": fill-in-the-blanks, then vote on the funniest result (Mad Libs). Write the sentence in "template:" with {placeholders}; the blanks are taken from the {placeholders} automatically (add "- id: hint" lines to label them, e.g. "- noun: an animal"). Fields: prompt, "template:", timer (default 75), maxlength, "voteprompt:"/"votetimer:". Add "split: true" to make it Would You & Split instead: players complete a visible dilemma, then the room votes yes/no on each.
+
+Other games (Faker, Truth or Share, Circuit Cypher, Open Mic) have custom flows that markdown does not author; suggest the user open one from the Create page and remix it, or call list_game_types to see all ready-made games.
 
 Example:
 # Trivia and Vibes Night
@@ -76,6 +83,10 @@ scale: 1-10
 prompt: Draw your spirit animal
 vote: true
 votetimer: 30
+
+## quip
+prompt: The worst possible name for a cruise ship
+voteprompt: Which name wins?
 
 Mix the round types for variety. Validate with validate_doot_game, then save_game.`
 

@@ -72,6 +72,12 @@ function isTruthy(v: string | undefined): boolean {
   return v != null && /^(yes|true|on|1)$/i.test(v.trim())
 }
 
+/** Turn a blank id ("first_animal") into a default label ("First animal"). */
+function prettify(id: string): string {
+  const s = id.replace(/[_-]+/g, ' ').trim()
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : id
+}
+
 function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
   const p = raw.props
   const labels = raw.items.map((i) => i.label).filter(Boolean)
@@ -204,9 +210,100 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'buzzer': {
+      const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
+      const correctIdx = raw.items.findIndex((i) => i.flags.includes('correct'))
+      const pts = Number(p.points)
+      return [
+        {
+          block: 'buzzer',
+          content: {
+            subject: p.subject ?? '',
+            prompt: p.prompt ?? 'What, you didn\'t know that?',
+            image: p.image ?? '',
+            timer: toTimer(p.timer, 20),
+            options,
+            correct: correctIdx >= 0 ? correctIdx : 0,
+            points: Number.isFinite(pts) && pts > 0 ? pts : 100,
+          },
+        },
+      ]
+    }
+    // Two-phase "make -> judge": a writing round whose answers become the next
+    // round's content at runtime (see the editor's recipes). `## quip` collects a
+    // free-text answer, then either the room votes for the best (Write & Vote) or,
+    // with `truth:` set, players hunt the real answer among the lies (Lie Detector).
+    case 'quip': {
+      const ml = Number(p.maxlength)
+      const make: RoundInstance = {
+        block: 'quip',
+        content: {
+          prompt: p.prompt ?? 'Write your funniest answer.',
+          placeholder: p.placeholder ?? '',
+          maxLength: Number.isFinite(ml) && ml > 0 ? ml : 80,
+          timer: toTimer(p.timer, 60),
+        },
+      }
+      if (p.truth != null && p.truth.trim()) {
+        return [
+          make,
+          {
+            block: 'fibvote',
+            content: { prompt: p.prompt ?? 'Which one is TRUE?', truth: p.truth.trim(), options: [], timer: toTimer(p.votetimer, 30), hideUntilReveal: true },
+          },
+        ]
+      }
+      return [
+        make,
+        {
+          block: 'vote',
+          content: { prompt: p.voteprompt ?? 'Which answer wins?', options: [], mode: 'field', timer: toTimer(p.votetimer, 30) },
+        },
+      ]
+    }
+    // `## fill` is a fill-in-the-blanks make round. Blanks are auto-extracted from
+    // the `{placeholders}` in the template; a `- id: hint` line overrides a hint.
+    // Then the room votes on the funniest result (Mad Lib & Vote), or with
+    // `split: true` the room votes yes/no on each completed dilemma (Would You & Split).
+    case 'fill': {
+      const template = p.template ?? 'The {noun} went to the {place}.'
+      const ids = [...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1] as string)
+      const hints = new Map<string, string>()
+      for (const it of raw.items) {
+        const m = it.label.match(/^(\w+)\s*[:=]\s*(.+)$/)
+        if (m) hints.set(m[1] as string, (m[2] as string).trim())
+      }
+      const uniqueIds = [...new Set(ids.length ? ids : ['noun', 'place'])]
+      const blanks = uniqueIds.map((id) => ({ id, label: hints.get(id) ?? prettify(id) }))
+      const mlf = Number(p.maxlength)
+      const maxLength = Number.isFinite(mlf) && mlf > 0 ? Math.min(mlf, 60) : 30
+      const isSplit = isTruthy(p.split) || (p.mode ?? '').trim().toLowerCase() === 'split'
+      const fill: RoundInstance = {
+        block: 'fill',
+        content: {
+          subject: p.subject ?? '',
+          prompt: p.prompt ?? (isSplit ? 'Finish the dilemma.' : 'Fill in the blanks (no peeking at the story!)'),
+          template,
+          blanks,
+          maxLength,
+          timer: toTimer(p.timer, 75),
+          showTemplate: isSplit,
+        },
+      }
+      if (isSplit) {
+        return [
+          fill,
+          { block: 'split', content: { prompt: p.voteprompt ?? 'Would you? Vote yes or no on each', scenarios: [], timer: toTimer(p.votetimer, 40) } },
+        ]
+      }
+      return [
+        fill,
+        { block: 'vote', content: { prompt: p.voteprompt ?? 'Funniest story wins', options: [], mode: 'field', timer: toTimer(p.votetimer, 30) } },
+      ]
+    }
     default:
       warnings.push(
-        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, rate, poll, rank, draw, hivemind, mostlikely, ballpark.`,
+        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, rate, poll, rank, draw, buzzer, hivemind, mostlikely, ballpark, quip, fill.`,
       )
       return []
   }

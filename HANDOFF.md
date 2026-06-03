@@ -7,6 +7,22 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 `main` and deployed** (verified live: `/api/health` ok, the editors + Create page 200). Any
 "committed locally, not yet pushed" notes in the older entries below are superseded._
 
+> **Editor details rework + MCP two-phase authoring (2026-06-02, committed locally).** From
+> owner playtest feedback. Gates green: typecheck (incl. `nuxi`), 320 tests, the web build;
+> editor audit 0 overflow at 1440/900/390.
+> - **Editor top bar.** Game details moved out of the rail disclosure into the top bar: the
+>   description and a `Tags:` input sit under the title, the **cover image** is a small icon +
+>   popover next to the description, and **Remixable** is a checkbox beside the visibility picker.
+> - **Editor alignment fix.** `.editor` was zeroing `.wrap`'s 26px horizontal padding, so the
+>   editor content sat 26px left of the site nav ("left tight", and the body's amber glow made
+>   it read as a background artifact). Now `padding-bottom` only, so it aligns with the nav.
+> - **Most Likely To cover** got a crown on the chosen player instead of the odd floating star.
+> - **MCP / markdown now authors the new blocks.** Added `## buzzer` and the two-phase
+>   `## quip` (Write & Vote; `truth:` makes it Lie Detector) and `## fill` (Mad Libs; `split: true`
+>   makes it Would You & Split, with blanks auto-extracted from the `{template}`). Updated
+>   `doot_format_guide`, `docs/markdown-games.md`, and parser tests; verified a full spec
+>   round-trips into 9 valid editor rounds.
+>
 > **WHERE THINGS STAND (2026-06-02). No task in flight.** Doot is built, deployed, and live
 > with **21 games (14 flagships)** and the full authoring loop (three-pane editor with one-click
 > two-phase recipes + markdown import + Connect-with-Claude). Remaining work, roughly by tier

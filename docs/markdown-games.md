@@ -33,7 +33,8 @@ Rules:
   `cutesie`, `cyber`, `professional`, `playful`.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `poll`, `rank`, `rate`, `draw`, `hivemind`,
-  `mostlikely`, `ballpark`). You can repeat and mix them in any order.
+  `mostlikely`, `ballpark`, `buzzer`, and the two-phase `quip` / `fill`). You can
+  repeat and mix them in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -149,6 +150,59 @@ prompt: How far is the Moon from Earth?
 unit: km
 answer: 384400
 ```
+
+### `buzzer`: first-correct trivia
+The fastest right answer scores the most, and the stakes rise each round. Fields:
+`subject` (optional), `prompt`, `image`, `timer` (default 20), `points:` (what the
+question is worth, default 100). List 2+ `- choice`; mark the right one `(correct)`.
+
+```markdown
+## buzzer
+prompt: Which planet is closest to the Sun?
+points: 200
+- Mercury (correct)
+- Venus
+- Mars
+```
+
+## Two-phase rounds (write, then vote)
+
+These collect a written answer from everyone, then build the next round's vote from
+those answers automatically. One heading expands to both rounds.
+
+### `quip`: everyone writes, then the room votes
+Write & Vote (Quiplash). Fields: `prompt`, `timer` (default 60), `maxlength`,
+`voteprompt:` and `votetimer:` (default 30). Add `truth: <the real answer>` to turn
+it into **Lie Detector** (Fibbage): players write a believable lie to your trivia
+question (the `prompt`), then hunt the one true answer.
+
+```markdown
+## quip
+prompt: The worst possible name for a boat
+voteprompt: Which name wins?
+
+## quip
+prompt: How tall is the Eiffel Tower?
+truth: 330 metres
+```
+
+### `fill`: fill in the blanks, then vote
+Mad Libs. Write the sentence in `template:` with `{placeholders}`; the blanks are
+taken from the placeholders automatically. Add `- id: hint` lines to label them.
+Fields: `prompt`, `template:`, `timer` (default 75), `maxlength`, `voteprompt:` /
+`votetimer:`. Add `split: true` for **Would You & Split**: players complete a visible
+dilemma, then the room votes yes/no on each.
+
+```markdown
+## fill
+template: The {animal} learned to {verb} just to impress a {noun}.
+- animal: an animal
+- verb: a verb
+- noun: a person
+```
+
+> Faker, Truth or Share, Circuit Cypher, and Open Mic have custom flows that markdown
+> does not author. Open one from the Create page and remix it instead.
 
 ## A full example (mixed blocks)
 

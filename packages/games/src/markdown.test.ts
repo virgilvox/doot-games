@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { ballparkBlock } from './blocks/ballpark/block'
+import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
 import { drawVoteBlock } from './blocks/drawvote/block'
+import { fibBlock } from './blocks/fibvote/block'
+import { fillBlock } from './blocks/fill/block'
 import { guessBlock } from './blocks/guess/block'
 import { hivemindBlock } from './blocks/hivemind/block'
 import { mostLikelyBlock } from './blocks/mostlikely/block'
 import { pollBlock } from './blocks/poll/block'
+import { quipBlock } from './blocks/quip/block'
 import { rankBlock } from './blocks/rank/block'
 import { rateBlock } from './blocks/rate/block'
+import { splitBlock } from './blocks/split/block'
+import { voteBlock } from './blocks/vote/block'
 import { parseMarkdownGame } from './markdown'
 
 const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } }> = {
@@ -20,6 +26,12 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   hivemind: hivemindBlock.contentSchema,
   mostlikely: mostLikelyBlock.contentSchema,
   ballpark: ballparkBlock.contentSchema,
+  buzzer: buzzerBlock.contentSchema,
+  quip: quipBlock.contentSchema,
+  vote: voteBlock.contentSchema,
+  fibvote: fibBlock.contentSchema,
+  fill: fillBlock.contentSchema,
+  split: splitBlock.contentSchema,
 }
 
 const SAMPLE = `# Movie Night
@@ -142,6 +154,56 @@ describe('parseMarkdownGame', () => {
     const bp = rounds[2]!.content as { answer: number; unit: string }
     expect(bp.answer).toBe(206)
     expect(bp.unit).toBe('bones')
+  })
+
+  it('parses a buzzer round with points and the correct flag', () => {
+    const { rounds, warnings } = parseMarkdownGame(
+      '## buzzer\nprompt: Closest planet to the Sun?\npoints: 200\n- Mercury (correct)\n- Venus',
+    )
+    expect(rounds.map((r) => r.block)).toEqual(['buzzer'])
+    const c = rounds[0]!.content as { points: number; correct: number; options: Array<{ label: string }> }
+    expect(c.points).toBe(200)
+    expect(c.correct).toBe(0)
+    expect(c.options.map((o) => o.label)).toEqual(['Mercury', 'Venus'])
+    expect(SCHEMAS.buzzer!.safeParse(rounds[0]!.content).success).toBe(true)
+    expect(warnings).toEqual([])
+  })
+
+  it('expands quip into quip + vote (Write & Vote)', () => {
+    const { rounds, warnings } = parseMarkdownGame('## quip\nprompt: Worst boat name\nvoteprompt: Pick the winner')
+    expect(rounds.map((r) => r.block)).toEqual(['quip', 'vote'])
+    expect((rounds[1]!.content as { prompt: string }).prompt).toBe('Pick the winner')
+    expect(rounds[1]!.from).toBeUndefined() // derives from the prior round
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+    expect(warnings).toEqual([])
+  })
+
+  it('expands quip with truth into quip + fibvote (Lie Detector)', () => {
+    const { rounds } = parseMarkdownGame('## quip\nprompt: How tall is the Eiffel Tower?\ntruth: 330 metres')
+    expect(rounds.map((r) => r.block)).toEqual(['quip', 'fibvote'])
+    expect((rounds[1]!.content as { truth: string }).truth).toBe('330 metres')
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+  })
+
+  it('expands fill into fill + vote with blanks auto-extracted from the template', () => {
+    const { rounds, warnings } = parseMarkdownGame(
+      '## fill\ntemplate: The {animal} learned to {verb}.\n- animal: an animal',
+    )
+    expect(rounds.map((r) => r.block)).toEqual(['fill', 'vote'])
+    const fill = rounds[0]!.content as { blanks: Array<{ id: string; label: string }>; showTemplate: boolean }
+    expect(fill.blanks.map((b) => b.id)).toEqual(['animal', 'verb'])
+    expect(fill.blanks[0]!.label).toBe('an animal') // from the hint line
+    expect(fill.blanks[1]!.label).toBe('Verb') // auto-prettified
+    expect(fill.showTemplate).toBe(false) // Mad Libs is blind
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+    expect(warnings).toEqual([])
+  })
+
+  it('expands fill with split:true into fill + split (Would You & Split)', () => {
+    const { rounds } = parseMarkdownGame('## fill\nsplit: true\ntemplate: Would you {action} for {amount}?')
+    expect(rounds.map((r) => r.block)).toEqual(['fill', 'split'])
+    expect((rounds[0]!.content as { showTemplate: boolean }).showTemplate).toBe(true) // visible dilemma
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
   })
 
   it('warns on unknown blocks and empty input', () => {
