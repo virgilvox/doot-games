@@ -437,6 +437,40 @@ export class RoomRuntime {
       })
     }
 
+    // Roster: EVERY role tracks who is in the room (public names + presence). This
+    // is deliberately NOT player inputs, those stay host/viewer-only below, so a
+    // player can never read another player's answers (the withholding invariant).
+    // Players need the roster for roster games like Most Likely To (you vote for
+    // another player) and Truth or Share (the picker chooses a target).
+    on(patterns.playerProfile(r), (v, a) => {
+      const pid = pidFromPlayerAddress(a)
+      if (!pid) return
+      const prof = v as { name?: string; joinedAtIndex?: number }
+      const prev = this.playersMap.get(pid)
+      this.playersMap.set(pid, {
+        id: pid,
+        name: prof?.name ?? prev?.name ?? 'Player',
+        joinedAtIndex: prof?.joinedAtIndex ?? prev?.joinedAtIndex ?? 0,
+        // A profile is only published by an actively-joining client, so treat its
+        // first arrival as a presence pulse (show them immediately, without waiting
+        // for the heartbeat). `?? this.now()` only fires on first sight.
+        lastPing: prev?.lastPing ?? this.now(),
+      })
+      this.emit()
+    })
+    on(patterns.playerPing(r), (v, a) => {
+      const pid = pidFromPlayerAddress(a)
+      if (!pid) return
+      const prev = this.playersMap.get(pid)
+      this.playersMap.set(pid, {
+        id: pid,
+        name: prev?.name ?? 'Player',
+        joinedAtIndex: prev?.joinedAtIndex ?? 0,
+        lastPing: Number(v),
+      })
+      this.emit()
+    })
+
     if (this.me.role === 'player') {
       // A player only needs its own inputs back (reconnect restore + private score).
       on(patterns.inputsForPlayer(r, this.me.id), (v, a) => {
@@ -454,38 +488,8 @@ export class RoomRuntime {
         this.emit()
       })
     } else {
-      // Host/viewer see the whole room.
-      on(patterns.playerProfile(r), (v, a) => {
-        const pid = pidFromPlayerAddress(a)
-        if (!pid) return
-        const prof = v as { name?: string; joinedAtIndex?: number }
-        const prev = this.playersMap.get(pid)
-        this.playersMap.set(pid, {
-          id: pid,
-          name: prof?.name ?? prev?.name ?? 'Player',
-          joinedAtIndex: prof?.joinedAtIndex ?? prev?.joinedAtIndex ?? 0,
-          // A profile is only ever published by an actively-joining client, so
-          // treat its first arrival as a presence pulse: the player shows in the
-          // roster the instant their profile lands, without waiting for the
-          // separate heartbeat to round-trip. `?? this.now()` only fires on first
-          // sight, so a reconnect can't reset a real (possibly stale) ping, and a
-          // joiner whose ping never follows still ages out after one window.
-          lastPing: prev?.lastPing ?? this.now(),
-        })
-        this.emit()
-      })
-      on(patterns.playerPing(r), (v, a) => {
-        const pid = pidFromPlayerAddress(a)
-        if (!pid) return
-        const prev = this.playersMap.get(pid)
-        this.playersMap.set(pid, {
-          id: pid,
-          name: prev?.name ?? 'Player',
-          joinedAtIndex: prev?.joinedAtIndex ?? 0,
-          lastPing: Number(v),
-        })
-        this.emit()
-      })
+      // Host/viewer also receive every player's inputs (for tallying + the big
+      // screen). A player never subscribes here, so it can't read others' answers.
       on(patterns.allInputs(r), (v, a) => {
         const parsed = parseInputAddress(a)
         if (!parsed) return

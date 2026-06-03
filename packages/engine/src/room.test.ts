@@ -640,6 +640,37 @@ describe('RoomRuntime host + player over a shared relay', () => {
     expect(host.inputsFor(0).get(pid)).toEqual({ choice: 1 })
   })
 
+  it('lets a PLAYER see the full roster (for roster games) but NOT others inputs', async () => {
+    // Most Likely To / Truth or Share need each player's phone to see who else is in
+    // the room, while answer-withholding still forbids a player from reading another
+    // player's submitted input.
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+
+    const ada = makePlayer(hub, 'Ada', now)
+    const bo = makePlayer(hub, 'Bo', now)
+    await ada.connect()
+    await bo.connect()
+    await flush()
+
+    // Each player sees BOTH players in its own roster (not just itself, not empty).
+    const adaRoster = ada.getSnapshot().players.map((p) => p.name).sort()
+    const boRoster = bo.getSnapshot().players.map((p) => p.name).sort()
+    expect(adaRoster).toEqual(['Ada', 'Bo'])
+    expect(boRoster).toEqual(['Ada', 'Bo'])
+
+    // Withholding still holds: Ada submits, but Bo's runtime never receives it.
+    ada.submit({ choice: 2 } as RelayValue)
+    await flush()
+    expect(bo.inputFor(0)).toBeUndefined()
+    expect(host.inputsFor(0).get(playerId('ABCD', 'Ada'))).toEqual({ choice: 2 })
+  })
+
   it('reclaims identity, join index, and inputs on reconnect by name', async () => {
     const hub = new FakeHub()
     const now = () => 0

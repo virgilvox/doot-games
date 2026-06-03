@@ -7,6 +7,22 @@ _Last updated: 2026-06-02. Branch: `main` (the GitHub **default** branch; every 
 **pushed to `main`** and are deploying to prod via CI; the "committed locally, not yet
 pushed" notes in the entries below are superseded._
 
+> **Audit of the new games + a CRITICAL roster fix (2026-06-02, COMMITTED locally, then
+> pushed).** Played each new game with the "host screen IS the shared TV" + "few players"
+> lens (the same lens that caught the Truth or Share gate). Findings:
+> - **Most Likely To was broken (engine bug, now fixed).** Players never built `room.players`:
+>   the roster subscriptions (`playerProfile`/`playerPing` wildcards) were in a host/viewer-only
+>   branch, so `MostLikelyPlayer` showed "Waiting for players to join..." forever and **nobody
+>   could vote** (every round was "a wash"). Fix: players now subscribe to the roster too (names
+>   + presence are public), while `allInputs` stays host/viewer-only so answer-withholding holds.
+>   This also makes any roster-reading player view reliable (it is why the Truth or Share picker
+>   needed a host-pushed roster; that push is now belt-and-suspenders). Regression test added
+>   (`room.test.ts`: a player sees the full roster but never another player's input). Verified in
+>   a browser: all phones see the roster + vote.
+> - **No big-screen spoilers** in Hivemind (count-only while writing, by design), Ballpark
+>   (count-only, answer withheld until the needle), Faker (word off the big screen), Open Mic
+>   (write-phase count-only), Backronym/quip->vote (`hideUntilReveal`). All clean.
+>
 > **Truth or Share rebuilt to the full spec (2026-06-02, COMMITTED locally, not pushed).**
 > The first cut was text-only with a host "vet it first" moderation gate, which was broken:
 > the host screen IS the shared big screen, so the gate showed the answer to the whole room
