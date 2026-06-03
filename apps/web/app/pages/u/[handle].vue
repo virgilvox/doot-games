@@ -20,6 +20,7 @@ interface GameSummary {
   title: string
   themeId: string
   authorName: string | null
+  coverImage: string | null
 }
 
 const route = useRoute()
@@ -64,7 +65,7 @@ useHead(() => ({ title: `${displayName.value} on Doot` }))
         </div>
         <div v-if="games.length" class="grid">
           <NuxtLink v-for="g in games" :key="g.id" :to="`/g/${g.id}`" class="card">
-            <GameCover :title="g.title" :type="g.pluginId" />
+            <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <div class="card-meta">
