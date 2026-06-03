@@ -240,7 +240,8 @@ watch(
     const cmd = room.command.value
     if (!cmd || nonce == null) return
     const a = cmd.action
-    if (a === 'open' && room.host.can('open')) room.host.openVoting()
+    if (a === 'start' && room.host.can('start')) room.host.start()
+    else if (a === 'open' && room.host.can('open')) room.host.openVoting()
     else if (a === 'lock' && room.host.can('lock')) room.host.lock()
     else if (a === 'startVote' && room.host.can('reveal') && isMakeRound.value) startVote()
     else if (a === 'reveal' && room.host.can('reveal')) room.host.reveal()

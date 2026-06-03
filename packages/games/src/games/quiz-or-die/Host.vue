@@ -38,13 +38,22 @@ function toggleCap(on: boolean) {
 const {
   show, caption, villainOn, villainCenter, talking, menacing, confetti, flashKind, shakeOn,
   muted, voiceMode, remaining, sceneClass, exitOn, statusInfo, galleryReveal, pickChips,
-  castMap, ROT, KEYC, startGame, playAgain, skip, toggleMute, cycleVoice,
+  castMap, ROT, KEYC, startGame, armAudio, playAgain, skip, toggleMute, cycleVoice,
 } = useQuizShow()
+
+// ── Delegate the show to a player (an MC on their phone) ──────────────────────
+const driverPid = computed(() => room.driverPid.value)
+function pickDriver(pid: string) {
+  // Picking a driver is itself a host gesture, so arm audio now: a later remote
+  // "start" from that phone will then have audible sound on this big screen.
+  armAudio()
+  room.host.setDriver(pid || null)
+}
 </script>
 
 <template>
   <!-- LOBBY -->
-  <div v-if="room.phase.value === 'lobby'" class="qod-lobby qod-root">
+  <div v-if="room.phase.value === 'lobby'" class="qod-lobby qod-root" @pointerdown="armAudio">
     <section class="panel ticket-card">
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
@@ -69,6 +78,14 @@ const {
           <input type="checkbox" :checked="playerCap != null" @change="toggleCap(($event.target as HTMLInputElement).checked)" />
           <span class="kicker">Limit how many can join</span>
         </label>
+      </div>
+      <div class="driver-pick">
+        <span class="kicker">Who runs the show</span>
+        <select class="driver-select" aria-label="Who runs the show" :value="driverPid ?? ''" @change="pickDriver(($event.target as HTMLSelectElement).value)">
+          <option value="">Just me (this screen)</option>
+          <option v-for="p in room.players.value" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
+        <p v-if="driverPid" class="driver-note">They get a Start button on their phone. Sound is armed on this screen.</p>
       </div>
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="room.players.value.length < 2" @click="startGame">Enter the house</DButton>

@@ -36,7 +36,9 @@
 .roster-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
 .kicker { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--primary); }
 .count { color: var(--mute); font-size: 13px; }
-.round-pick, .cap-pick { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.round-pick, .cap-pick, .driver-pick { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.driver-select { font: inherit; font-weight: 700; padding: 9px 12px; border-radius: var(--radius); border: var(--bd) solid var(--line-soft); background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.driver-note { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.4; }
 .round-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .round-opt { font: inherit; font-weight: 700; padding: 8px 14px; border-radius: var(--radius); border: var(--bd) solid var(--line-soft); background: var(--surface-2); color: var(--ink); cursor: pointer; }
 .round-opt.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); }

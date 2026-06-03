@@ -110,7 +110,19 @@ const amGhost = computed(() => me.value?.alive === false)
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">
       <h2>You're in the house</h2>
-      <p>Keep this open. You'll answer trivia here. Get it wrong and the host comes for you.</p>
+      <template v-if="room.isDriver.value">
+        <p>You're the MC. Send everyone in when they've checked in.</p>
+        <button
+          type="button"
+          class="btn btn-primary btn-block btn-lg"
+          :disabled="room.players.value.length < 2"
+          @click="room.sendControl('start')"
+        >
+          Enter the house →
+        </button>
+        <p v-if="room.players.value.length < 2" class="hint">Need at least two players.</p>
+      </template>
+      <p v-else>Keep this open. You'll answer trivia here. Get it wrong and the host comes for you.</p>
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">

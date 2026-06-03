@@ -354,6 +354,25 @@ describe('RoomRuntime co-host / MC delegation (B9)', () => {
     expect(host.getSnapshot().command?.action).toBe('open')
   })
 
+  it('lets a lobby driver send a start intent the host can apply', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    // No start(): the room is still in the lobby, where the driver is designated.
+    const mia = makePlayer(hub, 'Mia', now)
+    await mia.connect()
+    await flush()
+    host.setDriver(mia.me.id)
+    expect(mia.getSnapshot().phase).toBe('lobby')
+
+    mia.sendControl('start')
+    // The host accepts the lobby intent (current driver, current round 0) and
+    // queues it; the host UI maps 'start' to host.start() while phase is lobby.
+    expect(host.getSnapshot().command?.action).toBe('start')
+  })
+
   it('does not let a non-delegated player drive', async () => {
     const { hub, host, mia } = await setup()
     const rob = makePlayer(hub, 'Rob', () => 0)

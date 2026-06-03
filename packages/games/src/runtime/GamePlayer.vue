@@ -126,7 +126,11 @@ function reloadPage() {
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">
       <h2>You are in!</h2>
-      <p>Waiting for the host to start. Keep this page open.</p>
+      <template v-if="room.isDriver.value">
+        <p><Icon name="mc" :size="15" /> You're the MC. Kick it off when everyone's in.</p>
+        <button class="btn btn-primary btn-block" @click="room.sendControl('start')">Start game →</button>
+      </template>
+      <p v-else>Waiting for the host to start. Keep this page open.</p>
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">

@@ -9,7 +9,7 @@ import type { RelayValue } from "@doot-games/engine";
 import { injectDootRoom } from "@doot-games/engine/vue";
 import type { GameComposition, StandardResults } from "@doot-games/sdk";
 import { announce, cancelSpeech, canSpeak, primeSpeech, warmUpSpeech } from "@doot-games/ui";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { CellarContent } from "../../blocks/cellar/block";
 import { type HorrorAudio, createHorrorAudio } from "./audio";
 import {
@@ -870,21 +870,46 @@ export function useQuizShow() {
   }
 
   // ── Start / lifecycle ─────────────────────────────────────────────────────────
-  function startGame() {
-    // freeze the contestant roster + prime audio inside this user gesture
+  let armed = false;
+  // Unlock WebAudio + speech inside a host user gesture. Idempotent, so any lobby
+  // interaction on the big screen (picking a driver, the Start button, a tap) arms
+  // it. That way a later remote "start" from the delegated MC's phone still has
+  // audible audio here, even though that command carries no gesture of its own.
+  function armAudio() {
+    if (armed || !room.isHost.value) return;
+    armed = true;
+    audio = createHorrorAudio();
+    void audio.start();
+    audio.setMuted(muted.value);
+    // Prime speech inside the gesture so the first villain line isn't dropped.
+    primeSpeech();
+  }
+  function beginShow() {
+    if (!room.isHost.value || room.phase.value !== "lobby") return;
+    if (room.players.value.length < 2) return; // same floor as the Start button
+    // freeze the contestant roster
     cast = assignCast(room.players.value.map((p) => ({ id: p.id, name: p.name })));
     for (const c of cast) castMap.set(c.id, c);
     alive = new Set(cast.map((c) => c.id));
     dead = new Set();
     for (const c of cast) money.set(c.id, 0);
-    audio = createHorrorAudio();
-    void audio.start();
-    audio.setMuted(muted.value);
-    // Prime speech inside the click gesture so the first villain line isn't dropped.
-    primeSpeech();
+    armAudio(); // no-op if the host already armed it during the lobby
     room.host.start();
     void runShow();
   }
+  // Host button: we're already inside a click gesture, so arm + begin.
+  function startGame() {
+    beginShow();
+  }
+  // The delegated MC can kick the show off from their phone too. The engine
+  // validated the intent (current driver, lobby round); map a 'start' to
+  // beginShow(), which is a safe no-op outside the lobby.
+  watch(
+    () => room.command.value?.nonce,
+    () => {
+      if (room.command.value?.action === "start") beginShow();
+    },
+  );
   function playAgain() {
     if (typeof window !== "undefined") window.location.reload();
   }
@@ -1023,6 +1048,7 @@ export function useQuizShow() {
     ROT,
     KEYC,
     startGame,
+    armAudio,
     playAgain,
     skip,
     toggleMute,

@@ -108,10 +108,11 @@ export interface RoomRuntimeOptions {
 
 /**
  * A drive intent the delegated player (co-host/MC) can send. The host maps each
- * to the matching host action; `startVote` is the make-round shortcut (reveal +
- * next). The engine only validates and forwards; the host UI interprets them.
+ * to the matching host action; `start` begins the game from the lobby and
+ * `startVote` is the make-round shortcut (reveal + next). The engine only
+ * validates and forwards; the host UI interprets them.
  */
-export type ControlAction = 'open' | 'lock' | 'reveal' | 'startVote' | 'next' | 'finish'
+export type ControlAction = 'start' | 'open' | 'lock' | 'reveal' | 'startVote' | 'next' | 'finish'
 
 /** A read-only snapshot of live room state. */
 export interface RoomSnapshot {
