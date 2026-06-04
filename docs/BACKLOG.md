@@ -94,10 +94,12 @@ each group; `[size]` is a rough effort hint.
     **"advance as soon as everyone has answered"** toggle (auto-locks the round when
     all eligible players are in; host still controls reveal/next). Both on the generic
     host page (GameHost); Circuit Cypher keeps its own choreographed timing.
-  - [x] **timeout safety net** (quip -> vote): a quip round carries `safetyAnswers`; the vote
+  - [x] **timeout safety net**: a make round (`quip`/`fill`) carries `safetyAnswers`; the judge
     derive fills eligible non-submitters with a deterministic canned answer (no gap, no zero),
-    flagged in the withheld key, and the aggregate scores it at half. Wired into Quip Clash;
-    unit-tested. **Follow-ups:** extend to fill/split/bars judges + a markdown `safety:` field.
+    flagged in the withheld key, and the aggregate scores it at half. Shared `blocks/safety.ts`
+    helper wired into **vote, split, and fibvote**; pools shipped for Quip Clash, Mad Libs, Split
+    the Room; a markdown `safety:` field for quip/fill. Unit-tested. (Fib Finder has no pool: a
+    generic lie can't fit a trivia blank. `bars`/Circuit Cypher is custom-flow, out of scope.)
   - [x] **tie handling** (co-crown): a top-score tie reads "A & B tie for the win" / "N-way
     tie: ..."; the leaderboard uses competition ranking so co-leaders share the star. Pure
     `crownHeadline`, unit-tested. (Split's per-scenario closeness already has no single winner.)

@@ -11,6 +11,13 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Safety net extended to split + fibvote (2026-06-03). COMMITTED to `main` locally, not yet
+> pushed.** The timeout safety net (canned answer for an eligible non-submitter, scored at half)
+> now covers all three two-phase judges, not just vote. Extracted `blocks/safety.ts`
+> (`stableIndex` + `safetyEntries`); vote refactored to it; split + fibvote derives/aggregates wired.
+> Split the Room ships a generic-dilemma pool; Fib Finder intentionally has none (a generic lie
+> can't fit a trivia blank). Split + fibvote safety unit-tested; vote behavior unchanged. 379 tests.
+
 > **MCP connector completed + obscenity content filter (2026-06-03). PUSHED + DEPLOYED.** The
 > Connect-with-Claude MCP can now set everything about a game, not just its rounds; the content
 > filter now uses the `obscenity` library (obfuscation-aware). All gates green: typecheck (incl.
