@@ -11,9 +11,10 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
-> **MCP connector completed (2026-06-03). COMMITTED to `main` locally, not yet pushed.** The
-> Connect-with-Claude MCP can now set everything about a game, not just its rounds. All gates green:
-> typecheck (incl. `nuxi`), **374 tests** (+3), the web build; `/mcp` route + 401 auth gate verified.
+> **MCP connector completed + obscenity content filter (2026-06-03). PUSHED + DEPLOYED.** The
+> Connect-with-Claude MCP can now set everything about a game, not just its rounds; the content
+> filter now uses the `obscenity` library (obfuscation-aware). All gates green: typecheck (incl.
+> `nuxi`), **375 tests**, the web build (~10KB gzip bundle delta); `/mcp` route + 401 auth gate live.
 > - **Game settings over MCP:** `save_game`/`update_game` accept `description`, `visibility`
 >   (private/unlisted/public), `remixable`, `coverImage`, `tags` (args override the same fields in
 >   the spec header). New **`set_game_meta`** changes those on an existing game without re-sending
