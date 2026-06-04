@@ -11,8 +11,28 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
-> **Safety net extended to split + fibvote (2026-06-03). COMMITTED to `main` locally, not yet
-> pushed.** The timeout safety net (canned answer for an eligible non-submitter, scored at half)
+> **Content decks: engine + persistence + markdown authoring (2026-06-03). PUSHED + DEPLOYED.**
+> The data-driven "decks" feature is usable end to end (no new editor UI yet) - author via the
+> editor's Import-from-Markdown or MCP `save_game`. All gates green: typecheck (incl. `nuxi`),
+> **404 tests** (+25 across the slices), the web build. Full design: `docs/content-decks-plan.md`.
+> - **Slice a (sdk + resolver):** `Deck`/`DeckColumn`/`DeckRef`/`DeckUse` + additive `RoundInstance`
+>   fields (`draw`/`bindings`/`pool`) + `GameComposition.decks` + the block `pool` descriptor; a pure
+>   `resolveComposition` (`runtime/decks.ts`) expands a deck-backed composition into plain rounds
+>   (mode-1 field bindings with same-row correlation, `draw: N` seeded distinct sampling, mode-2
+>   typed-pool via `block.pool.fromRow`). Reference-agnostic; no-op when absent.
+> - **Slice b (persistence + host + redaction):** `gameInputSchema` accepts `config.decks` + the round
+>   additions (rows capped 1000, `MAX_CONFIG_BYTES` -> 2MB); `HostRoom` expands decks at load so the
+>   relay-published config is plain rounds (existing per-round redaction strips answers); a pure
+>   `redactDecks` (server-safe, `catalog.ts`) nulls any deck column bound to an answer field for the
+>   API-served stored config. Catalog-tested.
+> - **Slice c (import + authoring):** `parseSheet` (pure CSV/TSV-from-Sheets parser, type inference,
+>   quoting, dedup, ragged-row warnings) + markdown `## deck <id>` blocks + round `draw:`/`bind: f =
+>   deck.col`/`pool:`. The editor's markdown import carries `config.decks`; the MCP format guide +
+>   `markdown-games.md` document it. End-to-end test (parse -> resolveComposition).
+> - **Remaining:** the **visual** editor deck panel + the column-introspecting binding helper + a
+>   `/decks` library (durable banks + references) + mode-2 typed pools on real blocks. (See plan.)
+
+> **Safety net extended to split + fibvote (2026-06-03). PUSHED + DEPLOYED.** The timeout safety net (canned answer for an eligible non-submitter, scored at half)
 > now covers all three two-phase judges, not just vote. Extracted `blocks/safety.ts`
 > (`stableIndex` + `safetyEntries`); vote refactored to it; split + fibvote derives/aggregates wired.
 > Split the Room ships a generic-dilemma pool; Fib Finder intentionally has none (a generic lie

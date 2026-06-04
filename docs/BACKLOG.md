@@ -88,7 +88,14 @@ each group; `[size]` is a rough effort hint.
   `primaryDrive` starts from the lobby + the driver phone gets a Start button; audio armed on any
   host lobby interaction. Verified for guess / quiz-or-die / circuit-cypher (`scripts/driver-start-smoke.mjs`).
 
-## Content decks & bindings (planned, `[large]`)
+## Content decks & bindings (`[large]`, in progress)
+- [~] **DATA PATH SHIPPED (2026-06-03):** slices a/b/c are live — sdk types + a pure
+  `resolveComposition` (mode-1 field bindings w/ same-row correlation, `draw: N`, mode-2 typed
+  pools); persistence (`config.decks` + round `draw`/`bindings`/`pool`) + host expansion +
+  binding-aware `redactDecks` (both paths); `parseSheet` (CSV/TSV) + markdown `## deck`/`bind:`/
+  `draw:` so decks are authorable via the editor's Import-from-Markdown + MCP. **Remaining:** the
+  visual editor deck panel + the column-introspecting binding helper + a `/decks` library (durable
+  banks + references) + mode-2 typed `pool` descriptors on real blocks. See below + the plan.
 - [ ] **User-authorable content decks + field bindings + spreadsheet import** — a core-engine
   feature. A **deck** is a named-column table of rows/cards (one shape; two homes: a durable reusable
   library + in-config use as a **snapshot or a reference** — references resolve to inline at serve
