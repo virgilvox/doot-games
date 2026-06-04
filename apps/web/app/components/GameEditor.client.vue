@@ -134,6 +134,11 @@ const recipes = computed(() => {
   const kinds = new Set(plugin!.blocks.map((b) => b.kind))
   return ALL_RECIPES.filter((r) => kinds.has(r.make) && kinds.has(r.judge))
 })
+/** A block kind's display name (for the recipe cards, so the make/judge blocks a
+ *  recipe is built from are visible). */
+function kindName(kind: string): string {
+  return getBlock(plugin!, kind)?.name ?? kind
+}
 function blockFor(inst: RoundInstance): AnyBlock | undefined {
   return getBlock(plugin!, inst.block)
 }
@@ -797,10 +802,17 @@ onScopeDispose(() => {
                 >
                   <GameTypeIcon :type="r.make" :size="30" />
                   <span class="ed-add-name">{{ r.name }}</span>
+                  <span class="ed-add-pair">{{ kindName(r.make) }} + {{ kindName(r.judge) }}</span>
                   <span class="ed-add-desc">{{ r.description }}</span>
                 </button>
               </div>
             </template>
+
+            <p class="ed-sheet-foot">
+              Looking for Bars, Spotlight, or the Cellar quiz? Those blocks are built into their flagship
+              games (Circuit Cypher, Truth or Share, Quiz or Die) and run their own flow, so they are not
+              standalone rounds you add here.
+            </p>
           </div>
         </div>
       </div>
@@ -1687,10 +1699,25 @@ onScopeDispose(() => {
   font-size: 15px;
   margin-top: 4px;
 }
+.ed-add-pair {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
 .ed-add-desc {
   font-size: 13px;
   color: var(--ink-soft);
   line-height: 1.4;
+}
+.ed-sheet-foot {
+  font-size: 12px;
+  color: var(--mute);
+  line-height: 1.5;
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: var(--bd) solid var(--line-soft);
 }
 /* ── Two-phase "built automatically" explainer ──────────────────────────── */
 .ed-derived {

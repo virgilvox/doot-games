@@ -168,12 +168,22 @@ Spotlight's content is **prompt pools** (string arrays: `truthsMild`, `sharesSpi
 A deck feeds those by aggregating a **whole column into an array field**, optionally
 filtered by another column — a third binding flavor:
 
-- **Mode 3 — column→array** (`pool: { deck, into: 'truthsMild', column: 'prompt', where: { kind: 'truth', tier: 'mild' } }`).
+- **Mode 3 — column→array** (`lists: { truthsMild: { deck, column: 'prompt', where: { kind: 'truth', tier: 'mild' } } }`).
 
-So a host drops in a community **Prompt Deck** of dares instead of typing them. Truth or
-Share gains a "use a Prompt Deck" option; the same flavor serves any array-of-strings
-content field (poll options from a column, etc.). Near-term cheap win: a Prompt-Deck
-import in the editor that dumps a column into the spotlight arrays.
+So a host drops in a community **Prompt Deck** of dares instead of typing them.
+
+> **Audit finding (2026-06-04) — mode 3 is deferred, on purpose.** The only blocks with
+> a string-array content field are `spotlight` and `cellar`, **both custom-flow** (Truth
+> or Share, Quiz or Die). **No composable block has a string-array field**, so mode 3
+> would be engine surface with no consumer it can reach through the generic editor +
+> resolver (poll/rank options are `{ id, label }` objects, not strings — that is mode-2
+> territory, not a string column→array). Mode 3 only pays off **bundled with** making a
+> string-array surface deck-configurable: either teach Truth or Share to source its
+> prompt pools from a linked Prompt Deck (its own custom flow, a deliberate feature), or
+> add a generic **prompt-list block** (a string-array round) that mode 3 then fills.
+> Until one of those exists, building mode 3 is premature. So **Phase 2b's shipped
+> deliverable is the editor recipe-discoverability polish** (§4); the prompt-deck work
+> moves to a future phase alongside its consumer.
 
 ---
 
@@ -214,8 +224,8 @@ The real issues, and the fixes:
 
 ## 6. Recommended build order (each slice ships green, isolated)
 
-1. **Done — verification + this map.** Suite green, smokes green, MVP tied to invariant #3.
-2. **Phase 2a — `/decks` library** (§1): table + repo + API + `/decks` browse + deck-editor page + ref-resolution at serve + MCP deck tools + docs. Highest user value, reuses games-repo patterns, fully self-contained.
-3. **Phase 2b — discoverability + spotlight prompt decks** (§3, §4): Add-panel recipe grouping; mode-3 column→array; "use a Prompt Deck" in Truth or Share. Small, isolated.
-4. **Phase 2c — the `collect` block + play-time slots** (§2): collect block, slot→runtime-deck injection, collect→drawvote/rate recipes, directed mode. Largest; last; reuses relay media + derive + resolver.
+1. **DONE — verification + this map.** Suite green, smokes green, MVP tied to invariant #3.
+2. **DONE — Phase 2a — `/decks` library** (§1): table + repo + API + `/decks` browse + deck-editor page + ref-resolution at serve + editor "link a library deck" + MCP deck tools + docs. Shipped + deployed; verified by an authed end-to-end smoke.
+3. **Phase 2b — discoverability (DONE) + prompt decks (DEFERRED, §3/§4):** the Add-panel recipe-discoverability polish (constituent-block tags + a custom-flow note) is shipped. Mode-3 column→array is **deferred** until it has a consumer (see the §3 audit note): bundle it with a deck-configurable Truth or Share or a new generic prompt-list block.
+4. **Phase 2c — the `collect` block + play-time slots** (§2): collect block, slot→runtime-deck injection, collect→drawvote/rate recipes, directed mode. The next big build; reuses relay media + derive + resolver. Also the home for a prompt-list block that mode-3 could fill.
 5. **Folded in where they fit:** mode-2 `pool` descriptors on guess/poll/ballpark; column-type filtering in the binding helper (image field → image columns only).
