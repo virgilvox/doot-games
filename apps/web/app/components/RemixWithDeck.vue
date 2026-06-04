@@ -13,7 +13,7 @@
  * host re-runs buildConfig over the deck rows. Self-contained: reuses /api/decks +
  * /api/games + the host route.
  */
-import { getPlugin, poolStarter } from '@doot-games/games'
+import { deckMatchesPool, getPlugin, poolStarter } from '@doot-games/games'
 import { computed, ref } from 'vue'
 
 const props = defineProps<{ pluginId: string; gameName: string }>()
@@ -47,6 +47,7 @@ interface DeckSummary {
   kind: string
   rowCount: number
   columnCount: number
+  columns?: string[]
   authorName?: string | null
   authorHandle?: string | null
 }
@@ -93,7 +94,13 @@ async function loadDecks() {
     const want = pool?.deckKind
     const seen = new Set<string>()
     decks.value = [...(mine.decks ?? []), ...(pub.decks ?? [])].filter(
-      (d) => (!want || d.kind === want) && !seen.has(d.id) && seen.add(d.id),
+      (d) =>
+        (!want || d.kind === want) &&
+        // Hide a deck whose columns can't feed this specific game (e.g. a short-answer quiz
+        // deck offered to a multiple-choice game), so a pick never silently falls back.
+        (!d.columns || !pool || deckMatchesPool(d.columns, pool)) &&
+        !seen.has(d.id) &&
+        seen.add(d.id),
     )
   } catch {
     error.value = 'Could not load your decks.'

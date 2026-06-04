@@ -103,7 +103,7 @@ export const faker = defineGame({
   defaultConfig: { title: 'Faker', rounds: deckFrom(WORD_POOL.slice(0, ROUNDS_PER_GAME)) },
   // Deck-feedable: a creator can attach a deck (category + word columns) to play their
   // own secret words. The `word` column is the secret, withheld from non-owners.
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'card', fromRow: secretFromRow, answerColumns: ['word', 'secret'] },
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'card', fromRow: secretFromRow, answerColumns: ['word', 'secret'], requires: [['category', 'topic', 'theme'], ['word', 'secret']] },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
     const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))

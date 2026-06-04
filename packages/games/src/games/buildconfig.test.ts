@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { RoundInstance } from '@doot-games/sdk'
 import { gameCatalog } from '../catalog'
 import { builtinPlugins } from '../registry'
-import { poolRowsFor } from '../runtime/decks'
+import { poolRowsFor, poolStarter } from '../runtime/decks'
 import { backronym } from './backronym'
 import { ballpark } from './ballpark'
 import { circuitCypher } from './circuit-cypher'
@@ -171,6 +171,16 @@ describe('every deck-feedable game is self-consistent (meta)', () => {
       expect(entry.pool?.answerColumns).toEqual(pool.answerColumns)
       // The saved defaultConfig is a lean preview, not the entire content bank.
       expect(JSON.stringify(plugin.defaultConfig).length, `${plugin.manifest.id} defaultConfig should be lean`).toBeLessThan(8000)
+      // A multi-column pool must declare `requires` so the remix picker can filter out
+      // decks of the wrong shape; a single-text-column pool takes any prompt deck.
+      if (!poolStarter(pool).single) {
+        expect(pool.requires?.length, `${plugin.manifest.id} (multi-column) needs requires`).toBeGreaterThan(0)
+        // The built-in pool's own columns satisfy its requires (self-consistency).
+        const keys = Object.keys(pool.defaultRows[0] ?? {})
+        for (const group of pool.requires ?? []) {
+          expect(group.some((k) => keys.includes(k)), `${plugin.manifest.id} defaultRows satisfy ${group.join('/')}`).toBe(true)
+        }
+      }
     })
   }
 })

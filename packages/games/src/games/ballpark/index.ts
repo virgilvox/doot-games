@@ -88,7 +88,7 @@ export const ballpark = defineGame({
   defaultConfig: { title: 'Ballpark', rounds: deckFrom(FACT_POOL.slice(0, ROUNDS_PER_GAME)) },
   // Deck-feedable: a creator can attach a Quiz Deck (prompt + answer (+ unit) columns)
   // to play their own number questions. The `answer` column is withheld from non-owners.
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: ballparkFromRow, answerColumns: ['answer', 'value'] },
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: ballparkFromRow, answerColumns: ['answer', 'value'], requires: [['prompt', 'question', 'q'], ['answer', 'value', 'number']] },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
     const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))

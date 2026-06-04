@@ -19,6 +19,17 @@ import { getBlock, seededShuffle } from './derive'
 const MAX_ROUNDS = 50
 
 /**
+ * Whether a creator deck (by its column keys) can feed a pool game: every required column
+ * group must have at least one matching column (case-insensitive). A pool with no `requires`
+ * (single-text-column games) accepts any deck. Pure, so the remix picker and tests share it.
+ */
+export function deckMatchesPool(columns: string[], pool: ContentPool): boolean {
+  if (!pool.requires?.length) return true
+  const have = new Set(columns.map((c) => c.toLowerCase()))
+  return pool.requires.every((group) => group.some((k) => have.has(k.toLowerCase())))
+}
+
+/**
  * A small, editable STARTER drawn from a game's official built-in pool, for the
  * "remix" warm start: rather than a blank deck, a creator begins from a handful of the
  * official rows and tweaks them. Returns the primary text column key and the first `n`

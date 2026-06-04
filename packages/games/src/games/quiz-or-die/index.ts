@@ -103,7 +103,7 @@ export const quizOrDie = defineGame({
   // Deck-feedable: a creator can attach a Quiz Deck (question + options + correct, plus an
   // optional category) to play their own trivia. The finale categories stay built-in. The
   // `correct` index is the answer key, withheld from non-owners.
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: cellarQuestionFromRow, answerColumns: ['correct', 'answer'] },
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: cellarQuestionFromRow, answerColumns: ['correct', 'answer'], requires: [['question', 'prompt', 'q'], ['options', 'choices', 'option1', 'a']] },
   // Shuffle the trivia (built-in, or a creator deck via opts.rows) + finale decks by room
   // so the order differs session to session, seeded so it stays reconnect-stable.
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {

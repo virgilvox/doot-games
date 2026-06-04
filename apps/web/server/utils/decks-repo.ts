@@ -57,6 +57,9 @@ export interface SavedDeckSummary {
   visibility: Visibility
   remixable: boolean
   columnCount: number
+  /** The column keys (not full definitions), so a remix picker can tell which game a deck
+   *  can feed without fetching the whole deck. */
+  columns: string[]
   rowCount: number
   /** The author's display name (never their email), or null. */
   authorName: string | null
@@ -223,6 +226,16 @@ function countOf(json: string): number {
   }
 }
 
+/** The column KEYS from the stored columns JSON (`DeckColumn[]`), for compatibility checks. */
+function columnKeys(json: string): string[] {
+  try {
+    const v = JSON.parse(json)
+    return Array.isArray(v) ? v.map((c) => (c && typeof c.key === 'string' ? c.key : '')).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
 async function toSummaries(rows: SummaryRow[]): Promise<SavedDeckSummary[]> {
   const authors = await authorsFor(rows.map((r) => r.ownerId ?? ''))
   return rows.map((r) => {
@@ -235,6 +248,7 @@ async function toSummaries(rows: SummaryRow[]): Promise<SavedDeckSummary[]> {
       visibility: r.visibility as Visibility,
       remixable: r.remixable,
       columnCount: countOf(r.columns),
+      columns: columnKeys(r.columns),
       rowCount: countOf(r.rows),
       authorName: author?.handle ? null : (author?.name ?? null),
       authorHandle: author?.handle ?? null,

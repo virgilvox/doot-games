@@ -100,7 +100,7 @@ export const fibFinder = defineGame({
   defaultConfig: { title: 'Fib Finder', rounds: deckFrom(FACT_POOL.slice(0, ROUNDS_PER_GAME)) },
   // Deck-feedable: a creator can attach a Quiz Deck (question + truth columns) to play
   // their own questions. The `truth` column is the answer key, withheld from non-owners.
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: factFromRow, answerColumns: ['truth', 'answer'] },
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: factFromRow, answerColumns: ['truth', 'answer'], requires: [['question', 'prompt', 'q'], ['truth', 'answer', 'a']] },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
     const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))

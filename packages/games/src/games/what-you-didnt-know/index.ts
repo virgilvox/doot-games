@@ -102,7 +102,7 @@ export const whatYouDidntKnow = defineGame({
   // Deck-feedable: a creator can attach a Quiz Deck (question + options + correct columns)
   // to play their own multiple-choice questions. The `correct` index is the answer key,
   // withheld from non-owners (the options stay visible, like any buzzer round).
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: choiceFromRow, answerColumns: ['correct', 'answer'] },
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: choiceFromRow, answerColumns: ['correct', 'answer'], requires: [['prompt', 'question', 'q'], ['options', 'choices', 'option1', 'a']] },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
     const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
     const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))

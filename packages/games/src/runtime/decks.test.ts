@@ -5,6 +5,7 @@ import {
   ballparkFromRow,
   cellarQuestionFromRow,
   choiceFromRow,
+  deckMatchesPool,
   factFromRow,
   frameFromRow,
   inlineDecks,
@@ -100,6 +101,25 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(storyFromRow({ template: 'A {x} and a {y}' })).toEqual({ template: 'A {x} and a {y}', blanks: '' })
     expect(storyFromRow({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })).toEqual({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })
     expect(storyFromRow({ template: 'no blanks here' })).toBeNull()
+  })
+})
+
+describe('deckMatchesPool (remix picker compatibility)', () => {
+  const optionPool = { defaultRows: [], deckKind: 'quiz' as const, fromRow: choiceFromRow, requires: [['question', 'prompt'], ['options', 'choices', 'a']] }
+  const shortAnswer = { defaultRows: [], deckKind: 'quiz' as const, fromRow: factFromRow, requires: [['question', 'prompt'], ['truth', 'answer']] }
+  const promptPool = { defaultRows: [], deckKind: 'prompt' as const, fromRow: promptFromRow }
+  it('accepts any deck for a pool with no requires (prompt games)', () => {
+    expect(deckMatchesPool(['anything'], promptPool)).toBe(true)
+    expect(deckMatchesPool([], promptPool)).toBe(true)
+  })
+  it('requires every column group to be satisfied (by synonym), case-insensitive', () => {
+    expect(deckMatchesPool(['Question', 'Options', 'correct'], optionPool)).toBe(true)
+    expect(deckMatchesPool(['prompt', 'a', 'b'], optionPool)).toBe(true) // 'a' is an options synonym
+    expect(deckMatchesPool(['question', 'truth'], optionPool)).toBe(false) // a short-answer deck: no options
+  })
+  it('keeps a multiple-choice deck out of a short-answer game and vice versa', () => {
+    expect(deckMatchesPool(['question', 'options', 'correct'], shortAnswer)).toBe(false) // no truth/answer
+    expect(deckMatchesPool(['question', 'truth'], shortAnswer)).toBe(true)
   })
 })
 

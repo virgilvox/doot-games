@@ -316,6 +316,12 @@ export interface ContentPool<Row extends Record<string, string | number> = Recor
    *  'word'). When an attached pool deck is served to a non-owner, these columns are
    *  nulled so a typed deck never leaks answers (invariant #3). A prompt pool has none. */
   answerColumns?: string[]
+  /** Column groups a creator deck MUST satisfy to feed this game; each inner array is the
+   *  set of accepted synonyms for one needed column (e.g. `[['question','prompt'],['options']]`).
+   *  The remix picker hides a deck that doesn't match, so a quiz deck of the wrong shape is
+   *  never offered (it would silently fall back to the built-in pool). Omit for a single
+   *  text-column pool, where any prompt deck works. */
+  requires?: string[][]
 }
 
 export interface GamePlugin {
