@@ -126,7 +126,7 @@ function removeDeck(id: string) {
 
     <div v-if="linking" class="dm-add">
       <div class="dm-link-head">
-        <span class="dm-label">Link a deck from your library <small>(stays linked — edits in <NuxtLink to="/decks" class="dm-a">Decks</NuxtLink> follow)</small></span>
+        <span class="dm-label">Link a deck from your library <small>(stays linked, so edits in <NuxtLink to="/decks" class="dm-a">Decks</NuxtLink> follow)</small></span>
         <button type="button" class="dm-x" aria-label="Close" @click="linking = false">✕</button>
       </div>
       <p v-if="loadingDecks" class="dm-empty">Loading…</p>

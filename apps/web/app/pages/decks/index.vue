@@ -47,7 +47,7 @@ const visLabel = { private: 'Private', unlisted: 'Unlisted', public: 'Public' } 
         </div>
 
         <p class="lede">
-          A deck is a table of rows — questions, prompts, images — that games pull from. Build one here, then in
+          A deck is a table of rows (questions, prompts, images) that games pull from. Build one here, then in
           the game editor either snapshot it into a game or link it live so edits follow.
         </p>
 

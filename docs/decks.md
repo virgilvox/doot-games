@@ -45,8 +45,14 @@ library deck**, then on a round use **Pull from a deck**:
   bound to the **same deck** in one draw share **one row**, so an image + prompt +
   answer stay correlated (they come from the same row).
 - An **answer column** (bound to a `guess` `correct`, `ballpark` `answer`, etc.) is
-  **withheld from non-owners** exactly like a normal answer key — the withholding
-  invariant holds for deck-sourced answers too.
+  **withheld from non-owners** exactly like a normal answer key (the withholding
+  invariant holds for deck-sourced answers too).
+
+> **Keep answer decks private.** Redaction in the game serve path nulls an answer
+> column for non-owners, but a deck that is `unlisted` or `public` can be read
+> directly at `/api/decks/<id>`, which would reveal those answers. If a game binds a
+> deck's columns to answers, leave that deck **private** (a game can still reference
+> your own private deck; only the resolved game is shared, with answers withheld).
 
 ## Authoring with markdown / MCP
 
