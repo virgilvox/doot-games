@@ -88,6 +88,16 @@ each group; `[size]` is a rough effort hint.
   `primaryDrive` starts from the lobby + the driver phone gets a Start button; audio armed on any
   host lobby interaction. Verified for guess / quiz-or-die / circuit-cypher (`scripts/driver-start-smoke.mjs`).
 
+## Content pools (planned, `[large]`)
+- [ ] **User-authorable content pools + spreadsheet import** — a core-engine feature so a creator
+  builds a big replayable game by feeding a pool (questions/prompts/facts/dilemmas) instead of
+  round-by-round, with CSV/TSV(Sheets)/Excel-via-CSV import into a collapsible editor panel.
+  Type-driven off each block's content schema (an additive `pool` descriptor on `defineBlock`:
+  `itemSchema` + `toContent` + import `columns`), a `GameComposition.pools` config expanded at host
+  time by a generalized `expandPools` (replaces the hardcoded flagship `buildConfig` pools), with
+  **pool answer-redaction in both paths** (security-critical) + MCP/markdown `## pool` support. Full
+  architecture, phasing, and open decisions in [`docs/content-pools-plan.md`](./content-pools-plan.md).
+
 ## E. Roadmap
 - [ ] **E16. Robustness** (`docs/flagship-games.md` §6) - partially wired:
   - [x] a host **"turn off round timers"** toggle (nulls every round timer) and an
