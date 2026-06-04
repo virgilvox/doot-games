@@ -18,6 +18,7 @@ import {
   getPlugin,
   maskDerivedPublish,
   redactGameConfig,
+  resolveComposition,
 } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
 import { computed, provide, reactive, ref, watch } from 'vue'
@@ -110,7 +111,9 @@ function resolveConfig(): GameComposition {
 }
 
 function load() {
-  const config = resolveConfig()
+  // Expand any deck-backed rounds (draw/bindings/pool) into plain rounds for play.
+  // A no-op for games without decks, so existing games are unchanged.
+  const config = resolveComposition(game, resolveConfig(), roomCode)
   const baseDerive = buildDeriveContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i))
   const meta: RoomMeta = {
     pluginId: game.manifest.id,

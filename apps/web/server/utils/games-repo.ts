@@ -9,19 +9,41 @@
  * carry display metadata (description, tags, cover image) and a `forkable` flag
  * letting others copy a game into their own editor.
  */
-import { REDACTION_RULES, isKnownPlugin } from '@doot-games/games/catalog'
+import { REDACTION_RULES, isKnownPlugin, redactDecks } from '@doot-games/games/catalog'
 import { z } from '@doot-games/sdk'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { type Visibility, bookmarks, games, useDb } from './db'
 import { authorsFor } from './users'
 
+const deckRefSchema = z.object({ deck: z.string().min(1).max(64), column: z.string().min(1).max(64) })
 const roundSchema = z.object({
   block: z.string().min(1),
   content: z.record(z.string(), z.unknown()),
   // A derived round's source indices (default [index-1]). Adjacent two-phase
   // games omit it, but persist it so a non-adjacent source survives save/load.
   from: z.array(z.number().int().nonnegative()).optional(),
+  // Deck-backed rounds (additive; see docs/content-decks-plan.md). `draw` emits N
+  // instances each from a distinct drawn row; `bindings` fill fields from columns;
+  // `pool` builds the whole content from a row (typed). Resolved at host time.
+  draw: z.number().int().positive().max(200).optional(),
+  bindings: z.record(z.string().max(80), deckRefSchema).optional(),
+  pool: z.object({ deck: z.string().min(1).max(64) }).optional(),
 })
+
+const deckColumnSchema = z.object({
+  key: z.string().min(1).max(64),
+  label: z.string().max(80).default(''),
+  type: z.enum(['text', 'image', 'number']),
+})
+const deckSchema = z.object({
+  columns: z.array(deckColumnSchema).max(50),
+  rows: z.array(z.record(z.string().max(64), z.union([z.string().max(2000), z.number(), z.null()]))).max(1000),
+  kind: z.string().max(40).optional(),
+})
+const deckUseSchema = z.union([
+  z.object({ inline: deckSchema }),
+  z.object({ ref: z.string().min(1).max(64), version: z.number().int().nonnegative().optional() }),
+])
 
 export const gameInputSchema = z.object({
   pluginId: z.string().min(1),
@@ -34,6 +56,7 @@ export const gameInputSchema = z.object({
   config: z.object({
     title: z.string().trim().min(1).max(120),
     rounds: z.array(roundSchema).min(1).max(50),
+    decks: z.record(z.string().max(64), deckUseSchema).optional(),
   }),
 })
 
@@ -46,6 +69,27 @@ export interface GameMeta {
   forkable: boolean
 }
 
+/** A round as stored. `content` stays an open record; the deck fields are additive. */
+interface SavedRound {
+  block: string
+  content: Record<string, unknown>
+  from?: number[]
+  draw?: number
+  bindings?: Record<string, { deck: string; column: string }>
+  pool?: { deck: string }
+}
+interface SavedInlineDeck {
+  columns: Array<{ key: string; label: string; type: 'text' | 'image' | 'number' }>
+  rows: Array<Record<string, string | number | null>>
+  kind?: string
+}
+type SavedDeckUse = { inline: SavedInlineDeck } | { ref: string; version?: number }
+export interface SavedConfig {
+  title: string
+  rounds: SavedRound[]
+  decks?: Record<string, SavedDeckUse>
+}
+
 export interface SavedGame extends GameMeta {
   id: string
   pluginId: string
@@ -53,7 +97,7 @@ export interface SavedGame extends GameMeta {
   themeId: string
   ownerId: string | null
   visibility: Visibility
-  config: { title: string; rounds: Array<{ block: string; content: Record<string, unknown> }> }
+  config: SavedConfig
   createdAt: number
 }
 
@@ -78,7 +122,9 @@ function newId(): string {
 // A saved config carries no media bytes (images are URLs), so a legitimate game
 // is small. Cap the serialized size to keep one user from storing a multi-MB
 // blob 50 rounds deep (the per-round `content` is an open record).
-const MAX_CONFIG_BYTES = 512_000
+// Raised to hold a content deck (up to ~1000 text/URL rows). A deck of text is still
+// small; images are URLs, so a legitimate game stays well under this.
+const MAX_CONFIG_BYTES = 2_000_000
 function serializeConfig(config: GameInput['config']): string {
   const s = JSON.stringify(config)
   if (s.length > MAX_CONFIG_BYTES) {
@@ -175,6 +221,9 @@ export function redactConfigForViewer(config: SavedGame['config']): SavedGame['c
       const rule = REDACTION_RULES[r.block]
       return rule ? { ...r, content: { ...r.content, ...rule } } : r
     }),
+    // Strip any deck column a round binds to an answer field, so a deck-backed game
+    // never leaks answers to a non-owner (the same invariant as round content).
+    decks: redactDecks(config.rounds, config.decks) as SavedConfig['decks'],
   }
 }
 

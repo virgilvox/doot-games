@@ -76,3 +76,62 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   // non-owner viewing a saved game can't read the answers.
   cellar: { questions: [], finalCats: [] },
 }
+
+// ── Deck redaction (data-only, server-safe) ─────────────────────────────────
+// A round can bind a content field to a content deck's column (mode-1 bindings).
+// If that field is an answer key (named in REDACTION_RULES for its block), the bound
+// deck COLUMN holds the answer and must be stripped before a non-owner sees the saved
+// config, exactly like the round's own answer field. Mirrors `redactContent`/the round
+// rules; a catalog test covers it. (Mode-2 typed pools are phase 2.)
+interface RedactRound {
+  block: string
+  bindings?: Record<string, { deck: string; column: string }>
+}
+interface RedactInlineDeck {
+  columns: unknown[]
+  rows: Array<Record<string, unknown>>
+  kind?: string
+}
+type RedactDeckUse = { inline: RedactInlineDeck } | { ref: string; version?: number }
+
+/** Return a copy of `decks` with every answer-bearing bound column nulled, given the
+ *  rounds that bind them. Pure; leaves non-secret columns + references untouched. */
+export function redactDecks(
+  rounds: RedactRound[],
+  decks: Record<string, RedactDeckUse> | undefined,
+): Record<string, RedactDeckUse> | undefined {
+  if (!decks) return decks
+  const secret = new Map<string, Set<string>>() // deckId -> secret columns
+  for (const r of rounds) {
+    const rule = REDACTION_RULES[r.block]
+    if (!rule || !r.bindings) continue
+    for (const [fieldPath, ref] of Object.entries(r.bindings)) {
+      const leaf = fieldPath.split('.').pop() ?? fieldPath
+      if (leaf in rule) {
+        if (!secret.has(ref.deck)) secret.set(ref.deck, new Set())
+        secret.get(ref.deck)!.add(ref.column)
+      }
+    }
+  }
+  if (secret.size === 0) return decks
+  const out: Record<string, RedactDeckUse> = {}
+  for (const [id, use] of Object.entries(decks)) {
+    const cols = secret.get(id)
+    if (!cols || !('inline' in use)) {
+      out[id] = use
+      continue
+    }
+    out[id] = {
+      ...use,
+      inline: {
+        ...use.inline,
+        rows: use.inline.rows.map((row) => {
+          const r: Record<string, unknown> = { ...row }
+          for (const c of cols) if (c in r) r[c] = null
+          return r
+        }),
+      },
+    }
+  }
+  return out
+}

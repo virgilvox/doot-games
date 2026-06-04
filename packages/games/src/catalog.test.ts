@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { REDACTION_RULES, gameCatalog, isKnownPlugin } from './catalog'
+import { REDACTION_RULES, gameCatalog, isKnownPlugin, redactDecks } from './catalog'
 import { builtinPlugins } from './registry'
 
 describe('game catalog', () => {
@@ -41,5 +41,47 @@ describe('game catalog', () => {
         }
       }
     }
+  })
+})
+
+describe('redactDecks (deck answer-withholding)', () => {
+  const deck = () => ({
+    a: {
+      inline: {
+        columns: [
+          { key: 'q', label: 'Q', type: 'text' },
+          { key: 'ans', label: 'Answer', type: 'number' },
+        ],
+        rows: [
+          { q: 'Capital of France?', ans: 0 },
+          { q: '2 + 2?', ans: 1 },
+        ],
+      },
+    },
+  })
+
+  it('nulls a column bound to an answer field (correct) but keeps the rest', () => {
+    const rounds = [{ block: 'guess', content: {}, bindings: { prompt: { deck: 'a', column: 'q' }, correct: { deck: 'a', column: 'ans' } } }]
+    const out = redactDecks(rounds, deck()) as Record<string, { inline: { rows: Array<Record<string, unknown>> } }>
+    expect(out.a.inline.rows).toEqual([
+      { q: 'Capital of France?', ans: null },
+      { q: '2 + 2?', ans: null },
+    ])
+  })
+
+  it('leaves a deck untouched when no binding targets an answer field', () => {
+    const rounds = [{ block: 'poll', content: {}, bindings: { prompt: { deck: 'a', column: 'q' } } }]
+    const out = redactDecks(rounds, deck())
+    expect(out).toEqual(deck()) // poll has no answer rule; nothing stripped
+  })
+
+  it('leaves a referenced deck alone (resolved + redacted upstream in phase 2)', () => {
+    const decks = { a: { ref: 'lib_1' } }
+    const rounds = [{ block: 'guess', content: {}, bindings: { correct: { deck: 'a', column: 'ans' } } }]
+    expect(redactDecks(rounds, decks)).toEqual(decks)
+  })
+
+  it('returns undefined decks unchanged', () => {
+    expect(redactDecks([{ block: 'guess', content: {} }], undefined)).toBeUndefined()
   })
 })
