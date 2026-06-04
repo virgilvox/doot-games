@@ -88,15 +88,18 @@ each group; `[size]` is a rough effort hint.
   `primaryDrive` starts from the lobby + the driver phone gets a Start button; audio armed on any
   host lobby interaction. Verified for guess / quiz-or-die / circuit-cypher (`scripts/driver-start-smoke.mjs`).
 
-## Content pools (planned, `[large]`)
-- [ ] **User-authorable content pools + spreadsheet import** — a core-engine feature so a creator
-  builds a big replayable game by feeding a pool (questions/prompts/facts/dilemmas) instead of
-  round-by-round, with CSV/TSV(Sheets)/Excel-via-CSV import into a collapsible editor panel.
-  Type-driven off each block's content schema (an additive `pool` descriptor on `defineBlock`:
-  `itemSchema` + `toContent` + import `columns`), a `GameComposition.pools` config expanded at host
-  time by a generalized `expandPools` (replaces the hardcoded flagship `buildConfig` pools), with
-  **pool answer-redaction in both paths** (security-critical) + MCP/markdown `## pool` support. Full
-  architecture, phasing, and open decisions in [`docs/content-pools-plan.md`](./content-pools-plan.md).
+## Content banks & bindings (planned, `[large]`)
+- [ ] **User-authorable content banks + field bindings + spreadsheet import** — a core-engine
+  feature. A **bank** is a named-column table of rows (one shape; two homes: a durable reusable
+  library + inline-in-config snapshots). Two uses on the same substrate: **bind any field** of any
+  round (text or image) to a bank column with same-row cross-field correlation (mode 1, block-agnostic),
+  and **draw whole rounds** from a typed bank for structured/question content (mode 2, an additive
+  `pool` descriptor on `defineBlock`). A `draw: N` per-play sampler reuses `roundOptions`. A pure
+  host-time `resolveComposition` (no-op when absent) replaces the hardcoded flagship `buildConfig`
+  pools; **binding-aware answer redaction in both paths** (security-critical); an optional,
+  column-introspecting binding helper in the editor + a `/banks` library; CSV/TSV(Sheets)/Excel-via-CSV
+  import; MCP/markdown support. Fully additive + isolated. Architecture, phasing (MVP = mode-1 bindings
+  + game-local banks), and open decisions in [`docs/content-pools-plan.md`](./content-pools-plan.md).
 
 ## E. Roadmap
 - [ ] **E16. Robustness** (`docs/flagship-games.md` §6) - partially wired:
