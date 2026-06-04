@@ -35,12 +35,6 @@ const uploadImage = useImageUpload()
 const deckId = ref<string | null>(props.initial?.id ?? null)
 const name = ref(props.initial?.name ?? '')
 const description = ref(props.initial?.description ?? '')
-const kind = ref<Kind>(props.initial?.kind ?? 'generic')
-const visibility = ref<'private' | 'unlisted' | 'public'>(props.initial?.visibility ?? 'private')
-const remixable = ref(props.initial?.remixable ?? false)
-const columns = ref<Column[]>(props.initial?.columns?.length ? props.initial.columns : [{ key: 'col1', label: 'Column 1', type: 'text' }])
-const rows = ref<Row[]>(props.initial?.rows ?? [])
-
 const KINDS: Array<{ id: Kind; label: string; hint: string }> = [
   { id: 'generic', label: 'Generic', hint: 'Any columns. Bind fields to it from any round.' },
   { id: 'quiz', label: 'Quiz', hint: 'Question + answer columns for guess / buzzer rounds.' },
@@ -48,12 +42,67 @@ const KINDS: Array<{ id: Kind; label: string; hint: string }> = [
   { id: 'card', label: 'Card', hint: 'Freeform cards (for the upcoming card-game system).' },
 ]
 
+// Each kind starts you off with the right columns + one example row to show the shape.
+// Applied when you pick a kind on an untouched deck (your edits/imports lock it in).
+const KIND_TEMPLATES: Record<Kind, { columns: Column[]; rows: Row[] }> = {
+  generic: { columns: [{ key: 'col1', label: 'Column 1', type: 'text' }], rows: [] },
+  quiz: {
+    columns: [
+      { key: 'question', label: 'Question', type: 'text' },
+      { key: 'answer', label: 'Answer', type: 'text' },
+      { key: 'image', label: 'Image', type: 'image' },
+    ],
+    rows: [{ question: 'What is the capital of France?', answer: 'Paris', image: '' }],
+  },
+  prompt: {
+    columns: [{ key: 'prompt', label: 'Prompt', type: 'text' }],
+    rows: [{ prompt: 'Two truths and a lie about yourself' }],
+  },
+  card: {
+    columns: [
+      { key: 'title', label: 'Title', type: 'text' },
+      { key: 'text', label: 'Text', type: 'text' },
+      { key: 'image', label: 'Image', type: 'image' },
+    ],
+    rows: [{ title: 'Example card', text: 'What this card says', image: '' }],
+  },
+}
+const cloneTemplate = (k: Kind) => ({
+  columns: KIND_TEMPLATES[k].columns.map((c) => ({ ...c })),
+  rows: KIND_TEMPLATES[k].rows.map((r) => ({ ...r })),
+})
+
+const kind = ref<Kind>(props.initial?.kind ?? 'generic')
+const visibility = ref<'private' | 'unlisted' | 'public'>(props.initial?.visibility ?? 'private')
+const remixable = ref(props.initial?.remixable ?? false)
+// A new deck starts from its kind's template; an existing deck loads its saved data.
+const initialTemplate = props.initial ? null : cloneTemplate(kind.value)
+const columns = ref<Column[]>(props.initial?.columns?.length ? props.initial.columns : (initialTemplate?.columns ?? [{ key: 'col1', label: 'Column 1', type: 'text' }]))
+const rows = ref<Row[]>(props.initial?.rows ?? initialTemplate?.rows ?? [])
+
+// "Pristine" = the user hasn't edited yet, so switching kind may re-apply a template.
+// New deck starts pristine; editing an existing deck never auto-replaces its data.
+const pristine = ref(!props.initial)
+function touched() {
+  pristine.value = false
+}
+/** Pick a kind. On an untouched deck, swap in that kind's starter columns + example row. */
+function selectKind(k: Kind) {
+  kind.value = k
+  if (pristine.value) {
+    const t = cloneTemplate(k)
+    columns.value = t.columns
+    rows.value = t.rows
+  }
+}
+
 // ── Columns ────────────────────────────────────────────────────────────────
 function slug(s: string, fallback: string): string {
   const k = s.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
   return k || fallback
 }
 function addColumn() {
+  touched()
   const n = columns.value.length + 1
   let key = `col${n}`
   const taken = new Set(columns.value.map((c) => c.key))
@@ -63,6 +112,7 @@ function addColumn() {
 }
 function removeColumn(key: string) {
   if (columns.value.length <= 1) return
+  touched()
   columns.value = columns.value.filter((c) => c.key !== key)
   rows.value = rows.value.map((r) => {
     const { [key]: _drop, ...rest } = r
@@ -72,14 +122,17 @@ function removeColumn(key: string) {
 
 // ── Rows ───────────────────────────────────────────────────────────────────
 function addRow() {
+  touched()
   const blank: Row = {}
   for (const c of columns.value) blank[c.key] = c.type === 'number' ? 0 : ''
   rows.value = [...rows.value, blank]
 }
 function removeRow(i: number) {
+  touched()
   rows.value = rows.value.filter((_, idx) => idx !== i)
 }
 function setCell(i: number, key: string, value: string | number | null) {
+  touched()
   rows.value = rows.value.map((r, idx) => (idx === i ? { ...r, [key]: value } : r))
 }
 
@@ -109,6 +162,7 @@ function doPreview() {
 function applyImport(mode: 'replace' | 'append') {
   const p = preview.value
   if (!p || !p.columns.length) return
+  touched()
   if (mode === 'replace') {
     columns.value = p.columns
     rows.value = p.rows
@@ -177,7 +231,7 @@ async function save() {
       <div class="de-field">
         <span class="de-label">Kind</span>
         <div class="de-kinds">
-          <button v-for="k in KINDS" :key="k.id" type="button" class="de-kind" :class="{ on: kind === k.id }" :title="k.hint" @click="kind = k.id">{{ k.label }}</button>
+          <button v-for="k in KINDS" :key="k.id" type="button" class="de-kind" :class="{ on: kind === k.id }" :title="k.hint" @click="selectKind(k.id)">{{ k.label }}</button>
         </div>
         <small class="de-hint">{{ KINDS.find((k) => k.id === kind)?.hint }}</small>
       </div>
@@ -231,9 +285,9 @@ async function save() {
           <tr>
             <th class="de-rownum" />
             <th v-for="c in columns" :key="c.key" class="de-th">
-              <input v-model="c.label" class="de-colname" :placeholder="c.key" />
+              <input v-model="c.label" class="de-colname" :placeholder="c.key" @input="touched" />
               <div class="de-colctl">
-                <select v-model="c.type" class="de-coltype">
+                <select v-model="c.type" class="de-coltype" @change="touched">
                   <option value="text">text</option>
                   <option value="image">image</option>
                   <option value="number">number</option>
