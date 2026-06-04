@@ -31,10 +31,20 @@ them; and see the answer-deck note below before linking a deck that holds answer
 ## Remix a flagship with your own content
 
 Most "Games From Doot" play a built-in content pool, and you can swap in your own. On the
-game's page click **"Remix with your..."**, pick one of your decks, and it saves a
-host-ready game that plays YOUR content instead of the built-in pool. The host still
-shuffles it and picks how many to play each round. Empty or unusable decks fall back to
-the built-in pool, so a remix never breaks.
+game's page click **"Remix with your..."**. What you see depends on the game:
+
+- **Prompt and story games** open a small **starter editor** pre-filled with a few of the
+  official lines. Tweak them, add your own, remove any, name it, and hit **Create and host**.
+  You start from the official set rather than a blank page, so the format is obvious and you
+  only customize what you want.
+- **Quiz and card games** open a **deck picker** (your decks plus official Doot decks, which
+  are badged), since those rows have several columns. Build a multi-column deck in `/decks`,
+  then pick it here.
+
+Either way it saves a host-ready game that plays YOUR content instead of the built-in pool.
+The host still shuffles it and picks how many to play each round. Empty or unusable decks
+fall back to the built-in pool, so a remix never breaks. The built-in pool is itself the
+game's "official deck": it plays by default, with zero setup, when you do not remix.
 
 There are two shapes of remixable game:
 

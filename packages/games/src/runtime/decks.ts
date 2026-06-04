@@ -19,6 +19,34 @@ import { getBlock, seededShuffle } from './derive'
 const MAX_ROUNDS = 50
 
 /**
+ * A small, editable STARTER drawn from a game's official built-in pool, for the
+ * "remix" warm start: rather than a blank deck, a creator begins from a handful of the
+ * official rows and tweaks them. Returns the primary text column key and the first `n`
+ * values of it (deduped, non-empty). Single-text-column pools only (prompt/template/frame
+ * shaped); a multi-column pool returns `single: false` so the UI routes elsewhere. Pure.
+ */
+export function poolStarter(pool: ContentPool, n = 6): { single: boolean; key: string; values: string[] } {
+  const first = pool.defaultRows[0] ?? {}
+  const textKeys = Object.keys(first).filter((k) => typeof first[k] === 'string')
+  // "Single column" = one meaningful text field (prompt/frame/template). A 'blanks' helper
+  // column (Mad Libs) rides along but is derived, so it does not count against single-ness.
+  const key = textKeys.find((k) => k !== 'blanks') ?? textKeys[0] ?? ''
+  const meaningful = textKeys.filter((k) => k !== 'blanks')
+  const single = meaningful.length === 1 && (pool.deckKind === 'prompt' || pool.deckKind === 'generic')
+  const seen = new Set<string>()
+  const values: string[] = []
+  for (const row of pool.defaultRows) {
+    const v = row[key]
+    if (typeof v === 'string' && v.trim() && !seen.has(v)) {
+      seen.add(v)
+      values.push(v)
+      if (values.length >= n) break
+    }
+  }
+  return { single, key, values }
+}
+
+/**
  * Map a creator's attached deck to the rows a pool game's `buildConfig` expects.
  * Each row goes through the game's `fromRow`; unusable rows drop. An empty result
  * falls back to the built-in `defaultRows` (so a garbage/empty deck never breaks the

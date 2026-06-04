@@ -9,6 +9,7 @@ import {
   frameFromRow,
   inlineDecks,
   poolRowsFor,
+  poolStarter,
   promptFromRow,
   resolveComposition,
   secretFromRow,
@@ -99,6 +100,29 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(storyFromRow({ template: 'A {x} and a {y}' })).toEqual({ template: 'A {x} and a {y}', blanks: '' })
     expect(storyFromRow({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })).toEqual({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })
     expect(storyFromRow({ template: 'no blanks here' })).toBeNull()
+  })
+})
+
+describe('poolStarter (a small editable starter from the official pool)', () => {
+  it('returns the primary text column and first n values for a single-column prompt pool', () => {
+    const pool = { defaultRows: [{ prompt: 'A' }, { prompt: 'B' }, { prompt: 'C' }], deckKind: 'prompt' as const, fromRow: promptFromRow }
+    const s = poolStarter(pool, 2)
+    expect(s).toEqual({ single: true, key: 'prompt', values: ['A', 'B'] })
+  })
+  it('treats a Mad-Libs-style {template, blanks} pool as single (blanks is a derived helper)', () => {
+    const pool = { defaultRows: [{ template: 'A {x}', blanks: '[]' }, { template: 'B {y}', blanks: '[]' }], deckKind: 'generic' as const, fromRow: storyFromRow }
+    const s = poolStarter(pool, 5)
+    expect(s.single).toBe(true)
+    expect(s.key).toBe('template')
+    expect(s.values).toEqual(['A {x}', 'B {y}'])
+  })
+  it('reports a multi-column (quiz) pool as not single, so the UI routes to the picker', () => {
+    const pool = { defaultRows: [{ prompt: 'Q', options: 'A|B', correct: 0 }], deckKind: 'quiz' as const, fromRow: choiceFromRow }
+    expect(poolStarter(pool).single).toBe(false)
+  })
+  it('dedupes and skips empties', () => {
+    const pool = { defaultRows: [{ prompt: 'A' }, { prompt: 'A' }, { prompt: '  ' }, { prompt: 'B' }], deckKind: 'prompt' as const, fromRow: promptFromRow }
+    expect(poolStarter(pool, 6).values).toEqual(['A', 'B'])
   })
 })
 
