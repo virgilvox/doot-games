@@ -96,7 +96,10 @@ each group; `[size]` is a rough effort hint.
   (`DeckManager.vue` rail panel + `RoundBindings.vue` "Pull from a deck" control, isolated components)
   with a sample-resolved preview. Authorable via the editor or markdown/MCP; browser-verified.
   **Remaining (phase 2):** a `/decks` reusable library (durable banks + references), mode-2 typed
-  `pool` descriptors on real blocks, and column-type filtering in the binding helper. See the plan.
+  `pool` descriptors on real blocks, mode-3 column→array pools (spotlight prompt decks), a general
+  **`collect` block** whose shared media becomes a play-time variable for later rounds, editor
+  recipe-discoverability polish, and column-type filtering in the binding helper.
+  **Full forward map + build order: [`docs/decks-roadmap.md`](decks-roadmap.md).**
 - [ ] **User-authorable content decks + field bindings + spreadsheet import** — a core-engine
   feature. A **deck** is a named-column table of rows/cards (one shape; two homes: a durable reusable
   library + in-config use as a **snapshot or a reference** — references resolve to inline at serve

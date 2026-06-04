@@ -11,6 +11,18 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Decks roadmap + verification pass (2026-06-03).** The decks MVP (slices a–d) is
+> re-verified after the visual editor + home changes: full suite green (**405 tests**, incl.
+> a new redaction→resolution tie test proving invariant #3 holds for deck-sourced answers),
+> and live multiplayer smokes pass across guess / quiz-or-die / circuit-cypher / open-mic /
+> truth-or-share / mad-libs / split-room — the deck work broke nothing. The forward plan for
+> everything next (a **`/decks` library** page, a general **`collect` block** whose shared
+> media becomes a play-time variable, decks×spotlight via mode-3 column→array, the Custom
+> "all blocks" finding, and the MCP/docs work) is mapped with a build order in
+> **[`docs/decks-roadmap.md`](docs/decks-roadmap.md)**. Custom finding: it already composes
+> all 17 generic-renderer blocks (9 singles + 6 recipes); bars/spotlight/cellar are
+> custom-flow-only — the reusable share primitive is the planned `collect` block.
+
 > **Content decks: engine + persistence + markdown authoring (2026-06-03). PUSHED + DEPLOYED.**
 > The data-driven "decks" feature is usable end to end (no new editor UI yet) - author via the
 > editor's Import-from-Markdown or MCP `save_game`. All gates green: typecheck (incl. `nuxi`),

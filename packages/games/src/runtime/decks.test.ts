@@ -1,5 +1,6 @@
 import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
+import { redactDecks } from '../catalog'
 import { inlineDecks, resolveComposition } from './decks'
 
 // Mode-1 binding never calls getBlock, so a blocks-free plugin is fine for those.
@@ -101,6 +102,34 @@ describe('resolveComposition', () => {
     const opts = (resolveComposition(plugin, config, 'seed').rounds[0]!.content as { options: Array<{ label: string }> }).options
     expect(['Q1', 'Q2', 'Q3']).toContain(opts[0]!.label)
     expect(opts[1]!.label).toBe('b') // untouched
+  })
+
+  it('redaction → resolution: an answer-bound column is the real value for the owner but null after redactDecks (invariant #3)', () => {
+    // A guess round whose `correct` answer is pulled from a deck column.
+    const answerDeck = {
+      columns: [
+        { key: 'q', label: 'Q', type: 'text' as const },
+        { key: 'ans', label: 'Answer', type: 'text' as const },
+      ],
+      rows: [{ q: 'Capital of France?', ans: 'Paris' }],
+    }
+    const rounds = [
+      {
+        block: 'guess',
+        content: { prompt: '', correct: '', options: [] },
+        bindings: { prompt: { deck: 'd', column: 'q' }, correct: { deck: 'd', column: 'ans' } },
+      },
+    ]
+    // Owner sees the real answer (so the host can withhold it, then reveal it).
+    const owner = resolveComposition(plugin, cfg(rounds, { d: { inline: answerDeck } }), 'seed')
+    expect((owner.rounds[0]!.content as { correct: string }).correct).toBe('Paris')
+
+    // A non-owner gets the redacted decks; the answer column is nulled, so the
+    // resolved round carries no answer. The prompt (a non-answer column) survives.
+    const redacted = redactDecks(rounds as never, { d: { inline: answerDeck } } as never)
+    const viewer = resolveComposition(plugin, cfg(rounds, redacted as never), 'seed')
+    expect((viewer.rounds[0]!.content as { correct: string | null }).correct).toBeNull()
+    expect((viewer.rounds[0]!.content as { prompt: string }).prompt).toBe('Capital of France?')
   })
 
   it('mode 2: builds whole content from a row via the block pool descriptor', () => {
