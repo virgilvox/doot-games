@@ -17,6 +17,7 @@
 import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { buzzerBlock } from '../../blocks/buzzer/block'
+import { choiceFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 interface Question {
@@ -68,6 +69,15 @@ function deckFrom(questions: Question[]): RoundInstance[] {
   return questions.map((q, i) => toRound(q, (i + 1) * 100))
 }
 
+/** The built-in pool as flat deck rows (options pipe-joined; `correct` is the 0-based
+ *  index). A creator Quiz Deck (question + options + correct columns) overrides these. */
+const DEFAULT_ROWS = QUESTION_POOL.map((q) => ({ prompt: q.prompt, options: q.options.join('|'), correct: q.correct }))
+const rowToQuestion = (r: Record<string, string | number>): Question => ({
+  prompt: String(r.prompt),
+  options: String(r.options).split('|'),
+  correct: Number(r.correct),
+})
+
 export const whatYouDidntKnow = defineGame({
   manifest: {
     id: 'what-you-didnt-know',
@@ -81,9 +91,14 @@ export const whatYouDidntKnow = defineGame({
   },
   blocks: [buzzerBlock],
   defaultConfig: { title: SUBJECT, rounds: deckFrom(QUESTION_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, QUESTION_POOL.length))
-    return { title: SUBJECT, rounds: deckFrom(seededShuffle(`wydk:${seed}`)(QUESTION_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a Quiz Deck (question + options + correct columns)
+  // to play their own multiple-choice questions. The `correct` index is the answer key,
+  // withheld from non-owners (the options stay visible, like any buzzer round).
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: choiceFromRow, answerColumns: ['correct', 'answer'] },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: SUBJECT, rounds: deckFrom(seededShuffle(`wydk:${seed}`)(rows).slice(0, n).map(rowToQuestion)) }
   },
   roundOptions: { min: 3, max: 12, default: ROUNDS_PER_GAME, label: 'Questions' },
 })

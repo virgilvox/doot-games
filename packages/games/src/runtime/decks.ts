@@ -42,6 +42,113 @@ export function promptFromRow(row: Record<string, string | number>): { prompt: s
   return typeof v === 'string' && v.trim() ? { prompt: v } : null
 }
 
+// ── Typed-pool row mappers ──────────────────────────────────────────────────
+// A creator deck row is an arbitrary `Record<string, string | number>`; each pool
+// game maps it to its own flat pool-row shape via one of these. They read by
+// CONVENTIONAL column name first (so a well-named deck "just works"), with a
+// positional text fallback, and return null to skip a row that can't be used.
+// Each is pure + unit-tested. The game's `buildConfig` consumes the flat rows.
+
+/** First non-empty cell among the given column keys, trimmed; '' if none. A numeric
+ *  cell is stringified (so a number column still reads as text where wanted). */
+function pick(row: Record<string, string | number>, keys: string[]): string {
+  for (const k of keys) {
+    const v = row[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return ''
+}
+
+/** Every non-empty TEXT cell of a row, in insertion order (for positional fallbacks). */
+function texts(row: Record<string, string | number>): string[] {
+  return Object.values(row)
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    .map((v) => v.trim())
+}
+
+/** Split the Room: one dividing frame with an `{x}` blank the player completes. Any
+ *  single `{...}` placeholder is normalized to `{x}`; a frame with none gets ` {x}`
+ *  appended so `fill` always has a blank to render. */
+export function frameFromRow(row: Record<string, string | number>): { frame: string } | null {
+  let v = pick(row, ['frame', 'prompt', 'dilemma']) || texts(row)[0] || ''
+  if (!v) return null
+  if (!v.includes('{x}')) v = /\{[^}]+\}/.test(v) ? v.replace(/\{[^}]+\}/, '{x}') : `${v} {x}`
+  return { frame: v }
+}
+
+/** Faker: a public category + the secret word. */
+export function secretFromRow(row: Record<string, string | number>): { category: string; word: string } | null {
+  const category = pick(row, ['category', 'topic', 'theme'])
+  const word = pick(row, ['word', 'secret', 'answer'])
+  const t = texts(row)
+  const c = category || t[0] || ''
+  const w = word || t.find((x) => x !== c) || ''
+  return c && w ? { category: c, word: w } : null
+}
+
+/** Fib Finder: a trivia question (with an optional `___` blank) + its true answer. */
+export function factFromRow(row: Record<string, string | number>): { question: string; truth: string } | null {
+  const question = pick(row, ['question', 'prompt', 'q'])
+  const truth = pick(row, ['truth', 'answer', 'a'])
+  const t = texts(row)
+  const q = question || t[0] || ''
+  const tr = truth || t.find((x) => x !== q) || ''
+  return q && tr ? { question: q, truth: tr } : null
+}
+
+/** Ballpark: a numeric-answer question (+ optional unit/subject). Commas/spaces in the
+ *  number are tolerated; a row with no parseable number is skipped. */
+export function ballparkFromRow(
+  row: Record<string, string | number>,
+): { prompt: string; answer: number; unit: string; subject: string } | null {
+  const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
+  const answerRaw = pick(row, ['answer', 'value', 'number'])
+  const answer = Number(answerRaw.replace(/[,\s]/g, ''))
+  if (!prompt || !answerRaw || !Number.isFinite(answer)) return null
+  return { prompt, answer, unit: pick(row, ['unit', 'units']), subject: pick(row, ['subject']) }
+}
+
+/** What, You Didn't Know That?: a multiple-choice question. Options come from a single
+ *  delimited column (`|`, `;`, or `,`) or from `option1..optionN`/`a..d` columns; the
+ *  correct answer is a 1-based index, a 0-based index, or the answer text. Returns the
+ *  options pipe-joined and a 0-based correct index (the buzzer round splits them back). */
+export function choiceFromRow(
+  row: Record<string, string | number>,
+): { prompt: string; options: string; correct: number } | null {
+  const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
+  let options: string[] = []
+  const joined = pick(row, ['options', 'choices'])
+  if (joined) options = joined.split(/\s*[|;,]\s*/).filter(Boolean)
+  else {
+    for (const k of ['option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'a', 'b', 'c', 'd']) {
+      const v = pick(row, [k])
+      if (v) options.push(v)
+    }
+  }
+  if (!prompt || options.length < 2) return null
+  const correctRaw = pick(row, ['correct', 'answer'])
+  let correct = -1
+  const asNum = Number(correctRaw)
+  if (correctRaw && Number.isFinite(asNum) && correctRaw.trim() !== '') {
+    correct = asNum >= 1 && asNum <= options.length ? asNum - 1 : asNum
+  } else if (correctRaw) {
+    correct = options.findIndex((o) => o.toLowerCase() === correctRaw.toLowerCase())
+  }
+  if (!Number.isInteger(correct) || correct < 0 || correct >= options.length) correct = 0
+  return { prompt, options: options.join('|'), correct }
+}
+
+/** Mad Libs: a story template with `{token}` blanks. An optional `blanks` column may
+ *  carry a JSON array of `{id,label}` (the built-in pool keeps its rich labels that
+ *  way); otherwise the game derives blanks from the template tokens. Skips a template
+ *  with no blank. */
+export function storyFromRow(row: Record<string, string | number>): { template: string; blanks: string } | null {
+  const template = pick(row, ['template', 'story', 'sentence', 'text']) || texts(row)[0] || ''
+  if (!template || !/\{[^}]+\}/.test(template)) return null
+  return { template, blanks: pick(row, ['blanks']) }
+}
+
 /** Deep clone of round content (always JSON-safe game data). JSON-based on purpose:
  *  it reads cleanly through a Vue reactive proxy, where `structuredClone` can throw. */
 function clone<T>(v: T): T {

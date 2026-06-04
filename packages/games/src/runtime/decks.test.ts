@@ -1,7 +1,18 @@
 import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
 import { redactDecks } from '../catalog'
-import { inlineDecks, poolRowsFor, promptFromRow, resolveComposition } from './decks'
+import {
+  ballparkFromRow,
+  choiceFromRow,
+  factFromRow,
+  frameFromRow,
+  inlineDecks,
+  poolRowsFor,
+  promptFromRow,
+  resolveComposition,
+  secretFromRow,
+  storyFromRow,
+} from './decks'
 
 // Mode-1 binding never calls getBlock, so a blocks-free plugin is fine for those.
 const plugin = { manifest: { id: 't', name: 'T', version: '0', author: 'x', capabilities: [] }, blocks: [], defaultConfig: { title: 'T', rounds: [] } } as never
@@ -35,6 +46,49 @@ describe('promptFromRow (Prompt Deck row -> a single-prompt pool row)', () => {
     expect(promptFromRow({ prompt: '   ', other: 'x' })).toEqual({ prompt: 'x' }) // blank prompt -> first text
     expect(promptFromRow({ n: 5 })).toBeNull()
     expect(promptFromRow({})).toBeNull()
+  })
+})
+
+describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
+  it('frameFromRow: reads/normalizes a dividing frame, always with an {x} blank', () => {
+    expect(frameFromRow({ frame: 'Would you {x} for $1M?' })).toEqual({ frame: 'Would you {x} for $1M?' })
+    expect(frameFromRow({ prompt: 'Is it ok to {y}?' })).toEqual({ frame: 'Is it ok to {x}?' }) // other placeholder normalized
+    expect(frameFromRow({ dilemma: 'Skydive naked' })).toEqual({ frame: 'Skydive naked {x}' }) // no blank -> appended
+    expect(frameFromRow({ n: 3 })).toBeNull()
+  })
+
+  it('secretFromRow: a public category + the secret word', () => {
+    expect(secretFromRow({ category: 'Animals', word: 'Otter' })).toEqual({ category: 'Animals', word: 'Otter' })
+    expect(secretFromRow({ topic: 'Food', secret: 'Bagel' })).toEqual({ category: 'Food', word: 'Bagel' }) // synonyms
+    expect(secretFromRow({ a: 'Sports', b: 'Curling' })).toEqual({ category: 'Sports', word: 'Curling' }) // positional fallback
+    expect(secretFromRow({ category: 'Only one' })).toBeNull()
+  })
+
+  it('factFromRow: a question + its true answer', () => {
+    expect(factFromRow({ question: 'A group of owls is a ___', truth: 'parliament' })).toEqual({ question: 'A group of owls is a ___', truth: 'parliament' })
+    expect(factFromRow({ q: 'Capital?', a: 'Paris' })).toEqual({ question: 'Capital?', truth: 'Paris' })
+    expect(factFromRow({ question: 'no answer' })).toBeNull()
+  })
+
+  it('ballparkFromRow: a numeric answer, tolerant of commas, skips non-numbers', () => {
+    expect(ballparkFromRow({ prompt: 'How far to the Moon?', answer: '384,400', unit: 'km' })).toEqual({ prompt: 'How far to the Moon?', answer: 384400, unit: 'km', subject: '' })
+    expect(ballparkFromRow({ prompt: 'Bones?', answer: 206 })).toEqual({ prompt: 'Bones?', answer: 206, unit: '', subject: '' })
+    expect(ballparkFromRow({ prompt: 'No number', answer: 'lots' })).toBeNull()
+    expect(ballparkFromRow({ prompt: 'Missing' })).toBeNull()
+  })
+
+  it('choiceFromRow: options from a delimited column or numbered columns; correct as index or text', () => {
+    expect(choiceFromRow({ prompt: 'Pick', options: 'A|B|C', correct: 2 })).toEqual({ prompt: 'Pick', options: 'A|B|C', correct: 1 }) // 1-based -> 0-based
+    expect(choiceFromRow({ question: 'Pick', option1: 'A', option2: 'B', option3: 'C', correct: 'B' })).toEqual({ prompt: 'Pick', options: 'A|B|C', correct: 1 }) // by text
+    expect(choiceFromRow({ prompt: 'Pick', options: 'A, B, C', answer: 'C' })).toEqual({ prompt: 'Pick', options: 'A|B|C', correct: 2 }) // comma split + answer synonym
+    expect(choiceFromRow({ prompt: 'Pick', options: 'A|B', correct: 9 })).toEqual({ prompt: 'Pick', options: 'A|B', correct: 0 }) // out of range -> 0
+    expect(choiceFromRow({ prompt: 'only one', options: 'A' })).toBeNull() // needs >= 2 options
+  })
+
+  it('storyFromRow: keeps a blanks JSON column, else leaves blanks empty for derivation', () => {
+    expect(storyFromRow({ template: 'A {x} and a {y}' })).toEqual({ template: 'A {x} and a {y}', blanks: '' })
+    expect(storyFromRow({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })).toEqual({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })
+    expect(storyFromRow({ template: 'no blanks here' })).toBeNull()
   })
 })
 

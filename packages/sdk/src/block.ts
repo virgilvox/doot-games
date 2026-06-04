@@ -312,6 +312,10 @@ export interface ContentPool<Row extends Record<string, string | number> = Recor
   fromRow: (row: Record<string, string | number>) => Row | null
   /** How an attached deck combines with the built-in pool. Default 'replace'. */
   merge?: 'replace' | 'append'
+  /** Deck COLUMN names that carry an answer/secret (e.g. 'truth', 'answer', 'correct',
+   *  'word'). When an attached pool deck is served to a non-owner, these columns are
+   *  nulled so a typed deck never leaks answers (invariant #3). A prompt pool has none. */
+  answerColumns?: string[]
 }
 
 export interface GamePlugin {

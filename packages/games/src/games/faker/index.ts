@@ -16,6 +16,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { accuseBlock } from '../../blocks/accuse/block'
 import { fakerBlock } from '../../blocks/faker/block'
+import { secretFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 /** Brand-free, family-safe category/word pairs. The category is public; the word is
@@ -74,6 +75,11 @@ function deckFrom(secrets: Secret[]): RoundInstance[] {
   return secrets.flatMap(pair)
 }
 
+/** The built-in pool as flat deck rows; a creator deck (category + word columns)
+ *  overrides these. */
+const DEFAULT_ROWS = WORD_POOL.map((s) => ({ category: s.category, word: s.word }))
+const rowToSecret = (r: Record<string, string | number>): Secret => ({ category: String(r.category), word: String(r.word) })
+
 export const faker = defineGame({
   manifest: {
     id: 'faker',
@@ -87,9 +93,13 @@ export const faker = defineGame({
   },
   blocks: [fakerBlock, accuseBlock],
   defaultConfig: { title: 'Faker', rounds: deckFrom(WORD_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, WORD_POOL.length))
-    return { title: 'Faker', rounds: deckFrom(seededShuffle(`faker:${seed}`)(WORD_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a deck (category + word columns) to play their
+  // own secret words. The `word` column is the secret, withheld from non-owners.
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'card', fromRow: secretFromRow, answerColumns: ['word', 'secret'] },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Faker', rounds: deckFrom(seededShuffle(`faker:${seed}`)(rows).slice(0, n).map(rowToSecret)) }
   },
   roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Rounds' },
 })

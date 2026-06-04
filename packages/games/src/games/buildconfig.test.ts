@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { RoundInstance } from '@doot-games/sdk'
 import { backronym } from './backronym'
+import { ballpark } from './ballpark'
 import { circuitCypher } from './circuit-cypher'
+import { faker } from './faker'
+import { fibFinder } from './fib-finder'
 import { hivemind } from './hivemind'
 import { madLibs } from './mad-libs'
 import { mostLikely } from './most-likely'
@@ -9,6 +12,7 @@ import { openMic } from './open-mic'
 import { quipClash } from './quip-clash'
 import { sketchSpot } from './sketch-spot'
 import { splitRoom } from './split-room'
+import { whatYouDidntKnow } from './what-you-didnt-know'
 
 // Each of these flagships pairs a make + judge round, so N items => 2N engine
 // rounds. (Circuit Cypher is a custom-flow tournament with a single write round,
@@ -52,6 +56,50 @@ describe('pool games are deck-fed (contentPool)', () => {
       expect(present.length).toBe(2)
     })
   }
+})
+
+// The typed-pool flagships (quiz / card / story-shaped) are deck-feedable too. Their
+// built-in pool (defaultRows) must reproduce today's rounds byte-for-byte (regression),
+// and a creator deck of the right shape must override the content that plays.
+describe('typed-pool games are deck-fed (contentPool)', () => {
+  const cases = [
+    { game: fibFinder, kind: 'quiz', rows: [{ question: 'Sky color is ___', truth: 'blue' }, { question: 'Grass is ___', truth: 'green' }], marker: 'blue', answers: ['truth', 'answer'] },
+    { game: faker, kind: 'card', rows: [{ category: 'Snacks', word: 'Pretzel' }, { category: 'Tools', word: 'Wrench' }], marker: 'Pretzel', answers: ['word', 'secret'] },
+    { game: ballpark, kind: 'quiz', rows: [{ prompt: 'How many?', answer: 42 }, { prompt: 'How tall?', answer: 7 }], marker: '42', answers: ['answer', 'value'] },
+    { game: whatYouDidntKnow, kind: 'quiz', rows: [{ prompt: 'Pick one', options: 'Aardvark|Beaver|Cobra', correct: 1 }, { prompt: 'Pick two', options: 'X|Y|Z', correct: 0 }], marker: 'Aardvark', answers: ['correct', 'answer'] },
+    { game: madLibs, kind: 'generic', rows: [{ template: 'A {noun} ate my {food}.' }, { template: 'I {verb} the {animal}.' }], marker: '{noun}', answers: undefined },
+    { game: splitRoom, kind: 'prompt', rows: [{ frame: 'Would you {x} for a year?' }, { frame: 'Is it ok to {x}?' }], marker: 'for a year', answers: undefined },
+  ] as const
+  for (const { game, kind, rows, marker, answers } of cases) {
+    it(`${game.manifest.id}: defaultRows reproduce today's rounds; a creator deck overrides; declares its answer columns`, () => {
+      const pool = game.contentPool!
+      expect(pool).toBeDefined()
+      expect(pool.deckKind).toBe(kind)
+      expect(pool.answerColumns).toEqual(answers)
+      // Building with the explicit built-in rows is identical to building with none.
+      expect(game.buildConfig!('seed', { rows: pool.defaultRows })).toEqual(game.buildConfig!('seed'))
+      // A creator deck's content actually plays (the marker comes from the creator rows).
+      const out = game.buildConfig!('seed', { rows: rows as Array<Record<string, string | number>>, rounds: 2 })
+      expect(JSON.stringify(out.rounds)).toContain(marker)
+      // Garbage rows still yield a playable game (buildConfig never throws on bad rows).
+      expect(game.buildConfig!('seed', { rows: pool.defaultRows.slice(0, 1) }).rounds.length).toBeGreaterThan(0)
+    })
+  }
+
+  it('what-you-didnt-know: a creator deck maps options + the hidden correct index', () => {
+    const out = whatYouDidntKnow.buildConfig!('seed', { rows: [{ prompt: 'Q', options: 'Cat|Dog|Eel', correct: 2 }], rounds: 1 })
+    const c = out.rounds[0]!.content as { options: Array<{ label: string }>; correct: number }
+    expect(c.options.map((o) => o.label)).toEqual(['Cat', 'Dog', 'Eel'])
+    expect(c.correct).toBe(2)
+  })
+
+  it('mad-libs: a bare template derives readable blanks from its {tokens}', () => {
+    const out = madLibs.buildConfig!('seed', { rows: [{ template: 'The {adjective} {animal} went {verbing}.' }], rounds: 1 })
+    const c = out.rounds[0]!.content as { blanks: Array<{ id: string; label: string }> }
+    expect(c.blanks.map((b) => b.id)).toEqual(['adjective', 'animal', 'verbing'])
+    expect(c.blanks[0]!.label).toBe('An adjective')
+    expect(c.blanks[2]!.label).toBe('A verb ending in -ing')
+  })
 })
 
 describe('Circuit Cypher composition (custom-flow tournament)', () => {

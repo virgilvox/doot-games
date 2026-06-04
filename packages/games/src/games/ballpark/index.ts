@@ -8,6 +8,7 @@
 import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { ballparkBlock } from '../../blocks/ballpark/block'
+import { ballparkFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 interface Fact {
@@ -54,6 +55,16 @@ function deckFrom(facts: Fact[]): RoundInstance[] {
   }))
 }
 
+/** The built-in pool as flat deck rows; a creator Quiz Deck (prompt + answer (+ unit)
+ *  columns) overrides these. */
+const DEFAULT_ROWS = FACT_POOL.map((f) => ({ prompt: f.prompt, answer: f.answer, unit: f.unit ?? '', subject: f.subject ?? '' }))
+const rowToFact = (r: Record<string, string | number>): Fact => ({
+  prompt: String(r.prompt),
+  answer: Number(r.answer),
+  unit: r.unit ? String(r.unit) : undefined,
+  subject: r.subject ? String(r.subject) : undefined,
+})
+
 export const ballpark = defineGame({
   manifest: {
     id: 'ballpark',
@@ -67,9 +78,13 @@ export const ballpark = defineGame({
   },
   blocks: [ballparkBlock],
   defaultConfig: { title: 'Ballpark', rounds: deckFrom(FACT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, FACT_POOL.length))
-    return { title: 'Ballpark', rounds: deckFrom(seededShuffle(`ballpark:${seed}`)(FACT_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a Quiz Deck (prompt + answer (+ unit) columns)
+  // to play their own number questions. The `answer` column is withheld from non-owners.
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: ballparkFromRow, answerColumns: ['answer', 'value'] },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Ballpark', rounds: deckFrom(seededShuffle(`ballpark:${seed}`)(rows).slice(0, n).map(rowToFact)) }
   },
   roundOptions: { min: 3, max: 12, default: ROUNDS_PER_GAME, label: 'Questions' },
 })

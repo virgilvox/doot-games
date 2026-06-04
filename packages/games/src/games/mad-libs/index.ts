@@ -9,6 +9,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { fillBlock } from '../../blocks/fill/block'
 import { voteBlock } from '../../blocks/vote/block'
+import { storyFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 interface Story {
@@ -158,6 +159,59 @@ function deckFrom(stories: Story[]): RoundInstance[] {
   return stories.flatMap(pair)
 }
 
+/** Readable part-of-speech hints for derived blanks (a creator deck of bare templates
+ *  carries only `{token}`s, not labels). Falls back to spacing the token itself. */
+const BLANK_HINTS: Record<string, string> = {
+  adj: 'an adjective', adjective: 'an adjective', noun: 'a noun', verb: 'a verb',
+  verbing: 'a verb ending in -ing', verbs: 'a verb (he/she ___s)', animal: 'an animal',
+  place: 'a place', food: 'a food', drink: 'a drink', liquid: 'a liquid', number: 'a number',
+  name: 'a name', plural: 'a plural noun', exclaim: 'something you shout', bodypart: 'a body part',
+  relative: 'a family member', profession: 'a job', job: 'a job', vehicle: 'a vehicle',
+  brand: 'a made-up brand name', activity: 'an activity', color: 'a color', emotion: 'an emotion',
+  celebrity: 'a famous person', city: 'a city', country: 'a country',
+}
+
+function cap(s: string): string {
+  return s ? s[0]!.toUpperCase() + s.slice(1) : s
+}
+
+/** A readable label for a derived blank id (e.g. `adj2` -> "An adjective"). */
+function labelFor(id: string): string {
+  const key = id.toLowerCase().replace(/[0-9]+$/, '')
+  const hint = BLANK_HINTS[id.toLowerCase()] ?? BLANK_HINTS[key]
+  return cap(hint ?? id.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' '))
+}
+
+/** Derive ordered, de-duplicated blanks from a template's `{token}` placeholders. */
+function deriveBlanks(template: string): Story['blanks'] {
+  const out: Story['blanks'] = []
+  const seen = new Set<string>()
+  for (const m of template.matchAll(/\{([^}]+)\}/g)) {
+    const id = m[1]!.trim()
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      out.push({ id, label: labelFor(id) })
+    }
+  }
+  return out
+}
+
+/** The built-in pool as flat deck rows: the template plus its rich labels as a JSON
+ *  `blanks` column (so the built-in content is reproduced byte-for-byte). A creator deck
+ *  of bare `template` rows omits `blanks`, and the game derives them from the tokens. */
+const DEFAULT_ROWS = STORY_POOL.map((s) => ({ template: s.template, blanks: JSON.stringify(s.blanks) }))
+function rowToStory(r: Record<string, string | number>): Story {
+  const template = String(r.template)
+  if (typeof r.blanks === 'string' && r.blanks.trim()) {
+    try {
+      return { template, blanks: JSON.parse(r.blanks) }
+    } catch {
+      /* fall through to derived blanks */
+    }
+  }
+  return { template, blanks: deriveBlanks(template) }
+}
+
 export const madLibs = defineGame({
   manifest: {
     id: 'mad-libs',
@@ -171,9 +225,13 @@ export const madLibs = defineGame({
   },
   blocks: [fillBlock, voteBlock],
   defaultConfig: { title: 'Mad Libs', rounds: deckFrom(STORY_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, STORY_POOL.length))
-    return { title: 'Mad Libs', rounds: deckFrom(seededShuffle(`madlibs:${seed}`)(STORY_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a deck (a `template` column with `{token}` blanks)
+  // to play their own stories. No answer column (it is voted, not scored against a key).
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'generic', fromRow: storyFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Mad Libs', rounds: deckFrom(seededShuffle(`madlibs:${seed}`)(rows).slice(0, n).map(rowToStory)) }
   },
   roundOptions: { min: 1, max: 6, default: ROUNDS_PER_GAME, label: 'Stories' },
 })

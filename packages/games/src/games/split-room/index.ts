@@ -12,6 +12,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { fillBlock } from '../../blocks/fill/block'
 import { splitBlock } from '../../blocks/split/block'
+import { frameFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 /** Dividing frames; `{x}` is the blank the player completes to split the room. */
@@ -64,6 +65,10 @@ function deckFrom(frames: string[]): RoundInstance[] {
   return frames.flatMap(pair)
 }
 
+/** The built-in pool as flat deck rows; a creator deck (one `frame` column of dividing
+ *  dilemmas with an `{x}` blank) overrides these. */
+const DEFAULT_ROWS = FRAME_POOL.map((frame) => ({ frame }))
+
 export const splitRoom = defineGame({
   manifest: {
     id: 'split-room',
@@ -77,9 +82,13 @@ export const splitRoom = defineGame({
   },
   blocks: [fillBlock, splitBlock],
   defaultConfig: { title: 'Split the Room', rounds: deckFrom(FRAME_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, FRAME_POOL.length))
-    return { title: 'Split the Room', rounds: deckFrom(seededShuffle(`split:${seed}`)(FRAME_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a deck (one `frame` column) to play their own
+  // dividing dilemmas. No answer column (the score is how evenly the room splits).
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: frameFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Split the Room', rounds: deckFrom(seededShuffle(`split:${seed}`)(rows).slice(0, n).map((r) => String(r.frame))) }
   },
   roundOptions: { min: 1, max: 5, default: ROUNDS_PER_GAME, label: 'Dilemmas' },
 })

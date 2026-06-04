@@ -226,16 +226,18 @@ async function toSummaries(rows: SummaryRow[]): Promise<SavedGameSummary[]> {
  * the live relay. Driven by REDACTION_RULES (the server-safe block→answer-field
  * map), which a catalog test keeps in sync with every block's `answerOf`.
  */
-export function redactConfigForViewer(config: SavedGame['config']): SavedGame['config'] {
+export function redactConfigForViewer(config: SavedGame['config'], pluginId?: string): SavedGame['config'] {
   return {
     ...config,
     rounds: config.rounds.map((r) => {
       const rule = REDACTION_RULES[r.block]
       return rule ? { ...r, content: { ...r.content, ...rule } } : r
     }),
-    // Strip any deck column a round binds to an answer field, so a deck-backed game
-    // never leaks answers to a non-owner (the same invariant as round content).
-    decks: redactDecks(config.rounds, config.decks) as SavedConfig['decks'],
+    // Strip any deck column a round binds to an answer field, plus a typed pool deck's
+    // answer columns (named by the game's contentPool), so a deck-backed game never leaks
+    // answers to a non-owner (the same invariant as round content). `pluginId` enables
+    // the pool-deck case.
+    decks: redactDecks(config.rounds, config.decks, pluginId) as SavedConfig['decks'],
   }
 }
 

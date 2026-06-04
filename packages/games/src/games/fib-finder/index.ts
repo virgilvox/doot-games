@@ -12,6 +12,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { fibBlock } from '../../blocks/fibvote/block'
 import { quipBlock } from '../../blocks/quip/block'
+import { factFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 interface Fact {
@@ -68,6 +69,14 @@ function deckFrom(facts: Fact[]): RoundInstance[] {
   return facts.flatMap(pair)
 }
 
+/** The built-in pool as flat deck rows; a creator Quiz Deck (question + truth columns)
+ *  overrides these. */
+const DEFAULT_ROWS = FACT_POOL.map((f) => ({ question: f.question, truth: f.truth }))
+
+/** One flat row -> a Fact (the buildConfig consumes flat rows so a creator deck and the
+ *  built-in pool take the identical path). */
+const rowToFact = (r: Record<string, string | number>): Fact => ({ question: String(r.question), truth: String(r.truth) })
+
 export const fibFinder = defineGame({
   manifest: {
     id: 'fib-finder',
@@ -81,9 +90,13 @@ export const fibFinder = defineGame({
   },
   blocks: [quipBlock, fibBlock],
   defaultConfig: { title: 'Fib Finder', rounds: deckFrom(FACT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, FACT_POOL.length))
-    return { title: 'Fib Finder', rounds: deckFrom(seededShuffle(`fib:${seed}`)(FACT_POOL).slice(0, n)) }
+  // Deck-feedable: a creator can attach a Quiz Deck (question + truth columns) to play
+  // their own questions. The `truth` column is the answer key, withheld from non-owners.
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: factFromRow, answerColumns: ['truth', 'answer'] },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Fib Finder', rounds: deckFrom(seededShuffle(`fib:${seed}`)(rows).slice(0, n).map(rowToFact)) }
   },
   roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Questions' },
 })

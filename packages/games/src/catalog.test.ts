@@ -30,6 +30,9 @@ describe('game catalog', () => {
         expect(entry.pool!.deckKind).toBe(plugin.contentPool.deckKind)
         // The placeholder block is the game's make block (its first default round).
         expect(entry.pool!.placeholderBlock).toBe(plugin.defaultConfig.rounds[0]!.block)
+        // The answer columns the serve path withholds match the plugin's declaration, so
+        // a typed pool deck can't leak answers (invariant #3).
+        expect(entry.pool!.answerColumns).toEqual(plugin.contentPool.answerColumns)
       } else {
         expect(entry.pool).toBeUndefined()
       }
@@ -98,5 +101,33 @@ describe('redactDecks (deck answer-withholding)', () => {
 
   it('returns undefined decks unchanged', () => {
     expect(redactDecks([{ block: 'guess', content: {} }], undefined)).toBeUndefined()
+  })
+
+  // A typed-pool game (e.g. Fib Finder) attaches its answer-bearing deck under the
+  // reserved `pool` key, NOT via round bindings, so the binding-driven path leaves it
+  // untouched. Passing the pluginId withholds the columns the game's contentPool declares.
+  it('nulls a pool deck\'s answer columns for the right plugin (and only then)', () => {
+    const poolDeck = () => ({
+      pool: {
+        inline: {
+          columns: [
+            { key: 'question', label: 'Q', type: 'text' },
+            { key: 'truth', label: 'Truth', type: 'text' },
+          ],
+          rows: [
+            { question: 'A group of owls is a ___', truth: 'parliament' },
+            { question: 'Carrots were originally ___', truth: 'purple' },
+          ],
+        },
+      },
+    })
+    // No pluginId: the reserved pool deck is NOT redacted (the bindings path can't see it).
+    expect(redactDecks([], poolDeck())).toEqual(poolDeck())
+    // With the plugin id, `truth` (Fib Finder's answer column) is nulled; the question survives.
+    const out = redactDecks([], poolDeck(), 'fib-finder') as Record<string, { inline: { rows: Array<Record<string, unknown>> } }>
+    expect(out.pool.inline.rows).toEqual([
+      { question: 'A group of owls is a ___', truth: null },
+      { question: 'Carrots were originally ___', truth: null },
+    ])
   })
 })
