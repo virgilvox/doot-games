@@ -26,9 +26,15 @@ pushed" notes in the older entries below are superseded._
 > (sync-tested against the plugins). Verified: **430 tests** (deck-fed regression + creator-rows
 > per game, poolRowsFor/promptFromRow, catalog sync), typecheck, build, and
 > `scripts/pool-remix-smoke.mjs` (a quip-clash remix persists + its pool ref resolves with the
-> creator's prompts). Plan: `~/.claude/plans/sunny-jumping-catmull.md`. Deferred (Phase 2/3):
-> typed-pool games (quiz/word/story decks) + the custom-flow multi-pool games (Truth or Share,
-> Quiz or Die).
+> creator's prompts). Plan: `~/.claude/plans/sunny-jumping-catmull.md`. Audit fix: `remix_game` now takes the
+> csv as **one prompt per line** (a CSV parse mis-split prompts containing commas). Deferred
+> (Phase 2/3): typed-pool games (quiz/word/story decks: fib-finder, faker, ballpark,
+> what-you-didnt-know, mad-libs, split-room — needs mode-2 multi-column mapping + answer-column
+> redaction) + the custom-flow multi-pool games (Truth or Share, Quiz or Die). Other leftovers:
+> clamp the lobby round-slider max to an attached deck's size; column-type filtering in the
+> binding helper (image field → image columns); a browser smoke of host-plays-remix-prompts +
+> collect→photovote; an editor "Content" tab to attach a pool deck. **And: author public
+> "Decks by Doot" content for every pool game (see the fresh-session kickoff prompt).**
 
 > **Decks phase 2c-c — collected photo as a play-time variable (2026-06-04).** SHIPPED (MVP):
 > `RoundInstance.fromShares` lets a round fill a field (e.g. `image`) from a prior `collect`
