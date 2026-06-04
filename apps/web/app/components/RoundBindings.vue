@@ -40,6 +40,24 @@ function columnsOf(deckId: string): DeckColumn[] {
   return props.refColumns?.[deckId] ?? []
 }
 
+/** The column type a content field expects: an image field (by name) wants an image
+ *  column; a numeric default wants a number; everything else is text. */
+function fieldType(field: string): DeckColumn['type'] {
+  if (/image|img|photo|avatar|cover/i.test(field)) return 'image'
+  const v = (props.block?.defaultContent() as Record<string, unknown> | undefined)?.[field]
+  return typeof v === 'number' ? 'number' : 'text'
+}
+
+/** Columns a field may bind to: an image field offers only image columns; a text/number
+ *  field offers everything except image columns. Falls back to all columns if the filter
+ *  would leave nothing, so the dropdown is never empty. */
+function columnsFor(field: string, deckId: string): DeckColumn[] {
+  const cols = columnsOf(deckId)
+  const wantImage = fieldType(field) === 'image'
+  const compatible = cols.filter((c) => (wantImage ? c.type === 'image' : c.type !== 'image'))
+  return compatible.length ? compatible : cols
+}
+
 const rows = computed(() =>
   Object.entries(props.round.bindings ?? {}).map(([field, ref]) => ({ field, deck: ref.deck, column: ref.column })),
 )
@@ -59,15 +77,17 @@ function addBinding() {
   const field = bindableFields.value.find((f) => !used.has(f)) ?? bindableFields.value[0]
   const deck = deckIds.value[0]
   if (!field || !deck) return
-  emitChange({ ...(props.round.bindings ?? {}), [field]: { deck, column: columnsOf(deck)[0]?.key ?? '' } })
+  emitChange({ ...(props.round.bindings ?? {}), [field]: { deck, column: columnsFor(field, deck)[0]?.key ?? '' } })
 }
 /** Rebuild the record when a row's field/deck/column changes (field is the key). */
 function updateRow(oldField: string, patch: Partial<{ field: string; deck: string; column: string }>) {
   const cur = rows.value.find((r) => r.field === oldField)
   if (!cur) return
   const next = { field: cur.field, deck: cur.deck, column: cur.column, ...patch }
-  // Switching deck resets the column to the new deck's first column.
-  if (patch.deck && patch.deck !== cur.deck) next.column = columnsOf(patch.deck)[0]?.key ?? ''
+  // Switching deck (or field) resets the column to the new deck's first compatible column.
+  if ((patch.deck && patch.deck !== cur.deck) || (patch.field && patch.field !== cur.field)) {
+    next.column = columnsFor(next.field, next.deck)[0]?.key ?? ''
+  }
   const record: Record<string, { deck: string; column: string }> = {}
   for (const r of rows.value) if (r.field !== oldField) record[r.field] = { deck: r.deck, column: r.column }
   record[next.field] = { deck: next.deck, column: next.column }
@@ -100,7 +120,7 @@ function removeRow(field: string) {
         </select>
         <span class="rb-dot">.</span>
         <select class="rb-sel" :value="r.column" aria-label="Column" @change="updateRow(r.field, { column: ($event.target as HTMLSelectElement).value })">
-          <option v-for="c in columnsOf(r.deck)" :key="c.key" :value="c.key">{{ c.key }}{{ c.type === 'image' ? ' ▦' : '' }}</option>
+          <option v-for="c in columnsFor(r.field, r.deck)" :key="c.key" :value="c.key">{{ c.key }}{{ c.type === 'image' ? ' ▦' : '' }}</option>
         </select>
         <button type="button" class="rb-x" aria-label="Remove binding" @click="removeRow(r.field)">✕</button>
       </div>

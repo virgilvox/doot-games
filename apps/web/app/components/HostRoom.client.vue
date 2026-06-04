@@ -75,6 +75,15 @@ const poolDeckInline = game.contentPool ? inlineDecks(props.config?.decks)['pool
 const usesPool = (!props.config && !fromDraft && !!game.buildConfig) || (!!poolDeckInline && !!game.buildConfig)
 const roundConfig =
   usesPool && game.roundOptions ? reactive({ ...game.roundOptions, value: game.roundOptions.default }) : null
+// When a creator pool deck is attached, clamp the slider's ceiling (and starting value) to
+// the number of USABLE rows, so the host can't ask for more rounds than there is content.
+// buildConfig already clamps internally; this just makes the slider tell the truth. Kept at
+// least `min` so the control still renders for a small deck.
+if (roundConfig && game.contentPool && poolDeckInline) {
+  const available = poolRowsFor(game.contentPool, poolDeckInline).length
+  roundConfig.max = Math.max(roundConfig.min, Math.min(roundConfig.max, available))
+  roundConfig.value = Math.min(roundConfig.value, roundConfig.max)
+}
 provide('dootRoundConfig', roundConfig)
 
 // Optional soft player cap, set by the host from the lobby. Changing it republishes
