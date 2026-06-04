@@ -352,6 +352,9 @@ function importMarkdown() {
   if (parsed.themeId && themes.some((t) => t.id === parsed.themeId)) themeId.value = parsed.themeId
   if (kept.length) {
     config.rounds.splice(0, config.rounds.length, ...kept)
+    // Carry imported content decks (the rounds' draw/bind/pool reference them);
+    // undefined clears any decks from a previous import.
+    config.decks = parsed.decks
     clearPreviews()
     selected.value = 0
   }

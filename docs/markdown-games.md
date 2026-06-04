@@ -235,6 +235,38 @@ word: Toaster
 > That?" have custom flows that markdown does not author. Open one from the Create page
 > and remix it instead.
 
+## Content decks (data-driven rounds)
+
+A **deck** is a named-column table of rows you can draw from, so one block plays many
+rounds from a spreadsheet of content. Define one with `## deck <id>` followed by raw
+**CSV or TSV** lines (the first line is the header; column keys are the lowercased
+headers, e.g. `Capital City` → `capital_city`). Then on a round:
+
+- `draw: N` plays **N** rounds, a distinct row each (reuses the host "how many" picker).
+- `bind: <field> = <deckId>.<column>` fills a field from a column. Bind several; fields
+  bound to the **same deck** share one drawn row, so an image + prompt + answer stay
+  correlated. An `image`-typed column (auto-detected from URLs) can fill an `image:` field.
+
+Deck-backed rounds are **single-block** for now (not the two-phase blocks). Answer columns
+(bound to a `guess` `correct`, `ballpark` `answer`, …) are withheld from non-owners just
+like any answer.
+
+```markdown
+## deck capitals
+country, capital, flag
+France, Paris, https://img.example/fr.png
+Japan, Tokyo, https://img.example/jp.png
+
+## guess
+prompt: What is the capital?
+draw: 2
+bind: prompt = capitals.country
+bind: image = capitals.flag
+- Paris (correct)
+- Tokyo
+- Berlin
+```
+
 ## A full example (mixed blocks)
 
 ```markdown

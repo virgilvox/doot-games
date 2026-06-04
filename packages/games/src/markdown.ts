@@ -21,7 +21,8 @@
  * imports) so it can run anywhere; the editor validates the result against each
  * block's schema.
  */
-import { PROMPT_MAX, type RoundInstance } from '@doot-games/sdk'
+import { PROMPT_MAX, type DeckUse, type RoundInstance } from '@doot-games/sdk'
+import { parseSheet } from './runtime/sheet'
 
 export interface ParsedGame {
   title: string
@@ -37,6 +38,9 @@ export interface ParsedGame {
   coverImage?: string
   /** Up to a handful of short discovery tags. */
   tags?: string[]
+  /** Content decks (`## deck <id>` blocks), keyed by id, referenced by rounds'
+   *  `draw`/`bindings`/`pool`. Resolved at play time. */
+  decks?: Record<string, DeckUse>
   rounds: RoundInstance[]
   warnings: string[]
 }
@@ -45,6 +49,12 @@ interface RawRound {
   kind: string
   props: Record<string, string>
   items: Array<{ label: string; flags: string[] }>
+  /** For a `## deck <id>` block: the deck's id and its raw CSV/TSV lines (header
+   *  + rows), parsed by parseSheet at flush. */
+  id?: string
+  raw?: string[]
+  /** Accumulated `bind:` lines on a round (the kv map can't hold duplicates). */
+  binds?: string[]
 }
 
 function toTimer(v: string | undefined, fallback: number | null): number | null {
@@ -349,6 +359,46 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
   }
 }
 
+/** Build a content deck from a `## deck <id>` block's raw CSV/TSV rows. */
+function buildDeck(cur: RawRound, decks: Record<string, DeckUse>, warnings: string[]): void {
+  const id = (cur.id ?? '').trim()
+  if (!id) {
+    warnings.push('A "## deck" needs an id, e.g. "## deck trivia".')
+    return
+  }
+  const sheet = parseSheet((cur.raw ?? []).join('\n'))
+  if (!sheet.columns.length || !sheet.rows.length) {
+    warnings.push(`Deck "${id}" has no usable rows (needs a header line + at least one row).`)
+    return
+  }
+  for (const e of sheet.errors) warnings.push(`Deck "${id}": ${e}`)
+  decks[id] = { inline: { columns: sheet.columns, rows: sheet.rows } }
+}
+
+/** Attach a round's `draw`/`bindings`/`pool` from its `draw:`/`bind:`/`pool:` lines.
+ *  Only single-round blocks are deck-backed for now (two-phase + decks is later). */
+function attachDeckFields(cur: RawRound, built: RoundInstance[], warnings: string[]): void {
+  const has = cur.props.draw || cur.props.pool || (cur.binds?.length ?? 0) > 0
+  if (!has) return
+  if (built.length !== 1) {
+    warnings.push(`Deck fields (draw/bind/pool) on "## ${cur.kind}" are only supported on single-round blocks for now.`)
+    return
+  }
+  const r = built[0]!
+  const draw = Number.parseInt(cur.props.draw ?? '', 10)
+  if (Number.isFinite(draw) && draw > 0) r.draw = draw
+  if (cur.props.pool) r.pool = { deck: cur.props.pool.trim() }
+  const bindings: Record<string, { deck: string; column: string }> = {}
+  for (const b of cur.binds ?? []) {
+    const m = b.match(/^(.+?)\s*=\s*([\w-]+)\.([\w-]+)\s*$/)
+    // Normalize the column to parseSheet's slug (lowercased header) so "Country"
+    // binds to the "country" key. The deck id stays verbatim (the `## deck <id>`).
+    if (m) bindings[(m[1] ?? '').trim()] = { deck: m[2] ?? '', column: (m[3] ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_') }
+    else warnings.push(`Could not parse "bind: ${b}" (use: bind: field = deckId.column).`)
+  }
+  if (Object.keys(bindings).length) r.bindings = bindings
+}
+
 /** Map header `visibility:` (or `published:`) to the canonical enum, or undefined. */
 function parseVisibility(v: string): ParsedGame['visibility'] {
   const s = v.trim().toLowerCase()
@@ -370,12 +420,19 @@ export function parseMarkdownGame(md: string): ParsedGame {
   let coverImage: string | undefined
   let tags: string[] | undefined
   const rounds: RoundInstance[] = []
+  const decks: Record<string, DeckUse> = {}
   const warnings: string[] = []
   let cur: RawRound | null = null
 
   const flush = () => {
     if (!cur) return
-    rounds.push(...buildRound(cur, warnings))
+    if (cur.kind === 'deck') {
+      buildDeck(cur, decks, warnings)
+    } else {
+      const built = buildRound(cur, warnings)
+      attachDeckFields(cur, built, warnings)
+      rounds.push(...built)
+    }
     cur = null
   }
 
@@ -384,12 +441,20 @@ export function parseMarkdownGame(md: string): ParsedGame {
     if (!t) continue
     if (t.startsWith('## ')) {
       flush()
-      cur = { kind: t.slice(3).trim().toLowerCase(), props: {}, items: [] }
+      const head = t.slice(3).trim()
+      // `## deck <id>` starts a content deck; its following raw lines are its CSV/TSV.
+      const deck = head.match(/^deck\s+(.+)$/i)
+      cur = deck ? { kind: 'deck', id: (deck[1] ?? '').trim(), props: {}, items: [], raw: [] } : { kind: head.toLowerCase(), props: {}, items: [] }
       continue
     }
     if (t.startsWith('# ')) {
       flush()
       title = t.slice(2).trim() || title
+      continue
+    }
+    // Inside a `## deck` block, every non-heading line is a raw CSV/TSV row.
+    if (cur?.kind === 'deck') {
+      cur.raw!.push(t)
       continue
     }
     const item = t.match(/^[-*]\s+(.+)$/)
@@ -414,7 +479,9 @@ export function parseMarkdownGame(md: string): ParsedGame {
         warnings.push(`A ${key} was shortened to ${PROMPT_MAX} characters (it was ${value.length}).`)
         value = value.slice(0, PROMPT_MAX)
       }
-      if (cur) cur.props[key] = value
+      // `bind:` lines accumulate (a round can bind several fields); others are scalar props.
+      if (cur && key === 'bind') (cur.binds ??= []).push(value)
+      else if (cur) cur.props[key] = value
       // Header fields (above the first "## round") set game-level metadata.
       else if (key === 'theme') themeId = value.toLowerCase()
       else if (key === 'description' || key === 'desc') description = value.slice(0, 300)
@@ -429,5 +496,16 @@ export function parseMarkdownGame(md: string): ParsedGame {
   flush()
 
   if (!rounds.length) warnings.push('No rounds found. Add at least one "## <block>" heading.')
-  return { title, themeId, description, visibility, forkable, coverImage, tags, rounds, warnings }
+  return {
+    title,
+    themeId,
+    description,
+    visibility,
+    forkable,
+    coverImage,
+    tags,
+    ...(Object.keys(decks).length ? { decks } : {}),
+    rounds,
+    warnings,
+  }
 }

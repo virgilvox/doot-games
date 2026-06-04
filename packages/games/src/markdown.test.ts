@@ -17,6 +17,9 @@ import { rateBlock } from './blocks/rate/block'
 import { splitBlock } from './blocks/split/block'
 import { voteBlock } from './blocks/vote/block'
 import { parseMarkdownGame } from './markdown'
+import { resolveComposition } from './runtime/decks'
+
+const NO_BLOCKS_PLUGIN = { manifest: { id: 't', name: 'T', version: '0', author: 'x', capabilities: [] }, blocks: [], defaultConfig: { title: 'T', rounds: [] } } as never
 
 const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } }> = {
   guess: guessBlock.contentSchema,
@@ -245,6 +248,38 @@ describe('parseMarkdownGame', () => {
     const faker = rounds[0]!.content as { category: string; word: string }
     expect(faker).toMatchObject({ category: 'In the kitchen', word: 'Toaster' })
     for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+  })
+
+  it('parses a "## deck" block into config decks (header + rows via parseSheet)', () => {
+    const g = parseMarkdownGame('# T\n## deck capitals\ncountry, capital\nFrance, Paris\nJapan, Tokyo\n## poll\nprompt: P\n- a\n- b')
+    const d = (g.decks?.capitals as { inline: { columns: Array<{ key: string }>; rows: unknown[] } }).inline
+    expect(d.columns.map((c) => c.key)).toEqual(['country', 'capital'])
+    expect(d.rows).toEqual([
+      { country: 'France', capital: 'Paris' },
+      { country: 'Japan', capital: 'Tokyo' },
+    ])
+  })
+
+  it('parses round draw/bind into the round additions', () => {
+    const g = parseMarkdownGame('## deck d\nx\nv1\nv2\n## poll\nprompt: P\ndraw: 2\nbind: prompt = d.x\n- a\n- b')
+    const r = g.rounds[0]!
+    expect(r.draw).toBe(2)
+    expect(r.bindings).toEqual({ prompt: { deck: 'd', column: 'x' } })
+  })
+
+  it('resolves a deck-backed markdown game end to end (parse -> resolveComposition)', () => {
+    const g = parseMarkdownGame('## deck d\ncity\nParis\nTokyo\n## poll\nprompt: placeholder\ndraw: 2\nbind: prompt = d.city\n- yes\n- no')
+    const out = resolveComposition(NO_BLOCKS_PLUGIN, { title: g.title, rounds: g.rounds, decks: g.decks }, 'seed')
+    expect(out.rounds).toHaveLength(2)
+    const prompts = out.rounds.map((r) => (r.content as { prompt: string }).prompt)
+    expect([...prompts].sort()).toEqual(['Paris', 'Tokyo']) // both cities drawn, distinct
+    // the authored options are preserved on each drawn round
+    expect((out.rounds[0]!.content as { options: Array<{ label: string }> }).options.map((o) => o.label)).toEqual(['yes', 'no'])
+  })
+
+  it('warns when deck fields are used on a two-phase block (unsupported for now)', () => {
+    const g = parseMarkdownGame('## deck d\nx\nv1\n## quip\nprompt: P\ndraw: 2\nbind: prompt = d.x')
+    expect(g.warnings.join(' ')).toMatch(/single-round blocks/)
   })
 
   it('warns on unknown blocks and empty input', () => {

@@ -81,6 +81,26 @@ Host the image with upload_image (pass a public https URL), then put the returne
 == VISIBILITY & REMIXABLE ==
 visibility private (default, owner only) | unlisted (anyone with the link, not listed) | public (listed in discovery). remixable yes lets others copy the game into their own editor (they get a fresh private copy). Set via the spec header or the save/update/set_game_meta arguments.
 
+== CONTENT DECKS (data-driven rounds from a spreadsheet) ==
+A deck is a named-column table you DRAW rows from, so one block plays many rounds from a list of content. Define one with "## deck <id>" followed by raw CSV (or tab-separated) lines: the FIRST line is the header, each later line a row. Column keys are the lowercased headers (e.g. "Capital City" -> capital_city). Then on a round:
+  - "draw: N" plays N rounds, a distinct row each (great for a big trivia/prompt set; reuses the host "how many" picker).
+  - "bind: <field> = <deckId>.<column>" fills that field from a column. Bind several; fields bound to the same deck share ONE drawn row, so an image + prompt + answer stay correlated. An "image" column holds URLs and can fill an "image:" field.
+Deck-backed rounds are SINGLE-block for now (guess/poll/rate/ballpark/buzzer/draw/hivemind/mostlikely), not the two-phase blocks. Answer columns (bound to a guess "correct", ballpark "answer", etc.) are withheld from non-owners just like a normal answer.
+
+Example:
+## deck capitals
+country, capital, flag
+France, Paris, https://img.example/fr.png
+Japan, Tokyo, https://img.example/jp.png
+
+## guess
+prompt: What is the capital?
+image: x
+draw: 2
+bind: prompt = capitals.country
+bind: image = capitals.flag
+- (the room picks; bind the answer too, or author fixed options)
+
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
 Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.
 
@@ -319,7 +339,7 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
       ...(meta.forkable !== undefined ? { forkable: meta.forkable } : {}),
       ...(meta.coverImage ? { coverImage: meta.coverImage } : {}),
       ...(meta.tags ? { tags: meta.tags } : {}),
-      config: { title: rawTitle.slice(0, 120), rounds },
+      config: { title: rawTitle.slice(0, 120), rounds, ...(parsed.decks ? { decks: parsed.decks } : {}) },
     })
     if (!input.success) {
       return text(`Could not save: ${input.error.issues.map((i) => i.message).join('; ')}`, true)
@@ -394,7 +414,7 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
       ...(meta.forkable !== undefined ? { forkable: meta.forkable } : {}),
       ...(meta.coverImage !== undefined ? { coverImage: meta.coverImage } : {}),
       ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
-      config: { title: rawTitle.slice(0, 120), rounds },
+      config: { title: rawTitle.slice(0, 120), rounds, ...(parsed.decks ? { decks: parsed.decks } : {}) },
     })
     if (!input.success) {
       return text(`Could not update: ${input.error.issues.map((i) => i.message).join('; ')}`, true)
