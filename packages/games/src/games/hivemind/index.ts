@@ -33,6 +33,14 @@ const PROMPT_POOL: string[] = [
   'Name a holiday.',
   'Name something cold.',
   'Name a musical instrument.',
+  'Name a sport played without a ball.',
+  'Name something that is yellow.',
+  'Name a country that starts with the letter C.',
+  'Name a popular ice cream flavor.',
+  'Name something you find in an office.',
+  'Name a type of footwear.',
+  'Name a famous landmark.',
+  'Name a type of weather you would not want on vacation.',
 ]
 
 const ROUNDS_PER_GAME = 5

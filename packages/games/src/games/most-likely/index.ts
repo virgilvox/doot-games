@@ -31,6 +31,14 @@ const PROMPT_POOL: string[] = [
   'Most likely to plan the whole trip.',
   'Most likely to befriend a stranger in five minutes.',
   'Most likely to know a random fact about anything.',
+  'Most likely to survive being stranded on a desert island.',
+  'Most likely to accidentally become a meme.',
+  'Most likely to win a dance-off.',
+  'Most likely to forget their own birthday.',
+  'Most likely to give a TED talk one day.',
+  'Most likely to cry happy tears at a wedding.',
+  'Most likely to get a tattoo on a dare.',
+  'Most likely to give their car a name.',
 ]
 
 const ROUNDS_PER_GAME = 5

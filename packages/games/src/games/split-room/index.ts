@@ -29,6 +29,12 @@ const FRAME_POOL: string[] = [
   'Would you {x} to win this game right now?',
   'Would you let your group chat see {x}?',
   'Would you {x} every day for a year for early retirement?',
+  'Would you {x} to never have to do laundry again?',
+  'Would you {x} for a lifetime supply of your favorite food?',
+  'Would you rather {x} than ever be cold again?',
+  'Should it be normal to {x} at work?',
+  'Would you {x} to be able to read minds for one day?',
+  'Is it ever okay to {x} at a wedding?',
 ]
 
 const ROUNDS_PER_GAME = 2

@@ -31,6 +31,14 @@ const PROMPT_POOL: string[] = [
   'The grumpiest cloud',
   'A snail in a hurry',
   'A haunted sandwich',
+  'A robot walking a dog',
+  'A pirate captain afraid of water',
+  'A snowman at the beach',
+  'A cat astronaut',
+  'A very tired superhero',
+  'A dragon eating spaghetti',
+  'A penguin detective',
+  'A grumpy garden gnome',
 ]
 
 const ROUNDS_PER_GAME = 3

@@ -48,6 +48,12 @@ const ACRONYM_POOL: string[] = [
   'SCUBA',
   'NPC',
   'TBD',
+  'POV',
+  'EOD',
+  'PTO',
+  'SUV',
+  'TBA',
+  'WWW',
 ]
 
 const ROUNDS_PER_GAME = 3
