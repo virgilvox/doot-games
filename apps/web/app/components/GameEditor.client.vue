@@ -8,7 +8,7 @@
  * the host screen. Client-only: it mounts block player views and uses the draft.
  */
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
-import { getBlock, getPlugin, parseMarkdownGame } from '@doot-games/games'
+import { getBlock, getPlugin, parseMarkdownGame, resolveComposition } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
 import { GameTypeIcon, IMAGE_UPLOAD, ImageField, SchemaForm, gameVisual } from '@doot-games/ui'
 import { computed, onMounted, onScopeDispose, provide, reactive, ref, toRaw, watch } from 'vue'
@@ -157,6 +157,16 @@ function onContentUpdate(i: number, value: Record<string, unknown>) {
   resetPreview(i)
 }
 
+// ── content decks (DeckManager + RoundBindings live in their own components) ──
+const deckCount = computed(() => Object.keys(config.decks ?? {}).length)
+function onBindingsChange(i: number, payload: { draw?: number; bindings?: Record<string, { deck: string; column: string }> }) {
+  const r = config.rounds[i]
+  if (!r) return
+  // undefined drops on serialize (gameInputSchema treats draw/bindings as optional).
+  r.draw = payload.draw
+  r.bindings = payload.bindings
+}
+
 // ── two-phase (make → judge) rounds ──────────────────────────────────────
 // A "judge" round (Vote/Split) builds its content at runtime from the answers a
 // previous round collects, so the editor explains that and hides the fields it
@@ -229,6 +239,21 @@ const previewMode = ref<'phone' | 'host'>('phone')
 const selected = ref(0)
 const showPreviewDrawer = ref(false)
 const cur = computed(() => config.rounds[selected.value])
+// Preview content: for a deck-backed round, resolve a single sample instance so
+// bound fields show a real drawn row (the binding's effect is otherwise host-time);
+// for an ordinary round it is just the authored content.
+const previewContent = computed<Record<string, unknown>>(() => {
+  const inst = cur.value
+  if (!inst) return {}
+  if (!inst.bindings && !inst.pool) return contentOf(inst)
+  try {
+    const sample = resolveComposition(plugin!, { title: '', rounds: [{ ...inst, draw: 1 }], decks: config.decks }, 'preview')
+    return (sample.rounds[0]?.content as Record<string, unknown>) ?? contentOf(inst)
+  } catch {
+    return contentOf(inst)
+  }
+})
+const previewPrompt = computed(() => (previewContent.value.prompt as string | undefined) ?? '')
 function select(i: number) {
   selected.value = i
   showPreviewDrawer.value = false
@@ -572,6 +597,14 @@ onScopeDispose(() => {
             </li>
           </ol>
           <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
+
+          <!-- Content decks: paste a spreadsheet of rows, then pull fields into rounds. -->
+          <details class="ed-decks-disc">
+            <summary class="ed-decks-summary">
+              Decks<span v-if="deckCount" class="ed-decks-count">{{ deckCount }}</span>
+            </summary>
+            <DeckManager :model-value="config.decks" @update:model-value="config.decks = $event" />
+          </details>
         </nav>
 
         <!-- CENTER: the selected round's form -->
@@ -612,6 +645,11 @@ onScopeDispose(() => {
               @update:model-value="onContentUpdate(selected, $event)"
             />
             <p v-if="errors[selected]" class="sf-error" role="alert">{{ errors[selected] }}</p>
+            <!-- Pull a round's fields from a content deck (drawn fresh each play). -->
+            <div v-if="!isDerived(cur)" class="ed-bind">
+              <span class="ed-bind-label">Pull from a deck</span>
+              <RoundBindings :round="cur" :block="blockFor(cur)" :decks="config.decks" @change="onBindingsChange(selected, $event)" />
+            </div>
           </template>
           <div v-else class="ed-empty">
             <GameTypeIcon type="custom" :size="46" />
@@ -635,8 +673,8 @@ onScopeDispose(() => {
             <!-- PHONE: what each player taps on their own device -->
             <div v-if="previewMode === 'phone'" class="ed-phone panel">
               <div class="kicker">{{ blockFor(cur)?.name }}</div>
-              <h3 class="ed-phone-prompt">{{ promptOf(cur) }}</h3>
-              <img v-if="contentOf(cur).image" :src="contentOf(cur).image as string" alt="" class="ed-phone-img" />
+              <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
+              <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
               <template v-if="isDerived(cur)">
                 <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
                 <ul class="ed-sample">
@@ -648,7 +686,7 @@ onScopeDispose(() => {
               <PlayerPreview
                 v-else-if="blockFor(cur) && !errors[selected]"
                 :block="blockFor(cur)!"
-                :content="cur.content"
+                :content="previewContent"
                 :model-value="previewValue(selected)"
                 @update:model-value="previewInputs[selected] = $event"
               />
@@ -658,15 +696,15 @@ onScopeDispose(() => {
             <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
             <div v-else class="ed-bigscreen panel">
               <div class="ed-bs-prompt-area">
-                <h3 class="ed-bs-prompt">{{ promptOf(cur) }}</h3>
-                <img v-if="contentOf(cur).image" :src="contentOf(cur).image as string" alt="" class="ed-bs-img" />
+                <h3 class="ed-bs-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
+                <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-bs-img" />
               </div>
               <div v-if="isDerived(cur)" class="ed-bs-board">
                 <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
               </div>
               <!-- inert: a non-interactive preview, so host controls stay out of reach. -->
               <div v-else-if="blockFor(cur) && !errors[selected]" class="ed-bs-board" inert>
-                <HostPreview :block="blockFor(cur)!" :content="cur.content" :index="selected" />
+                <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" />
               </div>
               <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
             </div>
@@ -1272,6 +1310,43 @@ onScopeDispose(() => {
   color: var(--ink-soft);
   font-size: 14px;
   padding: 8px 4px;
+}
+.ed-decks-disc {
+  margin-top: 14px;
+  border-top: var(--bd) solid var(--line-soft);
+  padding-top: 12px;
+}
+.ed-decks-summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  list-style: revert;
+  margin-bottom: 10px;
+}
+.ed-decks-count {
+  margin-left: 8px;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+.ed-bind {
+  margin-top: 16px;
+  border-top: var(--bd) solid var(--line-soft);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ed-bind-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
 }
 /* CENTER: the selected round's form */
 .ed-center {

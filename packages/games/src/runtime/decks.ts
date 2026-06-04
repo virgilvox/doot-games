@@ -18,6 +18,12 @@ import { getBlock, seededShuffle } from './derive'
 
 const MAX_ROUNDS = 50
 
+/** Deep clone of round content (always JSON-safe game data). JSON-based on purpose:
+ *  it reads cleanly through a Vue reactive proxy, where `structuredClone` can throw. */
+function clone<T>(v: T): T {
+  return v == null ? v : (JSON.parse(JSON.stringify(v)) as T)
+}
+
 /** Pull the inline decks out of a config's `decks` map (references are dropped here;
  *  they are resolved to inline upstream). */
 export function inlineDecks(uses: Record<string, DeckUse> | undefined): Record<string, Deck> {
@@ -81,11 +87,11 @@ export function resolveComposition(
         const row = drawRow(decks[r.pool.deck], `${seed}:${i}:${r.pool.deck}`, k)
         const block = getBlock(plugin, r.block)
         const content =
-          row && block?.pool ? block.pool.fromRow(row, (r.content ?? {}) as never) : structuredClone(r.content)
+          row && block?.pool ? block.pool.fromRow(row, (r.content ?? {}) as never) : clone(r.content)
         out.push({ block: r.block, content, ...from })
       } else {
         // Mode 1: clone the authored content, fill each bound field from its drawn row.
-        const content = structuredClone(r.content)
+        const content = clone(r.content)
         const rowByDeck = new Map<string, Record<string, string | number> | undefined>()
         for (const [fieldPath, ref] of Object.entries(r.bindings ?? {})) {
           if (!rowByDeck.has(ref.deck)) rowByDeck.set(ref.deck, drawRow(decks[ref.deck], `${seed}:${i}:${ref.deck}`, k))
