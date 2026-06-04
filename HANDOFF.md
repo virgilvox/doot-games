@@ -31,10 +31,22 @@ pushed" notes in the older entries below are superseded._
 > account) seeds 22 PUBLIC + REMIXABLE decks (`scripts/decks-by-doot.data.mjs`) covering every
 > pool game (prompt decks + quiz/card/template decks; trivia fact-checked, zero em dashes).
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
-> build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`. Remaining: more themed decks
-> (the seed makes adding trivial), the lobby slider clamp + column-type filtering polish, a
-> Playwright host-a-remix smoke, an editor Content tab, and Phase 3 (Truth or Share + Quiz or
-> Die multi-pool decks).
+> build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
+>
+> **Audit + polish (2026-06-04, same day).** Audited the above: (1) confirmed the ONLY
+> saved-config serve path is `/api/games/[id]` (list endpoints return summaries with no
+> config) and it redacts with `pluginId`, so a typed pool deck's answers can't leak to a
+> non-owner. (2) Validated all 32 Doot decks through the real `fromRow`/`buildConfig` (zero
+> dropped rows); found + fixed a duplicate `RAM` in Backronym: Tech. (3) Hardened
+> `choiceFromRow` to split a delimited options column on `|`/`;` before `,` (so an option
+> containing a comma isn't torn apart). (4) `seed-decks.mjs` now runs a pure structural
+> pre-flight (required columns, >=2 options, no dup rows) and refuses bad content. **Shipped
+> polish:** the lobby round slider clamps its max to an attached deck's usable row count;
+> `RoundBindings` type-filters the column dropdown (image field -> image columns only). All
+> verified on **prod** (both remix smokes pass). **Remaining:** more themed decks (the seed
+> makes adding trivial), a Playwright host-a-remix smoke, an editor "Content" tab to
+> attach/detach a pool deck (with a replace-vs-append toggle, which would need a per-game
+> merge hint in config), and Phase 3 (Truth or Share + Quiz or Die multi-pool decks).
 
 > **Deck-fed flagship pools — "Remix with your prompts" (2026-06-04).** SHIPPED (MVP): the 6
 > single-prompt-column pool games (quip-clash, open-mic, backronym, most-likely, hivemind,
