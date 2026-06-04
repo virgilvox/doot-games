@@ -17,6 +17,7 @@ import { fillBlock } from '../../blocks/fill/block'
 import { guessBlock } from '../../blocks/guess/block'
 import { hivemindBlock } from '../../blocks/hivemind/block'
 import { mostLikelyBlock } from '../../blocks/mostlikely/block'
+import { photoVoteBlock } from '../../blocks/photovote/block'
 import { pollBlock } from '../../blocks/poll/block'
 import { quipBlock } from '../../blocks/quip/block'
 import { rankBlock } from '../../blocks/rank/block'
@@ -52,6 +53,7 @@ export const custom = defineGame({
     ballparkBlock,
     buzzerBlock,
     collectBlock,
+    photoVoteBlock,
     quipBlock,
     voteBlock,
     fillBlock,

@@ -11,6 +11,19 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Decks phase 2c-a/2c-b — the Share block + Share & Vote (2026-06-04).** SHIPPED: a new
+> composable **`collect` ("Share")** block — every player shares a photo (downscaled
+> on-device via the shared `@doot-games/ui` `compressPhoto`, rides the relay as an ephemeral
+> data URL) or a short line; the host fills the screen with a live gallery. Unscored,
+> standalone, in Custom + the Add panel. Plus **`photovote`** — the image-vote judge (a
+> `drawvote` mirror that renders `<img>` instead of strokes, since draw stores vector strokes
+> and a photo is a bitmap); it derives an anonymized, shuffled gallery from the prior collect
+> round, excludes self-votes in the pure tally, scores by vote share. Wired as the **Share &
+> Vote** recipe (`collect → photovote`). Verified: 413 tests (collect aggregate + 4 photovote
+> derive/tally/reveal), typecheck, build. **Remaining 2c-c:** play-time slots (a collected photo
+> as a cross-round variable) — `slotDeck(inputs)` + lazy resolution; see `docs/decks-roadmap.md`
+> §2.5. Note: a live multiplayer smoke of the photo-share→vote relay path is still worth adding.
+
 > **Decks phase 2b + audit (2026-06-04).** SHIPPED: editor **recipe discoverability** — each
 > two-phase recipe card names its constituent blocks (e.g. "Quip + Vote") and the Add panel
 > notes that Bars/Spotlight/Cellar are built into their flagship games (so all 17 composable

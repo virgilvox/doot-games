@@ -130,6 +130,7 @@ const ALL_RECIPES: Recipe[] = [
   { id: 'lie-detector', name: 'Lie Detector', description: 'Players write convincing lies; you set the real truth; the room hunts it down.', make: 'quip', judge: 'fibvote' },
   { id: 'sketch-vote', name: 'Sketch & Vote', description: 'Everyone draws the prompt, then votes for the best drawing.', make: 'draw', judge: 'drawvote' },
   { id: 'hidden-faker', name: 'Hidden Faker', description: 'One player secretly fakes knowing the word; everyone gives a clue, then the room accuses.', make: 'faker', judge: 'accuse' },
+  { id: 'share-vote', name: 'Share & Vote', description: 'Everyone shares a photo for the prompt, then the room votes for the best one.', make: 'collect', judge: 'photovote' },
 ]
 const recipes = computed(() => {
   const kinds = new Set(plugin!.blocks.map((b) => b.kind))
