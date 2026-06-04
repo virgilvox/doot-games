@@ -155,6 +155,9 @@ describe('every deck-feedable game is self-consistent (meta)', () => {
     it(`${plugin.manifest.id}: pool is valid, regresses, overrides, syncs, and stays lean`, () => {
       const pool = plugin.contentPool!
       expect(pool.defaultRows.length).toBeGreaterThan(0)
+      // No duplicate rows in the built-in pool (a dup would replay the same round/prompt).
+      const serialized = pool.defaultRows.map((r) => JSON.stringify(r))
+      expect(new Set(serialized).size, `${plugin.manifest.id} has duplicate built-in rows`).toBe(serialized.length)
       // Every built-in row survives its OWN fromRow (the pool matches the mapper it ships).
       const mapped = pool.defaultRows.map((r) => pool.fromRow(r)).filter(Boolean)
       expect(mapped.length, `${plugin.manifest.id}: all built-in rows map`).toBe(pool.defaultRows.length)

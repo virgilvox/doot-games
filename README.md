@@ -156,6 +156,9 @@ pnpm format             # Biome format
 
 ### Repository layout
 
+New here? Read [`ARCHITECTURE.md`](./ARCHITECTURE.md) first, the whole system on one page
+(every part, where it lives, how it connects, the relay protocol, and a file-location index).
+
 ```
 doot-games/
   apps/web/                  # Nuxt shell: discovery, lobby, host, player, editor, API

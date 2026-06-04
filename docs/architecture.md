@@ -1,5 +1,9 @@
 # Architecture
 
+> For the **full, single-page architecture map** (every part, where it lives, and how it all
+> connects, with the relay protocol, flow walkthroughs, and a file-location index) see
+> [`ARCHITECTURE.md`](../ARCHITECTURE.md) at the repo root. This page is the short version.
+
 Doot has three layers: a real-time **engine**, a game **plugin contract**, and a **shell** app. The full rationale is in [`Doot-PRD.md`](../Doot-PRD.md); this is the implementer's map of what exists today.
 
 ## Packages
