@@ -204,6 +204,29 @@ watch(
   },
   { deep: true, immediate: true },
 )
+// ── play-time variable: pull a shared photo from a prior collect round ───────
+/** The nearest prior round that is a `collect` block (a source of play-time shares). */
+function priorCollectIndex(i: number): number | null {
+  for (let k = i - 1; k >= 0; k--) if (config.rounds[k]?.block === 'collect') return k
+  return null
+}
+/** The selected round can pull a shared photo when a prior collect round exists and this
+ *  block has an `image` field to fill. Returns that collect round's index, else null. */
+const shareSource = computed(() => {
+  const r = config.rounds[selected.value]
+  if (!r || isDerived(r)) return null
+  const src = priorCollectIndex(selected.value)
+  if (src === null) return null
+  const fields = blockFor(r)?.defaultContent() as Record<string, unknown> | undefined
+  return fields && 'image' in fields ? src : null
+})
+const usesShare = computed(() => !!config.rounds[selected.value]?.fromShares)
+function toggleShare(on: boolean) {
+  const r = config.rounds[selected.value]
+  if (!r) return
+  r.fromShares = on && shareSource.value !== null ? { from: shareSource.value, field: 'image', value: 'media', pick: 'random' } : undefined
+}
+
 /** config.decks with each linked `{ ref }` swapped for its fetched inline data, so the
  *  preview can draw real rows from a library deck (editor-only; never persisted). */
 const previewDecks = computed(() => {
@@ -696,6 +719,13 @@ onScopeDispose(() => {
             <div v-if="!isDerived(cur)" class="ed-bind">
               <span class="ed-bind-label">Pull from a deck</span>
               <RoundBindings :round="cur" :block="blockFor(cur)" :decks="config.decks" :ref-columns="refColumns" @change="onBindingsChange(selected, $event)" />
+            </div>
+            <div v-if="shareSource !== null" class="ed-bind">
+              <span class="ed-bind-label">Shared photo</span>
+              <label class="ed-share">
+                <input type="checkbox" :checked="usesShare" @change="toggleShare(($event.target as HTMLInputElement).checked)" />
+                <span>Use a photo shared in round {{ shareSource + 1 }}. A random one fills this round's image when you reach it.</span>
+              </label>
             </div>
           </template>
           <div v-else class="ed-empty">
@@ -1401,6 +1431,18 @@ onScopeDispose(() => {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--primary);
+}
+.ed-share {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.ed-share input {
+  margin-top: 2px;
 }
 /* CENTER: the selected round's form */
 .ed-center {

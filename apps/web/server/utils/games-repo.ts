@@ -29,6 +29,16 @@ const roundSchema = z.object({
   draw: z.number().int().positive().max(200).optional(),
   bindings: z.record(z.string().max(80), deckRefSchema).optional(),
   pool: z.object({ deck: z.string().min(1).max(64) }).optional(),
+  // Play-time variable: fill a field from a prior collect round's shares (resolved
+  // at advance). Additive; ordinary rounds omit it.
+  fromShares: z
+    .object({
+      from: z.number().int().nonnegative().optional(),
+      field: z.string().min(1).max(80),
+      value: z.enum(['media', 'text']).optional(),
+      pick: z.enum(['random', 'first']).optional(),
+    })
+    .optional(),
 })
 
 const deckColumnSchema = z.object({
@@ -78,6 +88,7 @@ interface SavedRound {
   draw?: number
   bindings?: Record<string, { deck: string; column: string }>
   pool?: { deck: string }
+  fromShares?: { from?: number; field: string; value?: 'media' | 'text'; pick?: 'random' | 'first' }
 }
 interface SavedInlineDeck {
   columns: Array<{ key: string; label: string; type: 'text' | 'image' | 'number' }>

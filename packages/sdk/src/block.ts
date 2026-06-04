@@ -266,6 +266,19 @@ export interface RoundInstance {
   draw?: number
   bindings?: Record<string, DeckRef>
   pool?: { deck: string }
+  /** Play-time variable: fill a field of this round at runtime from a prior `collect`
+   *  round's shares (the collected media/text becomes a variable for a later round).
+   *  `from` is the source collect round (default the previous round); `field` is the
+   *  content field to fill (e.g. `image`); `value` is which part of a share to use
+   *  (default `media`); `pick` chooses one share (`random`, seeded + deterministic, or
+   *  `first`). Resolved by `buildDeriveContent` at round-advance, so it never touches
+   *  the load-time deck resolver. */
+  fromShares?: {
+    from?: number
+    field: string
+    value?: 'media' | 'text'
+    pick?: 'random' | 'first'
+  }
 }
 
 /** The durable game definition a composition produces. */

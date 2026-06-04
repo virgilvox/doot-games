@@ -11,6 +11,19 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Decks phase 2c-c — collected photo as a play-time variable (2026-06-04).** SHIPPED (MVP):
+> `RoundInstance.fromShares` lets a round fill a field (e.g. `image`) from a prior `collect`
+> round's shares, picked at round-advance (`pickShare`, seeded). Wired by EXTENDING the
+> games-layer `buildDeriveContent` (gated on `fromShares`), which the engine already calls on
+> every round entry (`publishDerivedIfAny`) — so the **engine is untouched** and ordinary/
+> two-phase rounds are unaffected. Persisted in `games-repo`; editor shows a "Shared photo"
+> toggle on any round after a collect round whose block has an `image` field. Audit round 3
+> first confirmed the path is sound: collect media flows through the standard per-player input
+> channel (no size cap) and `inputsFor` hands full values to the derive. Verified: 418 tests
+> (pickShare + end-to-end fromShares), typecheck, build. **Deferred (2c-c+):** a full runtime
+> "share deck" (draw N collected rows, bind several fields, array/montage) — no consumer block
+> for an image *array* yet; and a live multiplayer smoke of the photo paths. See roadmap §2.5.
+
 > **Decks phase 2c-a/2c-b — the Share block + Share & Vote (2026-06-04).** SHIPPED: a new
 > composable **`collect` ("Share")** block — every player shares a photo (downscaled
 > on-device via the shared `@doot-games/ui` `compressPhoto`, rides the relay as an ephemeral

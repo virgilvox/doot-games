@@ -12,6 +12,7 @@ import type {
   ScorePlayer,
   StandardResults,
 } from '@doot-games/sdk'
+import { type ShareInput, pickShare } from './shares'
 
 /** A 32-bit hash of a string seed (xfnv1a), to seed the PRNG below. */
 function hashSeed(seed: string): number {
@@ -202,6 +203,18 @@ export function buildDeriveContent(
   return (index, inputsFor) => {
     const inst = config.rounds[index]
     if (!inst) return undefined
+    // Play-time variable: fill a field of this round from a prior collect round's
+    // shares (resolved here, at advance, since the shares aren't known until then).
+    // Gated on `fromShares`, so ordinary + two-phase rounds are unaffected.
+    if (inst.fromShares) {
+      const fs = inst.fromShares
+      const srcIdx = fs.from ?? (index > 0 ? index - 1 : -1)
+      const srcInputs = (srcIdx >= 0 ? inputsFor(srcIdx) : new Map()) as Map<string, ShareInput>
+      const val = pickShare(srcInputs, fs.value ?? 'media', fs.pick ?? 'random', seededShuffle(`${seed}:${index}:shares`))
+      const content = JSON.parse(JSON.stringify(inst.content ?? {})) as Record<string, unknown>
+      if (val !== undefined && fs.field in content) content[fs.field] = val
+      return { publish: content }
+    }
     const block = getBlock(plugin, inst.block)
     if (!block?.derive) return undefined
     const from = inst.from ?? (index > 0 ? [index - 1] : [])
