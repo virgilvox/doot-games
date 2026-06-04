@@ -11,6 +11,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { quipBlock } from '../../blocks/quip/block'
 import { voteBlock } from '../../blocks/vote/block'
+import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 /** A pool of fill-the-blank prompts. The "___" is where players write. */
@@ -69,6 +70,9 @@ function deckFrom(prompts: string[]): RoundInstance[] {
   return prompts.flatMap(pair)
 }
 
+/** The built-in pool as deck rows; a creator Prompt Deck overrides these. */
+const DEFAULT_ROWS = PROMPT_POOL.map((prompt) => ({ prompt }))
+
 export const quipClash = defineGame({
   manifest: {
     id: 'quip-clash',
@@ -83,11 +87,15 @@ export const quipClash = defineGame({
   blocks: [quipBlock, voteBlock],
   // A small fixed deck for the editor preview / fallback.
   defaultConfig: { title: 'Quip Clash', rounds: deckFrom(PROMPT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  // Each play: shuffle the pool by the room code and take a fresh set. The host
-  // can pick how many prompts to play (opts.rounds), clamped to the pool.
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PROMPT_POOL.length))
-    return { title: 'Quip Clash', rounds: deckFrom(seededShuffle(`quip:${seed}`)(PROMPT_POOL).slice(0, n)) }
+  // The pool is deck-feedable: a creator can attach a Prompt Deck to play their own
+  // prompts instead of PROMPT_POOL (see docs/decks-roadmap.md).
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
+  // Each play: shuffle the rows (built-in pool, or a creator deck via opts.rows) by the
+  // room code and take a fresh set. The host can pick how many to play (opts.rounds).
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Quip Clash', rounds: seededShuffle(`quip:${seed}`)(rows).slice(0, n).flatMap((r) => pair(String(r.prompt))) }
   },
   roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Prompts' },
 })

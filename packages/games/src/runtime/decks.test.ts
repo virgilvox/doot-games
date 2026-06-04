@@ -1,7 +1,7 @@
 import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
 import { redactDecks } from '../catalog'
-import { inlineDecks, resolveComposition } from './decks'
+import { inlineDecks, poolRowsFor, promptFromRow, resolveComposition } from './decks'
 
 // Mode-1 binding never calls getBlock, so a blocks-free plugin is fine for those.
 const plugin = { manifest: { id: 't', name: 'T', version: '0', author: 'x', capabilities: [] }, blocks: [], defaultConfig: { title: 'T', rounds: [] } } as never
@@ -25,6 +25,31 @@ describe('inlineDecks', () => {
     const out = inlineDecks({ a: { inline: triviaDeck }, b: { ref: 'lib_1' } })
     expect(Object.keys(out)).toEqual(['a'])
     expect(out.a).toBe(triviaDeck)
+  })
+})
+
+describe('promptFromRow (Prompt Deck row -> a single-prompt pool row)', () => {
+  it('reads the prompt column, else the first non-empty text cell; null when no text', () => {
+    expect(promptFromRow({ prompt: 'hi' })).toEqual({ prompt: 'hi' })
+    expect(promptFromRow({ question: 'Q', n: 3 })).toEqual({ prompt: 'Q' }) // any one text column
+    expect(promptFromRow({ prompt: '   ', other: 'x' })).toEqual({ prompt: 'x' }) // blank prompt -> first text
+    expect(promptFromRow({ n: 5 })).toBeNull()
+    expect(promptFromRow({})).toBeNull()
+  })
+})
+
+describe('poolRowsFor (creator deck -> pool game rows)', () => {
+  const pool = { defaultRows: [{ prompt: 'D1' }, { prompt: 'D2' }], deckKind: 'prompt' as const, fromRow: promptFromRow }
+  const deck = (rows: Array<Record<string, string | number>>) => ({ columns: [{ key: 'prompt', label: 'P', type: 'text' as const }], rows })
+  it('replaces the built-in pool by default', () => {
+    expect(poolRowsFor(pool, deck([{ prompt: 'A' }, { prompt: 'B' }]))).toEqual([{ prompt: 'A' }, { prompt: 'B' }])
+  })
+  it('appends to the built-in pool when merge=append', () => {
+    expect(poolRowsFor({ ...pool, merge: 'append' }, deck([{ prompt: 'A' }]))).toEqual([{ prompt: 'D1' }, { prompt: 'D2' }, { prompt: 'A' }])
+  })
+  it('falls back to defaultRows when the deck maps to nothing (garbage or empty)', () => {
+    expect(poolRowsFor(pool, deck([{ n: 1 }]))).toEqual(pool.defaultRows)
+    expect(poolRowsFor(pool, deck([]))).toEqual(pool.defaultRows)
   })
 })
 

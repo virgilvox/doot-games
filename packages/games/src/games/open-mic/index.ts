@@ -13,6 +13,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { quipBlock } from '../../blocks/quip/block'
 import { voteBlock } from '../../blocks/vote/block'
+import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 import OpenMicHost from './Host.vue'
 
@@ -64,6 +65,9 @@ function deckFrom(premises: string[]): RoundInstance[] {
   return premises.flatMap(pair)
 }
 
+/** The built-in pool as deck rows; a creator Prompt Deck overrides these. */
+const DEFAULT_ROWS = PREMISE_POOL.map((prompt) => ({ prompt }))
+
 export const openMic = defineGame({
   manifest: {
     id: 'open-mic',
@@ -78,9 +82,11 @@ export const openMic = defineGame({
   blocks: [quipBlock, voteBlock],
   components: { Host: OpenMicHost },
   defaultConfig: { title: 'Open Mic', rounds: deckFrom(PREMISE_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PREMISE_POOL.length))
-    return { title: 'Open Mic', rounds: deckFrom(seededShuffle(`openmic:${seed}`)(PREMISE_POOL).slice(0, n)) }
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Open Mic', rounds: deckFrom(seededShuffle(`openmic:${seed}`)(rows).slice(0, n).map((r) => String(r.prompt))) }
   },
   roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Premises' },
 })

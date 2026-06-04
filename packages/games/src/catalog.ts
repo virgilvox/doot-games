@@ -5,6 +5,8 @@
  * component graph that `registry.ts` brings in. A test asserts it stays in sync
  * with the real registry (`catalog.test.ts`).
  */
+import type { DeckKind } from '@doot-games/sdk'
+
 export interface GameCatalogEntry {
   id: string
   name: string
@@ -14,6 +16,11 @@ export interface GameCatalogEntry {
   /** A first-party, ready-to-play "Game From Doot" (deeply replayable, host-now)
    *  vs an editor template/building-block type. */
   flagship: boolean
+  /** Deck-feedable pool game: a creator can attach a deck of this `deckKind` to play
+   *  their own content. `placeholderBlock` is the make block stored as the (vestigial)
+   *  saved-config round — the host regenerates rounds from the deck via buildConfig.
+   *  A test keeps this in sync with the plugin's `contentPool` + defaultConfig. */
+  pool?: { deckKind: DeckKind; placeholderBlock: string }
 }
 
 export const gameCatalog: GameCatalogEntry[] = [
@@ -24,17 +31,17 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'draw', name: 'Draw', version: '0.1.0', flagship: false, description: "Sketch the prompt on your phone; the drawings fill the screen." },
   { id: 'buzzer', name: 'Buzzer', version: '0.1.0', flagship: false, description: 'First-correct trivia: buzz in fast, the quickest right answer scores the most.' },
   { id: 'votebox', name: 'VoteBox', version: '0.2.0', flagship: false, description: 'Guess then Rate, the original Doot party game.' },
-  { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer.' },
+  { id: 'quip-clash', name: 'Quip Clash', version: '0.1.0', flagship: true, description: 'Answer a prompt, then vote for the funniest answer.', pool: { deckKind: 'prompt', placeholderBlock: 'quip' } },
   { id: 'mad-libs', name: 'Mad Libs', version: '0.1.0', flagship: true, description: "Fill a story's blanks, then vote for the funniest tale." },
   { id: 'split-room', name: 'Split the Room', version: '0.1.0', flagship: true, description: 'Finish a divisive "would you?" then vote yes or no.' },
   { id: 'fib-finder', name: 'Fib Finder', version: '0.1.0', flagship: true, description: 'Invent a believable lie to a trivia question, then spot the one true answer.' },
-  { id: 'sketch-spot', name: 'Sketch & Spot', version: '0.1.0', flagship: true, description: 'Sketch the prompt on your phone, then vote for the best drawing.' },
+  { id: 'sketch-spot', name: 'Sketch & Spot', version: '0.1.0', flagship: true, description: 'Sketch the prompt on your phone, then vote for the best drawing.', pool: { deckKind: 'prompt', placeholderBlock: 'draw' } },
   { id: 'circuit-cypher', name: 'Circuit Cypher', version: '0.3.0', flagship: true, description: 'A robot rap battle: write rhyming bars, then the robots face off head to head and the crowd votes.' },
   { id: 'what-you-didnt-know', name: "What, You Didn't Know That?", version: '0.1.0', flagship: true, description: 'A trivia gameshow: rising stakes, hidden answers, first to buzz in wins.' },
-  { id: 'backronym', name: 'Backronym', version: '0.1.0', flagship: true, description: 'Famous initials appear; invent what they REALLY stand for, then vote the best.' },
-  { id: 'open-mic', name: 'Open Mic', version: '0.1.0', flagship: true, description: 'Write a one-liner, let the robots deliver it deadpan, then vote the funniest bit.' },
-  { id: 'hivemind', name: 'Hivemind', version: '0.1.0', flagship: true, description: 'Answer the prompt like everyone else; matching the crowd is the whole game.' },
-  { id: 'most-likely', name: 'Most Likely To', version: '0.1.0', flagship: true, description: "Vote a player for each 'most likely to...' prompt; the room's pick is revealed." },
+  { id: 'backronym', name: 'Backronym', version: '0.1.0', flagship: true, description: 'Famous initials appear; invent what they REALLY stand for, then vote the best.', pool: { deckKind: 'prompt', placeholderBlock: 'quip' } },
+  { id: 'open-mic', name: 'Open Mic', version: '0.1.0', flagship: true, description: 'Write a one-liner, let the robots deliver it deadpan, then vote the funniest bit.', pool: { deckKind: 'prompt', placeholderBlock: 'quip' } },
+  { id: 'hivemind', name: 'Hivemind', version: '0.1.0', flagship: true, description: 'Answer the prompt like everyone else; matching the crowd is the whole game.', pool: { deckKind: 'prompt', placeholderBlock: 'hivemind' } },
+  { id: 'most-likely', name: 'Most Likely To', version: '0.1.0', flagship: true, description: "Vote a player for each 'most likely to...' prompt; the room's pick is revealed.", pool: { deckKind: 'prompt', placeholderBlock: 'mostlikely' } },
   { id: 'ballpark', name: 'Ballpark', version: '0.1.0', flagship: true, description: 'Numeric trivia where the closest guess wins. Get in the ballpark.' },
   { id: 'faker', name: 'Faker', version: '0.1.0', flagship: true, description: 'Everyone gets a secret word except one faker. Give a clue, then sniff out who is bluffing.' },
   { id: 'truth-or-share', name: 'Truth or Share', version: '0.1.0', flagship: true, description: 'Put someone in the spotlight with a prompt, answer or pass, and the room reacts. Pick well and you score too.' },

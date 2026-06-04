@@ -11,6 +11,25 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Deck-fed flagship pools — "Remix with your prompts" (2026-06-04).** SHIPPED (MVP): the 6
+> single-prompt-column pool games (quip-clash, open-mic, backronym, most-likely, hivemind,
+> sketch-spot) are now creator-customizable. New SDK `ContentPool` descriptor + `contentPool`
+> on `GamePlugin` + a `rows?` opt on `buildConfig`; each game lifts its `*_POOL` to
+> `DEFAULT_ROWS` and builds over `opts.rows ?? DEFAULT_ROWS` (byte-identical when unset — the
+> regression anchor). A creator attaches a deck under the reserved `config.decks.pool` key
+> (zero schema change — rides existing `resolveDeckRefs`/redaction); the host re-runs
+> `buildConfig` over `poolRowsFor(contentPool, deck)` in `HostRoom.resolveConfig` (the saved
+> `config.rounds` are vestigial — a pool-deck game is NOT hosted verbatim). UX: a
+> **"Remix with your prompts"** button (`RemixWithDeck.vue` on `/game/[id]`) + an MCP
+> **`remix_game`** tool (CSV in → deck + saved remix; `list_game_types` marks remixable games
+> via `contentDeck`). `gameCatalog` gained a server-safe `pool: { deckKind, placeholderBlock }`
+> (sync-tested against the plugins). Verified: **430 tests** (deck-fed regression + creator-rows
+> per game, poolRowsFor/promptFromRow, catalog sync), typecheck, build, and
+> `scripts/pool-remix-smoke.mjs` (a quip-clash remix persists + its pool ref resolves with the
+> creator's prompts). Plan: `~/.claude/plans/sunny-jumping-catmull.md`. Deferred (Phase 2/3):
+> typed-pool games (quiz/word/story decks) + the custom-flow multi-pool games (Truth or Share,
+> Quiz or Die).
+
 > **Decks phase 2c-c — collected photo as a play-time variable (2026-06-04).** SHIPPED (MVP):
 > `RoundInstance.fromShares` lets a round fill a field (e.g. `image`) from a prior `collect`
 > round's shares, picked at round-advance (`pickShare`, seeded). Wired by EXTENDING the

@@ -21,6 +21,21 @@ describe('game catalog', () => {
     }
   })
 
+  it("a catalog `pool` entry matches the plugin's contentPool + make block, and covers every deck-fed game", () => {
+    for (const plugin of builtinPlugins) {
+      const entry = gameCatalog.find((g) => g.id === plugin.manifest.id)!
+      if (plugin.contentPool) {
+        // Every deck-feedable plugin is advertised in the catalog (so MCP can find it).
+        expect(entry.pool).toBeDefined()
+        expect(entry.pool!.deckKind).toBe(plugin.contentPool.deckKind)
+        // The placeholder block is the game's make block (its first default round).
+        expect(entry.pool!.placeholderBlock).toBe(plugin.defaultConfig.rounds[0]!.block)
+      } else {
+        expect(entry.pool).toBeUndefined()
+      }
+    }
+  })
+
   it('recognises known plugin ids and rejects others', () => {
     expect(isKnownPlugin('votebox')).toBe(true)
     expect(isKnownPlugin('nope')).toBe(false)

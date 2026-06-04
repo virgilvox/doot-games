@@ -16,7 +16,9 @@ import {
   gameAnswerKeys,
   gameRounds,
   getPlugin,
+  inlineDecks,
   maskDerivedPublish,
+  poolRowsFor,
   redactGameConfig,
   resolveComposition,
 } from '@doot-games/games'
@@ -62,10 +64,15 @@ themeState.value = themeId // adopt it for the whole host shell
 const getPlayers = (): ScorePlayer[] =>
   room.runtime.recentPlayers().map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex }))
 
-// For a pooled flagship hosted fresh (not a saved/draft game), let the host pick
-// the round count from the lobby. Provided to the GameHost lobby; changing it
-// re-samples the deck (lobby only). Null for saved/draft/non-pooled games.
-const usesPool = !props.config && !fromDraft && !!game.buildConfig
+// A creator's attached content deck (a saved pool game carries it under the reserved
+// `pool` key in config.decks). `inlineDecks` unwraps it to a Deck; a `{ref}` is already
+// resolved to inline server-side on the play read, and a dropped/unreadable ref is absent.
+const poolDeckInline = game.contentPool ? inlineDecks(props.config?.decks)['pool'] : undefined
+
+// For a pooled flagship, let the host pick the round count from the lobby. True for a
+// fresh-hosted flagship, OR a saved game that attaches a creator pool deck (so the
+// slider re-samples their deck). Provided to the GameHost lobby. Null otherwise.
+const usesPool = (!props.config && !fromDraft && !!game.buildConfig) || (!!poolDeckInline && !!game.buildConfig)
 const roundConfig =
   usesPool && game.roundOptions ? reactive({ ...game.roundOptions, value: game.roundOptions.default }) : null
 provide('dootRoundConfig', roundConfig)
@@ -103,6 +110,12 @@ function applyTimers(config: GameComposition): GameComposition {
 }
 
 function resolveConfig(): GameComposition {
+  // A saved game that attaches a creator pool deck: re-run buildConfig over THEIR rows
+  // (not the frozen config.rounds), so it stays replayable + honors the round slider.
+  if (game.buildConfig && game.contentPool && poolDeckInline) {
+    const rows = poolRowsFor(game.contentPool, poolDeckInline)
+    return applyTimers(game.buildConfig(roomCode, { rounds: roundConfig?.value, rows }))
+  }
   if (props.config) return applyTimers(props.config)
   if (fromDraft?.config) return applyTimers(fromDraft.config)
   if (game.buildConfig)

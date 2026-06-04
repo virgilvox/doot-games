@@ -8,15 +8,12 @@
  * column is "an answer" until a *game* binds it to an answer field. That redaction
  * stays in the game serve path (`redactDecks`); the library stores full data.
  */
-import { z } from '@doot-games/sdk'
+import { DECK_KINDS, type DeckKind, z } from '@doot-games/sdk'
 import { and, desc, eq } from 'drizzle-orm'
 import { type Visibility, decks, useDb } from './db'
 import { authorsFor } from './users'
 
-/** Deck descriptor hints. `generic` = arbitrary columns; the typed kinds pre-seed a
- *  known column shape and advertise which mode-2 pools they satisfy. */
-export const DECK_KINDS = ['generic', 'quiz', 'prompt', 'card'] as const
-export type DeckKind = (typeof DECK_KINDS)[number]
+export { DECK_KINDS, type DeckKind }
 
 const deckColumnSchema = z.object({
   key: z.string().min(1).max(64),

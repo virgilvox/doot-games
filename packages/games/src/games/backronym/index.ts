@@ -12,6 +12,7 @@ import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { quipBlock } from '../../blocks/quip/block'
 import { voteBlock } from '../../blocks/vote/block'
+import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 /** A pool of recognizable initialisms players riff on. Kept PG and pronounceable
@@ -74,6 +75,9 @@ function deckFrom(initials: string[]): RoundInstance[] {
   return initials.flatMap(pair)
 }
 
+/** The built-in pool as deck rows; a creator Prompt Deck overrides these. */
+const DEFAULT_ROWS = ACRONYM_POOL.map((prompt) => ({ prompt }))
+
 export const backronym = defineGame({
   manifest: {
     id: 'backronym',
@@ -88,11 +92,12 @@ export const backronym = defineGame({
   blocks: [quipBlock, voteBlock],
   // A small fixed deck for the editor preview / fallback.
   defaultConfig: { title: 'Backronym', rounds: deckFrom(ACRONYM_POOL.slice(0, ROUNDS_PER_GAME)) },
-  // Each play: shuffle the pool by the room code and take a fresh set. The host
-  // can pick how many initialisms to play (opts.rounds), clamped to the pool.
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, ACRONYM_POOL.length))
-    return { title: 'Backronym', rounds: deckFrom(seededShuffle(`backronym:${seed}`)(ACRONYM_POOL).slice(0, n)) }
+  // The pool is deck-feedable: attach a Prompt Deck of initialisms to play your own.
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Backronym', rounds: deckFrom(seededShuffle(`backronym:${seed}`)(rows).slice(0, n).map((r) => String(r.prompt))) }
   },
   roundOptions: { min: 1, max: 8, default: ROUNDS_PER_GAME, label: 'Initialisms' },
 })

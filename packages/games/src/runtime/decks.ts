@@ -13,10 +13,34 @@
  * derived judge (two-phase pools) shift `from` indices on expansion and are a phase-2
  * concern; `from` is preserved literally here. See docs/content-decks-plan.md.
  */
-import type { Deck, DeckUse, GamePlugin, GameComposition, RoundInstance } from '@doot-games/sdk'
+import type { ContentPool, Deck, DeckUse, GamePlugin, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, seededShuffle } from './derive'
 
 const MAX_ROUNDS = 50
+
+/**
+ * Map a creator's attached deck to the rows a pool game's `buildConfig` expects.
+ * Each row goes through the game's `fromRow`; unusable rows drop. An empty result
+ * falls back to the built-in `defaultRows` (so a garbage/empty deck never breaks the
+ * game). `merge: 'append'` keeps the built-in pool and adds the creator's on top.
+ */
+export function poolRowsFor(pool: ContentPool, deck: Deck): Array<Record<string, string | number>> {
+  const mapped = deck.rows.map((r) => pool.fromRow(r)).filter((r): r is Record<string, string | number> => r != null)
+  if (mapped.length === 0) return pool.defaultRows
+  return pool.merge === 'append' ? [...pool.defaultRows, ...mapped] : mapped
+}
+
+/**
+ * A "Prompt Deck" row → a single-`prompt` pool row, shared by the prompt-style pool
+ * games (Quip Clash, Open Mic, …). Reads the conventional `prompt` column, else the
+ * first non-empty text cell, so any one-text-column deck feeds them regardless of how
+ * the creator named the column. Returns null for a row with no usable text.
+ */
+export function promptFromRow(row: Record<string, string | number>): { prompt: string } | null {
+  const direct = typeof row.prompt === 'string' && row.prompt.trim() ? row.prompt : undefined
+  const v = direct ?? Object.values(row).find((x) => typeof x === 'string' && x.trim())
+  return typeof v === 'string' && v.trim() ? { prompt: v } : null
+}
 
 /** Deep clone of round content (always JSON-safe game data). JSON-based on purpose:
  *  it reads cleanly through a Vue reactive proxy, where `structuredClone` can throw. */

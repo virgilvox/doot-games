@@ -28,6 +28,17 @@ fork is self-contained (a reference to a deck they can't read just drops out). I
 publish a game for others to fork, a snapshot (or a public deck) keeps it working for
 them; and see the answer-deck note below before linking a deck that holds answers.
 
+## Remix a flagship with your own prompts
+
+Several "Games From Doot" play a built-in pool of prompts (Quip Clash, Open Mic,
+Backronym, Most Likely To, Hivemind, Sketch & Spot). You can swap in your own: build a
+**Prompt Deck** (one text column of prompts), then on the game's page click **"Remix
+with your prompts"** and pick it. It saves a host-ready game that plays YOUR prompts
+instead of the built-in pool — the host still shuffles them and picks how many to play
+each round. Over MCP, `remix_game` does the same in one step (pass the prompts as `csv`).
+
+Empty or unusable decks fall back to the built-in pool, so a remix never breaks.
+
 ## The library (`/decks`)
 
 - **Browse** your decks and public decks; **build** a new one (`/decks/new`).

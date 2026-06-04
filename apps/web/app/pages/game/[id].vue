@@ -7,6 +7,7 @@
  * card's own "Host now" affordance still skips straight to /host/<id>.
  */
 import { gameCatalog } from '@doot-games/games/catalog'
+import { getPlugin } from '@doot-games/games'
 import { GameCover } from '@doot-games/ui'
 import { computed } from 'vue'
 
@@ -16,6 +17,8 @@ const game = computed(() => gameCatalog.find((g) => g.id === id.value) ?? null)
 if (!game.value) {
   throw createError({ statusCode: 404, statusMessage: 'Game not found' })
 }
+// Pool-driven games can be remixed with a creator's own content deck.
+const canRemix = computed(() => !!getPlugin(id.value)?.contentPool)
 
 useHead(() => ({ title: `${game.value?.name} on Doot` }))
 </script>
@@ -36,6 +39,7 @@ useHead(() => ({ title: `${game.value?.name} on Doot` }))
         </p>
         <div class="detail-actions">
           <NuxtLink :to="`/host/${game.id}`" class="btn btn-primary btn-lg">Host now</NuxtLink>
+          <RemixWithDeck v-if="canRemix" :plugin-id="game.id" :game-name="game.name" />
           <NuxtLink :to="`/editor/${game.id}`" class="btn btn-ghost btn-lg">Customize &amp; remix</NuxtLink>
           <NuxtLink to="/explore" class="btn btn-ghost btn-lg">Back to games</NuxtLink>
         </div>

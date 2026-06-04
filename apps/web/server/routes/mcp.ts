@@ -110,6 +110,8 @@ draw: 5
 bind: prompt = trivia.question
 bind: correct = trivia.answer
 
+REMIX A FLAGSHIP WITH YOUR OWN PROMPTS: the pool games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot) play a built-in prompt pool, but a creator can swap in their own. Use remix_game with the game id + the prompts (one per line in "csv"), and it saves a host-ready remix. No markdown needed for these. list_game_types marks each with a "contentDeck" kind when it's remixable.
+
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
 Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.
 
@@ -293,6 +295,23 @@ const TOOLS = [
     annotations: { title: 'Update a content deck', readOnlyHint: false },
   },
   {
+    name: 'remix_game',
+    description:
+      "Remix a pool-driven Doot flagship to play YOUR content. Attach a content deck (e.g. a Prompt Deck) to a game like quip-clash, open-mic, backronym, most-likely, hivemind, or sketch-spot, and it plays your prompts instead of the built-in pool (the host still shuffles + picks how many each play). Give the prompts as 'csv' (one prompt per line, or a single-column CSV) OR an existing 'deckId' from save_deck/list_my_decks. Returns a link to host the remix.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        game: { type: 'string', description: 'The deck-feedable flagship id (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot). See list_game_types for which are remixable.' },
+        name: { type: 'string', description: 'A name for this remix (and the new deck if csv is given), e.g. "Office Edition".' },
+        csv: { type: 'string', description: 'Your prompts: one per line, or a single-column CSV (a "prompt" header is optional). Provide this OR deckId.' },
+        deckId: { type: 'string', description: 'An existing deck id (from save_deck / list_my_decks) to attach instead of csv.' },
+      },
+      required: ['game', 'name'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Remix a flagship with your content', readOnlyHint: false },
+  },
+  {
     name: 'upload_image',
     description:
       'Fetch an image from a public https URL and host it on Doot, returning a Doot URL. Use it for a round "image:" field OR as a game "coverImage" (then pass that URL to save_game/update_game/set_game_meta). PNG, JPEG, GIF, or WebP, up to 5MB. For a cover, prefer a LANDSCAPE 16:9 image (e.g. 1200x675); cards center-crop it to a wide strip, the detail page shows it full.',
@@ -341,6 +360,8 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
       name: g.name,
       description: g.description,
       kind: g.flagship ? 'ready-made game (remixable)' : 'building block',
+      // Deck-feedable: remix_game can attach a deck of this kind to play custom content.
+      ...(g.pool ? { contentDeck: g.pool.deckKind } : {}),
     }))
     return text(JSON.stringify(types, null, 2))
   }
@@ -581,6 +602,53 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
     const ok = await updateDeck(deckId, userId, deckInput.data)
     if (!ok) return text('No deck with that id is owned by this account, so nothing was updated.', true)
     return text(JSON.stringify({ updated: true, deckId, rows: sheet.rows.length, deckUrl: `${BASE}/decks/${deckId}/edit` }, null, 2))
+  }
+  if (name === 'remix_game') {
+    if (!writeAllowed(userId)) return text('Too many saves in a short time. Wait a minute and try again.', true)
+    const gameId = typeof args.game === 'string' ? args.game.trim() : ''
+    const entry = gameCatalog.find((g) => g.id === gameId)
+    if (!entry?.pool) {
+      const feedable = gameCatalog.filter((g) => g.pool).map((g) => g.id).join(', ')
+      return text(`"${gameId}" is not a deck-feedable game. Remixable games: ${feedable}.`, true)
+    }
+    const title = typeof args.name === 'string' && args.name.trim() ? args.name.trim().slice(0, 120) : `${entry.name} remix`
+    let deckId = typeof args.deckId === 'string' ? args.deckId.trim() : ''
+    if (!deckId) {
+      const csv = typeof args.csv === 'string' ? args.csv : ''
+      if (!csv.trim()) return text('Provide your prompts in "csv" (one per line) or an existing "deckId".', true)
+      if (csv.length > 1_000_000) return text('Too much content (1,000,000 character limit).', true)
+      // A bare list (one prompt per line) gets a synthetic "prompt" header; a delimited
+      // first line is parsed as-is.
+      const looksDelimited = /[\t,]/.test(csv.split('\n')[0] ?? '')
+      const sheet = parseSheet(looksDelimited ? csv : `prompt\n${csv}`)
+      if (!sheet.columns.length || !sheet.rows.length) {
+        return text(`Could not parse prompts from the csv. ${sheet.errors.slice(0, 3).join(' ')}`, true)
+      }
+      const deckInput = deckInputSchema.safeParse({ name: title, kind: entry.pool.deckKind, columns: sheet.columns, rows: sheet.rows })
+      if (!deckInput.success) return text(`Could not save the deck: ${deckInput.error.issues.map((i) => i.message).join('; ')}`, true)
+      deckId = (await createDeck(deckInput.data, userId)).id
+    }
+    const input = gameInputSchema.safeParse({
+      pluginId: gameId,
+      config: { title, rounds: [{ block: entry.pool.placeholderBlock, content: {} }], decks: { pool: { ref: deckId } } },
+    })
+    if (!input.success) return text(`Could not save the remix: ${input.error.issues.map((i) => i.message).join('; ')}`, true)
+    const { id } = await createGame(input.data, userId)
+    return text(
+      JSON.stringify(
+        {
+          remixed: true,
+          gameId: id,
+          deckId,
+          game: gameId,
+          gameUrl: `${BASE}/g/${id}`,
+          hostUrl: `${BASE}/host/g/${id}`,
+          message: `Saved "${title}". Open the link to host ${entry.name} with your own content (the host shuffles your deck + picks how many each play).`,
+        },
+        null,
+        2,
+      ),
+    )
   }
   if (name === 'upload_image') {
     if (!writeAllowed(userId)) return text('Too many uploads in a short time. Wait a minute and try again.', true)

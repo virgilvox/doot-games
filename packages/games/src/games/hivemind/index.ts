@@ -8,6 +8,7 @@
 import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { hivemindBlock } from '../../blocks/hivemind/block'
+import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 /** Prompts with an obvious crowd answer to converge on. */
@@ -43,6 +44,9 @@ function deckFrom(prompts: string[]): RoundInstance[] {
   }))
 }
 
+/** The built-in pool as deck rows; a creator Prompt Deck overrides these. */
+const DEFAULT_ROWS = PROMPT_POOL.map((prompt) => ({ prompt }))
+
 export const hivemind = defineGame({
   manifest: {
     id: 'hivemind',
@@ -56,9 +60,11 @@ export const hivemind = defineGame({
   },
   blocks: [hivemindBlock],
   defaultConfig: { title: 'Hivemind', rounds: deckFrom(PROMPT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PROMPT_POOL.length))
-    return { title: 'Hivemind', rounds: deckFrom(seededShuffle(`hivemind:${seed}`)(PROMPT_POOL).slice(0, n)) }
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Hivemind', rounds: deckFrom(seededShuffle(`hivemind:${seed}`)(rows).slice(0, n).map((r) => String(r.prompt))) }
   },
   roundOptions: { min: 3, max: 12, default: ROUNDS_PER_GAME, label: 'Prompts' },
 })

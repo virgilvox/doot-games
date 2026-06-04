@@ -9,6 +9,7 @@
 import { defineGame } from '@doot-games/sdk'
 import type { RoundInstance } from '@doot-games/sdk'
 import { mostLikelyBlock } from '../../blocks/mostlikely/block'
+import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 
 const PROMPT_POOL: string[] = [
@@ -38,6 +39,9 @@ function deckFrom(prompts: string[]): RoundInstance[] {
   return prompts.map((prompt) => ({ block: 'mostlikely', content: { prompt, timer: 20 } }))
 }
 
+/** The built-in pool as deck rows; a creator Prompt Deck overrides these. */
+const DEFAULT_ROWS = PROMPT_POOL.map((prompt) => ({ prompt }))
+
 export const mostLikely = defineGame({
   manifest: {
     id: 'most-likely',
@@ -51,9 +55,11 @@ export const mostLikely = defineGame({
   },
   blocks: [mostLikelyBlock],
   defaultConfig: { title: 'Most Likely To', rounds: deckFrom(PROMPT_POOL.slice(0, ROUNDS_PER_GAME)) },
-  buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, PROMPT_POOL.length))
-    return { title: 'Most Likely To', rounds: deckFrom(seededShuffle(`mostlikely:${seed}`)(PROMPT_POOL).slice(0, n)) }
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    const n = Math.max(1, Math.min(opts?.rounds ?? ROUNDS_PER_GAME, rows.length))
+    return { title: 'Most Likely To', rounds: deckFrom(seededShuffle(`mostlikely:${seed}`)(rows).slice(0, n).map((r) => String(r.prompt))) }
   },
   roundOptions: { min: 3, max: 12, default: ROUNDS_PER_GAME, label: 'Prompts' },
 })

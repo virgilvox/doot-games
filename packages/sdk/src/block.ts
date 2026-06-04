@@ -251,6 +251,12 @@ export interface DeckRef {
  *  only ever sees inline decks). */
 export type DeckUse = { inline: Deck } | { ref: string; version?: number }
 
+/** The typed descriptor of a library deck: `generic` (arbitrary columns), or a shape
+ *  hint that maps to a game's content pool — `prompt` (one text column), `quiz`
+ *  (question/answer), `card`. The durable library + the deck editor share this union. */
+export const DECK_KINDS = ['generic', 'quiz', 'prompt', 'card'] as const
+export type DeckKind = (typeof DECK_KINDS)[number]
+
 /** One authored round in a composition: which block, and its content. */
 export interface RoundInstance {
   block: string
@@ -290,6 +296,24 @@ export interface GameComposition {
   decks?: Record<string, DeckUse>
 }
 
+/**
+ * Declares that a pool-driven game's content pool is deck-feedable: the built-in pool
+ * (as `defaultRows`) plus how a creator deck maps to it. When a creator attaches a
+ * matching deck, the host passes its rows to `buildConfig` (via `opts.rows`) so the
+ * game plays their content; with no deck attached, `buildConfig` uses `defaultRows`,
+ * i.e. exactly today's behavior. See docs/decks-roadmap.md.
+ */
+export interface ContentPool<Row extends Record<string, string | number> = Record<string, string | number>> {
+  /** The built-in pool, as rows — what plays when no creator deck is attached. */
+  defaultRows: Row[]
+  /** The deck `kind` a creator deck must be to feed this game (e.g. 'prompt'). */
+  deckKind: DeckKind
+  /** Map one deck row to one pool row; return null to skip an unusable row. */
+  fromRow: (row: Record<string, string | number>) => Row | null
+  /** How an attached deck combines with the built-in pool. Default 'replace'. */
+  merge?: 'replace' | 'append'
+}
+
 export interface GamePlugin {
   manifest: GameManifest
   /** The blocks this game composes. */
@@ -304,9 +328,15 @@ export interface GamePlugin {
    * (replayability: no two rooms get the same prompts). `seed` is the room code,
    * so a room is internally consistent across reconnects but differs from other
    * rooms. The host prefers this over `defaultConfig` when present. `opts.rounds`
-   * (when set) is the host-chosen number of rounds/items to draw.
+   * (when set) is the host-chosen number of rounds/items to draw; `opts.rows` (when
+   * set) overrides the built-in pool with a creator deck's rows (see `contentPool`).
    */
-  buildConfig?: (seed: string, opts?: { rounds?: number }) => GameComposition
+  buildConfig?: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => GameComposition
+  /**
+   * Opt-in: this game's pool is deck-feedable. When present (and a matching deck is
+   * attached to the saved game), the host feeds the deck's rows into `buildConfig`.
+   */
+  contentPool?: ContentPool
   /**
    * If set (and `buildConfig` exists), the host can pick how many rounds/items to
    * play from the lobby (a differentiator over fixed-length party games). `label`
