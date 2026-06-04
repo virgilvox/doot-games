@@ -194,11 +194,62 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
   /** RESERVED (see `assignment`). Derive one player's view of the content;
    *  `seed` is stable for the room. Pure. */
   promptFor?: (content: Content, pid: string, seed: string) => Content
+
+  /** Optional: makes this block usable as a TYPED deck (a whole round per drawn row),
+   *  for content with array/nested shapes (options, blanks) that field bindings can't
+   *  express. `fromRow` assembles full content from one deck row + the round's shared
+   *  settings; `answerField` names the produced answer key so redaction can find the
+   *  secret column. Pure. Blocks without it still support field bindings (mode 1).
+   *  See docs/content-decks-plan.md. (Wired in a later slice.) */
+  pool?: BlockPool<Content>
+}
+
+/** The typed-deck descriptor for a block (mode 2). */
+export interface BlockPool<Content> {
+  /** Assemble full Content from one deck row + the round's shared settings. */
+  fromRow: (row: Record<string, string | number>, settings: Partial<Content>) => Content
+  /** Which produced field is the answer key (so deck redaction strips its column). */
+  answerField?: keyof Content
+  /** A sample row, surfaced in the editor + the MCP format guide. */
+  sample?: Record<string, string>
 }
 
 /** A block with its generics erased, for storage in a game's block list. */
 // biome-ignore lint/suspicious/noExplicitAny: registry storage erases generics
 export type AnyBlock = RoundBlock<any, any>
+
+// ── Content decks (data-driven games) ───────────────────────────────────────
+// A deck is a named-column table of rows ("cards"); a round can DRAW rows from it
+// and either bind individual fields to columns (mode 1) or build its whole content
+// from a row via the block's `pool` descriptor (mode 2). See docs/content-decks-plan.md.
+
+/** One column of a deck. `type` drives import inference + the binding UI (an image
+ *  field only binds to an `image` column). */
+export interface DeckColumn {
+  key: string
+  label: string
+  type: 'text' | 'image' | 'number'
+}
+
+/** A deck: named columns + rows. Each row is one correlated set ("card"): every
+ *  field bound to this deck in a round reads the SAME drawn row. `kind` is the typed
+ *  descriptor (e.g. 'guess' -> a "Quiz Deck"); undefined = a generic deck. */
+export interface Deck {
+  columns: DeckColumn[]
+  rows: Array<Record<string, string | number>>
+  kind?: string
+}
+
+/** A round field bound to a deck column (`deck` is a config-local id). */
+export interface DeckRef {
+  deck: string
+  column: string
+}
+
+/** How a game config carries a deck: a frozen inline snapshot, or a reference to a
+ *  durable library deck (resolved to inline at serve time, so the engine resolver
+ *  only ever sees inline decks). */
+export type DeckUse = { inline: Deck } | { ref: string; version?: number }
 
 /** One authored round in a composition: which block, and its content. */
 export interface RoundInstance {
@@ -208,12 +259,22 @@ export interface RoundInstance {
    *  this round's `derive`. Defaults to `[index - 1]` (the immediately prior
    *  round). Ignored by static rounds. */
   from?: number[]
+  /** Deck-backed (all optional, additive). `draw` emits N instances, each a distinct
+   *  drawn row (default 1). `bindings` map scalar content field paths to deck columns
+   *  (mode 1). `pool` builds the whole content from a row via the block's `pool`
+   *  descriptor (mode 2). A round with none of these resolves to itself unchanged. */
+  draw?: number
+  bindings?: Record<string, DeckRef>
+  pool?: { deck: string }
 }
 
 /** The durable game definition a composition produces. */
 export interface GameComposition {
   title: string
   rounds: RoundInstance[]
+  /** Config-local decks keyed by id, referenced by rounds' `bindings`/`pool`. Each
+   *  is an inline snapshot or a library reference; resolved before play. Optional. */
+  decks?: Record<string, DeckUse>
 }
 
 export interface GamePlugin {
