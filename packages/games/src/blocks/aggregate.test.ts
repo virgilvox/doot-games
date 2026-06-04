@@ -2,6 +2,7 @@ import type { ScorePlayer } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
 import { distributionToBars, gameAnswerKeys, scoreGame } from '../runtime/derive'
 import { voteBox } from '../games/votebox'
+import { collectBlock } from './collect/block'
 import { drawBlock } from './draw/block'
 import { guessBlock } from './guess/block'
 import { pollBlock } from './poll/block'
@@ -246,5 +247,23 @@ describe('scoreGame merges block fragments', () => {
       answerKeys: gameAnswerKeys(voteBox, cfg),
     })
     expect(result.headline).not.toContain('wins')
+  })
+})
+
+describe('collect block aggregate', () => {
+  it('counts photos and non-empty text as shares; ignores blanks', () => {
+    const frag = collectBlock.aggregate?.({
+      rounds: [{ index: 0, content: collectBlock.defaultContent() }],
+      inputsFor: () =>
+        new Map([
+          ['a', { media: 'data:image/jpeg;base64,xyz' }],
+          ['b', { text: 'hi' }],
+          ['c', { text: '   ' }], // blank text is not a share
+          ['d', {}], // nothing shared
+        ]),
+      answerFor: () => undefined,
+      players: [],
+    })
+    expect(frag?.stats).toContainEqual({ label: 'Things shared', value: 2 })
   })
 })

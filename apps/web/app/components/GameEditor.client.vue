@@ -108,6 +108,7 @@ const SINGLE_DESC: Record<string, string> = {
   mostlikely: 'Vote on who in the room fits the prompt.',
   ballpark: 'Closest numeric guess wins.',
   buzzer: 'First correct buzz takes the points.',
+  collect: 'Everyone shares a photo (or a line); the screen fills with a gallery.',
 }
 function singleDesc(kind: string): string {
   return SINGLE_DESC[kind] ?? ''

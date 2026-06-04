@@ -57,6 +57,7 @@ const VISUALS: Record<string, GameVisual> = {
   accuse: { color: 'var(--c5)', icon: 'check' },
   spotlight: { color: 'var(--c5)', icon: 'mic' },
   cellar: { color: 'var(--c1)', icon: 'question' },
+  collect: { color: 'var(--c3)', icon: 'grid' },
   custom: { color: 'var(--c1)', icon: 'grid' },
 }
 

@@ -38,6 +38,7 @@ export { type GameVisual, type IconName, gameVisual } from './visuals'
 
 // Image uploads (capability the app injects; ImageField falls back to URL)
 export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'
+export { compressPhoto, PHOTO_BUDGET } from './photo'
 
 // Audio (client-only robot TTS + MC announcer for the rap-battle performance)
 export {

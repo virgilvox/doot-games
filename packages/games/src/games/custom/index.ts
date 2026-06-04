@@ -8,6 +8,7 @@ import { defineGame } from '@doot-games/sdk'
 import { accuseBlock } from '../../blocks/accuse/block'
 import { ballparkBlock } from '../../blocks/ballpark/block'
 import { buzzerBlock } from '../../blocks/buzzer/block'
+import { collectBlock } from '../../blocks/collect/block'
 import { drawBlock } from '../../blocks/draw/block'
 import { drawVoteBlock } from '../../blocks/drawvote/block'
 import { fakerBlock } from '../../blocks/faker/block'
@@ -50,6 +51,7 @@ export const custom = defineGame({
     mostLikelyBlock,
     ballparkBlock,
     buzzerBlock,
+    collectBlock,
     quipBlock,
     voteBlock,
     fillBlock,
