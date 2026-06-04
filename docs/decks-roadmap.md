@@ -255,3 +255,31 @@ The real issues, and the fixes:
 3. **Phase 2b — discoverability (DONE) + prompt decks (DEFERRED, §3/§4):** the Add-panel recipe-discoverability polish (constituent-block tags + a custom-flow note) is shipped. Mode-3 column→array is **deferred** until it has a consumer (see the §3 audit note): bundle it with a deck-configurable Truth or Share or a new generic prompt-list block.
 4. **Phase 2c — the `collect` block + play-time slots** (§2): collect block, slot→runtime-deck injection, collect→drawvote/rate recipes, directed mode. The next big build; reuses relay media + derive + resolver. Also the home for a prompt-list block that mode-3 could fill.
 5. **Folded in where they fit:** mode-2 `pool` descriptors on guess/poll/ballpark; column-type filtering in the binding helper (image field → image columns only).
+
+---
+
+## 7. Deck-fed pools — shipped (the real generalization)
+
+The pool-driven flagships are deck-feedable via a game-level `ContentPool` (not a block
+`pool`): a saved game attaches a creator deck under the reserved `config.decks.pool` key,
+and `HostRoom.resolveConfig` re-runs `buildConfig` over `poolRowsFor(contentPool, deck)`.
+
+- **Phase 1 (DONE):** the 6 single-prompt-column games (quip-clash, open-mic, backronym,
+  most-likely, hivemind, sketch-spot) + `remix_game` (csv) + `RemixWithDeck`.
+- **Phase 2 (DONE):** the 6 typed-pool games (fib-finder, faker, ballpark,
+  what-you-didnt-know, mad-libs, split-room). Per-game `fromRow` mappers in
+  `runtime/decks.ts` map a creator deck row (multi-column where needed: options + correct
+  index; templates with `{token}`-derived blanks). **Answer withholding:**
+  `ContentPool.answerColumns` (mirrored in `catalog.pool`, sync-tested) lets
+  `redactDecks(rounds, decks, pluginId)` null a typed pool deck's answer columns for
+  non-owners, since the pool deck is not a bound deck. Typed remixes go save_deck → deckId.
+- **Decks by Doot (DONE, growing):** `scripts/seed-decks.mjs` upserts public + remixable
+  starter decks (`scripts/decks-by-doot.data.mjs`) for every pool game, idempotent by name
+  under a stable Doot account. Add more themed decks by editing the data file and re-running.
+- **Phase 3 (LATER):** the custom-flow multi-pool games (Truth or Share, Quiz or Die) need a
+  multi-pool `ContentPool` variant (`fromRows(rows[]) => GameComposition`) since one deck
+  feeds several arrays (tiers/kinds, questions + finale categories).
+
+Leftover polish: clamp the lobby round-slider max to an attached deck's row count;
+column-type filtering in `RoundBindings`; a Playwright smoke that hosts a remix; an editor
+"Content" tab to attach or detach a pool deck.

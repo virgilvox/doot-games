@@ -11,6 +11,31 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Deck-fed TYPED pools + "Decks by Doot" (2026-06-04).** SHIPPED. Phase 2 of deck-fed
+> pools: the 6 TYPED-pool games (fib-finder, faker, ballpark, what-you-didnt-know, mad-libs,
+> split-room) now take a creator deck too, like the 6 prompt games already could. Each lifts
+> its `*_POOL` to flat `DEFAULT_ROWS` and builds over `opts.rows ?? DEFAULT_ROWS`
+> (byte-identical when no deck, anchored by `buildconfig.test`); a per-game `fromRow` mapper
+> (`runtime/decks.ts`: `factFromRow`/`secretFromRow`/`ballparkFromRow`/`choiceFromRow`/`storyFromRow`/`frameFromRow`)
+> maps a creator deck row to the game's pool row (multi-column: options + correct index for
+> the buzzer game; templates with blanks derived from `{tokens}` for mad-libs).
+> **SECURITY (invariant #3):** a typed pool deck carries answer columns (truth/answer/correct/word)
+> and rides the reserved `config.decks.pool` key, NOT round bindings, so binding-driven
+> `redactDecks` left it exposed. Fix: `ContentPool.answerColumns` (mirrored in `catalog.pool`,
+> sync-tested), and `redactDecks(rounds, decks, pluginId)` nulls the pool deck's answer columns
+> for non-owners. Proven by a catalog unit test + `scripts/pool-typed-smoke.mjs` (truth present
+> for owner, null for non-owner) run against **prod**. UX: `RemixWithDeck` copy adapts per kind;
+> `remix_game`/`list_game_types`/format guide cover both shapes (typed games go save_deck →
+> deckId; the single-column csv path is rejected with the conventional columns). **Decks by Doot:**
+> `scripts/seed-decks.mjs` (idempotent, keyed by name, owned by a stable `decks@doot.games`
+> account) seeds 22 PUBLIC + REMIXABLE decks (`scripts/decks-by-doot.data.mjs`) covering every
+> pool game (prompt decks + quiz/card/template decks; trivia fact-checked, zero em dashes).
+> Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
+> build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`. Remaining: more themed decks
+> (the seed makes adding trivial), the lobby slider clamp + column-type filtering polish, a
+> Playwright host-a-remix smoke, an editor Content tab, and Phase 3 (Truth or Share + Quiz or
+> Die multi-pool decks).
+
 > **Deck-fed flagship pools — "Remix with your prompts" (2026-06-04).** SHIPPED (MVP): the 6
 > single-prompt-column pool games (quip-clash, open-mic, backronym, most-likely, hivemind,
 > sketch-spot) are now creator-customizable. New SDK `ContentPool` descriptor + `contentPool`
