@@ -29,8 +29,17 @@ pushed" notes in the older entries below are superseded._
 >   quoting, dedup, ragged-row warnings) + markdown `## deck <id>` blocks + round `draw:`/`bind: f =
 >   deck.col`/`pool:`. The editor's markdown import carries `config.decks`; the MCP format guide +
 >   `markdown-games.md` document it. End-to-end test (parse -> resolveComposition).
-> - **Remaining:** the **visual** editor deck panel + the column-introspecting binding helper + a
->   `/decks` library (durable banks + references) + mode-2 typed pools on real blocks. (See plan.)
+> - **Slice d (visual editor):** two **isolated** components (kept out of the 1600-line editor) -
+>   `DeckManager.vue` (rail panel: paste CSV/TSV -> preview -> add/remove decks, v-model over
+>   `config.decks`) + `RoundBindings.vue` (the "Pull from a deck" control: a `draw: N` input +
+>   field<-deck.column binding rows, introspecting the block's fields + the deck's columns). The
+>   editor mounts them + a **sample-resolved preview** so a bound field shows a real drawn value
+>   live. Browser-verified (paste -> bind -> preview shows the drawn row). Note: `resolveComposition`
+>   now clones content via JSON (robust to Vue reactive proxies; `structuredClone` threw in the
+>   preview path - fixed).
+> - **Remaining (phase 2):** a `/decks` library (durable banks + references), mode-2 typed `pool`
+>   descriptors on real blocks (whole-round typed import), and column-type filtering in the binding
+>   helper (image field -> image columns). (See `docs/content-decks-plan.md`.)
 
 > **Safety net extended to split + fibvote (2026-06-03). PUSHED + DEPLOYED.** The timeout safety net (canned answer for an eligible non-submitter, scored at half)
 > now covers all three two-phase judges, not just vote. Extracted `blocks/safety.ts`
