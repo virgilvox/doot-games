@@ -617,14 +617,20 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
       const csv = typeof args.csv === 'string' ? args.csv : ''
       if (!csv.trim()) return text('Provide your prompts in "csv" (one per line) or an existing "deckId".', true)
       if (csv.length > 1_000_000) return text('Too much content (1,000,000 character limit).', true)
-      // A bare list (one prompt per line) gets a synthetic "prompt" header; a delimited
-      // first line is parsed as-is.
-      const looksDelimited = /[\t,]/.test(csv.split('\n')[0] ?? '')
-      const sheet = parseSheet(looksDelimited ? csv : `prompt\n${csv}`)
-      if (!sheet.columns.length || !sheet.rows.length) {
-        return text(`Could not parse prompts from the csv. ${sheet.errors.slice(0, 3).join(' ')}`, true)
-      }
-      const deckInput = deckInputSchema.safeParse({ name: title, kind: entry.pool.deckKind, columns: sheet.columns, rows: sheet.rows })
+      // A remix deck is a single prompt column, so take ONE PROMPT PER LINE (commas
+      // inside a prompt are preserved, unlike a CSV parse). Drop blanks + an optional
+      // "prompt" header line. For multi-column decks, use save_deck then pass deckId.
+      const lines = csv
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l && l.toLowerCase() !== 'prompt')
+      if (!lines.length) return text('No prompts found in "csv" (put one prompt per line).', true)
+      const deckInput = deckInputSchema.safeParse({
+        name: title,
+        kind: entry.pool.deckKind,
+        columns: [{ key: 'prompt', label: 'Prompt', type: 'text' }],
+        rows: lines.slice(0, 1000).map((prompt) => ({ prompt })),
+      })
       if (!deckInput.success) return text(`Could not save the deck: ${deckInput.error.issues.map((i) => i.message).join('; ')}`, true)
       deckId = (await createDeck(deckInput.data, userId)).id
     }
