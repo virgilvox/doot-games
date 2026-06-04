@@ -24,6 +24,12 @@ describe('maskText', () => {
   it('is case-insensitive', () => {
     expect(maskText('SHIT happens', 'moderate')).toBe('•••• happens')
   })
+
+  it('catches obfuscated profanity (leetspeak) - the reason for the obscenity library', () => {
+    const masked = maskText('you sh1t', 'moderate')
+    expect(masked).not.toContain('sh1t')
+    expect(masked).toContain('•')
+  })
 })
 
 describe('maskDerivedPublish', () => {

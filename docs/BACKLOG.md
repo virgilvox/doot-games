@@ -103,9 +103,10 @@ each group; `[size]` is a rough effort hint.
     `crownHeadline`, unit-tested. (Split's per-scenario closeness already has no single winner.)
   - [x] **content-filter tiers** (off / moderate / strict) for the free-text galleries: a host
     lobby picker (shown for quip/fill games); HostRoom masks the derived gallery text before
-    publish (`runtime/contentFilter.ts`, pure + tested). **Follow-ups:** the word list is a minimal
-    slur-free starter, swap in a maintained lib (`obscenity`) for comprehensive coverage; and the
-    **family/adult prompt-pack tracks** (tag built-in pools by tier, like Truth or Share's mild/spicy).
+    publish (`runtime/contentFilter.ts`, pure + tested). Detection uses the **`obscenity`** library
+    (obfuscation/leetspeak-aware, low false positives); 'strict' adds a small mild-word list.
+    **Follow-up:** **family/adult prompt-pack tracks** (tag built-in pools by tier, like Truth or
+    Share's mild/spicy + a host track picker).
   - **audience-as-discounted-bloc** voting - NOTE: `audienceWeight` does NOT exist in code (the
     earlier backlog claim was wrong; flagship-games §258 lists it as a *planned* pure fn). There
     is no audience/spectator role today (only a player cap), so this needs a **role split**

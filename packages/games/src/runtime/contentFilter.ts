@@ -4,34 +4,32 @@
  * DERIVED, about-to-be-published gallery text so the room never sees flagged words
  * on the big screen (the author still sees their own raw input on their phone).
  *
- * Scope note: this is a deliberately MINIMAL, slur-free starter list that catches
- * the common swears. A responsible, comprehensive filter (leetspeak/obfuscation,
- * slurs) wants a maintained source like the `obscenity` package, swap `maskText`'s
- * word sets for it without touching the call sites. See docs/flagship-games.md §6.
+ * Detection uses `obscenity` (a focused, maintained library): an obfuscation-aware
+ * English profanity/slur matcher that minimizes false positives (it won't flag
+ * "class" or "assessment"). 'moderate' masks what obscenity flags; 'strict' adds a
+ * small mild-word list for a family-friendly room.
  */
+import { RegExpMatcher, TextCensor, englishDataset, englishRecommendedTransformers, fixedCharCensorStrategy } from 'obscenity'
 
 export type FilterTier = 'off' | 'moderate' | 'strict'
 
-/** Masked at `moderate` and `strict` (the common strong swears). Slur-free by
- *  design, see the file header: comprehensive slur coverage needs a maintained list. */
-const STRONG = ['fuck', 'fucking', 'shit', 'bullshit', 'asshole', 'bitch', 'bastard', 'dick', 'cunt', 'piss', 'prick', 'twat', 'wank']
-/** Additionally masked at `strict` (milder, for a family-friendly room). */
-const MILD = ['damn', 'goddamn', 'hell', 'crap', 'ass', 'douche']
+// Built once and reused. Recommended transformers handle leetspeak/spacing tricks.
+const matcher = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers })
+const censor = new TextCensor().setStrategy(fixedCharCensorStrategy('•'))
 
-const escapeRe = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-
-function wordRe(tier: FilterTier): RegExp | null {
-  const words = tier === 'strict' ? [...STRONG, ...MILD] : tier === 'moderate' ? STRONG : []
-  if (!words.length) return null
-  // Whole words only (case-insensitive) so "class" / "assess" are not false hits.
-  return new RegExp(`\\b(?:${words.map(escapeRe).join('|')})\\b`, 'gi')
-}
+// Milder words obscenity leaves alone (it targets stronger profanity + slurs);
+// masked only at the family-friendly 'strict' tier. Whole-word, case-insensitive.
+const MILD = ['damn', 'goddamn', 'hell', 'crap', 'ass', 'arse', 'douche']
+const mildRe = new RegExp(`\\b(?:${MILD.join('|')})\\b`, 'gi')
 
 /** Mask flagged words in `text` per the tier, keeping length so layout is stable. */
 export function maskText(text: string, tier: FilterTier): string {
-  const re = wordRe(tier)
-  if (!re || !text) return text
-  return text.replace(re, (m) => '•'.repeat(m.length))
+  if (tier === 'off' || !text) return text
+  // moderate + strict both run the obscenity matcher (slurs + strong profanity).
+  let out = censor.applyTo(text, matcher.getAllMatches(text))
+  // strict additionally masks the mild list for a family-friendly room.
+  if (tier === 'strict') out = out.replace(mildRe, (m) => '•'.repeat(m.length))
+  return out
 }
 
 /** Mask the text of a derived round's gallery (vote `options` / split `scenarios`)
