@@ -11,6 +11,26 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Decks phase 2a — the `/decks` library SHIPPED (2026-06-03).** Reusable decks are now
+> first-class: a durable `decks` table + `decks-repo.ts` (mirrors games-repo: zod boundary,
+> ownership, visibility, remixable, `generic|quiz|prompt|card` kind), full REST
+> (`/api/decks` list/create + `/api/decks/[id]` get/put/delete + `/clone`), a `/decks`
+> browse page + a `DeckEditor` (CSV import, editable row/column grid, image-cell upload)
+> with `new` + `[id]/edit` + a read-only `[id]` view, and a **Decks** nav link. A game uses
+> a deck two ways: inline snapshot OR a live `{ ref }`. References resolve to inline
+> **server-side on the play read only** (`?for=play` → `resolveDeckRefs`); the editor read
+> stays raw so re-saving preserves the ref. The game editor's DeckManager can **link a
+> library deck**, and RoundBindings/preview fetch a linked deck's columns+rows so binding
+> dropdowns and the live preview work. MCP gained `list_my_decks` / `save_deck` / `update_deck`
+> (CSV in) + a `## deck <name>` / `link: <deckId>` markdown directive (parser + test). Docs:
+> `docs/decks.md` (user-facing). Verified: **406 tests** (+ a redaction-tie test and a
+> markdown link-parse test), typecheck (incl. nuxi), the web build, and a new authed
+> end-to-end smoke (`scripts/decks-ref-smoke.mjs`) proving a linked deck resolves for the
+> owner with the answer present and **withheld (null) for a non-owner** (invariant #3). NOT
+> yet pushed at time of writing — see below. Next: phase 2b (editor recipe discoverability +
+> spotlight prompt decks via mode-3 column→array), then 2c (the `collect` block). Map:
+> `docs/decks-roadmap.md`.
+
 > **Decks roadmap + verification pass (2026-06-03).** The decks MVP (slices a–d) is
 > re-verified after the visual editor + home changes: full suite green (**405 tests**, incl.
 > a new redaction→resolution tie test proving invariant #3 holds for deck-sourced answers),

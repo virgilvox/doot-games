@@ -24,6 +24,10 @@
 import { PROMPT_MAX, type DeckUse, type RoundInstance } from '@doot-games/sdk'
 import { parseSheet } from './runtime/sheet'
 
+// Re-export the pure spreadsheet parser so server code (which can't import the package
+// root — it pulls in `.vue` blocks) can reach it via this server-safe subpath.
+export { parseSheet } from './runtime/sheet'
+
 export interface ParsedGame {
   title: string
   themeId?: string
@@ -359,14 +363,25 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
   }
 }
 
-/** Build a content deck from a `## deck <id>` block's raw CSV/TSV rows. */
+/** Build a content deck from a `## deck <id>` block: either a `link:`/`ref:` line
+ *  referencing a durable library deck, or raw CSV/TSV rows to inline. */
 function buildDeck(cur: RawRound, decks: Record<string, DeckUse>, warnings: string[]): void {
   const id = (cur.id ?? '').trim()
   if (!id) {
     warnings.push('A "## deck" needs an id, e.g. "## deck trivia".')
     return
   }
-  const sheet = parseSheet((cur.raw ?? []).join('\n'))
+  const raw = cur.raw ?? []
+  // A `link: <deckId>` (or `ref:`) line references a library deck instead of inlining
+  // rows; it resolves to inline at serve time. Everything else is treated as CSV.
+  const linkLine = raw.find((l) => /^\s*(link|ref)\s*:/i.test(l))
+  if (linkLine) {
+    const ref = (linkLine.slice(linkLine.indexOf(':') + 1) ?? '').trim()
+    if (ref) decks[id] = { ref }
+    else warnings.push(`Deck "${id}" has a "link:" with no deck id.`)
+    return
+  }
+  const sheet = parseSheet(raw.join('\n'))
   if (!sheet.columns.length || !sheet.rows.length) {
     warnings.push(`Deck "${id}" has no usable rows (needs a header line + at least one row).`)
     return

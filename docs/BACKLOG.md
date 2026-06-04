@@ -95,10 +95,15 @@ each group; `[size]` is a rough effort hint.
   (both paths); `parseSheet` (CSV/TSV) + markdown `## deck`/`bind:`/`draw:`; and a **visual editor**
   (`DeckManager.vue` rail panel + `RoundBindings.vue` "Pull from a deck" control, isolated components)
   with a sample-resolved preview. Authorable via the editor or markdown/MCP; browser-verified.
-  **Remaining (phase 2):** a `/decks` reusable library (durable banks + references), mode-2 typed
-  `pool` descriptors on real blocks, mode-3 column→array pools (spotlight prompt decks), a general
-  **`collect` block** whose shared media becomes a play-time variable for later rounds, editor
-  recipe-discoverability polish, and column-type filtering in the binding helper.
+  **Phase 2a SHIPPED (2026-06-03):** the `/decks` reusable library — durable `decks` table +
+  `decks-repo`, full REST, a browse page + `DeckEditor` (CSV import + grid + image upload),
+  server-side reference resolution (`?for=play`), editor "link a library deck", MCP
+  `list_my_decks`/`save_deck`/`update_deck` + a markdown `link:` directive. Verified by an
+  authed end-to-end smoke (reference resolves; answers withheld from non-owners).
+  **Remaining (phase 2b/2c):** mode-2 typed `pool` descriptors on real blocks, mode-3
+  column→array pools (spotlight prompt decks), a general **`collect` block** whose shared media
+  becomes a play-time variable for later rounds, editor recipe-discoverability polish, and
+  column-type filtering in the binding helper.
   **Full forward map + build order: [`docs/decks-roadmap.md`](decks-roadmap.md).**
 - [ ] **User-authorable content decks + field bindings + spreadsheet import** — a core-engine
   feature. A **deck** is a named-column table of rows/cards (one shape; two homes: a durable reusable

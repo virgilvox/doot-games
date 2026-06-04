@@ -14,7 +14,7 @@
  * metadata, which is how Claude discovers the OAuth flow.
  */
 import { gameCatalog } from '@doot-games/games/catalog'
-import { parseMarkdownGame } from '@doot-games/games/markdown'
+import { parseMarkdownGame, parseSheet } from '@doot-games/games/markdown'
 import { withMcpAuth } from 'better-auth/plugins'
 
 const SERVER_INFO = { name: 'doot', title: 'Doot', version: '0.1.0' }
@@ -100,6 +100,15 @@ draw: 2
 bind: prompt = capitals.country
 bind: image = capitals.flag
 - (the room picks; bind the answer too, or author fixed options)
+
+REUSABLE DECKS (a library): instead of inlining CSV, save a deck once with save_deck and LINK it from many games. A "## deck <name>" block with a single line "link: <deckId>" references a library deck (it resolves to its current rows at play time, so editing the deck updates every game that links it). list_my_decks gives you the deckId. Example:
+## deck trivia
+link: lib_ab12cd34ef56
+## guess
+prompt: Question?
+draw: 5
+bind: prompt = trivia.question
+bind: correct = trivia.answer
 
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
 Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.
@@ -237,6 +246,51 @@ const TOOLS = [
       additionalProperties: false,
     },
     annotations: { title: "Set a game's settings", readOnlyHint: false },
+  },
+  {
+    name: 'list_my_decks',
+    description:
+      "List the reusable content decks in the user's library (newest first), with each deckId. A deck is a table of rows (questions, prompts, images) a game can pull from. Use a deckId to update a deck, or to reference it from a game spec's `## deck <id>` block as `link: <deckId>`.",
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { title: 'List the account decks', readOnlyHint: true },
+  },
+  {
+    name: 'save_deck',
+    description:
+      "Save a reusable content deck to the user's library from CSV/TSV (first row = headers), and return its deckId. A deck is a named-column table of rows: e.g. a Quiz deck (question, answer, image columns), a Prompt deck (a column of prompts/dares), or anything (Generic). Games reference it by deckId (a `## deck <id>` block with `link: <deckId>`) and bind round fields to its columns. Image columns should hold image URLs (host them with upload_image first).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The deck name (shown in the library).' },
+        csv: { type: 'string', description: 'The rows as CSV or TSV; the first row is the column headers.' },
+        kind: { type: 'string', enum: ['generic', 'quiz', 'prompt', 'card'], description: 'A descriptor hint (default generic): quiz = question/answer columns; prompt = a column of prompts; card = freeform; generic = anything.' },
+        description: { type: 'string', description: 'Optional one-line description (<=300 chars).' },
+        visibility: { type: 'string', enum: ['private', 'unlisted', 'public'], description: 'private (default), unlisted, or public (listed in the library).' },
+        remixable: { type: 'boolean', description: 'If true, others may copy this deck into their own library.' },
+      },
+      required: ['name', 'csv'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Save a content deck', readOnlyHint: false },
+  },
+  {
+    name: 'update_deck',
+    description: "Replace a deck's rows (and optionally its name/kind/visibility/remixable) by deckId, with new CSV/TSV. Get the deckId from list_my_decks. A game that links this deck picks up the change automatically.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        deckId: { type: 'string', description: 'The id of the deck to update (from list_my_decks or save_deck).' },
+        name: { type: 'string', description: 'Optional new name.' },
+        csv: { type: 'string', description: 'The full new rows as CSV or TSV; the first row is the column headers.' },
+        kind: { type: 'string', enum: ['generic', 'quiz', 'prompt', 'card'], description: 'Optional descriptor hint.' },
+        description: { type: 'string', description: 'Optional one-line description.' },
+        visibility: { type: 'string', enum: ['private', 'unlisted', 'public'], description: 'private | unlisted | public.' },
+        remixable: { type: 'boolean', description: 'If true, others may copy this deck.' },
+      },
+      required: ['deckId', 'csv'],
+      additionalProperties: false,
+    },
+    annotations: { title: 'Update a content deck', readOnlyHint: false },
   },
   {
     name: 'upload_image',
@@ -462,6 +516,71 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
         2,
       ),
     )
+  }
+  if (name === 'list_my_decks') {
+    const decks = await listMyDecks(userId)
+    return text(
+      JSON.stringify(
+        decks.map((d) => ({
+          deckId: d.id,
+          name: d.name,
+          kind: d.kind,
+          visibility: d.visibility,
+          remixable: d.remixable,
+          rows: d.rowCount,
+          columns: d.columnCount,
+          description: d.description ?? null,
+          deckUrl: `${BASE}/decks/${d.id}/edit`,
+        })),
+        null,
+        2,
+      ),
+    )
+  }
+  if (name === 'save_deck' || name === 'update_deck') {
+    if (!writeAllowed(userId)) return text('Too many deck saves in a short time. Wait a minute and try again.', true)
+    const csv = typeof args.csv === 'string' ? args.csv : ''
+    if (!csv.trim()) return text('Provide the deck rows as CSV/TSV in the "csv" argument (first row = headers).', true)
+    if (csv.length > 1_000_000) return text('Deck CSV too large (1,000,000 character limit).', true)
+    const sheet = parseSheet(csv)
+    if (!sheet.columns.length || !sheet.rows.length) {
+      return text(`Could not parse a header + rows from the CSV. ${sheet.errors.slice(0, 3).join(' ')}`, true)
+    }
+    const vis = normVisibility(args.visibility)
+    const deckInput = deckInputSchema.safeParse({
+      name: typeof args.name === 'string' && args.name.trim() ? args.name.trim() : 'Untitled deck',
+      ...(typeof args.description === 'string' ? { description: args.description } : {}),
+      ...(typeof args.kind === 'string' ? { kind: args.kind } : {}),
+      ...(vis ? { visibility: vis } : {}),
+      ...(typeof args.remixable === 'boolean' ? { remixable: args.remixable } : {}),
+      columns: sheet.columns,
+      rows: sheet.rows,
+    })
+    if (!deckInput.success) {
+      return text(`Could not save the deck: ${deckInput.error.issues.map((i) => i.message).join('; ')}`, true)
+    }
+    if (name === 'save_deck') {
+      const { id } = await createDeck(deckInput.data, userId)
+      return text(
+        JSON.stringify(
+          {
+            saved: true,
+            deckId: id,
+            rows: sheet.rows.length,
+            columns: sheet.columns.map((c) => c.key),
+            deckUrl: `${BASE}/decks/${id}/edit`,
+            message: `Saved a ${sheet.rows.length}-row deck. To use it in a game spec, add a block "## deck <name>" with a single line "link: ${id}", then bind a round's fields with "bind: field = <name>.column".`,
+          },
+          null,
+          2,
+        ),
+      )
+    }
+    const deckId = typeof args.deckId === 'string' ? args.deckId.trim() : ''
+    if (!deckId) return text('Provide the deckId to update (from list_my_decks).', true)
+    const ok = await updateDeck(deckId, userId, deckInput.data)
+    if (!ok) return text('No deck with that id is owned by this account, so nothing was updated.', true)
+    return text(JSON.stringify({ updated: true, deckId, rows: sheet.rows.length, deckUrl: `${BASE}/decks/${deckId}/edit` }, null, 2))
   }
   if (name === 'upload_image') {
     if (!writeAllowed(userId)) return text('Too many uploads in a short time. Wait a minute and try again.', true)

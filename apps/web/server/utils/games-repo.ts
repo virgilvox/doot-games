@@ -13,6 +13,7 @@ import { REDACTION_RULES, isKnownPlugin, redactDecks } from '@doot-games/games/c
 import { z } from '@doot-games/sdk'
 import { and, desc, eq, inArray, or } from 'drizzle-orm'
 import { type Visibility, bookmarks, games, useDb } from './db'
+import { loadDecksForServe } from './decks-repo'
 import { authorsFor } from './users'
 
 const deckRefSchema = z.object({ deck: z.string().min(1).max(64), column: z.string().min(1).max(64) })
@@ -225,6 +226,36 @@ export function redactConfigForViewer(config: SavedGame['config']): SavedGame['c
     // never leaks answers to a non-owner (the same invariant as round content).
     decks: redactDecks(config.rounds, config.decks) as SavedConfig['decks'],
   }
+}
+
+/**
+ * Resolve every `{ ref: 'lib_…' }` deck use in a config to an inline snapshot by
+ * loading the referenced library deck, so the client resolver only ever sees inline
+ * decks (it stays reference-agnostic). Run on the **play** read path only (`?for=play`),
+ * never the editor read — the editor must keep refs intact to re-save them.
+ *
+ * `gameOwnerId` decides which decks may be inlined: the game's own private decks
+ * (the owner chose to embed them) plus any unlisted/public deck. A stranger's private
+ * deck, or a deleted ref, drops out — the resolver is missing-safe, so a round bound
+ * to a dropped deck keeps its authored values. Inline (snapshot) decks pass through.
+ */
+export async function resolveDeckRefs(config: SavedConfig, gameOwnerId: string | null): Promise<SavedConfig> {
+  const uses = config.decks
+  if (!uses) return config
+  const refIds = Object.values(uses).flatMap((u) => ('ref' in u ? [u.ref] : []))
+  if (refIds.length === 0) return config
+  const loaded = await loadDecksForServe(refIds, gameOwnerId)
+  const decks: Record<string, SavedDeckUse> = {}
+  for (const [key, use] of Object.entries(uses)) {
+    if ('ref' in use) {
+      const d = loaded[use.ref]
+      if (d) decks[key] = { inline: { columns: d.columns, rows: d.rows } }
+      // else: an unresolvable ref drops out (missing-safe).
+    } else {
+      decks[key] = use
+    }
+  }
+  return { ...config, decks }
 }
 
 export async function createGame(input: GameInput, ownerId: string): Promise<{ id: string }> {

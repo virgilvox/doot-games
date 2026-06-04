@@ -7,6 +7,12 @@ export default defineEventHandler(async (event) => {
   const game = await getGame(id, user?.id ?? null)
   if (!game) throw createError({ statusCode: 404, statusMessage: 'Game not found' })
   const isOwner = !!game.ownerId && game.ownerId === user?.id
+  // On the play/host read (`?for=play`), inline any referenced library decks so the
+  // client resolver only sees inline decks. The editor read omits the flag and keeps
+  // refs intact (so re-saving preserves the reference rather than snapshotting it).
+  if (getQuery(event).for === 'play') {
+    game.config = await resolveDeckRefs(game.config, game.ownerId)
+  }
   // Non-owners never receive answer keys (withholding holds for the API too).
   // The owner gets the full config so they can host/edit it.
   if (!isOwner) game.config = redactConfigForViewer(game.config)

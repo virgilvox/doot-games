@@ -260,6 +260,13 @@ describe('parseMarkdownGame', () => {
     ])
   })
 
+  it('parses a "## deck" block with a "link:" line into a library reference', () => {
+    const g = parseMarkdownGame('# T\n## deck trivia\nlink: lib_ab12cd34ef56\n## guess\nprompt: Q\ndraw: 3\nbind: prompt = trivia.question')
+    expect(g.decks?.trivia).toEqual({ ref: 'lib_ab12cd34ef56' })
+    // The round still carries its draw/bindings; the ref resolves to inline at serve.
+    expect(g.rounds[0]!.draw).toBe(3)
+  })
+
   it('parses round draw/bind into the round additions', () => {
     const g = parseMarkdownGame('## deck d\nx\nv1\nv2\n## poll\nprompt: P\ndraw: 2\nbind: prompt = d.x\n- a\n- b')
     const r = g.rounds[0]!

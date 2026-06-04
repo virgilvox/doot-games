@@ -12,7 +12,8 @@ interface SavedGame {
   themeId: string
   config: GameComposition
 }
-const { data: game, error } = await useFetch<SavedGame>(() => `/api/games/${id.value}`)
+// `?for=play` inlines any referenced library decks so the client resolver can expand them.
+const { data: game, error } = await useFetch<SavedGame>(() => `/api/games/${id.value}?for=play`)
 if (error.value || !game.value) {
   throw createError({ statusCode: 404, statusMessage: 'Game not found' })
 }

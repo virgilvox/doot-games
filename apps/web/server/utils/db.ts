@@ -41,6 +41,32 @@ export const games = sqliteTable('games', {
   updatedAt: integer('updated_at').notNull(),
 })
 
+/** A reusable content deck: a named-column table of rows ("cards") that games bind
+ *  to (a `{ ref }`), or copy in as a snapshot. Decks live independently of games —
+ *  authored, browsed, and remixed on their own, like games. Answer-hiding is NOT a
+ *  property of a library deck (it has no round context); a column only becomes secret
+ *  when a *game* binds it to an answer field, which the game serve path redacts. */
+export const decks = sqliteTable('decks', {
+  id: text('id').primaryKey(),
+  /** Owning account, or null for pre-auth / anonymous saves (matches `games`). */
+  ownerId: text('owner_id'),
+  name: text('name').notNull(),
+  /** Optional one-line description shown on cards. */
+  description: text('description'),
+  /** A descriptor hint: 'quiz' | 'prompt' | 'card' | 'generic' (arbitrary columns). */
+  kind: text('kind').notNull().default('generic'),
+  /** JSON-serialized DeckColumn[] (`{ key, label, type }`). */
+  columns: text('columns').notNull(),
+  /** JSON-serialized rows (`Record<string, string|number|null>[]`). */
+  rows: text('rows').notNull(),
+  /** 'private' (owner only), 'unlisted' (anyone with the link), or 'public' (listed). */
+  visibility: text('visibility').notNull().default('private'),
+  /** Whether others may copy this deck into their own library. */
+  remixable: integer('remixable', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+})
+
 /** A user's bookmark ("save") of a game, so they can find it again. One row per
  *  (user, game); the user id is better-auth's account id. */
 export const bookmarks = sqliteTable(
@@ -113,6 +139,24 @@ async function ensureSchema(c: Client): Promise<void> {
     )
   `)
   await c.execute('CREATE INDEX IF NOT EXISTS bookmarks_user_idx ON bookmarks(user_id)')
+  // Reusable content decks (the `/decks` library; a game references one by id).
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS decks (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT,
+      name TEXT NOT NULL,
+      description TEXT,
+      kind TEXT NOT NULL DEFAULT 'generic',
+      columns TEXT NOT NULL,
+      rows TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      remixable INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `)
+  await c.execute('CREATE INDEX IF NOT EXISTS decks_owner_idx ON decks(owner_id)')
+  await c.execute('CREATE INDEX IF NOT EXISTS decks_visibility_idx ON decks(visibility)')
 }
 
 async function init(): Promise<LibSQLDatabase> {

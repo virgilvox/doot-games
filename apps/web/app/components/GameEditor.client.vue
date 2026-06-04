@@ -167,6 +167,46 @@ function onBindingsChange(i: number, payload: { draw?: number; bindings?: Record
   r.bindings = payload.bindings
 }
 
+// A linked (library `{ ref }`) deck doesn't carry its columns/rows in the config, so
+// fetch them: the columns feed the binding dropdowns, the rows feed the live preview.
+// Cached per deck id; keyed in the maps by the config's deck key. The persisted config
+// keeps the `{ ref }` untouched — this is editor-only resolution.
+type EdDeckColumn = { key: string; label: string; type: 'text' | 'image' | 'number' }
+const refDecks = reactive<Record<string, { columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>>({})
+const refCache = new Map<string, { columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>()
+const refColumns = computed(() => Object.fromEntries(Object.entries(refDecks).map(([k, v]) => [k, v.columns])))
+watch(
+  () => config.decks,
+  async (decks) => {
+    for (const [key, use] of Object.entries(decks ?? {})) {
+      if (!use || !('ref' in use) || !use.ref) continue
+      const cached = refCache.get(use.ref)
+      if (cached) {
+        refDecks[key] = cached
+        continue
+      }
+      try {
+        const d = await $fetch<{ columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>(`/api/decks/${use.ref}`)
+        const deck = { columns: d.columns ?? [], rows: d.rows ?? [] }
+        refCache.set(use.ref, deck)
+        refDecks[key] = deck
+      } catch {
+        refDecks[key] = { columns: [], rows: [] }
+      }
+    }
+  },
+  { deep: true, immediate: true },
+)
+/** config.decks with each linked `{ ref }` swapped for its fetched inline data, so the
+ *  preview can draw real rows from a library deck (editor-only; never persisted). */
+const previewDecks = computed(() => {
+  const out: Record<string, unknown> = {}
+  for (const [key, use] of Object.entries(config.decks ?? {})) {
+    out[key] = use && 'ref' in use && refDecks[key] ? { inline: refDecks[key] } : use
+  }
+  return out
+})
+
 // ── two-phase (make → judge) rounds ──────────────────────────────────────
 // A "judge" round (Vote/Split) builds its content at runtime from the answers a
 // previous round collects, so the editor explains that and hides the fields it
@@ -247,7 +287,7 @@ const previewContent = computed<Record<string, unknown>>(() => {
   if (!inst) return {}
   if (!inst.bindings && !inst.pool) return contentOf(inst)
   try {
-    const sample = resolveComposition(plugin!, { title: '', rounds: [{ ...inst, draw: 1 }], decks: config.decks }, 'preview')
+    const sample = resolveComposition(plugin!, { title: '', rounds: [{ ...inst, draw: 1 }], decks: previewDecks.value as typeof config.decks }, 'preview')
     return (sample.rounds[0]?.content as Record<string, unknown>) ?? contentOf(inst)
   } catch {
     return contentOf(inst)
@@ -648,7 +688,7 @@ onScopeDispose(() => {
             <!-- Pull a round's fields from a content deck (drawn fresh each play). -->
             <div v-if="!isDerived(cur)" class="ed-bind">
               <span class="ed-bind-label">Pull from a deck</span>
-              <RoundBindings :round="cur" :block="blockFor(cur)" :decks="config.decks" @change="onBindingsChange(selected, $event)" />
+              <RoundBindings :round="cur" :block="blockFor(cur)" :decks="config.decks" :ref-columns="refColumns" @change="onBindingsChange(selected, $event)" />
             </div>
           </template>
           <div v-else class="ed-empty">

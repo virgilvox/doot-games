@@ -13,7 +13,7 @@ Status: built and deployed (live at https://doot.games). All five packages (`eng
 ## Architecture invariants, do not violate these
 
 1. **Two kinds of state, kept strictly apart.**
-   - **Durable** (Postgres via Drizzle): accounts, game definitions, plugin registry, optional historical stats.
+   - **Durable** (Postgres via Drizzle): accounts, game definitions, the reusable content-deck library (`/decks`), plugin registry, optional historical stats.
    - **Ephemeral** (CLASP relay): phase, rounds, roster, inputs, live tallies, ephemeral media with TTL.
    - **Nothing about an in-progress room is written to the database during play.** The app tier holds no session state, that is what makes it scale horizontally.
 2. **Second-screen, never shared-video.** Phones receive game state directly from the relay. Latency is an architecture decision: never route gameplay through the host's screen share.

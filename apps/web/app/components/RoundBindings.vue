@@ -9,7 +9,15 @@
 import type { AnyBlock, DeckColumn, DeckUse, RoundInstance } from '@doot-games/sdk'
 import { computed } from 'vue'
 
-const props = defineProps<{ round: RoundInstance; block?: AnyBlock; decks?: Record<string, DeckUse> }>()
+// `refColumns` carries the columns of any *linked* (library `{ ref }`) deck, fetched
+// by the editor — an inline deck's columns travel in the deck itself, but a ref's
+// don't, so the editor resolves them for the binding dropdowns.
+const props = defineProps<{
+  round: RoundInstance
+  block?: AnyBlock
+  decks?: Record<string, DeckUse>
+  refColumns?: Record<string, DeckColumn[]>
+}>()
 const emit = defineEmits<{ change: [value: { draw?: number; bindings?: Record<string, { deck: string; column: string }> }] }>()
 
 const deckIds = computed(() => Object.keys(props.decks ?? {}))
@@ -27,7 +35,9 @@ const bindableFields = computed<string[]>(() => {
 
 function columnsOf(deckId: string): DeckColumn[] {
   const use = props.decks?.[deckId]
-  return use && 'inline' in use ? use.inline.columns : []
+  if (use && 'inline' in use) return use.inline.columns
+  // A linked (ref) deck: use the columns the editor fetched for it.
+  return props.refColumns?.[deckId] ?? []
 }
 
 const rows = computed(() =>
