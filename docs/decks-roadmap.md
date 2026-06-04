@@ -153,12 +153,38 @@ closed slot as a runtime deck. No engine change.
 
 ### 2.4 What it unlocks
 
-- **Standalone share rounds** via recipes: `collect → drawvote` ("share a pet photo → vote best"; drawvote already judges images), `collect → rate`, `collect → poll`.
+- **Standalone share rounds** via recipes: `collect → photovote` ("share a pet photo → vote best"; needs an image-vote judge — see §2.5, drawvote judges *strokes*, not bitmaps), `collect → rate`, `collect → poll`.
 - **Directed share** = the spotlight "share" half, generalized and reusable.
 - **Cross-round variables**: round 1 collects selfies (slot `faces`); round 5 a faker-style round shows each player's face; a results montage uses them. Any round binding `{ slot: 'faces' }` gets the collected media — the "variable in any other arbitrary round."
 - This is also the honest answer to **"where is spotlight"**: spotlight is locked to Truth or Share's flow; `collect` is the **reusable** share primitive Custom games can actually use.
 
 Largest piece — sequence it last; it leans on everything above.
+
+### 2.5 Implementation notes (2026-06-04 audit — corrections + concrete shapes)
+
+Two corrections from inspecting the existing blocks; these change the build, so they are
+captured before coding:
+
+1. **`collect → drawvote` does NOT work as written.** The `draw` block stores **vector
+   strokes** (`DrawValue = { strokes }`) and `drawvote` renders/judges strokes — a
+   collected photo is a **bitmap dataURL**, which drawvote cannot render. So a photo
+   collect needs **its own image gallery host + an image-vote judge** (a small new
+   `photovote` block, or a bitmap mode on the vote block that shows `<img>` options), not
+   a reuse of drawvote. (A *sketch* collect that reuses the draw canvas could feed
+   drawvote, but that is just the draw block.)
+2. **"No engine change" is optimistic.** Slot binding resolves **mid-game** (after the
+   collect round closes), not at host load, so it is not the load-time `resolveComposition`
+   path. Resolve it **lazily**: when the host advances to a round with a slot binding,
+   build the content from the collected inputs *then* (the two-phase `derive` path already
+   fires per-round at advance time — slot resolution is a sibling of `derive`).
+
+Concrete shapes to build to:
+- **Block:** `blocks/collect/block.ts` — `CollectContent { prompt; mode: 'everyone'|'directed'; kind: 'photo'|'text'; timer }`; `CollectInput { media?: string; text?: string }`. Player view downscales a photo on-device (lift the helper out of Truth or Share's `Player.vue`) and submits the dataURL as the round input; host shows a live gallery; `aggregate` = the gallery. Unscored.
+- **Slot publish:** the collect round just uses the normal block input channel; the slot name defaults to the round (or `collect: { slot }` to name it for later binding).
+- **Runtime deck from a slot** (pure, testable now): `slotDeck(inputs, roster) → Deck` with columns `player | name | value`, one row per submission. Then later rounds bind with the EXISTING deck machinery against a reserved `@<slot>` deck id (`draw: N` + `bindings: { image: { deck: '@faces', column: 'value' } }`) — so slots reuse mode-1/mode-2 instead of a new `{ slot }` binding syntax.
+- **Host wiring:** on collect-round close, stash `slotDeck(...)` in a runtime map; when advancing to a round referencing `@<slot>`, resolve that round's content from it (lazy, like `derive`).
+
+Build order within 2c: (a) the standalone `collect` block + an image-vote judge + a `collect → photovote` recipe (usable on its own); (b) the slot→runtime-deck + lazy resolution for the cross-round-variable; (c) directed mode + editor support.
 
 ---
 
