@@ -36,6 +36,13 @@ const SECRET = [
   { key: 'category', label: 'Category (shown to all)', type: 'text' },
   { key: 'word', label: 'Secret word', type: 'text' },
 ]
+// Quiz or Die trivia: a Quiz Deck plus an optional lurid `category` banner.
+const CELLAR = [
+  { key: 'category', label: 'Category (the lurid banner)', type: 'text' },
+  { key: 'question', label: 'Question', type: 'text' },
+  { key: 'options', label: 'Options (separate with |)', type: 'text' },
+  { key: 'correct', label: 'Correct (1 = first option)', type: 'number' },
+]
 
 const p = (...lines) => lines.map((prompt) => ({ prompt }))
 const f = (...lines) => lines.map((frame) => ({ frame }))
@@ -881,6 +888,37 @@ export const DECKS = [
       { prompt: 'Which Beatle was known as the "quiet one"?', options: 'John Lennon|Paul McCartney|George Harrison|Ringo Starr', correct: 3 },
       { prompt: 'How many keys are on a standard piano?', options: '76|82|88|92', correct: 3 },
       { prompt: 'Which instrument has black and white keys?', options: 'Harp|Piano|Drums|Trumpet', correct: 2 },
+    ],
+  },
+
+  // ── Quiz or Die (lurid trivia for the deadly quiz show; the finale stays built-in) ─
+  {
+    game: 'quiz-or-die',
+    name: 'Quiz or Die: Dark Trivia',
+    kind: 'quiz',
+    description: 'Morbid-but-real trivia for the deadly quiz show, with lurid category banners. Every answer is true. Remix Quiz or Die to play it (the finale stays built-in).',
+    columns: CELLAR,
+    rows: [
+      { category: 'CRYPT KEEPERS', question: 'What is the study of death and dying called?', options: 'Thanatology|Cryptology|Geology|Zoology', correct: 1 },
+      { category: 'THINGS THAT GLOW', question: 'Which radioactive element was once added to glow-in-the-dark paint?', options: 'Radon|Radium|Helium|Iron', correct: 2 },
+      { category: 'CREATURES OF THE NIGHT', question: 'Which animal can regrow a lost tail?', options: 'Lizard|Eagle|Horse|Shark', correct: 1 },
+      { category: 'DEADLY SEAS', question: 'The Bermuda Triangle lies in which ocean?', options: 'Pacific|Atlantic|Indian|Arctic', correct: 2 },
+      { category: 'POISONOUS PROSE', question: 'Which poison did Socrates reportedly drink?', options: 'Arsenic|Hemlock|Cyanide|Belladonna', correct: 2 },
+      { category: 'MONSTERS AND MYTH', question: 'In Greek myth, who had snakes for hair?', options: 'Medusa|Athena|Hera|Circe', correct: 1 },
+      { category: 'BLOOD TYPES', question: 'Which blood type is the universal donor?', options: 'AB positive|O negative|A positive|B negative', correct: 2 },
+      { category: 'OLD WAYS', question: 'Halloween grew out of which ancient festival?', options: 'Samhain|Saturnalia|Beltane|Yule', correct: 1 },
+      { category: 'BURIED CITIES', question: 'Which city was destroyed by a volcanic eruption in 79 AD?', options: 'Athens|Pompeii|Rome|Sparta', correct: 2 },
+      { category: 'CREEPING THINGS', question: 'How many legs does a typical spider have?', options: 'Six|Eight|Ten|Twelve', correct: 2 },
+      { category: 'THE WITCHING HOUR', question: 'The Salem witch trials took place in which US state?', options: 'Virginia|Massachusetts|New York|Maine', correct: 2 },
+      { category: 'DARK SKIES', question: 'What is it called when the Moon completely blocks the Sun?', options: 'Lunar eclipse|Solar eclipse|Equinox|Aurora', correct: 2 },
+      { category: 'DEADLY DESSERTS', question: 'Which seeds contain tiny amounts of cyanide compounds?', options: 'Apple seeds|Sunflower seeds|Pumpkin seeds|Sesame seeds', correct: 1 },
+      { category: 'ANCIENT REMAINS', question: 'What is a body preserved and wrapped for burial in ancient Egypt called?', options: 'Fossil|Mummy|Relic|Skeleton', correct: 2 },
+      { category: 'THINGS WITH FANGS', question: 'Which is the largest big cat in the world?', options: 'Lion|Tiger|Jaguar|Leopard', correct: 2 },
+      { category: 'GHOSTLY GASES', question: 'Which odorless gas is called the "silent killer"?', options: 'Carbon dioxide|Carbon monoxide|Oxygen|Nitrogen', correct: 2 },
+      { category: 'FINAL BREATH', question: 'Which organ lets humans breathe?', options: 'Liver|Lungs|Kidneys|Heart', correct: 2 },
+      { category: 'RESTLESS SPIRITS', question: 'What is the fear of ghosts called?', options: 'Phasmophobia|Arachnophobia|Acrophobia|Claustrophobia', correct: 1 },
+      { category: 'ETERNAL NIGHT', question: 'Which planet is the hottest in our solar system?', options: 'Mercury|Venus|Mars|Jupiter', correct: 2 },
+      { category: 'LAST RITES', question: 'What is a doctor who examines causes of death called?', options: 'Surgeon|Coroner|Dentist|Optician', correct: 2 },
     ],
   },
 ]

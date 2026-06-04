@@ -144,6 +144,18 @@ export function choiceFromRow(
   return { prompt, options: options.join('|'), correct }
 }
 
+/** Quiz or Die: a trivia question with a lurid category. Same multiple-choice shape as
+ *  `choiceFromRow` (so a plain Quiz Deck works too) plus an optional `category` column;
+ *  the correct option is withheld from non-owners. Returns the flat row Quiz or Die's
+ *  buildConfig consumes; null when there is no usable question. */
+export function cellarQuestionFromRow(
+  row: Record<string, string | number>,
+): { cat: string; question: string; options: string; correct: number } | null {
+  const choice = choiceFromRow(row)
+  if (!choice) return null
+  return { cat: pick(row, ['category', 'cat', 'topic', 'theme']), question: choice.prompt, options: choice.options, correct: choice.correct }
+}
+
 /** Mad Libs: a story template with `{token}` blanks. An optional `blanks` column may
  *  carry a JSON array of `{id,label}` (the built-in pool keeps its rich labels that
  *  way); otherwise the game derives blanks from the template tokens. Skips a template

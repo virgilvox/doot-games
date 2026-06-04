@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { redactDecks } from '../catalog'
 import {
   ballparkFromRow,
+  cellarQuestionFromRow,
   choiceFromRow,
   factFromRow,
   frameFromRow,
@@ -85,6 +86,13 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(choiceFromRow({ prompt: 'only one', options: 'A' })).toBeNull() // needs >= 2 options
     // A pipe-separated option may itself contain a comma; it must NOT be split apart.
     expect(choiceFromRow({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 1 })).toEqual({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 0 })
+  })
+
+  it('cellarQuestionFromRow: a Quiz or Die trivia row, with an optional lurid category', () => {
+    expect(cellarQuestionFromRow({ category: 'DOOM', question: 'Pick one', options: 'A|B|C', correct: 2 })).toEqual({ cat: 'DOOM', question: 'Pick one', options: 'A|B|C', correct: 1 })
+    // A plain Quiz Deck (no category) still works; cat is empty.
+    expect(cellarQuestionFromRow({ prompt: 'Pick one', options: 'A|B', correct: 1 })).toEqual({ cat: '', question: 'Pick one', options: 'A|B', correct: 0 })
+    expect(cellarQuestionFromRow({ category: 'no question' })).toBeNull()
   })
 
   it('storyFromRow: keeps a blanks JSON column, else leaves blanks empty for derivation', () => {

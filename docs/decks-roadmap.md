@@ -276,9 +276,14 @@ and `HostRoom.resolveConfig` re-runs `buildConfig` over `poolRowsFor(contentPool
 - **Decks by Doot (DONE, growing):** `scripts/seed-decks.mjs` upserts public + remixable
   starter decks (`scripts/decks-by-doot.data.mjs`) for every pool game, idempotent by name
   under a stable Doot account. Add more themed decks by editing the data file and re-running.
-- **Phase 3 (LATER):** the custom-flow multi-pool games (Truth or Share, Quiz or Die) need a
-  multi-pool `ContentPool` variant (`fromRows(rows[]) => GameComposition`) since one deck
-  feeds several arrays (tiers/kinds, questions + finale categories).
+- **Phase 3 (PARTIAL):** custom-flow games can be deck-fed too when one pool dominates.
+  **Quiz or Die (DONE):** its trivia bank is deck-feedable via the SAME single-pool
+  `contentPool` (a `quiz` deck of question/options/correct + optional category, mapped by
+  `cellarQuestionFromRow`, cross-compatible with the What-You-Didn't-Know quiz decks); the
+  Cellar finale categories stay built-in. No host/SDK change. **Still LATER:** Truth or Share
+  (prompt deck feeding 4 truth/share arrays by tier+kind) and a Quiz-or-Die finale deck both
+  want a true multi-pool variant (`fromRows(rows[]) => GameComposition`) since one deck feeds
+  several arrays at once.
 
 Leftover polish: clamp the lobby round-slider max to an attached deck's row count;
 column-type filtering in `RoundBindings`; a Playwright smoke that hosts a remix; an editor

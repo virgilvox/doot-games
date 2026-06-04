@@ -41,6 +41,7 @@ const REQUIRED = {
   'fib-finder': ['question', 'truth'],
   ballpark: ['prompt', 'answer'],
   'what-you-didnt-know': ['prompt', 'options', 'correct'],
+  'quiz-or-die': ['question', 'options', 'correct'],
   faker: ['category', 'word'],
 }
 function validate(decks) {
@@ -57,7 +58,7 @@ function validate(decks) {
           const v = r[k]
           if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) errs.push(`${d.name} row ${i}: missing "${k}"`)
         }
-        if (d.game === 'what-you-didnt-know' && typeof r.options === 'string' && r.options.split('|').filter((x) => x.trim()).length < 2) {
+        if (need.includes('options') && typeof r.options === 'string' && r.options.split('|').filter((x) => x.trim()).length < 2) {
           errs.push(`${d.name} row ${i}: needs at least 2 options`)
         }
       })

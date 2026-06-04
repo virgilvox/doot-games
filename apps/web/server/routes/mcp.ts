@@ -30,6 +30,7 @@ const POOL_COLUMNS: Record<string, string> = {
   'what-you-didnt-know': 'prompt, options (|-separated), correct (1-based index)',
   faker: 'category, word',
   'mad-libs': 'template (with {token} blanks)',
+  'quiz-or-die': 'question, options (|-separated), correct (1-based index), optional category',
 }
 
 // Per-user write throttle for the write tools (save_game/upload_image). /mcp is
@@ -122,7 +123,7 @@ bind: correct = trivia.answer
 
 REMIX A FLAGSHIP WITH YOUR OWN CONTENT: many flagships play a built-in pool, but a creator can swap in their own deck. list_game_types marks each remixable game with a "contentDeck" kind. There are two shapes:
 - PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room): one text column. Use remix_game with the prompts as "csv" (one per line) and it saves a host-ready remix in one step. No markdown needed.
-- TYPED games (fib-finder + ballpark + what-you-didnt-know = "quiz"; faker = "card"; mad-libs = "generic"): multiple columns (e.g. question + answer). The single-column "csv" can't carry these, so first save_deck a multi-column deck, then remix_game with its deckId. Conventional columns per game: fib-finder = question, truth; ballpark = prompt, answer (+ optional unit); what-you-didnt-know = prompt, options (a |-separated list) , correct (1-based index); faker = category, word; mad-libs = template (with {token} blanks). Answer columns (truth, answer, correct, word) are withheld from non-owners, so KEEP A TYPED REMIX DECK PRIVATE.
+- TYPED games (fib-finder + ballpark + what-you-didnt-know + quiz-or-die = "quiz"; faker = "card"; mad-libs = "generic"): multiple columns (e.g. question + answer). The single-column "csv" can't carry these, so first save_deck a multi-column deck, then remix_game with its deckId. Conventional columns per game: fib-finder = question, truth; ballpark = prompt, answer (+ optional unit); what-you-didnt-know = prompt, options (a |-separated list) , correct (1-based index); quiz-or-die = question, options, correct (1-based) + an optional lurid category (the finale stays built-in); faker = category, word; mad-libs = template (with {token} blanks). Answer columns (truth, answer, correct, word) are withheld from non-owners, so KEEP A TYPED REMIX DECK PRIVATE.
 
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
 Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.

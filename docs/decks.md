@@ -47,6 +47,9 @@ There are two shapes of remixable game:
   - **Ballpark** — a **Quiz Deck**: `prompt`, `answer` (a number), optional `unit`.
   - **What, You Didn't Know That?** — a **Quiz Deck**: `prompt`, `options` (a list, separated
     by `|`), `correct` (the answer's position, 1 = first).
+  - **Quiz or Die** — a **Quiz Deck**: `question`, `options` (a `|`-separated list),
+    `correct` (1 = first), plus an optional lurid `category` banner. Your trivia plays the
+    deadly quiz show; the Cellar finale categories stay built-in.
   - **Faker** — a **Card Deck**: `category` (public) + `word` (the secret).
   - **Mad Libs** — a deck with a `template` column using `{token}` blanks (the blanks are
     read from the tokens).

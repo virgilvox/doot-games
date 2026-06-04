@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RoundInstance } from '@doot-games/sdk'
+import { poolRowsFor } from '../runtime/decks'
 import { backronym } from './backronym'
 import { ballpark } from './ballpark'
 import { circuitCypher } from './circuit-cypher'
@@ -10,6 +11,7 @@ import { madLibs } from './mad-libs'
 import { mostLikely } from './most-likely'
 import { openMic } from './open-mic'
 import { quipClash } from './quip-clash'
+import { quizOrDie } from './quiz-or-die'
 import { sketchSpot } from './sketch-spot'
 import { splitRoom } from './split-room'
 import { whatYouDidntKnow } from './what-you-didnt-know'
@@ -91,6 +93,37 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
     const c = out.rounds[0]!.content as { options: Array<{ label: string }>; correct: number }
     expect(c.options.map((o) => o.label)).toEqual(['Cat', 'Dog', 'Eel'])
     expect(c.correct).toBe(2)
+  })
+
+  it('quiz-or-die (custom flow): its trivia bank is deck-feedable; the finale stays built-in', () => {
+    const pool = quizOrDie.contentPool!
+    expect(pool.deckKind).toBe('quiz')
+    expect(pool.answerColumns).toEqual(['correct', 'answer'])
+    // The built-in rows reproduce today's single cellar round exactly (regression).
+    expect(quizOrDie.buildConfig!('seed', { rows: pool.defaultRows })).toEqual(quizOrDie.buildConfig!('seed'))
+    // A creator quiz deck (1-based `correct`) overrides the trivia, end to end through
+    // poolRowsFor; the finale categories remain built-in.
+    const deck = {
+      columns: [
+        { key: 'category', label: 'Category', type: 'text' as const },
+        { key: 'question', label: 'Question', type: 'text' as const },
+        { key: 'options', label: 'Options', type: 'text' as const },
+        { key: 'correct', label: 'Correct', type: 'number' as const },
+      ],
+      rows: [
+        { category: 'DREAD', question: 'Which gas do we breathe out?', options: 'Oxygen|Carbon dioxide|Helium', correct: 2 },
+        { category: 'DOOM', question: 'How many legs has a spider?', options: 'Six|Eight|Ten', correct: 2 },
+        { category: 'GLOOM', question: 'What is frozen water?', options: 'Steam|Ice|Mist', correct: 2 },
+      ],
+    }
+    const out = quizOrDie.buildConfig!('seed', { rows: poolRowsFor(pool, deck), rounds: 3 })
+    const content = out.rounds[0]!.content as { questions: Array<{ q: string; a: string[]; c: number }>; finalCats: unknown[]; qPerGame: number }
+    expect(content.questions.map((q) => q.q)).toContain('Which gas do we breathe out?')
+    // correct came in 1-based (2) and resolves to 0-based index 1 (Carbon dioxide).
+    const breathe = content.questions.find((q) => q.q.startsWith('Which gas'))!
+    expect(breathe.a[breathe.c]).toBe('Carbon dioxide')
+    expect(content.qPerGame).toBe(3)
+    expect(content.finalCats.length).toBeGreaterThan(0) // finale is still the built-in bank
   })
 
   it('mad-libs: a bare template derives readable blanks from its {tokens}', () => {
