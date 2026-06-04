@@ -119,8 +119,13 @@ export function choiceFromRow(
   const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
   let options: string[] = []
   const joined = pick(row, ['options', 'choices'])
-  if (joined) options = joined.split(/\s*[|;,]\s*/).filter(Boolean)
-  else {
+  if (joined) {
+    // Prefer a `|` (or `;`) separator so an option that itself contains a comma (e.g.
+    // "Snow White, and friends") is not split apart; only fall back to comma-splitting
+    // when no stronger delimiter is present.
+    const sep = joined.includes('|') ? '|' : joined.includes(';') ? ';' : ','
+    options = joined.split(sep).map((s) => s.trim()).filter(Boolean)
+  } else {
     for (const k of ['option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'a', 'b', 'c', 'd']) {
       const v = pick(row, [k])
       if (v) options.push(v)

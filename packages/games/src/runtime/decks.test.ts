@@ -83,6 +83,8 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(choiceFromRow({ prompt: 'Pick', options: 'A, B, C', answer: 'C' })).toEqual({ prompt: 'Pick', options: 'A|B|C', correct: 2 }) // comma split + answer synonym
     expect(choiceFromRow({ prompt: 'Pick', options: 'A|B', correct: 9 })).toEqual({ prompt: 'Pick', options: 'A|B', correct: 0 }) // out of range -> 0
     expect(choiceFromRow({ prompt: 'only one', options: 'A' })).toBeNull() // needs >= 2 options
+    // A pipe-separated option may itself contain a comma; it must NOT be split apart.
+    expect(choiceFromRow({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 1 })).toEqual({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 0 })
   })
 
   it('storyFromRow: keeps a blanks JSON column, else leaves blanks empty for derivation', () => {

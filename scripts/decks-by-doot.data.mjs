@@ -200,7 +200,7 @@ export const DECKS = [
     kind: 'prompt',
     description: 'Tech initialisms begging for a new (and definitely wrong) meaning.',
     columns: INITIALISM,
-    rows: p('HTTP', 'HTML', 'USB', 'RAM', 'CPU', 'GPU', 'API', 'URL', 'PDF', 'JPEG', 'GIF', 'RGB', 'HDMI', 'SSD', 'VPN', 'DNS', 'AI', 'SQL', 'CSS', 'IDE', 'LAN', 'OS', 'QR', 'RAM'),
+    rows: p('HTTP', 'HTML', 'USB', 'RAM', 'ROM', 'CPU', 'GPU', 'API', 'URL', 'PDF', 'JPEG', 'GIF', 'RGB', 'HDMI', 'SSD', 'VPN', 'DNS', 'AI', 'SQL', 'CSS', 'IDE', 'LAN', 'WWW', 'QR'),
   },
   {
     game: 'backronym',

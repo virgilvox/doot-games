@@ -31,6 +31,56 @@ if (!PASSWORD) {
   process.exit(2)
 }
 
+/**
+ * Structural pre-flight on the deck content (pure, no game imports): catches the
+ * mistakes that would silently degrade a deck (a dropped row = fewer rounds). Required
+ * columns per typed game must be present and non-empty in every row; a single-column
+ * deck must have no duplicate rows. Mirrors what each game's `fromRow` needs.
+ */
+const REQUIRED = {
+  'fib-finder': ['question', 'truth'],
+  ballpark: ['prompt', 'answer'],
+  'what-you-didnt-know': ['prompt', 'options', 'correct'],
+  faker: ['category', 'word'],
+}
+function validate(decks) {
+  const errs = []
+  const names = new Set()
+  for (const d of decks) {
+    if (names.has(d.name)) errs.push(`duplicate deck name: ${d.name}`)
+    names.add(d.name)
+    if (!d.rows.length) errs.push(`${d.name}: no rows`)
+    const need = REQUIRED[d.game]
+    if (need) {
+      d.rows.forEach((r, i) => {
+        for (const k of need) {
+          const v = r[k]
+          if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) errs.push(`${d.name} row ${i}: missing "${k}"`)
+        }
+        if (d.game === 'what-you-didnt-know' && typeof r.options === 'string' && r.options.split('|').filter((x) => x.trim()).length < 2) {
+          errs.push(`${d.name} row ${i}: needs at least 2 options`)
+        }
+      })
+    }
+    if (d.columns.length === 1) {
+      const key = d.columns[0].key
+      const seen = new Set()
+      for (const r of d.rows) {
+        if (seen.has(r[key])) errs.push(`${d.name}: duplicate row "${r[key]}"`)
+        seen.add(r[key])
+      }
+    }
+  }
+  return errs
+}
+
+const problems = validate(DECKS)
+if (problems.length) {
+  console.error(`Deck content has ${problems.length} problem(s):\n  ${problems.join('\n  ')}`)
+  process.exit(2)
+}
+console.log(`Validated ${DECKS.length} decks (no missing columns, no duplicate rows).`)
+
 function jar() {
   const cookies = new Map()
   return {
