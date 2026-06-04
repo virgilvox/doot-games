@@ -40,6 +40,14 @@ const PROMPT_POOL: string[] = [
   'The least reassuring thing a surgeon could say: ___',
   'An event that should NOT have a mascot: ___',
   'The worst thing to whisper to a sleeping cat: ___',
+  'The worst thing to name your firstborn child: ___',
+  'A rejected event for the Olympics: ___',
+  'The real reason the elevator stopped: ___',
+  'A terrible mascot for a hospital: ___',
+  'The worst possible message in a fortune cookie: ___',
+  'The most cursed item at a garage sale: ___',
+  'A bad theme for a school dance: ___',
+  'The worst thing to hear over an airport loudspeaker: ___',
 ]
 
 const ROUNDS_PER_GAME = 3

@@ -43,6 +43,14 @@ const QUESTION_POOL: Question[] = [
   { prompt: 'What is the name of the kingdom in Disney\'s Frozen?', options: ['Corona', 'Arendelle', 'Far Far Away', 'DunBroch'], correct: 1 },
   { prompt: "In The Matrix, which pill does Neo take?", options: ['Blue', 'Green', 'Red', 'Yellow'], correct: 2 },
   { prompt: 'Who voiced the Genie in Disney\'s Aladdin (1992)?', options: ['Eddie Murphy', 'Robin Williams', 'Steve Martin', 'Billy Crystal'], correct: 1 },
+  { prompt: 'In which country would you find the Great Pyramid of Giza?', options: ['Mexico', 'Egypt', 'Greece', 'Iraq'], correct: 1 },
+  { prompt: 'What is the largest ocean on Earth?', options: ['Atlantic', 'Indian', 'Pacific', 'Arctic'], correct: 2 },
+  { prompt: 'Who painted the Mona Lisa?', options: ['Vincent van Gogh', 'Pablo Picasso', 'Leonardo da Vinci', 'Michelangelo'], correct: 2 },
+  { prompt: 'What is the chemical formula for water?', options: ['CO2', 'H2O', 'O2', 'NaCl'], correct: 1 },
+  { prompt: 'Which planet is closest to the Sun?', options: ['Venus', 'Earth', 'Mercury', 'Mars'], correct: 2 },
+  { prompt: 'How many continents are there on Earth?', options: ['Five', 'Six', 'Seven', 'Eight'], correct: 2 },
+  { prompt: 'What is the tallest mountain above sea level on Earth?', options: ['K2', 'Mount Everest', 'Kilimanjaro', 'Denali'], correct: 1 },
+  { prompt: 'Which animal is traditionally called the King of the Jungle?', options: ['Tiger', 'Lion', 'Elephant', 'Gorilla'], correct: 1 },
 ]
 
 const ROUNDS_PER_GAME = 6

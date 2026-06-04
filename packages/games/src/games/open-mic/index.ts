@@ -39,6 +39,14 @@ const PREMISE_POOL: string[] = [
   'A joke about your group chat.',
   'A one-liner about Mondays, but for robots.',
   'Heckle the host in one polite line.',
+  'A one-liner about waiting rooms.',
+  'Write a joke about a GPS that gives up on you.',
+  'Tell a one-liner about leftovers in the fridge.',
+  'A bit about escalators becoming stairs the moment they break.',
+  'A one-liner about your browser search history.',
+  'Tell a one-liner about a group project where one person does everything.',
+  'A bit about the alarm clock you keep negotiating with.',
+  'A joke about the single sock that never finds its pair.',
 ]
 
 const ROUNDS_PER_GAME = 3

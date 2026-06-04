@@ -50,6 +50,14 @@ const WORD_POOL: Secret[] = [
   { category: 'In the city', word: 'Subway' },
   { category: 'Camping', word: 'Campfire' },
   { category: 'Vegetables', word: 'Broccoli' },
+  { category: 'Astronomy', word: 'Telescope' },
+  { category: 'The circus', word: 'Acrobat' },
+  { category: 'Winter', word: 'Mittens' },
+  { category: 'Gardening', word: 'Shovel' },
+  { category: 'Jazz', word: 'Saxophone' },
+  { category: 'Under the sea', word: 'Seahorse' },
+  { category: 'Royalty', word: 'Crown' },
+  { category: 'Fairy tales', word: 'Dragon' },
 ]
 
 const ROUNDS_PER_GAME = 3

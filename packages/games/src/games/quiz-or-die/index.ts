@@ -93,9 +93,12 @@ export const quizOrDie = defineGame({
   },
   blocks: [cellarBlock],
   components: { Host: QuizOrDieHost, Player: QuizOrDiePlayer },
+  // A LEAN preview/fallback only: a small slice, not the whole bank (the live show plays
+  // the full pool via buildConfig, and a remix plays its attached deck). Keeping this small
+  // means forking/remixing the game carries a tidy config, not 28 embedded questions.
   defaultConfig: {
     title: 'Quiz or Die',
-    rounds: [{ block: 'cellar', content: { qPerGame: DEFAULT_QPG, answerTime: 12, questions: QUESTIONS, finalCats: FINAL_CATS } }],
+    rounds: [{ block: 'cellar', content: { qPerGame: 3, answerTime: 12, questions: QUESTIONS.slice(0, 4), finalCats: FINAL_CATS.slice(0, 3) } }],
   },
   // Deck-feedable: a creator can attach a Quiz Deck (question + options + correct, plus an
   // optional category) to play their own trivia. The finale categories stay built-in. The

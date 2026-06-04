@@ -44,6 +44,14 @@ const FACT_POOL: Fact[] = [
   { question: 'A baby kangaroo is called a ___.', truth: 'joey' },
   { question: 'The loudest animal on Earth, relative to its size, is the ___.', truth: 'shrimp' },
   { question: 'Sea otters hold ___ while they sleep so they do not drift apart.', truth: 'hands' },
+  { question: 'A group of lions is called a ___.', truth: 'pride' },
+  { question: 'A group of wolves is called a ___.', truth: 'pack' },
+  { question: 'The fastest bird in a dive is the peregrine ___.', truth: 'falcon' },
+  { question: 'The tallest type of grass in the world is ___.', truth: 'bamboo' },
+  { question: 'A baby goat is called a ___.', truth: 'kid' },
+  { question: 'Honeybees communicate direction by performing a ___ dance.', truth: 'waggle' },
+  { question: 'The largest planet in our solar system is ___.', truth: 'Jupiter' },
+  { question: 'The smallest planet in our solar system is ___.', truth: 'Mercury' },
 ]
 
 const ROUNDS_PER_GAME = 4

@@ -37,6 +37,14 @@ const FACT_POOL: Fact[] = [
   { prompt: 'How fast can a cheetah run at top speed?', answer: 112, unit: 'km/h' },
   { prompt: 'How many moons does Jupiter have (confirmed)?', answer: 95 },
   { prompt: 'How many floors does the Empire State Building have?', answer: 102 },
+  { prompt: 'How many strings does a concert harp typically have?', answer: 47, unit: 'strings' },
+  { prompt: 'How many bones are in one human hand?', answer: 27, unit: 'bones' },
+  { prompt: 'How many people have walked on the Moon?', answer: 12, unit: 'people' },
+  { prompt: 'How many dots are there on a pair of dice?', answer: 42, unit: 'dots' },
+  { prompt: 'How many chambers does the human heart have?', answer: 4, unit: 'chambers' },
+  { prompt: 'How many of the Great Lakes are there?', answer: 5, unit: 'lakes' },
+  { prompt: 'How many countries border France (including via land)?', answer: 8, unit: 'countries' },
+  { prompt: 'How many squares are there on a standard chessboard?', answer: 64, unit: 'squares' },
 ]
 
 const ROUNDS_PER_GAME = 6

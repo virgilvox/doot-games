@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RoundInstance } from '@doot-games/sdk'
+import { gameCatalog } from '../catalog'
+import { builtinPlugins } from '../registry'
 import { poolRowsFor } from '../runtime/decks'
 import { backronym } from './backronym'
 import { ballpark } from './ballpark'
@@ -133,6 +135,44 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
     expect(c.blanks[0]!.label).toBe('An adjective')
     expect(c.blanks[2]!.label).toBe('A verb ending in -ing')
   })
+})
+
+// One meta-test that holds for EVERY deck-feedable game (present and future), so a new
+// pool game can't ship a broken or inconsistent contentPool. Covers: the built-in pool is
+// internally valid (every default row survives its own fromRow), the lift-to-rows change
+// is a pure regression (rows == no-opts), a creator deck overrides the play, the catalog
+// stays in sync, and the saved defaultConfig is a lean preview rather than the whole bank.
+describe('every deck-feedable game is self-consistent (meta)', () => {
+  const feedable = builtinPlugins.filter((p) => p.contentPool)
+
+  it('covers all 13 deck-fed flagships', () => {
+    expect(feedable.map((p) => p.manifest.id).sort()).toEqual(
+      ['backronym', 'ballpark', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'what-you-didnt-know'].sort(),
+    )
+  })
+
+  for (const plugin of feedable) {
+    it(`${plugin.manifest.id}: pool is valid, regresses, overrides, syncs, and stays lean`, () => {
+      const pool = plugin.contentPool!
+      expect(pool.defaultRows.length).toBeGreaterThan(0)
+      // Every built-in row survives its OWN fromRow (the pool matches the mapper it ships).
+      const mapped = pool.defaultRows.map((r) => pool.fromRow(r)).filter(Boolean)
+      expect(mapped.length, `${plugin.manifest.id}: all built-in rows map`).toBe(pool.defaultRows.length)
+      // Building over the explicit built-in rows equals building with none (regression).
+      // (defaultRows are already in pool-row shape and bypass fromRow; an external deck
+      // goes through fromRow, which the per-game tests cover with real decks.)
+      expect(plugin.buildConfig!('seed', { rows: pool.defaultRows })).toEqual(plugin.buildConfig!('seed'))
+      // A tiny creator deck still yields a playable game (never throws, never empty).
+      expect(plugin.buildConfig!('seed', { rows: pool.defaultRows.slice(0, 1) }).rounds.length).toBeGreaterThan(0)
+      // Catalog advertises it (so MCP + the remix UI can find it) and declares the same
+      // deck kind + answer columns the plugin does.
+      const entry = gameCatalog.find((g) => g.id === plugin.manifest.id)!
+      expect(entry.pool?.deckKind).toBe(pool.deckKind)
+      expect(entry.pool?.answerColumns).toEqual(pool.answerColumns)
+      // The saved defaultConfig is a lean preview, not the entire content bank.
+      expect(JSON.stringify(plugin.defaultConfig).length, `${plugin.manifest.id} defaultConfig should be lean`).toBeLessThan(8000)
+    })
+  }
 })
 
 describe('Circuit Cypher composition (custom-flow tournament)', () => {
