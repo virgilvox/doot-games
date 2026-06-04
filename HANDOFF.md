@@ -26,10 +26,10 @@ pushed" notes in the older entries below are superseded._
 > `docs/decks.md` (user-facing). Verified: **406 tests** (+ a redaction-tie test and a
 > markdown link-parse test), typecheck (incl. nuxi), the web build, and a new authed
 > end-to-end smoke (`scripts/decks-ref-smoke.mjs`) proving a linked deck resolves for the
-> owner with the answer present and **withheld (null) for a non-owner** (invariant #3). NOT
-> yet pushed at time of writing — see below. Next: phase 2b (editor recipe discoverability +
-> spotlight prompt decks via mode-3 column→array), then 2c (the `collect` block). Map:
-> `docs/decks-roadmap.md`.
+> owner with the answer present and **withheld (null) for a non-owner** (invariant #3).
+> **PUSHED + DEPLOYED** (prod `doot.games/decks` + `/api/decks` 200; the `decks` table
+> auto-created on startup). Next: phase 2b (editor recipe discoverability + spotlight prompt
+> decks via mode-3 column→array), then 2c (the `collect` block). Map: `docs/decks-roadmap.md`.
 
 > **Decks roadmap + verification pass (2026-06-03).** The decks MVP (slices a–d) is
 > re-verified after the visual editor + home changes: full suite green (**405 tests**, incl.
