@@ -21,6 +21,13 @@ Either way, the game plays plain rounds: a deck **resolves** to ordinary rounds 
 play, so a deck-backed game behaves exactly like a hand-authored one (and the engine
 never has to know about decks).
 
+**Reference for your own reuse; snapshot for sharing.** A reference is ideal when you
+own the deck and want one source of truth across your games. When someone **forks** your
+game, any deck they can read is **snapshotted into their copy** automatically, so the
+fork is self-contained (a reference to a deck they can't read just drops out). If you
+publish a game for others to fork, a snapshot (or a public deck) keeps it working for
+them; and see the answer-deck note below before linking a deck that holds answers.
+
 ## The library (`/decks`)
 
 - **Browse** your decks and public decks; **build** a new one (`/decks/new`).

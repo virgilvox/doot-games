@@ -201,6 +201,10 @@ optional account; hosting and playing never do. Each saved game has a visibility
   (guess/poll/rank/rate/draw/hivemind/mostlikely/ballpark; a `## draw` round with
   `vote: true` expands to draw-then-vote). Format:
   [`docs/markdown-games.md`](./markdown-games.md).
+- **Content decks (the data-driven path):** a reusable `/decks` library deck (a
+  named-column table of rows) that a round draws rows from and binds fields to, used
+  inline (snapshot) or linked (`{ ref }`). This is the modern, type-driven successor to
+  ad-hoc `buildConfig` pools for creator content. See [`docs/decks.md`](./decks.md).
 
 ---
 

@@ -11,6 +11,23 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Decks phase 2b + audit (2026-06-04).** SHIPPED: editor **recipe discoverability** — each
+> two-phase recipe card names its constituent blocks (e.g. "Quip + Vote") and the Add panel
+> notes that Bars/Spotlight/Cellar are built into their flagship games (so all 17 composable
+> blocks are visibly reachable: 9 singles + 6 recipes). **Mode-3 (column→array) is DEFERRED on
+> purpose** — the only string-array content fields are `spotlight`/`cellar` (both custom-flow),
+> so mode-3 has no consumer reachable through the generic editor+resolver; it should ship
+> bundled with a deck-configurable Truth or Share or a new generic prompt-list block (see the
+> §3 audit note in `docs/decks-roadmap.md`). **Audit fix:** forking a deck-backed game now
+> **auto-snapshots** any referenced deck the forker can read (`cloneGame` runs `resolveDeckRefs`
+> with the forker's id), so a fork is self-contained instead of carrying a live `{ref}` to a
+> deck the forker can't read; this also lets a forkable quiz game snapshot its answers (then
+> per-game redaction withholds them) rather than needing a public answer deck. Guidance added to
+> `docs/decks.md` ("reference for your own reuse; snapshot for sharing"; keep answer decks
+> private) and a decks pointer in `authoring-a-game.md`. Verified: 406 tests, typecheck, build,
+> and the extended `scripts/decks-ref-smoke.mjs` (now also asserts the fork snapshot). No em
+> dashes in site copy (swept). Next: phase 2c — the `collect` block + play-time slots.
+
 > **Decks phase 2a — the `/decks` library SHIPPED (2026-06-03).** Reusable decks are now
 > first-class: a durable `decks` table + `decks-repo.ts` (mirrors games-repo: zod boundary,
 > ownership, visibility, remixable, `generic|quiz|prompt|card` kind), full REST

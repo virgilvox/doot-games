@@ -113,5 +113,14 @@ const otherRow = otherDeck?.inline?.rows?.[0] ?? {}
 check(otherRow.answer === null, `non-owner: answer column withheld (null), got ${JSON.stringify(otherRow.answer)}`)
 check(otherRow.question === 'Capital of France?', 'non-owner: non-answer column (prompt) still present')
 
-console.log(`\n=== RESULT ===\ndecks reference + redaction: ${failed ? 'FAIL' : 'PASS'}`)
+// 6. fork auto-snapshot: the owner forks their own game; the referenced (private) deck
+//    should be SNAPSHOTTED into the fork (inline), not left as a live ref.
+const fork = await api(`/api/games/${gameId}/clone`, { method: 'POST', cookie: owner })
+check(fork.status < 400 && fork.json.id, `fork created (${fork.json.id})`)
+const forkRaw = await api(`/api/games/${fork.json.id}`, { cookie: owner }) // editor (raw) read
+const forkDeck = forkRaw.json.config?.decks?.caps
+check('inline' in (forkDeck ?? {}), 'fork: referenced deck snapshotted to inline (self-contained)')
+check(forkDeck?.inline?.rows?.[0]?.answer === 'Paris', 'fork: snapshot carries the deck rows')
+
+console.log(`\n=== RESULT ===\ndecks reference + redaction + fork-snapshot: ${failed ? 'FAIL' : 'PASS'}`)
 process.exit(failed ? 1 : 0)

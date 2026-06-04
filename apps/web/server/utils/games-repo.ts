@@ -325,6 +325,10 @@ export async function cloneGame(id: string, requesterId: string): Promise<{ id: 
   } catch {
     throw createError({ statusCode: 422, statusMessage: 'The source game is corrupt.' })
   }
+  // Snapshot any referenced library deck the FORKER can read into the fork, so the copy
+  // is self-contained (a live `{ ref }` to the original owner's private deck would
+  // silently break for the forker). Decks the forker can't read drop out (missing-safe).
+  config = await resolveDeckRefs(config, requesterId)
   const now = Date.now()
   const newGameId = newId()
   await db.insert(games).values({
