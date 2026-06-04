@@ -33,6 +33,18 @@ pushed" notes in the older entries below are superseded._
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
 > build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
 >
+> **Quiz or Die: expanded bank + deck-feedable trivia (2026-06-04).** SHIPPED. The built-in
+> trivia bank grew 12 -> 28 questions and the Cellar finale categories 6 -> 12 (every answer
+> checked). And Quiz or Die's TRIVIA is now creator-swappable via the SAME single-pool
+> `contentPool` the typed games use: a `quiz` deck of question/options/correct (+ optional
+> lurid `category`) feeds the questions through `cellarQuestionFromRow` (reuses `choiceFromRow`,
+> so a What-You-Didn't-Know quiz deck works here too); the finale categories stay built-in. No
+> host/SDK change (custom-flow game, single dominant pool). `buildConfig` builds over
+> `opts.rows ?? DEFAULT_ROWS` (byte-identical when no deck), and `correct` is withheld from
+> non-owners (answerColumns), verified on **prod** (owner sees it, non-owner gets null). Added
+> the public "Quiz or Die: Dark Trivia" deck (33 Doot decks total). True multi-pool (a
+> finale deck, or Truth or Share's tiered prompt arrays) is still the remaining Phase 3 piece.
+>
 > **Audit + polish (2026-06-04, same day).** Audited the above: (1) confirmed the ONLY
 > saved-config serve path is `/api/games/[id]` (list endpoints return summaries with no
 > config) and it redacts with `pluginId`, so a typed pool deck's answers can't leak to a
