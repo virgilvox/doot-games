@@ -33,6 +33,27 @@ pushed" notes in the older entries below are superseded._
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
 > build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
 >
+> **Remix warm-start + bank expansion + picker compatibility (2026-06-04).** SHIPPED.
+> Three things. (1) **Warm-start remix:** `RemixWithDeck` no longer cold-starts a creator at
+> a deck picker. Prompt/story games open an inline editor PRE-FILLED with ~6 of the official
+> lines (`poolStarter`, a pure tested helper reading `contentPool.defaultRows`); edit a few,
+> add your own, Create and host (saves a private deck + a remix that references it). Quiz/card
+> games keep the picker, now grouping the user's decks with official Doot decks (badged via
+> `authorName === 'Doot'`). The built-in pool IS the zero-config "official deck" (code-resident,
+> no fragile DB dependency); Doot decks are official alternatives. (2) **Picker compatibility:**
+> the `quiz` kind is overloaded (short-answer / numeric / multiple-choice), so the picker used
+> to offer decks that would silently fall back. Each multi-column pool now declares
+> `ContentPool.requires` (synonym column groups); the deck summary exposes column keys; the
+> picker hides non-matching decks (`deckMatchesPool`, pure + tested). Verified by screenshot:
+> Quiz or Die now offers only multiple-choice decks. (3) **Banks expanded** for default play
+> across every pool game (Fib Finder/Ballpark/What You Didn't Know/Faker/Quip Clash/Open Mic
+> +8 each; Most Likely/Hivemind/Sketch and Spot +8; Backronym/Split the Room +6; Quiz or Die
+> +16 earlier). Quiz or Die's `defaultConfig` was the one flagship embedding its whole bank,
+> now a lean 4Q/3-finale preview. **Testing:** one meta-test holds for ALL 13 deck-feedable
+> games (pool internally valid, regression, override, catalog sync, lean defaultConfig,
+> requires self-consistency) + `poolStarter`/`deckMatchesPool` unit tests. **470 tests**,
+> typecheck, build green; warm-start + filter verified on **prod**.
+>
 > **Quiz or Die: expanded bank + deck-feedable trivia (2026-06-04).** SHIPPED. The built-in
 > trivia bank grew 12 -> 28 questions and the Cellar finale categories 6 -> 12 (every answer
 > checked). And Quiz or Die's TRIVIA is now creator-swappable via the SAME single-pool
