@@ -28,16 +28,38 @@ fork is self-contained (a reference to a deck they can't read just drops out). I
 publish a game for others to fork, a snapshot (or a public deck) keeps it working for
 them; and see the answer-deck note below before linking a deck that holds answers.
 
-## Remix a flagship with your own prompts
+## Remix a flagship with your own content
 
-Several "Games From Doot" play a built-in pool of prompts (Quip Clash, Open Mic,
-Backronym, Most Likely To, Hivemind, Sketch & Spot). You can swap in your own: build a
-**Prompt Deck** (one text column of prompts), then on the game's page click **"Remix
-with your prompts"** and pick it. It saves a host-ready game that plays YOUR prompts
-instead of the built-in pool — the host still shuffles them and picks how many to play
-each round. Over MCP, `remix_game` does the same in one step (pass the prompts as `csv`).
+Most "Games From Doot" play a built-in content pool, and you can swap in your own. On the
+game's page click **"Remix with your..."**, pick one of your decks, and it saves a
+host-ready game that plays YOUR content instead of the built-in pool. The host still
+shuffles it and picks how many to play each round. Empty or unusable decks fall back to
+the built-in pool, so a remix never breaks.
 
-Empty or unusable decks fall back to the built-in pool, so a remix never breaks.
+There are two shapes of remixable game:
+
+- **Prompt games** (Quip Clash, Open Mic, Backronym, Most Likely To, Hivemind,
+  Sketch & Spot, Split the Room) take a **Prompt Deck**: one text column of prompts (for
+  Split the Room, include an `{x}` blank the player completes). Over MCP, `remix_game`
+  builds one in a single step (pass the lines as `csv`).
+- **Typed games** take a **multi-column deck** matched to the game:
+  - **Fib Finder** — a **Quiz Deck**: `question`, `truth` columns.
+  - **Ballpark** — a **Quiz Deck**: `prompt`, `answer` (a number), optional `unit`.
+  - **What, You Didn't Know That?** — a **Quiz Deck**: `prompt`, `options` (a list, separated
+    by `|`), `correct` (the answer's position, 1 = first).
+  - **Faker** — a **Card Deck**: `category` (public) + `word` (the secret).
+  - **Mad Libs** — a deck with a `template` column using `{token}` blanks (the blanks are
+    read from the tokens).
+
+  Over MCP, save the deck first with `save_deck`, then `remix_game` with its `deckId` (the
+  single-column `csv` path can't carry the extra columns).
+
+> **Answer columns stay hidden, so keep a typed remix deck private.** The columns that hold
+> answers (`truth`, `answer`, `correct`, `word`) are withheld from anyone who isn't the
+> owner when the game is served, exactly like a normal answer key. But a deck that is
+> `unlisted` or `public` can be read directly at `/api/decks/<id>`. So a deck whose answers
+> feed a typed remix should stay **private**: the game references your private deck, and
+> only the resolved game (with answers withheld) is shared.
 
 ## The library (`/decks`)
 

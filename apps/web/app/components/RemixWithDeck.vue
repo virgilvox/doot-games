@@ -13,7 +13,16 @@ const props = defineProps<{ pluginId: string; gameName: string }>()
 
 const plugin = getPlugin(props.pluginId)
 const pool = plugin?.contentPool ?? null
-const kindLabel = computed(() => (pool?.deckKind === 'prompt' ? 'prompt' : (pool?.deckKind ?? 'content')))
+// What the creator's rows are called, per deck kind, so the copy reads naturally for a
+// prompt game ("your prompts") and a typed one ("your questions", "your cards").
+const NOUNS: Record<string, { one: string; many: string }> = {
+  prompt: { one: 'prompt', many: 'prompts' },
+  quiz: { one: 'question', many: 'questions' },
+  card: { one: 'card', many: 'cards' },
+  generic: { one: 'story', many: 'stories' },
+}
+const noun = computed(() => NOUNS[pool?.deckKind ?? 'prompt'] ?? { one: 'deck', many: 'decks' })
+const buttonLabel = computed(() => (pool?.deckKind === 'prompt' ? 'Remix with your prompts' : `Remix with your ${noun.value.many}`))
 
 const session = authClient.useSession()
 const loggedIn = computed(() => !!session.value?.data?.user)
@@ -81,19 +90,19 @@ async function pick(deck: DeckSummary) {
 
 <template>
   <div v-if="pool" class="remix">
-    <button type="button" class="btn btn-ghost btn-lg" @click="openPicker">Remix with your prompts</button>
+    <button type="button" class="btn btn-ghost btn-lg" @click="openPicker">{{ buttonLabel }}</button>
 
     <div v-if="open" class="rx-overlay" @click.self="open = false">
       <div class="rx-sheet" role="dialog" aria-modal="true" aria-label="Pick a deck to remix with">
         <div class="rx-head">
-          <h2>Play {{ gameName }} with your own {{ kindLabel }}s</h2>
+          <h2>Play {{ gameName }} with your own {{ noun.many }}</h2>
           <button type="button" class="rx-x" aria-label="Close" @click="open = false">✕</button>
         </div>
         <p v-if="loading" class="rx-empty">Loading your decks…</p>
         <template v-else>
           <p v-if="error" class="rx-err">{{ error }}</p>
           <p v-if="!decks.length" class="rx-empty">
-            No {{ kindLabel }} decks yet. <NuxtLink :to="`/decks/new`" class="rx-link">Build one</NuxtLink>, then come back to remix.
+            No {{ noun.one }} decks yet. <NuxtLink :to="`/decks/new?kind=${pool.deckKind}`" class="rx-link">Build one</NuxtLink>, then come back to remix.
           </p>
           <ul v-else class="rx-list">
             <li v-for="d in decks" :key="d.id">
@@ -103,7 +112,7 @@ async function pick(deck: DeckSummary) {
               </button>
             </li>
           </ul>
-          <NuxtLink :to="`/decks/new`" class="rx-link rx-new">+ New {{ kindLabel }} deck</NuxtLink>
+          <NuxtLink :to="`/decks/new?kind=${pool.deckKind}`" class="rx-link rx-new">+ New {{ noun.one }} deck</NuxtLink>
         </template>
       </div>
     </div>

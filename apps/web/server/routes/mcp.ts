@@ -22,6 +22,16 @@ const DEFAULT_PROTOCOL = '2025-06-18'
 const BASE = process.env.PUBLIC_BASE_URL || 'http://localhost:3000'
 const KNOWN_THEMES = new Set(['doot', 'cutesie', 'cyber', 'professional', 'playful'])
 
+/** Conventional deck columns for a typed remixable game, surfaced when an agent tries the
+ *  single-column csv path on a multi-column game (it must save_deck + pass a deckId). */
+const POOL_COLUMNS: Record<string, string> = {
+  'fib-finder': 'question, truth',
+  ballpark: 'prompt, answer (+ optional unit)',
+  'what-you-didnt-know': 'prompt, options (|-separated), correct (1-based index)',
+  faker: 'category, word',
+  'mad-libs': 'template (with {token} blanks)',
+}
+
 // Per-user write throttle for the write tools (save_game/upload_image). /mcp is
 // not covered by the per-IP middleware, and per-user is the right key here since
 // all Claude traffic can share egress IPs. In-memory fixed window, fine for the
@@ -110,7 +120,9 @@ draw: 5
 bind: prompt = trivia.question
 bind: correct = trivia.answer
 
-REMIX A FLAGSHIP WITH YOUR OWN PROMPTS: the pool games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot) play a built-in prompt pool, but a creator can swap in their own. Use remix_game with the game id + the prompts (one per line in "csv"), and it saves a host-ready remix. No markdown needed for these. list_game_types marks each with a "contentDeck" kind when it's remixable.
+REMIX A FLAGSHIP WITH YOUR OWN CONTENT: many flagships play a built-in pool, but a creator can swap in their own deck. list_game_types marks each remixable game with a "contentDeck" kind. There are two shapes:
+- PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room): one text column. Use remix_game with the prompts as "csv" (one per line) and it saves a host-ready remix in one step. No markdown needed.
+- TYPED games (fib-finder + ballpark + what-you-didnt-know = "quiz"; faker = "card"; mad-libs = "generic"): multiple columns (e.g. question + answer). The single-column "csv" can't carry these, so first save_deck a multi-column deck, then remix_game with its deckId. Conventional columns per game: fib-finder = question, truth; ballpark = prompt, answer (+ optional unit); what-you-didnt-know = prompt, options (a |-separated list) , correct (1-based index); faker = category, word; mad-libs = template (with {token} blanks). Answer columns (truth, answer, correct, word) are withheld from non-owners, so KEEP A TYPED REMIX DECK PRIVATE.
 
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
 Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.
@@ -297,14 +309,14 @@ const TOOLS = [
   {
     name: 'remix_game',
     description:
-      "Remix a pool-driven Doot flagship to play YOUR content. Attach a content deck (e.g. a Prompt Deck) to a game like quip-clash, open-mic, backronym, most-likely, hivemind, or sketch-spot, and it plays your prompts instead of the built-in pool (the host still shuffles + picks how many each play). Give the prompts as 'csv' (one prompt per line, or a single-column CSV) OR an existing 'deckId' from save_deck/list_my_decks. Returns a link to host the remix.",
+      "Remix a pool-driven Doot flagship to play YOUR content. Attach a content deck to a game and it plays your content instead of the built-in pool (the host still shuffles + picks how many each play). PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room) take a single text column: give it as 'csv' (one prompt per line). TYPED games (fib-finder, ballpark, what-you-didnt-know, faker, mad-libs) need multiple columns, so save_deck first and pass its 'deckId'. See list_game_types for which games are remixable and their deck kind. Returns a link to host the remix.",
     inputSchema: {
       type: 'object',
       properties: {
-        game: { type: 'string', description: 'The deck-feedable flagship id (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot). See list_game_types for which are remixable.' },
+        game: { type: 'string', description: 'A deck-feedable flagship id. See list_game_types for the remixable games + their contentDeck kind.' },
         name: { type: 'string', description: 'A name for this remix (and the new deck if csv is given), e.g. "Office Edition".' },
-        csv: { type: 'string', description: 'Your prompts: one per line, or a single-column CSV (a "prompt" header is optional). Provide this OR deckId.' },
-        deckId: { type: 'string', description: 'An existing deck id (from save_deck / list_my_decks) to attach instead of csv.' },
+        csv: { type: 'string', description: 'For a PROMPT game: your prompts, one per line. A typed (quiz/card/generic) game ignores csv; use deckId instead.' },
+        deckId: { type: 'string', description: 'An existing deck id (from save_deck / list_my_decks) to attach. Required for typed (multi-column) games.' },
       },
       required: ['game', 'name'],
       additionalProperties: false,
@@ -614,6 +626,15 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
     const title = typeof args.name === 'string' && args.name.trim() ? args.name.trim().slice(0, 120) : `${entry.name} remix`
     let deckId = typeof args.deckId === 'string' ? args.deckId.trim() : ''
     if (!deckId) {
+      // The single-column csv path only fits a one-text-column (prompt) deck. A typed
+      // game (quiz/card/generic) needs multiple correlated columns, so it must come via
+      // save_deck + deckId — a bare prompt list would lose its answers/options.
+      if (entry.pool.deckKind !== 'prompt') {
+        return text(
+          `"${gameId}" is a ${entry.pool.deckKind} game (multi-column). Build the deck with save_deck (conventional columns: ${POOL_COLUMNS[gameId] ?? 'see doot_format_guide'}), then call remix_game with its deckId.`,
+          true,
+        )
+      }
       const csv = typeof args.csv === 'string' ? args.csv : ''
       if (!csv.trim()) return text('Provide your prompts in "csv" (one per line) or an existing "deckId".', true)
       if (csv.length > 1_000_000) return text('Too much content (1,000,000 character limit).', true)
