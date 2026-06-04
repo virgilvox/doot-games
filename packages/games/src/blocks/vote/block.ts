@@ -18,6 +18,7 @@ import {
   promptText,
   z,
 } from '@doot-games/sdk'
+import { safetyEntries } from '../safety'
 import { BASE_POINTS, pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
 import VoteHost from './VoteHost.vue'
 import VotePlayer from './VotePlayer.vue'
@@ -92,13 +93,6 @@ function tally(
   return counts
 }
 
-/** A stable index in [0, n) from a player id, so a player's safety answer is
- *  deterministic (reconnect-safe) and varied across players, without Math.random. */
-function stableIndex(pid: string, n: number): number {
-  let h = 0
-  for (let i = 0; i < pid.length; i++) h = (h * 31 + pid.charCodeAt(i)) >>> 0
-  return h % n
-}
 
 export const voteBlock = defineBlock<VoteContent, VoteInput>({
   kind: 'vote',
@@ -145,19 +139,9 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
         const text = source.render(input).trim()
         if (text) entries.push({ pid, text })
       }
-      // Timeout safety net: an eligible player who never submitted gets a canned
-      // "safety" answer (deterministic per player) from the make block's pool, so
-      // the gallery has no gap and nobody is stuck at zero. Scored at half (below).
-      const pool = ((source.content as { safetyAnswers?: string[] }).safetyAnswers ?? [])
-        .map((s) => s.trim())
-        .filter(Boolean)
-      if (pool.length) {
-        const submitted = new Set(source.inputs.keys())
-        for (const p of ctx.players) {
-          if (p.joinedAtIndex > source.index || submitted.has(p.id)) continue
-          entries.push({ pid: p.id, text: pool[stableIndex(p.id, pool.length)]!, safety: true })
-        }
-      }
+      // Timeout safety net: an eligible non-submitter gets a canned answer from the
+      // make pool so the gallery has no gap and nobody is at zero (scored at half below).
+      entries.push(...safetyEntries(source, ctx.players))
     }
     const shuffled = ctx.shuffle(entries)
     const options = shuffled.map((e, i) => ({ id: `o${i}`, text: e.text }))

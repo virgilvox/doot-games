@@ -32,6 +32,15 @@ const FRAME_POOL: string[] = [
 
 const ROUNDS_PER_GAME = 2
 
+/** Ready-made dilemmas for a player who runs out of time, so the vote has no gap
+ *  and nobody is at zero (scored at half). Generic "would you" tough calls. */
+const SAFETY_DILEMMAS: string[] = [
+  'Would you give up the internet for a year for $50,000?',
+  'Would you always be 10 minutes late if it meant never being early?',
+  'Would you read minds if you could never turn it off?',
+  'Would you eat only pizza forever if it stayed delicious?',
+]
+
 function pair(frame: string): RoundInstance[] {
   return [
     {
@@ -44,6 +53,7 @@ function pair(frame: string): RoundInstance[] {
         maxLength: 60,
         timer: 50,
         showTemplate: true,
+        safetyAnswers: SAFETY_DILEMMAS,
       },
     },
     { block: 'split', content: { prompt: 'Would you? Vote yes or no on each', scenarios: [], timer: 40 } },

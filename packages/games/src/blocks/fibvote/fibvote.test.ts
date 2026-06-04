@@ -171,3 +171,53 @@ describe('fibvote redaction', () => {
     expect(redacted.options).toEqual([])
   })
 })
+
+describe('fibvote timeout safety net', () => {
+  // A submits a lie; B and C are eligible non-submitters and get a canned safety lie.
+  function deriveWithPool() {
+    return fibBlock.derive!({
+      content: { prompt: 'Which is TRUE?', truth: 'parliament', options: [], timer: 30, hideUntilReveal: true },
+      sources: [
+        {
+          index: 0,
+          content: { prompt: 'A group of owls is called a ___.', safetyAnswers: ['flock'] },
+          inputs: new Map<string, unknown>([['A', { text: 'congress' }]]),
+          render: textRender,
+        },
+      ],
+      players,
+      shuffle: identityShuffle,
+    })
+  }
+
+  it('gives eligible non-submitters a safety lie, flagged and never the truth', () => {
+    const { publish, answer } = deriveWithPool()
+    const ans = answer as FibAnswer
+    expect(publish.options.length).toBe(4) // A's lie + B/C safety + the truth
+    expect(ans.safety?.length).toBe(2)
+    for (const id of ans.safety!) {
+      expect(id).not.toBe(ans.truthId)
+      expect(ans.authors[id]).toBeTruthy()
+    }
+  })
+
+  it('scores a safety liar at half', () => {
+    const { publish, answer } = deriveWithPool()
+    const ans = answer as FibAnswer
+    const sid = ans.safety![0]!
+    const liar = ans.authors[sid]!
+    // Two voters fall for the safety lie: liarPoints(2)=1000, halved -> 500.
+    const votes = new Map<string, FibInput>([
+      ['x', { choice: sid }],
+      ['y', { choice: sid }],
+    ])
+    const ctx: BlockResultsContext<FibContent, FibInput> = {
+      rounds: [{ index: 1, content: publish }],
+      inputsFor: () => votes,
+      answerFor: () => answer,
+      players,
+    }
+    const board = Object.fromEntries((fibBlock.aggregate!(ctx).leaderboard ?? []).map((e) => [e.id, e.score]))
+    expect(board[liar]).toBe(500)
+  })
+})

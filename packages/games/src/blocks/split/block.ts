@@ -15,6 +15,7 @@ import {
   promptText,
   z,
 } from '@doot-games/sdk'
+import { safetyEntries } from '../safety'
 import { closenessToHalf, roundMultiplier, splitPoints } from '../scoring'
 import SplitHost from './SplitHost.vue'
 import SplitPlayer from './SplitPlayer.vue'
@@ -41,6 +42,8 @@ export interface SplitInput {
 export interface SplitAnswer {
   authors: Record<string, string>
   names: Record<string, string>
+  /** Scenario ids auto-filled as a timeout safety answer; scored at half. */
+  safety?: string[]
 }
 export interface SplitRevealSummary {
   prompt: string
@@ -84,24 +87,28 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
 
   derive: (ctx: DeriveContext<SplitContent>) => {
     const source = ctx.sources[0]
-    const entries: Array<{ pid: string; text: string }> = []
+    const entries: Array<{ pid: string; text: string; safety?: boolean }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {
         const text = source.render(input).trim()
         if (text) entries.push({ pid, text })
       }
+      // Timeout safety net: an eligible non-submitter gets a canned dilemma (scored at half).
+      entries.push(...safetyEntries(source, ctx.players))
     }
     const shuffled = ctx.shuffle(entries)
     const scenarios = shuffled.map((e, i) => ({ id: `s${i}`, text: e.text }))
     const authors: Record<string, string> = {}
     const names: Record<string, string> = {}
+    const safety: string[] = []
     shuffled.forEach((e, i) => {
       authors[`s${i}`] = e.pid
       names[e.pid] = ctx.players.find((p) => p.id === e.pid)?.name ?? 'Someone'
+      if (e.safety) safety.push(`s${i}`)
     })
     return {
       publish: { prompt: ctx.content.prompt, scenarios, timer: ctx.content.timer },
-      answer: { authors, names } satisfies SplitAnswer,
+      answer: { authors, names, ...(safety.length ? { safety } : {}) } satisfies SplitAnswer,
     }
   },
 
@@ -130,7 +137,9 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
     const nameOf = (pid: string) => names.get(pid) ?? 'Someone'
     const bars: Array<{ label: string; count: number; max: number; display: string; note: string }> = []
     ctx.rounds.forEach((round, ri) => {
-      const authors = (ctx.answerFor(round.index) as SplitAnswer | undefined)?.authors ?? {}
+      const ans = ctx.answerFor(round.index) as SplitAnswer | undefined
+      const authors = ans?.authors ?? {}
+      const safety = new Set(ans?.safety ?? [])
       const inputs = ctx.inputsFor(round.index)
       const mult = roundMultiplier(ri, ctx.rounds.length)
       for (const s of round.content.scenarios) {
@@ -138,7 +147,8 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
         if (!pid) continue
         const { yes, no } = tally(s, inputs, pid)
         const total = yes + no
-        const pts = splitPoints(yes, total) * mult
+        let pts = splitPoints(yes, total) * mult
+        if (safety.has(s.id)) pts = Math.round(pts / 2) // a timed-out safety dilemma scores half
         scores.set(pid, (scores.get(pid) ?? 0) + pts)
         // Show how close to a 50/50 split each scenario landed (closeness %).
         bars.push({

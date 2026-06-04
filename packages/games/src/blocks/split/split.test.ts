@@ -43,6 +43,56 @@ describe('split block derive', () => {
   })
 })
 
+describe('split block timeout safety net', () => {
+  // Only A submits; B/C/D are eligible non-submitters and get the canned dilemma.
+  function deriveWithPool() {
+    return splitBlock.derive!({
+      content: { prompt: 'Vote yes/no', scenarios: [], timer: 40 },
+      sources: [
+        {
+          index: 0,
+          content: { prompt: 'Would you?', safetyAnswers: ['Would you give up coffee forever?'] },
+          inputs: new Map<string, unknown>([['A', { text: 'Would you eat a bug?' }]]),
+          render: textRender,
+        },
+      ],
+      players,
+      shuffle: identityShuffle,
+    })
+  }
+
+  it('fills eligible non-submitters with a safety dilemma, flagged in the key', () => {
+    const { publish, answer } = deriveWithPool()
+    const ans = answer as SplitAnswer
+    expect(publish.scenarios.length).toBe(4) // A's real one + B/C/D safety
+    expect(ans.safety?.length).toBe(3)
+    const aId = Object.keys(ans.authors).find((id) => ans.authors[id] === 'A')!
+    expect(ans.safety).not.toContain(aId) // A actually submitted
+    for (const sid of ans.safety!) expect(publish.scenarios.find((s) => s.id === sid)!.text).toBe('Would you give up coffee forever?')
+  })
+
+  it('scores a safety dilemma at half', () => {
+    const { publish, answer } = deriveWithPool()
+    const ans = answer as SplitAnswer
+    const sid = ans.safety![0]!
+    // A perfect 2/2 split would be full 1000; the safety dilemma earns half.
+    const votes = new Map<string, SplitInput>([
+      ['w', { votes: { [sid]: 'yes' } }],
+      ['x', { votes: { [sid]: 'yes' } }],
+      ['y', { votes: { [sid]: 'no' } }],
+      ['z', { votes: { [sid]: 'no' } }],
+    ])
+    const ctx: BlockResultsContext<SplitContent, SplitInput> = {
+      rounds: [{ index: 1, content: publish }],
+      inputsFor: () => votes,
+      answerFor: () => answer,
+      players,
+    }
+    const board = Object.fromEntries((splitBlock.aggregate!(ctx).leaderboard ?? []).map((e) => [e.id, e.score]))
+    expect(board[ans.authors[sid]!]).toBe(500)
+  })
+})
+
 describe('split block scoring (closeness to 50/50)', () => {
   it('rewards an even split and excludes the author\'s own vote', () => {
     const { publish, answer } = derive() // s0 by A, s1 by B

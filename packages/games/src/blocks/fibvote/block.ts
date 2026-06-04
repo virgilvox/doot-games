@@ -20,6 +20,7 @@ import {
   z,
 } from '@doot-games/sdk'
 import { type ResultsFragment } from '@doot-games/sdk'
+import { safetyEntries } from '../safety'
 import { liarPoints, roundMultiplier, truthFinderPoints } from '../scoring'
 import { voteOptionSchema } from '../vote/block'
 import FibHost from './FibHost.vue'
@@ -69,6 +70,8 @@ export interface FibAnswer {
   truthId: string
   authors: Record<string, string>
   names: Record<string, string>
+  /** Option ids auto-filled as a timeout safety lie; their author scores at half. */
+  safety?: string[]
 }
 /** The public reveal payload phones read for personal feedback. `authors` is the
  *  option->author map, public only now (at reveal), so a phone can find its own
@@ -130,7 +133,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
     const sc = source?.content as { prompt?: string } | undefined
     const truth = ctx.content.truth.trim()
     const truthKey = norm(truth)
-    const entries: Array<{ pid: string; text: string }> = []
+    const entries: Array<{ pid: string; text: string; safety?: boolean }> = []
     if (source) {
       for (const [pid, input] of source.inputs) {
         const text = source.render(input).trim()
@@ -139,12 +142,18 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
         if (!text || (truthKey && norm(text) === truthKey)) continue
         entries.push({ pid, text })
       }
+      // Timeout safety net: an eligible non-submitter gets a canned lie (scored at half).
+      // Drop any that happen to match the truth, for the same reason as above.
+      for (const e of safetyEntries(source, ctx.players)) {
+        if (!truthKey || norm(e.text) !== truthKey) entries.push(e)
+      }
     }
     if (truth) entries.push({ pid: TRUTH_PID, text: truth })
     const shuffled = ctx.shuffle(entries)
     const options = shuffled.map((e, i) => ({ id: `o${i}`, text: e.text }))
     const authors: Record<string, string> = {}
     const names: Record<string, string> = {}
+    const safety: string[] = []
     let truthId = ''
     shuffled.forEach((e, i) => {
       const id = `o${i}`
@@ -153,6 +162,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
       } else {
         authors[id] = e.pid
         names[e.pid] = ctx.players.find((p) => p.id === e.pid)?.name ?? 'Someone'
+        if (e.safety) safety.push(id)
       }
     })
     return {
@@ -163,7 +173,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
         hideUntilReveal: ctx.content.hideUntilReveal,
         truth: '', // never publish the answer
       },
-      answer: { truthId, authors, names } satisfies FibAnswer,
+      answer: { truthId, authors, names, ...(safety.length ? { safety } : {}) } satisfies FibAnswer,
     }
   },
 
@@ -202,6 +212,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
       const ans = ctx.answerFor(round.index) as FibAnswer | undefined
       const authors = ans?.authors ?? {}
       const truthId = ans?.truthId ?? ''
+      const safety = new Set(ans?.safety ?? [])
       const inputs = ctx.inputsFor(round.index)
       const counts = tally(round.content.options, inputs, authors)
       const mult = roundMultiplier(ri, ctx.rounds.length)
@@ -218,7 +229,8 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
         if (!pid) continue // the truth option has no author
         const fooled = counts.get(opt.id) ?? 0
         if (fooled > 0) {
-          scores.set(pid, (scores.get(pid) ?? 0) + liarPoints(fooled) * mult)
+          const pts = safety.has(opt.id) ? Math.round((liarPoints(fooled) * mult) / 2) : liarPoints(fooled) * mult
+          scores.set(pid, (scores.get(pid) ?? 0) + pts)
           fooledTotal.set(pid, (fooledTotal.get(pid) ?? 0) + fooled)
         }
       }
