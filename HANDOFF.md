@@ -33,6 +33,17 @@ pushed" notes in the older entries below are superseded._
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
 > build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
 >
+> **Decks library: a "Decks by Doot" section + audit fixes (2026-06-04).** SHIPPED. Decks now
+> carry an optional `game` tag (the game they are authored for): an additive `game` column on
+> the `decks` table (ensureSchema ALTER for the live DB), threaded through `deckInputSchema` +
+> `decks-repo`, and set by the seed for every Decks by Doot. The `/decks` page gained a dedicated
+> **Decks by Doot** section (the official public decks, by `authorName === 'Doot'`) with per-game
+> filter chips (driven by the catalog) + a game badge on each card; the browse tabs below split
+> your decks from the community's. Verified by screenshot (filter to Fib Finder shows its 4
+> decks) and re-seeded on **prod** (37 official decks, all tagged, 14 games). Phase-3 audit fixes:
+> the QoD finale `belong` match is case-insensitive; the seed validator now rejects duplicate
+> rows in ANY deck (full-row), not just single-column. No critical bugs found.
+>
 > **Decks Phase 3: the custom-flow multi-pool games are deck-feedable (2026-06-04).** SHIPPED.
 > Both custom-flow flagships now take a creator deck, with NO new SDK shape. The realization:
 > `buildConfig(seed, { rows })` already takes all rows in and returns a `GameComposition`, so a
