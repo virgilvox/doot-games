@@ -62,8 +62,10 @@ There are two shapes of remixable game:
   - **What, You Didn't Know That?** — a **Quiz Deck**: `prompt`, `options` (a list, separated
     by `|`), `correct` (the answer's position, 1 = first).
   - **Quiz or Die** — a **Quiz Deck**: `question`, `options` (a `|`-separated list),
-    `correct` (1 = first), plus an optional lurid `category` banner. Your trivia plays the
-    deadly quiz show; the Cellar finale categories stay built-in.
+    `correct` (1 = first), plus an optional lurid `category` banner. The same deck may also
+    customize the Cellar finale: add rows with a `category`, `options`, and a `belong` column
+    (a `|`-separated list of the options that belong); any pool you leave out falls back to the
+    built-in one.
   - **Faker** — a **Card Deck**: `category` (public) + `word` (the secret).
   - **Mad Libs** — a deck with a `template` column using `{token}` blanks (the blanks are
     read from the tokens).

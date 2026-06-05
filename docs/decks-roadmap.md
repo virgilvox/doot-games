@@ -282,15 +282,17 @@ and `HostRoom.resolveConfig` re-runs `buildConfig` over `poolRowsFor(contentPool
   `GameComposition`; the game's `fromRow` maps each row preserving a discriminator, and
   `buildConfig` PARTITIONS the rows into its several arrays. No host or SDK change.
   - **Quiz or Die:** its trivia bank is deck-feedable (a `quiz` deck of question/options/correct
-    + optional category via `cellarQuestionFromRow`, cross-compatible with What You Didn't Know
-    decks). The Cellar finale categories stay built-in.
+    + optional category, cross-compatible with What You Didn't Know decks). The SAME deck may
+    also carry finale "tap all that belong" rows: a row with a `belong` column (a pipe list of
+    the options that belong) feeds the Cellar finale, and `buildConfig` partitions question vs
+    finale rows (`cellarRowFromRow`). Each pool falls back to built-in when the deck has none;
+    `belong` is a withheld answer column.
   - **Truth or Share:** one prompt deck feeds all four pools. A row carries optional `kind`
     (truth/share) + `tier` (mild/spicy) columns (`spotlightRowFromRow`); `buildConfig` partitions
     into truthsMild/truthsSpicy/sharesMild/sharesSpicy, each empty quadrant falling back to the
     built-in pool. A plain prompt deck works (defaults to mild truths).
-  - **Still LATER (small):** a Quiz-or-Die finale deck (the same partition pattern, mixing
-    finale rows discriminated by a `belong` column into the question deck), and a multi-column
-    inline warm-start for typed games (today they use the picker).
+  - **Still LATER (small):** a multi-column inline warm-start for typed games (today they use
+    the picker, which is already warm via official decks + the compatibility filter).
 
 Leftover polish: clamp the lobby round-slider max to an attached deck's row count;
 column-type filtering in `RoundBindings`; a Playwright smoke that hosts a remix; an editor

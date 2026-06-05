@@ -152,24 +152,28 @@ export function ballparkFromRow(
  *  delimited column (`|`, `;`, or `,`) or from `option1..optionN`/`a..d` columns; the
  *  correct answer is a 1-based index, a 0-based index, or the answer text. Returns the
  *  options pipe-joined and a 0-based correct index (the buzzer round splits them back). */
+/** The option list of a multiple-choice row: a single delimited `options`/`choices` column
+ *  (preferring `|` then `;` then `,`, so an option that contains a comma is not torn apart)
+ *  or `option1..optionN`/`a..d` columns. */
+function optionList(row: Record<string, string | number>): string[] {
+  const joined = pick(row, ['options', 'choices'])
+  if (joined) {
+    const sep = joined.includes('|') ? '|' : joined.includes(';') ? ';' : ','
+    return joined.split(sep).map((s) => s.trim()).filter(Boolean)
+  }
+  const out: string[] = []
+  for (const k of ['option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'a', 'b', 'c', 'd']) {
+    const v = pick(row, [k])
+    if (v) out.push(v)
+  }
+  return out
+}
+
 export function choiceFromRow(
   row: Record<string, string | number>,
 ): { prompt: string; options: string; correct: number } | null {
   const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
-  let options: string[] = []
-  const joined = pick(row, ['options', 'choices'])
-  if (joined) {
-    // Prefer a `|` (or `;`) separator so an option that itself contains a comma (e.g.
-    // "Snow White, and friends") is not split apart; only fall back to comma-splitting
-    // when no stronger delimiter is present.
-    const sep = joined.includes('|') ? '|' : joined.includes(';') ? ';' : ','
-    options = joined.split(sep).map((s) => s.trim()).filter(Boolean)
-  } else {
-    for (const k of ['option1', 'option2', 'option3', 'option4', 'option5', 'option6', 'a', 'b', 'c', 'd']) {
-      const v = pick(row, [k])
-      if (v) options.push(v)
-    }
-  }
+  const options = optionList(row)
   if (!prompt || options.length < 2) return null
   const correctRaw = pick(row, ['correct', 'answer'])
   let correct = -1
@@ -211,6 +215,20 @@ export function cellarQuestionFromRow(
   const choice = choiceFromRow(row)
   if (!choice) return null
   return { cat: pick(row, ['category', 'cat', 'topic', 'theme']), question: choice.prompt, options: choice.options, correct: choice.correct }
+}
+
+/** Quiz or Die, mixed deck: a row is either a trivia QUESTION or a finale "tap all that
+ *  belong" CATEGORY. A finale row carries a `belong` column (a pipe list of the options that
+ *  belong); the game's buildConfig routes belong-bearing rows to the finale pool and the rest
+ *  to the question pool. `belong` is the withheld finale answer. Pure. */
+export function cellarRowFromRow(row: Record<string, string | number>): Record<string, string | number> | null {
+  const belong = pick(row, ['belong', 'belongs', 'correct_set'])
+  if (belong) {
+    const options = optionList(row)
+    if (options.length < 2) return null
+    return { cat: pick(row, ['category', 'cat', 'topic', 'theme']), options: options.join('|'), belong }
+  }
+  return cellarQuestionFromRow(row)
 }
 
 /** Mad Libs: a story template with `{token}` blanks. An optional `blanks` column may

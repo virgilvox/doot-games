@@ -98,10 +98,10 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
     expect(c.correct).toBe(2)
   })
 
-  it('quiz-or-die (custom flow): its trivia bank is deck-feedable; the finale stays built-in', () => {
+  it('quiz-or-die (custom flow): its trivia bank is deck-feedable; finale rows are optional', () => {
     const pool = quizOrDie.contentPool!
     expect(pool.deckKind).toBe('quiz')
-    expect(pool.answerColumns).toEqual(['correct', 'answer'])
+    expect(pool.answerColumns).toEqual(['correct', 'answer', 'belong'])
     // The built-in rows reproduce today's single cellar round exactly (regression).
     expect(quizOrDie.buildConfig!('seed', { rows: pool.defaultRows })).toEqual(quizOrDie.buildConfig!('seed'))
     // A creator quiz deck (1-based `correct`) overrides the trivia, end to end through
@@ -127,6 +127,30 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
     expect(breathe.a[breathe.c]).toBe('Carbon dioxide')
     expect(content.qPerGame).toBe(3)
     expect(content.finalCats.length).toBeGreaterThan(0) // finale is still the built-in bank
+  })
+
+  it('quiz-or-die: a deck may also carry finale `belong` rows, which feed the finale pool', () => {
+    const pool = quizOrDie.contentPool!
+    const deck = {
+      columns: [
+        { key: 'category', label: 'Category', type: 'text' as const },
+        { key: 'question', label: 'Question', type: 'text' as const },
+        { key: 'options', label: 'Options', type: 'text' as const },
+        { key: 'correct', label: 'Correct', type: 'number' as const },
+        { key: 'belong', label: 'Belong', type: 'text' as const },
+      ],
+      rows: [
+        { category: 'DREAD', question: 'Which is a planet?', options: 'Mars|Pluto|Orion', correct: 1, belong: '' },
+        { category: 'DOOM', question: 'Which is a planet?', options: 'Venus|Sirius|Ceres', correct: 1, belong: '' },
+        { category: 'TRUE PLANETS', question: '', options: 'Mars|Pluto|Venus|Orion', correct: 0, belong: 'Mars|Venus' },
+      ],
+    }
+    const out = quizOrDie.buildConfig!('seed', { rows: poolRowsFor(pool, deck), rounds: 2 })
+    const c = out.rounds[0]!.content as { questions: unknown[]; finalCats: Array<{ cat: string; opts: Array<{ t: string; ok: boolean }> }> }
+    expect(c.questions.length).toBe(2) // the two question rows (the finale row is not a question)
+    const finale = c.finalCats.find((f) => f.cat === 'TRUE PLANETS')!
+    expect(finale).toBeDefined()
+    expect(finale.opts.filter((o) => o.ok).map((o) => o.t)).toEqual(['Mars', 'Venus']) // belong column resolved
   })
 
   it('truth-or-share (custom flow, multi-pool): one deck partitions into its four prompt pools', () => {

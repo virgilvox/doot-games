@@ -12,7 +12,7 @@
 import { defineGame } from '@doot-games/sdk'
 import { cellarBlock } from '../../blocks/cellar/block'
 import type { CellarFinalCat, CellarQuestion } from '../../blocks/cellar/block'
-import { cellarQuestionFromRow } from '../../runtime/decks'
+import { cellarRowFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 import QuizOrDieHost from './Host.vue'
 import QuizOrDiePlayer from './Player.vue'
@@ -78,6 +78,12 @@ const rowToQuestion = (r: Record<string, string | number>): CellarQuestion => ({
   a: String(r.options).split('|'),
   c: Number(r.correct),
 })
+/** A finale "tap all that belong" row -> a CellarFinalCat (its `belong` column lists the
+ *  option texts that belong; the rest are decoys). */
+const rowToFinalCat = (r: Record<string, string | number>): CellarFinalCat => {
+  const belong = new Set(String(r.belong).split('|').map((s) => s.trim()))
+  return { cat: String(r.cat ?? ''), opts: String(r.options).split('|').map((t) => ({ t, ok: belong.has(t.trim()) })) }
+}
 
 export const quizOrDie = defineGame({
   manifest: {
@@ -100,15 +106,20 @@ export const quizOrDie = defineGame({
     title: 'Quiz or Die',
     rounds: [{ block: 'cellar', content: { qPerGame: 3, answerTime: 12, questions: QUESTIONS.slice(0, 4), finalCats: FINAL_CATS.slice(0, 3) } }],
   },
-  // Deck-feedable: a creator can attach a Quiz Deck (question + options + correct, plus an
-  // optional category) to play their own trivia. The finale categories stay built-in. The
-  // `correct` index is the answer key, withheld from non-owners.
-  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: cellarQuestionFromRow, answerColumns: ['correct', 'answer'], requires: [['question', 'prompt', 'q'], ['options', 'choices', 'option1', 'a']] },
-  // Shuffle the trivia (built-in, or a creator deck via opts.rows) + finale decks by room
-  // so the order differs session to session, seeded so it stays reconnect-stable.
+  // Deck-feedable: a creator attaches a Quiz Deck of trivia (question + options + correct, +
+  // optional category). The SAME deck may also carry finale "tap all that belong" rows (a
+  // `belong` column lists the options that belong); buildConfig partitions them. Each pool
+  // falls back to built-in when the deck has none. `correct`/`belong` are withheld from non-owners.
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'quiz', fromRow: cellarRowFromRow, answerColumns: ['correct', 'answer', 'belong'], requires: [['question', 'prompt', 'q'], ['options', 'choices', 'option1', 'a']] },
+  // Shuffle the trivia + finale decks by room so the order differs session to session, seeded
+  // so it stays reconnect-stable. A row with a `belong` column feeds the finale; the rest feed
+  // the question pool.
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
     const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
-    const questions = rows.map(rowToQuestion)
+    const qRows = rows.filter((r) => r.belong == null || r.belong === '')
+    const fRows = rows.filter((r) => r.belong != null && r.belong !== '')
+    const questions = (qRows.length ? qRows : DEFAULT_ROWS).map(rowToQuestion)
+    const finalCats = fRows.length ? fRows.map(rowToFinalCat) : FINAL_CATS
     return {
       title: 'Quiz or Die',
       rounds: [
@@ -119,7 +130,7 @@ export const quizOrDie = defineGame({
             qPerGame: Math.min(Math.max(3, opts?.rounds ?? DEFAULT_QPG), questions.length),
             answerTime: 12,
             questions: seededShuffle(`qod:q:${seed}`)(questions),
-            finalCats: seededShuffle(`qod:f:${seed}`)(FINAL_CATS),
+            finalCats: seededShuffle(`qod:f:${seed}`)(finalCats),
           },
         },
       ],

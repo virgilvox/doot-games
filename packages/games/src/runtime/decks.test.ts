@@ -4,6 +4,7 @@ import { redactDecks } from '../catalog'
 import {
   ballparkFromRow,
   cellarQuestionFromRow,
+  cellarRowFromRow,
   choiceFromRow,
   deckMatchesPool,
   spotlightRowFromRow,
@@ -103,6 +104,14 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     // A plain Quiz Deck (no category) still works; cat is empty.
     expect(cellarQuestionFromRow({ prompt: 'Pick one', options: 'A|B', correct: 1 })).toEqual({ cat: '', question: 'Pick one', options: 'A|B', correct: 0 })
     expect(cellarQuestionFromRow({ category: 'no question' })).toBeNull()
+  })
+
+  it('cellarRowFromRow: routes a `belong`-bearing row to the finale, others to questions', () => {
+    // A question row (no belong) maps like a quiz question.
+    expect(cellarRowFromRow({ category: 'DOOM', question: 'Pick', options: 'A|B|C', correct: 2 })).toEqual({ cat: 'DOOM', question: 'Pick', options: 'A|B|C', correct: 1 })
+    // A finale row (has belong) maps to category + options + the (secret) belong list.
+    expect(cellarRowFromRow({ category: 'PLANETS', options: 'Mars|Pluto|Venus', belong: 'Mars|Venus' })).toEqual({ cat: 'PLANETS', options: 'Mars|Pluto|Venus', belong: 'Mars|Venus' })
+    expect(cellarRowFromRow({ category: 'X', belong: 'a' })).toBeNull() // finale needs >= 2 options
   })
 
   it('storyFromRow: keeps a blanks JSON column, else leaves blanks empty for derivation', () => {
