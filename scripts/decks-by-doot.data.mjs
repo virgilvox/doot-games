@@ -43,6 +43,14 @@ const CELLAR = [
   { key: 'options', label: 'Options (separate with |)', type: 'text' },
   { key: 'correct', label: 'Correct (1 = first option)', type: 'number' },
 ]
+// Truth or Share: a prompt plus which of the four pools it feeds.
+const SPOTLIGHT = [
+  { key: 'prompt', label: 'Prompt', type: 'text' },
+  { key: 'kind', label: 'Kind (truth or share)', type: 'text' },
+  { key: 'tier', label: 'Tier (mild or spicy)', type: 'text' },
+]
+const truth = (tier, ...lines) => lines.map((prompt) => ({ prompt, kind: 'truth', tier }))
+const share = (tier, ...lines) => lines.map((prompt) => ({ prompt, kind: 'share', tier }))
 
 const p = (...lines) => lines.map((prompt) => ({ prompt }))
 const f = (...lines) => lines.map((frame) => ({ frame }))
@@ -919,6 +927,74 @@ export const DECKS = [
       { category: 'RESTLESS SPIRITS', question: 'What is the fear of ghosts called?', options: 'Phasmophobia|Arachnophobia|Acrophobia|Claustrophobia', correct: 1 },
       { category: 'ETERNAL NIGHT', question: 'Which planet is the hottest in our solar system?', options: 'Mercury|Venus|Mars|Jupiter', correct: 2 },
       { category: 'LAST RITES', question: 'What is a doctor who examines causes of death called?', options: 'Surgeon|Coroner|Dentist|Optician', correct: 2 },
+    ],
+  },
+
+  // ── Truth or Share (one deck feeds all four pools via kind + tier columns) ─────────
+  {
+    game: 'truth-or-share',
+    name: 'Truth or Share: Icebreakers',
+    kind: 'prompt',
+    description: 'Warm, mild truths and easy photo shares for getting to know a new group. Nothing too revealing.',
+    columns: SPOTLIGHT,
+    rows: [
+      ...truth(
+        'mild',
+        'What is a hobby you have always wanted to try but never have?',
+        'What is the best piece of advice you have ever gotten?',
+        'What is a small thing that instantly makes your day better?',
+        'What is the most useless talent you have?',
+        'What is a movie or show you can rewatch endlessly?',
+        'What is a food you hated as a kid but love now?',
+        'If you could instantly master one skill, what would it be?',
+        'What is the nicest thing a stranger has ever done for you?',
+        'What is a tiny thing that annoys you far more than it should?',
+        'What is the proudest moment of your year so far?',
+      ),
+      ...share(
+        'mild',
+        'Show a photo that always makes you smile.',
+        'Show the view from where you are sitting right now.',
+        'Show the last thing you added to a cart or wishlist.',
+        'Show your home screen.',
+        'Show a photo of a place you want to travel to.',
+        'Show the most recent photo of food on your phone.',
+        'Show a photo of something you made or fixed.',
+        'Show your favorite emoji by snapping your keyboard.',
+      ),
+    ],
+  },
+  {
+    game: 'truth-or-share',
+    name: 'Truth or Share: Bolder',
+    kind: 'prompt',
+    description: 'Spicier truths and shares for a group that knows each other. Still tasteful; the pass is always free.',
+    columns: SPOTLIGHT,
+    rows: [
+      ...truth(
+        'spicy',
+        'What is the most rebellious thing you did as a teenager?',
+        'What is the wildest thing on your bucket list?',
+        'What is the biggest risk you have ever taken?',
+        'What is something you pretend to like but secretly cannot stand?',
+        'What is the most trouble you have ever been in?',
+        'What is a hill you will absolutely die on?',
+        'What is the most expensive mistake you have ever made?',
+        'What is a secret talent you have never shown anyone here?',
+        'What is the boldest thing you have ever done to get someone\'s attention?',
+        'What is a belief you have completely changed your mind about?',
+      ),
+      ...share(
+        'spicy',
+        'Share your most-played song this year.',
+        'Share the last thing you searched online.',
+        'Share your screen time for the week.',
+        'Share the most recent selfie on your phone.',
+        'Share your three most-used apps.',
+        'Share the last message in your most-used group chat.',
+        'Share the last photo you sent to anyone.',
+        'Share the last thing you bought online.',
+      ),
     ],
   },
 ]

@@ -276,14 +276,21 @@ and `HostRoom.resolveConfig` re-runs `buildConfig` over `poolRowsFor(contentPool
 - **Decks by Doot (DONE, growing):** `scripts/seed-decks.mjs` upserts public + remixable
   starter decks (`scripts/decks-by-doot.data.mjs`) for every pool game, idempotent by name
   under a stable Doot account. Add more themed decks by editing the data file and re-running.
-- **Phase 3 (PARTIAL):** custom-flow games can be deck-fed too when one pool dominates.
-  **Quiz or Die (DONE):** its trivia bank is deck-feedable via the SAME single-pool
-  `contentPool` (a `quiz` deck of question/options/correct + optional category, mapped by
-  `cellarQuestionFromRow`, cross-compatible with the What-You-Didn't-Know quiz decks); the
-  Cellar finale categories stay built-in. No host/SDK change. **Still LATER:** Truth or Share
-  (prompt deck feeding 4 truth/share arrays by tier+kind) and a Quiz-or-Die finale deck both
-  want a true multi-pool variant (`fromRows(rows[]) => GameComposition`) since one deck feeds
-  several arrays at once.
+- **Phase 3 (DONE for both custom-flow flagships):** a custom-flow game's dominant pool is
+  deck-fed through the SAME single-pool `contentPool`. The insight: **no new `fromRows` SDK
+  variant is needed.** `buildConfig(seed, { rows })` already takes all rows in and returns a
+  `GameComposition`; the game's `fromRow` maps each row preserving a discriminator, and
+  `buildConfig` PARTITIONS the rows into its several arrays. No host or SDK change.
+  - **Quiz or Die:** its trivia bank is deck-feedable (a `quiz` deck of question/options/correct
+    + optional category via `cellarQuestionFromRow`, cross-compatible with What You Didn't Know
+    decks). The Cellar finale categories stay built-in.
+  - **Truth or Share:** one prompt deck feeds all four pools. A row carries optional `kind`
+    (truth/share) + `tier` (mild/spicy) columns (`spotlightRowFromRow`); `buildConfig` partitions
+    into truthsMild/truthsSpicy/sharesMild/sharesSpicy, each empty quadrant falling back to the
+    built-in pool. A plain prompt deck works (defaults to mild truths).
+  - **Still LATER (small):** a Quiz-or-Die finale deck (the same partition pattern, mixing
+    finale rows discriminated by a `belong` column into the question deck), and a multi-column
+    inline warm-start for typed games (today they use the picker).
 
 Leftover polish: clamp the lobby round-slider max to an attached deck's row count;
 column-type filtering in `RoundBindings`; a Playwright smoke that hosts a remix; an editor

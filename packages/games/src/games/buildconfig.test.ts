@@ -15,6 +15,7 @@ import { openMic } from './open-mic'
 import { quipClash } from './quip-clash'
 import { quizOrDie } from './quiz-or-die'
 import { sketchSpot } from './sketch-spot'
+import { truthOrShare } from './truth-or-share'
 import { splitRoom } from './split-room'
 import { whatYouDidntKnow } from './what-you-didnt-know'
 
@@ -128,6 +129,27 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
     expect(content.finalCats.length).toBeGreaterThan(0) // finale is still the built-in bank
   })
 
+  it('truth-or-share (custom flow, multi-pool): one deck partitions into its four prompt pools', () => {
+    const pool = truthOrShare.contentPool!
+    expect(pool.deckKind).toBe('prompt')
+    // The built-in rows reproduce today's four shuffled pools exactly (regression).
+    expect(truthOrShare.buildConfig!('seed', { rows: pool.defaultRows })).toEqual(truthOrShare.buildConfig!('seed'))
+    // A creator deck with kind/tier columns lands each prompt in the right pool; an empty
+    // quadrant falls back to the built-in pool.
+    const out = truthOrShare.buildConfig!('seed', {
+      rows: [
+        { kind: 'truth', tier: 'mild', prompt: 'My custom mild truth' },
+        { kind: 'truth', tier: 'spicy', prompt: 'My custom spicy truth' },
+        { kind: 'share', tier: 'mild', prompt: 'My custom mild share' },
+      ],
+    })
+    const c = out.rounds[0]!.content as { truthsMild: string[]; truthsSpicy: string[]; sharesMild: string[]; sharesSpicy: string[] }
+    expect(c.truthsMild).toEqual(['My custom mild truth'])
+    expect(c.truthsSpicy).toEqual(['My custom spicy truth'])
+    expect(c.sharesMild).toEqual(['My custom mild share'])
+    expect(c.sharesSpicy.length).toBeGreaterThan(0) // empty quadrant -> built-in fallback
+  })
+
   it('mad-libs: a bare template derives readable blanks from its {tokens}', () => {
     const out = madLibs.buildConfig!('seed', { rows: [{ template: 'The {adjective} {animal} went {verbing}.' }], rounds: 1 })
     const c = out.rounds[0]!.content as { blanks: Array<{ id: string; label: string }> }
@@ -145,9 +167,9 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
 describe('every deck-feedable game is self-consistent (meta)', () => {
   const feedable = builtinPlugins.filter((p) => p.contentPool)
 
-  it('covers all 13 deck-fed flagships', () => {
+  it('covers all 14 deck-fed flagships', () => {
     expect(feedable.map((p) => p.manifest.id).sort()).toEqual(
-      ['backronym', 'ballpark', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'what-you-didnt-know'].sort(),
+      ['backronym', 'ballpark', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'truth-or-share', 'what-you-didnt-know'].sort(),
     )
   })
 
@@ -174,9 +196,9 @@ describe('every deck-feedable game is self-consistent (meta)', () => {
       expect(entry.pool?.answerColumns).toEqual(pool.answerColumns)
       // The saved defaultConfig is a lean preview, not the entire content bank.
       expect(JSON.stringify(plugin.defaultConfig).length, `${plugin.manifest.id} defaultConfig should be lean`).toBeLessThan(8000)
-      // A multi-column pool must declare `requires` so the remix picker can filter out
-      // decks of the wrong shape; a single-text-column pool takes any prompt deck.
-      if (!poolStarter(pool).single) {
+      // A typed (quiz/card) pool must declare `requires` so the remix picker can filter out
+      // decks of the wrong shape; a prompt/generic pool takes any prompt/template deck.
+      if (pool.deckKind === 'quiz' || pool.deckKind === 'card') {
         expect(pool.requires?.length, `${plugin.manifest.id} (multi-column) needs requires`).toBeGreaterThan(0)
         // The built-in pool's own columns satisfy its requires (self-consistency).
         const keys = Object.keys(pool.defaultRows[0] ?? {})

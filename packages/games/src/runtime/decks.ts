@@ -183,6 +183,24 @@ export function choiceFromRow(
   return { prompt, options: options.join('|'), correct }
 }
 
+/** Truth or Share: one prompt row tagged with which of the game's four pools it feeds.
+ *  `kind` (truth/share) and `tier` (mild/spicy) come from optional columns and default to
+ *  truth/mild, so a plain prompt deck still works (it fills the truth-mild pool). The game's
+ *  buildConfig partitions these tagged rows into its four prompt arrays. Pure. */
+const SPOTLIGHT_META = new Set(['kind', 'type', 'mode', 'tier', 'spice', 'level'])
+export function spotlightRowFromRow(
+  row: Record<string, string | number>,
+): { kind: 'truth' | 'share'; tier: 'mild' | 'spicy'; prompt: string } | null {
+  // The fallback skips the kind/tier metadata columns, so a row of only metadata (no actual
+  // prompt) is dropped rather than treating "truth" or "mild" as the prompt text.
+  const fallback = Object.entries(row).find(([k, v]) => !SPOTLIGHT_META.has(k.toLowerCase()) && typeof v === 'string' && v.trim())?.[1]
+  const prompt = pick(row, ['prompt', 'text', 'question', 'dare']) || (typeof fallback === 'string' ? fallback.trim() : '')
+  if (!prompt) return null
+  const kind = /shar|photo|pic/i.test(pick(row, ['kind', 'type', 'mode'])) ? 'share' : 'truth'
+  const tier = /spic|hot|adult|bold/i.test(pick(row, ['tier', 'spice', 'level'])) ? 'spicy' : 'mild'
+  return { kind, tier, prompt }
+}
+
 /** Quiz or Die: a trivia question with a lurid category. Same multiple-choice shape as
  *  `choiceFromRow` (so a plain Quiz Deck works too) plus an optional `category` column;
  *  the correct option is withheld from non-owners. Returns the flat row Quiz or Die's

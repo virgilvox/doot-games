@@ -6,6 +6,7 @@ import {
   cellarQuestionFromRow,
   choiceFromRow,
   deckMatchesPool,
+  spotlightRowFromRow,
   factFromRow,
   frameFromRow,
   inlineDecks,
@@ -88,6 +89,13 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(choiceFromRow({ prompt: 'only one', options: 'A' })).toBeNull() // needs >= 2 options
     // A pipe-separated option may itself contain a comma; it must NOT be split apart.
     expect(choiceFromRow({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 1 })).toEqual({ prompt: 'Pick', options: 'Salt, pepper|Just salt|Neither', correct: 0 })
+  })
+
+  it('spotlightRowFromRow: a Truth or Share prompt tagged by kind/tier (defaults truth/mild)', () => {
+    expect(spotlightRowFromRow({ prompt: 'Spill it' })).toEqual({ kind: 'truth', tier: 'mild', prompt: 'Spill it' })
+    expect(spotlightRowFromRow({ prompt: 'Show a photo', kind: 'share', tier: 'spicy' })).toEqual({ kind: 'share', tier: 'spicy', prompt: 'Show a photo' })
+    expect(spotlightRowFromRow({ text: 'Dare', type: 'Photo', spice: 'hot' })).toEqual({ kind: 'share', tier: 'spicy', prompt: 'Dare' })
+    expect(spotlightRowFromRow({ kind: 'truth' })).toBeNull()
   })
 
   it('cellarQuestionFromRow: a Quiz or Die trivia row, with an optional lurid category', () => {

@@ -17,6 +17,7 @@
  */
 import { defineGame } from '@doot-games/sdk'
 import { spotlightBlock } from '../../blocks/spotlight/block'
+import { spotlightRowFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
 import TruthOrShareHost from './Host.vue'
 import TruthOrSharePlayer from './Player.vue'
@@ -89,6 +90,37 @@ const SHARE_SPICY: string[] = [
 
 const TURNS = 5
 
+/** The four built-in pools as flat, tagged deck rows; a creator deck (a `prompt` column,
+ *  plus optional `kind` = truth/share and `tier` = mild/spicy columns) overrides them. */
+const DEFAULT_ROWS = [
+  ...TRUTH_MILD.map((prompt) => ({ kind: 'truth', tier: 'mild', prompt })),
+  ...TRUTH_SPICY.map((prompt) => ({ kind: 'truth', tier: 'spicy', prompt })),
+  ...SHARE_MILD.map((prompt) => ({ kind: 'share', tier: 'mild', prompt })),
+  ...SHARE_SPICY.map((prompt) => ({ kind: 'share', tier: 'spicy', prompt })),
+]
+
+/** Partition tagged rows back into the four prompt arrays. An empty quadrant (a creator
+ *  deck that, say, has only truths) falls back to the built-in pool for that quadrant, so
+ *  every Truth/Share x mild/spicy combination always has prompts to deal. */
+function partition(rows: Array<Record<string, string | number>>) {
+  const tm: string[] = []
+  const ts: string[] = []
+  const sm: string[] = []
+  const ss: string[] = []
+  for (const r of rows) {
+    const prompt = String(r.prompt)
+    const spicy = String(r.tier) === 'spicy'
+    if (String(r.kind) === 'share') (spicy ? ss : sm).push(prompt)
+    else (spicy ? ts : tm).push(prompt)
+  }
+  return {
+    truthsMild: tm.length ? tm : TRUTH_MILD,
+    truthsSpicy: ts.length ? ts : TRUTH_SPICY,
+    sharesMild: sm.length ? sm : SHARE_MILD,
+    sharesSpicy: ss.length ? ss : SHARE_SPICY,
+  }
+}
+
 export const truthOrShare = defineGame({
   manifest: {
     id: 'truth-or-share',
@@ -111,24 +143,30 @@ export const truthOrShare = defineGame({
       },
     ],
   },
-  // Shuffle the decks by room so the dealt prompts differ session to session (the
-  // host then deals from these room-shuffled decks per turn). Seeded, so it stays
-  // reconnect-stable for a given room.
-  buildConfig: (seed: string, opts?: { rounds?: number }) => ({
-    title: 'Truth or Share',
-    rounds: [
-      {
-        block: 'spotlight',
-        content: {
-          tier: 'mild',
-          turns: Math.max(1, Math.min(opts?.rounds ?? TURNS, 40)),
-          truthsMild: seededShuffle(`tos:tm:${seed}`)(TRUTH_MILD),
-          truthsSpicy: seededShuffle(`tos:ts:${seed}`)(TRUTH_SPICY),
-          sharesMild: seededShuffle(`tos:sm:${seed}`)(SHARE_MILD),
-          sharesSpicy: seededShuffle(`tos:ss:${seed}`)(SHARE_SPICY),
+  // Deck-feedable (multi-pool): a creator can attach a prompt deck with optional `kind`
+  // (truth/share) + `tier` (mild/spicy) columns; buildConfig partitions its rows into the
+  // four pools. No answer key (nothing is withheld at this layer).
+  contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: spotlightRowFromRow },
+  // Shuffle the (built-in, or a creator deck's partitioned) prompts by room so the dealt
+  // order differs session to session. Seeded, so it stays reconnect-stable for a given room.
+  buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
+    const p = partition(opts?.rows?.length ? opts.rows : DEFAULT_ROWS)
+    return {
+      title: 'Truth or Share',
+      rounds: [
+        {
+          block: 'spotlight',
+          content: {
+            tier: 'mild',
+            turns: Math.max(1, Math.min(opts?.rounds ?? TURNS, 40)),
+            truthsMild: seededShuffle(`tos:tm:${seed}`)(p.truthsMild),
+            truthsSpicy: seededShuffle(`tos:ts:${seed}`)(p.truthsSpicy),
+            sharesMild: seededShuffle(`tos:sm:${seed}`)(p.sharesMild),
+            sharesSpicy: seededShuffle(`tos:ss:${seed}`)(p.sharesSpicy),
+          },
         },
-      },
-    ],
-  }),
+      ],
+    }
+  },
   roundOptions: { min: 3, max: 20, default: TURNS, label: 'Turns' },
 })

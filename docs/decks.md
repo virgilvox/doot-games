@@ -37,6 +37,10 @@ game's page click **"Remix with your..."**. What you see depends on the game:
   official lines. Tweak them, add your own, remove any, name it, and hit **Create and host**.
   You start from the official set rather than a blank page, so the format is obvious and you
   only customize what you want.
+- **Truth or Share** takes a prompt deck with optional `kind` (`truth` or `share`) and `tier`
+  (`mild` or `spicy`) columns; one deck feeds all four of its pools (the game partitions the
+  rows). A plain prompt deck still works (every row defaults to a mild truth), and any pool
+  you leave empty falls back to the built-in prompts.
 - **Quiz and card games** open a **deck picker** (your decks plus official Doot decks, which
   are badged), since those rows have several columns. Build a multi-column deck in `/decks`,
   then pick it here.
