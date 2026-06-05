@@ -33,6 +33,20 @@ pushed" notes in the older entries below are superseded._
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
 > build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
 >
+> **Editor clarity for deck-fed remixes (2026-06-05).** SHIPPED. A pool-fed flagship remix
+> (e.g. Quiz or Die + a "Dark Trivia" deck) plays its attached `config.decks.pool` deck: the host
+> re-runs `buildConfig` over the deck rows, so the saved `config.rounds` is **vestigial** (a
+> built-in preview). Confirmed the deck IS passed correctly (`?for=play` inlines the full 20-row
+> deck and the host builds from it), but the editor was misleading: it showed the built-in
+> preview round and "pool · 0 rows", so it looked like the deck was ignored. Two fixes: (1)
+> `DeckManager` now uses the editor's already-fetched `refDecks` to show a linked deck's real name
+> + size ("Quiz or Die: Dark Trivia · 20 rows · linked", not "pool · 0 rows"); (2) the editor
+> shows a banner on any pool-fed flagship ("This game plays your deck '<name>' (<N> rows) ... the
+> round below is just a preview, not what plays ... edit or copy the deck"), linking to the deck.
+> Verified by screenshot. Known follow-on: editing the vestigial round does nothing at host; the
+> cleaner long-term fix is a deck-first edit flow (with "copy this Doot deck to customize"). 475
+> tests, typecheck, build green.
+>
 > **Decks library: a "Decks by Doot" section + audit fixes (2026-06-04).** SHIPPED. Decks now
 > carry an optional `game` tag (the game they are authored for): an additive `game` column on
 > the `decks` table (ensureSchema ALTER for the live DB), threaded through `deckInputSchema` +
