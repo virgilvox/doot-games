@@ -33,6 +33,24 @@ pushed" notes in the older entries below are superseded._
 > Verified: real Doot decks resolve + build host rounds end to end. **445 tests**, typecheck,
 > build green. Plan: `~/.claude/plans/sunny-jumping-catmull.md`.
 >
+> **Decks Phase 3: the custom-flow multi-pool games are deck-feedable (2026-06-04).** SHIPPED.
+> Both custom-flow flagships now take a creator deck, with NO new SDK shape. The realization:
+> `buildConfig(seed, { rows })` already takes all rows in and returns a `GameComposition`, so a
+> multi-pool game maps each deck row preserving a discriminator and `buildConfig` PARTITIONS
+> the rows into its several arrays (no `fromRows` variant, no host change). **Truth or Share:**
+> one prompt deck with optional `kind` (truth/share) + `tier` (mild/spicy) columns feeds all
+> four pools (`spotlightRowFromRow`; an empty quadrant falls back to built-in; a plain prompt
+> deck defaults to mild truths). **Quiz or Die:** the SAME trivia deck may also carry finale
+> "tap all that belong" rows (a `belong` column lists the belonging options); `cellarRowFromRow`
+> + buildConfig partition question vs finale rows, each pool falling back to built-in. `belong`
+> is a withheld answer column (catalog + contentPool, sync-tested), verified on **prod** (owner
+> sees it, non-owner gets null). The deck-feed meta-test now covers all **14** flagships (the
+> `requires` picker filter is keyed to quiz/card kinds; prompt/generic take any deck). Added
+> public Decks by Doot for Truth or Share (Icebreakers + Bolder) plus a Science quiz and a
+> Holiday prompt deck (**37 Doot decks**). **475 tests**, typecheck, build green. Remaining
+> deck loose end: a multi-column inline warm-start for typed games (the picker is already warm
+> via official decks + the compatibility filter).
+>
 > **Remix warm-start + bank expansion + picker compatibility (2026-06-04).** SHIPPED.
 > Three things. (1) **Warm-start remix:** `RemixWithDeck` no longer cold-starts a creator at
 > a deck picker. Prompt/story games open an inline editor PRE-FILLED with ~6 of the official
