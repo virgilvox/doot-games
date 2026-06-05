@@ -55,6 +55,10 @@ export const decks = sqliteTable('decks', {
   description: text('description'),
   /** A descriptor hint: 'quiz' | 'prompt' | 'card' | 'generic' (arbitrary columns). */
   kind: text('kind').notNull().default('generic'),
+  /** Optional id of the game this deck is authored for (e.g. 'quip-clash'), so the library
+   *  can group/filter decks by game. A hint, not a constraint: a deck still works in any
+   *  compatible game. Null for a general-purpose deck. */
+  game: text('game'),
   /** JSON-serialized DeckColumn[] (`{ key, label, type }`). */
   columns: text('columns').notNull(),
   /** JSON-serialized rows (`Record<string, string|number|null>[]`). */
@@ -119,6 +123,7 @@ async function ensureSchema(c: Client): Promise<void> {
     'ALTER TABLE games ADD COLUMN tags TEXT',
     'ALTER TABLE games ADD COLUMN cover_image TEXT',
     'ALTER TABLE games ADD COLUMN forkable INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE decks ADD COLUMN game TEXT',
   ]) {
     try {
       await c.execute(ddl)
@@ -147,6 +152,7 @@ async function ensureSchema(c: Client): Promise<void> {
       name TEXT NOT NULL,
       description TEXT,
       kind TEXT NOT NULL DEFAULT 'generic',
+      game TEXT,
       columns TEXT NOT NULL,
       rows TEXT NOT NULL,
       visibility TEXT NOT NULL DEFAULT 'private',

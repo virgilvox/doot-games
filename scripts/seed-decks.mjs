@@ -63,13 +63,13 @@ function validate(decks) {
         }
       })
     }
-    if (d.columns.length === 1) {
-      const key = d.columns[0].key
-      const seen = new Set()
-      for (const r of d.rows) {
-        if (seen.has(r[key])) errs.push(`${d.name}: duplicate row "${r[key]}"`)
-        seen.add(r[key])
-      }
+    // No duplicate rows in ANY deck (a dup = a repeated card). Full-row equality, so the
+    // same prompt under a different kind/tier (Truth or Share) is not a false positive.
+    const seen = new Set()
+    for (const r of d.rows) {
+      const key = JSON.stringify(r)
+      if (seen.has(key)) errs.push(`${d.name}: duplicate row ${d.columns.length === 1 ? `"${r[d.columns[0].key]}"` : key}`)
+      seen.add(key)
     }
   }
   return errs
@@ -146,6 +146,7 @@ for (const deck of DECKS) {
     name: deck.name,
     description: deck.description,
     kind: deck.kind,
+    game: deck.game,
     visibility: 'public',
     remixable: true,
     columns: deck.columns,

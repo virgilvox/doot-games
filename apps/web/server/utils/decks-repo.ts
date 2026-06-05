@@ -25,6 +25,8 @@ export const deckInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(300).optional(),
   kind: z.enum(DECK_KINDS).optional(),
+  /** Optional id of the game this deck is for (e.g. 'quip-clash'); a library-grouping hint. */
+  game: z.string().trim().max(64).optional(),
   visibility: z.enum(['private', 'unlisted', 'public']).optional(),
   remixable: z.boolean().optional(),
   columns: z.array(deckColumnSchema).min(1).max(50),
@@ -41,6 +43,7 @@ export interface SavedDeck {
   name: string
   description: string | null
   kind: DeckKind
+  game: string | null
   visibility: Visibility
   remixable: boolean
   columns: DeckColumn[]
@@ -54,6 +57,8 @@ export interface SavedDeckSummary {
   name: string
   description: string | null
   kind: DeckKind
+  /** The game this deck is authored for (a library-grouping hint), or null. */
+  game: string | null
   visibility: Visibility
   remixable: boolean
   columnCount: number
@@ -101,6 +106,7 @@ export async function createDeck(input: DeckInput, ownerId: string): Promise<{ i
     name: input.name,
     description: input.description?.length ? input.description : null,
     kind: input.kind ?? 'generic',
+    game: input.game?.length ? input.game : null,
     visibility: input.visibility ?? 'private',
     remixable: input.remixable ?? false,
     columns: JSON.stringify(input.columns),
@@ -122,6 +128,7 @@ export async function updateDeck(id: string, ownerId: string, input: DeckInput):
     updatedAt: Date.now(),
   }
   if (input.kind !== undefined) set.kind = input.kind
+  if (input.game !== undefined) set.game = input.game.length ? input.game : null
   if (input.visibility !== undefined) set.visibility = input.visibility
   if (input.remixable !== undefined) set.remixable = input.remixable
   if (input.description !== undefined) set.description = input.description.length ? input.description : null
@@ -156,6 +163,7 @@ export async function getDeck(id: string, requesterId: string | null): Promise<S
     name: row.name,
     description: row.description,
     kind: row.kind as DeckKind,
+    game: row.game ?? null,
     visibility,
     remixable: row.remixable,
     columns,
@@ -197,6 +205,7 @@ const SUMMARY_COLUMNS = {
   name: decks.name,
   description: decks.description,
   kind: decks.kind,
+  game: decks.game,
   visibility: decks.visibility,
   remixable: decks.remixable,
   columns: decks.columns,
@@ -209,6 +218,7 @@ interface SummaryRow {
   name: string
   description: string | null
   kind: string
+  game: string | null
   visibility: string
   remixable: boolean
   columns: string
@@ -245,6 +255,7 @@ async function toSummaries(rows: SummaryRow[]): Promise<SavedDeckSummary[]> {
       name: r.name,
       description: r.description,
       kind: r.kind as DeckKind,
+      game: r.game ?? null,
       visibility: r.visibility as Visibility,
       remixable: r.remixable,
       columnCount: countOf(r.columns),

@@ -81,8 +81,10 @@ const rowToQuestion = (r: Record<string, string | number>): CellarQuestion => ({
 /** A finale "tap all that belong" row -> a CellarFinalCat (its `belong` column lists the
  *  option texts that belong; the rest are decoys). */
 const rowToFinalCat = (r: Record<string, string | number>): CellarFinalCat => {
-  const belong = new Set(String(r.belong).split('|').map((s) => s.trim()))
-  return { cat: String(r.cat ?? ''), opts: String(r.options).split('|').map((t) => ({ t, ok: belong.has(t.trim()) })) }
+  // Case-insensitive match between an option's text and the belong list, so a creator who
+  // writes "mars" in `belong` still marks the "Mars" option as belonging.
+  const belong = new Set(String(r.belong).split('|').map((s) => s.trim().toLowerCase()))
+  return { cat: String(r.cat ?? ''), opts: String(r.options).split('|').map((t) => ({ t, ok: belong.has(t.trim().toLowerCase()) })) }
 }
 
 export const quizOrDie = defineGame({
