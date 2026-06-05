@@ -179,8 +179,9 @@ function onBindingsChange(i: number, payload: { draw?: number; bindings?: Record
 // Cached per deck id; keyed in the maps by the config's deck key. The persisted config
 // keeps the `{ ref }` untouched — this is editor-only resolution.
 type EdDeckColumn = { key: string; label: string; type: 'text' | 'image' | 'number' }
-const refDecks = reactive<Record<string, { columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>>({})
-const refCache = new Map<string, { columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>()
+type EdRefDeck = { columns: EdDeckColumn[]; rows: Record<string, string | number | null>[]; name?: string }
+const refDecks = reactive<Record<string, EdRefDeck>>({})
+const refCache = new Map<string, EdRefDeck>()
 const refColumns = computed(() => Object.fromEntries(Object.entries(refDecks).map(([k, v]) => [k, v.columns])))
 watch(
   () => config.decks,
@@ -193,8 +194,8 @@ watch(
         continue
       }
       try {
-        const d = await $fetch<{ columns: EdDeckColumn[]; rows: Record<string, string | number | null>[] }>(`/api/decks/${use.ref}`)
-        const deck = { columns: d.columns ?? [], rows: d.rows ?? [] }
+        const d = await $fetch<{ columns: EdDeckColumn[]; rows: Record<string, string | number | null>[]; name?: string }>(`/api/decks/${use.ref}`)
+        const deck = { columns: d.columns ?? [], rows: d.rows ?? [], name: d.name }
         refCache.set(use.ref, deck)
         refDecks[key] = deck
       } catch {
@@ -204,6 +205,18 @@ watch(
   },
   { deep: true, immediate: true },
 )
+
+// A pool-fed flagship (e.g. a Quip Clash or Quiz or Die remix) plays its attached `pool`
+// deck, not the authored rounds: the host re-runs buildConfig over the deck's rows. So when
+// one is attached, the rounds below are only a preview. Surface that, and the live deck.
+const poolDeck = computed(() => {
+  const use = config.decks?.pool
+  if (!plugin?.contentPool || !use) return null
+  const ref = 'ref' in use ? use.ref : null
+  const meta = refDecks.pool
+  const rows = ref ? (meta?.rows.length ?? 0) : 'inline' in use ? use.inline.rows.length : 0
+  return { ref, name: meta?.name ?? null, rows }
+})
 // ── play-time variable: pull a shared photo from a prior collect round ───────
 /** The nearest prior round that is a `collect` block (a source of play-time shares). */
 function priorCollectIndex(i: number): number | null {
@@ -673,12 +686,18 @@ onScopeDispose(() => {
             <summary class="ed-decks-summary">
               Decks<span v-if="deckCount" class="ed-decks-count">{{ deckCount }}</span>
             </summary>
-            <DeckManager :model-value="config.decks" @update:model-value="config.decks = $event" />
+            <DeckManager :model-value="config.decks" :ref-decks="refDecks" @update:model-value="config.decks = $event" />
           </details>
         </nav>
 
         <!-- CENTER: the selected round's form -->
         <section class="ed-center">
+          <!-- A pool-fed flagship plays its attached deck, not these rounds. Make that clear. -->
+          <div v-if="poolDeck" class="ed-pool-note">
+            <strong>This game plays your deck{{ poolDeck.name ? ` "${poolDeck.name}"` : '' }}{{ poolDeck.rows ? ` (${poolDeck.rows} rows)` : '' }}.</strong>
+            The host shuffles it and picks how many to play, so the round below is just a preview, not what plays.
+            To change the content, <NuxtLink v-if="poolDeck.ref" :to="`/decks/${poolDeck.ref}`" class="ed-pool-link">edit or copy the deck</NuxtLink><span v-else>edit the deck</span>.
+          </div>
           <template v-if="cur">
             <div class="ed-center-head" :style="{ '--round-accent': blockColor(cur) }">
               <GameTypeIcon :type="cur.block" :size="30" />
@@ -1448,6 +1467,18 @@ onScopeDispose(() => {
 .ed-center {
   min-width: 0;
 }
+.ed-pool-note {
+  background: var(--surface-2);
+  border: var(--bd) solid var(--c3);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.ed-pool-note strong { color: var(--ink); }
+.ed-pool-link { color: var(--primary); font-weight: 700; }
 .ed-center-head {
   display: flex;
   align-items: center;

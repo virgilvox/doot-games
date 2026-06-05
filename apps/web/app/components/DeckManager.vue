@@ -9,18 +9,29 @@ import { parseSheet } from '@doot-games/games'
 import type { DeckColumn, DeckUse } from '@doot-games/sdk'
 import { computed, ref } from 'vue'
 
-const props = defineProps<{ modelValue?: Record<string, DeckUse> }>()
+// `refDecks` carries the columns/rows/name the editor fetched for any LINKED (`{ ref }`)
+// deck, so a linked deck shows its real size + name instead of "0 rows".
+const props = defineProps<{
+  modelValue?: Record<string, DeckUse>
+  refDecks?: Record<string, { columns: DeckColumn[]; rows: unknown[]; name?: string }>
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, DeckUse> | undefined] }>()
 
 const decks = computed(() => props.modelValue ?? {})
 const list = computed(() =>
-  Object.entries(decks.value).map(([id, use]) => ({
-    id,
-    inline: 'inline' in use,
-    cols: 'inline' in use ? use.inline.columns.length : 0,
-    rows: 'inline' in use ? use.inline.rows.length : 0,
-    columns: 'inline' in use ? use.inline.columns : ([] as DeckColumn[]),
-  })),
+  Object.entries(decks.value).map(([id, use]) => {
+    const inline = 'inline' in use
+    const linked = !inline ? props.refDecks?.[id] : undefined
+    return {
+      id,
+      // The linked deck's own name reads better than the config key (e.g. "pool").
+      label: linked?.name || id,
+      inline,
+      cols: inline ? use.inline.columns.length : (linked?.columns.length ?? 0),
+      rows: inline ? use.inline.rows.length : (linked?.rows.length ?? 0),
+      columns: inline ? use.inline.columns : (linked?.columns ?? ([] as DeckColumn[])),
+    }
+  }),
 )
 
 const adding = ref(false)
@@ -108,7 +119,7 @@ function removeDeck(id: string) {
       <li v-for="d in list" :key="d.id" class="dm-item">
         <div class="dm-row">
           <button type="button" class="dm-name" @click="expanded = expanded === d.id ? null : d.id">
-            <span class="dm-id">{{ d.id }}</span>
+            <span class="dm-id">{{ d.label }}</span>
             <span class="dm-meta">{{ d.rows }} row{{ d.rows === 1 ? '' : 's' }} · {{ d.cols }} col{{ d.cols === 1 ? '' : 's' }}{{ d.inline ? '' : ' · linked' }}</span>
           </button>
           <button type="button" class="dm-x" aria-label="Remove deck" @click="removeDeck(d.id)">✕</button>
