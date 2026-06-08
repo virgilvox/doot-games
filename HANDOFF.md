@@ -6,10 +6,14 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** ~26
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 31
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
-> attribution). Implements `docs/expansion-plan.md`:
+> attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
+> is `docs/expansion-plan.md`; the gate is `pnpm test && pnpm -r typecheck && pnpm --filter
+> @doot-games/web build`; browser smokes live in `scripts/*-smoke.mjs` (run one with
+> `pnpm dev` in another shell, then `node scripts/<x>-smoke.mjs`). DO NOT push - the owner
+> holds the branch until the plan reaches completeness. Implements `docs/expansion-plan.md`:
 > - **Primitives:** P1 text-match · P5 Teams · P3 live standings · P4 Phase A audience tier.
 > - **New games/blocks:** answer + Type the Answer · caption (quip image) · Would You
 >   Rather · Tier List · Over/Under · Categories (Scattergories) · Survey (Family Feud) ·
