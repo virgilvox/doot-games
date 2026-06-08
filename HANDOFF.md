@@ -14,19 +14,34 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **New games/blocks:** answer + Type the Answer · caption (quip image) · Would You
 >   Rather · Tier List · Over/Under · Categories (Scattergories) · Survey (Family Feud) ·
 >   Spectrum (consensus dial) · Wager (bet-a-tier trivia). Catalog now ~31 games.
+>   P4 audience tier: A (watch + standings) AND B (vote on polls as a capped crowd bloc).
 > - **Content/UI:** audio-clip support (AudioClip) · SpectrumDial · StandingsPeek.
 > - **§4.3 Sessions COMPLETE:** engine `nextGame` + the SessionHostRoom orchestrator +
 >   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
-> - **Tests:** ~579 unit + ~9 browser smokes (answer, audience, audio, categories,
->   quickwins, spectrum, standings, survey, teams, session, playlists).
-> - **REMAINING toward completeness (per §8):** P4 Phase B (weighted audience voting) ·
->   P7 Pipeline -> Doodle Chain / Quick Draw / Bingo / Call It (the big custom-flow games) ·
->   the clue-giver "Wavelength" Spectrum (needs per-player content in a derived round,
->   an engine gap) · survey two-phase · custom prompt packs. Detailed dated entries below.
+> - **Tests:** ~590 unit + ~11 browser smokes (answer, audience, audience-vote, audio,
+>   categories, quickwins, spectrum, standings, survey, teams, session, playlists, wager).
+> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
+>   (vote/split/fibvote weighting - poll done) · P7 Pipeline -> Doodle Chain / Quick Draw /
+>   Bingo / Call It (the big custom-flow games) · the clue-giver "Wavelength" Spectrum
+>   (needs per-player content in a derived round, an engine gap) · survey two-phase ·
+>   custom prompt packs. Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **P4 Phase B - audience votes on polls (2026-06-08).** BUILT + verified on the same
+> branch (1 commit, not pushed). Spectators weigh in: on a poll round, an audience phone
+> shows the options + they vote; the big screen folds the crowd in as a CAPPED bloc
+> (max(3, players) worth of votes, split by the crowd's choices) so a huge audience
+> influences but never drowns out the room. Kept OFF the scoring path: audience votes go
+> to a separate `/avote/<i>/<id>` namespace (engine `submitAudience` + a host-only
+> collector + `audienceVotesFor`), never mixed into player inputs (no deanonymization, no
+> leaderboard effect). The crowd tally reaches only the poll's host view via a
+> provide/inject from GameHost (the SDK block contract is untouched); nextGame clears the
+> votes. Verified: 590 unit tests (a new engine test), typechecks, web build,
+> `scripts/audience-vote-smoke.mjs`, P4A smoke still green. REMAINING for full P4B:
+> weighting the SCORED vote blocks (vote/split/fibvote) via the same channel.
 
 > **Wager / high-stakes trivia (2026-06-08).** BUILT + verified on the same branch (1
 > commit, not pushed). A scored standalone block + a "Wager" flagship: each round is a
