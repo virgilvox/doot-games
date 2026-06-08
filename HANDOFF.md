@@ -11,6 +11,32 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Sessions / a night of games (§4.3) (2026-06-08).** BUILT + verified on the same
+> branch `expansion-p1-answer-caption` (2 commits, not yet pushed). The marquee
+> structural feature for bars/classrooms/parties: several games played back to back in
+> ONE room, players join once and stay.
+> - **Engine `room.host.nextGame(game)`:** swaps in the next game in the same room.
+>   Wipes the previous game's per-round relay state (inputs, derived content, answers,
+>   reveals, per-player secrets) + standings + results + the pending drive command,
+>   then re-enters active at round 0. Presence (players/audience/teams/driver) persists.
+>   Clearing is by publishing null; the input/content/reveal/per-player handlers now
+>   treat null as ABSENT (delete) so a cleared round reads as "not submitted". Real
+>   values are never null, so existing games are unaffected. Unit-tested in room.test.
+> - **`SessionHostRoom` + `/host/session`:** the host picks games, players join once,
+>   and a cumulative session leaderboard accrues placement points per game (folded when
+>   each leg's results land). Reuses the generic per-game machinery to build each leg's
+>   LoadedGame; renders GameHost in a new `sessionMode` (hides the per-game play-again
+>   CTA); drives the next leg via nextGame so the player's plugin follows the swap with
+>   no rejoin. Custom-flow games are excluded from the picker (nextGame only resets the
+>   engine, not their /x/ state).
+> - **DEFERRED:** the durable `playlists` entity (save + reuse a night, mirroring
+>   decks-repo: table + repo + API + a /playlists UI) - this MVP is ad-hoc (curate live).
+> - **Verified:** 579 unit tests, all typechecks, the web build, `scripts/session-smoke.mjs`
+>   (a 2-game night; a player plays both without rejoining; the session board accumulates
+>   + the final board shows), and answer-smoke (normal hosting unaffected by sessionMode).
+> **Next (per plan §8):** P4 Phase B (weighted audience), P7 Pipeline -> Doodle Chain /
+> Quick Draw / Bingo, Wager, the durable playlists entity, the clue-giver Wavelength.
+
 > **Spectrum / consensus dial (2026-06-08).** BUILT + verified on the same branch
 > `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new standard block
 > + a "Spectrum" flagship: everyone slides a 0-100 dial to place the subject between
