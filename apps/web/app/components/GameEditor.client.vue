@@ -337,6 +337,10 @@ const previewContent = computed<Record<string, unknown>>(() => {
   }
 })
 const previewPrompt = computed(() => (previewContent.value.prompt as string | undefined) ?? '')
+// A display block (slide / title card) renders its whole view itself, so the preview
+// must NOT add the generic kicker/prompt/image chrome around it (that double-shows
+// the slide's image).
+const curIsDisplay = computed(() => !!(cur.value && blockFor(cur.value)?.display))
 function select(i: number) {
   selected.value = i
   showPreviewDrawer.value = false
@@ -768,9 +772,11 @@ onScopeDispose(() => {
           <template v-if="cur">
             <!-- PHONE: what each player taps on their own device -->
             <div v-if="previewMode === 'phone'" class="ed-phone panel">
-              <div class="kicker">{{ blockFor(cur)?.name }}</div>
-              <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
-              <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
+              <template v-if="!curIsDisplay">
+                <div class="kicker">{{ blockFor(cur)?.name }}</div>
+                <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
+                <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
+              </template>
               <template v-if="isDerived(cur)">
                 <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
                 <ul class="ed-sample">
@@ -791,7 +797,7 @@ onScopeDispose(() => {
 
             <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
             <div v-else class="ed-bigscreen panel">
-              <div class="ed-bs-prompt-area">
+              <div v-if="!curIsDisplay" class="ed-bs-prompt-area">
                 <h3 class="ed-bs-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
                 <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-bs-img" />
               </div>
