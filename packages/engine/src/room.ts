@@ -467,13 +467,16 @@ export class RoomRuntime {
       on(patterns.roundContent(r), (v, a) => {
         const i = parseRoundSubAddress(a, 'content')
         if (i == null) return
-        this.runtimeContent.set(i, v)
+        // null clears it (a session's nextGame wipes the previous game's rounds).
+        if (v == null) this.runtimeContent.delete(i)
+        else this.runtimeContent.set(i, v)
         this.emit()
       })
       on(patterns.roundReveal(r), (v, a) => {
         const i = parseRoundSubAddress(a, 'reveal')
         if (i == null) return
-        this.roundReveals.set(i, v)
+        if (v == null) this.roundReveals.delete(i)
+        else this.roundReveals.set(i, v)
         this.emit()
       })
     }
@@ -540,7 +543,11 @@ export class RoomRuntime {
       on(patterns.inputsForPlayer(r, this.me.id), (v, a) => {
         const parsed = parseInputAddress(a)
         if (!parsed) return
-        this.inputs.set(`${parsed.roundIndex}:${this.me.id}`, v)
+        const key = `${parsed.roundIndex}:${this.me.id}`
+        // null clears it: a session's nextGame wipes the previous game's inputs, and
+        // a cleared input must read as "not submitted" (not as an empty submission).
+        if (v == null) this.inputs.delete(key)
+        else this.inputs.set(key, v)
         this.emit()
       })
       // This player's own SECRET per-round content (hidden-role games), delivered
@@ -548,7 +555,8 @@ export class RoomRuntime {
       on(patterns.myRoundContent(r, this.me.id), (v, a) => {
         const parsed = parseRoundContentForPlayer(a)
         if (!parsed) return
-        this.perPlayerContent.set(parsed.roundIndex, v)
+        if (v == null) this.perPlayerContent.delete(parsed.roundIndex)
+        else this.perPlayerContent.set(parsed.roundIndex, v)
         this.emit()
       })
     } else if (this.me.role === 'host' || this.me.role === 'viewer') {
@@ -559,7 +567,9 @@ export class RoomRuntime {
       on(patterns.allInputs(r), (v, a) => {
         const parsed = parseInputAddress(a)
         if (!parsed) return
-        this.inputs.set(`${parsed.roundIndex}:${parsed.pid}`, v)
+        const key = `${parsed.roundIndex}:${parsed.pid}`
+        if (v == null) this.inputs.delete(key)
+        else this.inputs.set(key, v)
         this.emit()
       })
       // Host only: drive intents from the delegated player. Apply one only if it
@@ -1070,6 +1080,57 @@ export class RoomRuntime {
     this.publish(addr.resultsSummary(this.room), summary)
     this.publish(addr.phase(this.room), 'results')
     this.transition({ type: 'finish' })
+  }
+
+  /**
+   * Sessions: swap in the next game in the SAME room without players rejoining.
+   * Wipes the previous game's per-round relay state (so reused round indices can't
+   * inherit stale inputs / derived content / answers / reveals — publishing null
+   * clears each, and the subscription handlers treat null as absent), then loads the
+   * new game and re-enters the active phase at round 0. Presence persists: players,
+   * audience, teams, and the delegated driver all carry across. Host only.
+   */
+  nextGame(game: LoadedGame): void {
+    this.assertHost()
+    const prevRounds = this.game?.rounds.length ?? 0
+    const pids = this.recentPlayers().map((p) => p.id)
+    for (let i = 0; i < prevRounds; i++) {
+      this.publish(addr.roundContent(this.room, i), null)
+      this.publish(addr.roundReveal(this.room, i), null)
+      this.publish(addr.roundAnswer(this.room, i), null)
+      for (const pid of pids) {
+        this.publish(addr.input(this.room, i, pid), null)
+        this.publish(addr.roundContentForPlayer(this.room, i, pid), null)
+      }
+    }
+    this.publish(addr.standings(this.room), null)
+    this.publish(addr.resultsSummary(this.room), null)
+    this.publish(addr.controlCommand(this.room), null)
+    this.lastCommandNonce = null
+    this.incomingCommand = null
+    // Clear local ephemeral state for the previous game.
+    this.inputs.clear()
+    this.runtimeContent.clear()
+    this.perPlayerContent.clear()
+    this.roundReveals.clear()
+    this.derivedAnswers.clear()
+    this.assignedRounds.clear()
+    this.results = undefined
+    this.standings = undefined
+    // Load + start the next game (re-enter active at round 0, regardless of phase).
+    this.game = game
+    this.config = game.config
+    this.meta = game.meta
+    this.state = { phase: 'active', round: { index: 0, state: 'ready', deadline: null } }
+    this.publish(addr.meta(this.room), game.meta as unknown as RelayValue)
+    this.publish(addr.config(this.room), game.publishConfig ?? game.config)
+    this.publish(addr.roundIndex(this.room), 0)
+    this.publish(addr.roundState(this.room), 'ready')
+    this.publish(addr.roundDeadline(this.room), null)
+    this.publish(addr.phase(this.room), 'active')
+    this.publishDerivedIfAny(0)
+    this.publishAssignedIfAny(0)
+    this.emit()
   }
 
   /** Whether `actionType` is currently legal (drives which control the host shows). */

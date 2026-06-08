@@ -334,6 +334,80 @@ describe('RoomRuntime player cap (A8)', () => {
   })
 })
 
+describe('RoomRuntime sessions (nextGame)', () => {
+  const GAME2 = {
+    meta: { pluginId: 'guess', pluginVersion: '0.0.0', title: 'Game 2', themeId: 'doot' },
+    config: { title: 'Game 2', rounds: [{}] } as RelayValue,
+    rounds: [{ timer: null }],
+    answerKeys: { 0: { correct: 0 } as RelayValue },
+  }
+
+  it('swaps in the next game, re-enters active at round 0, and republishes meta', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+    host.lock()
+    host.reveal()
+    host.finish({ winner: 'x' } as RelayValue)
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('results')
+
+    host.nextGame(GAME2)
+    expect(hub.store.get(addr.meta('ABCD'))).toEqual(GAME2.meta)
+    expect(hub.store.get(addr.config('ABCD'))).toEqual(GAME2.config)
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('active')
+    expect(hub.store.get(addr.roundIndex('ABCD'))).toBe(0)
+    expect(hub.store.get(addr.roundState('ABCD'))).toBe('ready')
+    expect(host.getSnapshot().round.index).toBe(0)
+  })
+
+  it('wipes the previous game\'s inputs so a reused round index does not inherit them', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.submit({ choice: 1 } as RelayValue)
+    const pid = playerId('ABCD', 'Ada')
+    expect(host.inputsFor(0).get(pid)).toEqual({ choice: 1 })
+
+    host.finish({} as RelayValue)
+    host.nextGame(GAME2)
+    // The host's tally for round 0 is empty again...
+    expect(host.inputsFor(0).size).toBe(0)
+    // ...and the cleared relay value reads as "not submitted" for the player (null
+    // is treated as absent), so they aren't shown as having answered game 2 already.
+    await flush()
+    expect(ada.inputFor(0)).toBeUndefined()
+    // The player is still in the room (presence persists across games).
+    expect(host.recentPlayers().map((p) => p.name)).toContain('Ada')
+  })
+
+  it('clears the previous standings + results so game 2 does not show them', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.publishStandings({ leaderboard: [{ id: 'p', name: 'P', score: 9 }] } as RelayValue)
+    host.finish({ winner: 'P' } as RelayValue)
+
+    host.nextGame(GAME2)
+    expect(hub.store.get(addr.standings('ABCD'))).toBeNull()
+    expect(hub.store.get(addr.resultsSummary('ABCD'))).toBeNull()
+    expect(host.getSnapshot().standings).toBeUndefined()
+    expect(host.getSnapshot().results).toBeUndefined()
+  })
+})
+
 describe('RoomRuntime audience tier (P4)', () => {
   it('a spectator reads display state but never joins the roster or counts to the cap', async () => {
     const hub = new FakeHub()

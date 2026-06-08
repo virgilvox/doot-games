@@ -132,6 +132,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
       reveal: () => runtime.reveal(),
       next: () => runtime.next(),
       finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
+      nextGame: (game: Parameters<RoomRuntime['nextGame']>[0]) => runtime.nextGame(game),
       publishStandings: (summary: Parameters<RoomRuntime['publishStandings']>[0]) =>
         runtime.publishStandings(summary),
       setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
