@@ -91,10 +91,10 @@ function autoBalance() {
 // P4B (lobby control): "let the crowd's votes count" on scored judge rounds. Shown
 // only for games that actually have a vote-tallying block, so it doesn't clutter the
 // lobby of games where it would do nothing. Ephemeral, on meta (mirrors teams).
-// Only `vote` folds the crowd today; split/fibvote are the same pattern (fold their
-// tally + add their kind here and to GameAudience) but ship later, so the toggle
-// shows only where it actually does something.
-const CROWD_VOTE_BLOCKS = ['vote']
+// `vote` and `fibvote` fold the crowd today; `split` is the same pattern but needs a
+// per-scenario audience surface, so it ships later. The toggle shows only where it
+// actually does something.
+const CROWD_VOTE_BLOCKS = ['vote', 'fibvote']
 const hasJudgeVote = computed(() => props.plugin.blocks.some((b) => CROWD_VOTE_BLOCKS.includes(b.kind)))
 const crowdOn = computed(() => !!room.meta.value?.crowdCounts)
 function toggleCrowd(on: boolean) {

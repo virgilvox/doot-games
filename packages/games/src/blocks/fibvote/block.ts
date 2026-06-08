@@ -20,6 +20,7 @@ import {
   z,
 } from '@doot-games/sdk'
 import { type ResultsFragment } from '@doot-games/sdk'
+import { crowdBloc, crowdChoiceCounts } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
 import { liarPoints, roundMultiplier, truthFinderPoints } from '../scoring'
 import { voteOptionSchema } from '../vote/block'
@@ -93,12 +94,23 @@ function tally(
   options: Array<{ id: string }>,
   inputs: Map<string, FibInput>,
   authors: Record<string, string>,
+  /** P4B: spectator votes, folded in as a capped, discounted bloc when "the crowd's
+   *  votes count" is on. A crowd vote for a lie adds to its fooled count (nudging the
+   *  liar); a crowd vote for the truth is neutral (the truth has no author to score).
+   *  The crowd are not authors, so there is no self-vote to exclude. */
+  crowd?: Map<string, FibInput>,
 ): Map<string, number> {
   const counts = new Map<string, number>(options.map((o) => [o.id, 0]))
   for (const [pid, v] of inputs) {
     if (!v?.choice || !counts.has(v.choice)) continue
     if (authors[v.choice] === pid) continue // self-vote on your own lie: ignored
     counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
+  }
+  if (crowd?.size) {
+    const playerTotal = [...counts.values()].reduce((a, b) => a + b, 0)
+    for (const [id, add] of crowdBloc(playerTotal, crowdChoiceCounts(crowd))) {
+      if (counts.has(id)) counts.set(id, (counts.get(id) ?? 0) + add)
+    }
   }
   return counts
 }
@@ -183,7 +195,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
     const truthId = ans?.truthId ?? ''
     const nameOf = (pid: string) =>
       ctx.players.find((p) => p.id === pid)?.name ?? ans?.names?.[pid] ?? 'Someone'
-    const counts = tally(ctx.content.options, ctx.inputs, authors)
+    const counts = tally(ctx.content.options, ctx.inputs, authors, ctx.audienceVotes)
     const truthText = ctx.content.options.find((o) => o.id === truthId)?.text ?? ''
     const options = ctx.content.options.map((o) => ({
       id: o.id,
@@ -214,7 +226,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
       const truthId = ans?.truthId ?? ''
       const safety = new Set(ans?.safety ?? [])
       const inputs = ctx.inputsFor(round.index)
-      const counts = tally(round.content.options, inputs, authors)
+      const counts = tally(round.content.options, inputs, authors, ctx.audienceVotesFor?.(round.index))
       const mult = roundMultiplier(ri, ctx.rounds.length)
 
       // Truth-finders: each voter who picked the true option.

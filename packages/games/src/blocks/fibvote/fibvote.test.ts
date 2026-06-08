@@ -75,6 +75,45 @@ describe('fibvote derive', () => {
   })
 })
 
+describe('fibvote audience bloc (P4B: capped crowd, never on the board)', () => {
+  function ctx(crowd?: Map<string, FibInput>): BlockResultsContext<FibContent, FibInput> {
+    // o0 = Ada's lie "congress", o1 = Bea's lie "murder", o2 = the truth "parliament".
+    const { publish, answer } = deriveWith(
+      new Map<string, unknown>([['A', { text: 'congress' }], ['B', { text: 'murder' }]]),
+    )
+    // Ada and Bea find the truth; Cy is fooled by Ada's lie (o0).
+    const votes = new Map<string, FibInput>([
+      ['A', { choice: 'o2' }],
+      ['B', { choice: 'o2' }],
+      ['C', { choice: 'o0' }],
+    ])
+    return {
+      rounds: [{ index: 1, content: publish }],
+      inputsFor: () => votes,
+      answerFor: () => answer,
+      players,
+      audienceVotesFor: crowd ? () => crowd : undefined,
+    }
+  }
+  const scoreOf = (c: BlockResultsContext<FibContent, FibInput>, name: string) =>
+    (fibBlock.aggregate!(c).leaderboard ?? []).find((e) => e.name === name)?.score ?? 0
+
+  it('a crowd fooled by a lie lifts that liar, capped, and never joins the board', () => {
+    const base = scoreOf(ctx(), 'Ada') // Ada fooled 1 (Cy)
+    const crowd = new Map<string, FibInput>(Array.from({ length: 100 }, (_, i) => [`s${i}`, { choice: 'o0' }]))
+    const withCrowd = ctx(crowd)
+    expect(scoreOf(withCrowd, 'Ada')).toBeGreaterThan(base) // the crowd, fooled by Ada, lifts her
+    const board = fibBlock.aggregate!(withCrowd).leaderboard ?? []
+    expect(board.map((e) => e.id).sort()).toEqual(['A', 'B', 'C']) // spectators never on the board
+    expect(board.some((e) => e.id?.startsWith('s'))).toBe(false)
+  })
+
+  it('a crowd that piles onto the TRUTH is neutral (the truth scores no liar)', () => {
+    const crowdTruth = new Map<string, FibInput>([['s0', { choice: 'o2' }], ['s1', { choice: 'o2' }], ['s2', { choice: 'o2' }]])
+    expect(scoreOf(ctx(crowdTruth), 'Ada')).toBe(scoreOf(ctx(), 'Ada'))
+  })
+})
+
 describe('fibvote aggregate (dual-axis scoring)', () => {
   it('rewards truth-finders and rewards liars per player fooled', () => {
     const { publish, answer } = deriveWith(

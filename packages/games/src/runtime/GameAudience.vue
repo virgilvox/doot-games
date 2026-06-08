@@ -49,9 +49,9 @@ const canVote = computed(() => {
   if (state.value !== 'open') return false
   const k = block.value?.kind
   if (k === 'poll') return true // unscored, always
-  // Scored judge rounds: only when the host turned the toggle on. `vote` is wired
-  // today; fibvote/split fold the same way and join this list when shipped.
-  return crowdOn.value && k === 'vote'
+  // Scored judge rounds: only when the host turned the toggle on. `vote` + `fibvote`
+  // are single-choice and wired; `split` (per-scenario yes/no) needs its own surface.
+  return crowdOn.value && (k === 'vote' || k === 'fibvote')
 })
 // Normalize the votable options: a poll's choice is the option INDEX; a derived vote
 // round's choice is the option ID (a string). Read from the public derived content.

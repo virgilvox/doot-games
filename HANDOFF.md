@@ -31,9 +31,9 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **Tests:** ~639 unit + ~14 browser smokes (answer, audience, audience-vote, audio,
 >   categories, crowd-vote, doodlechain, quickwins, spectrum, standings, storychain, survey,
 >   teams, session, playlists, wager).
-> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks - the `vote`
->   block is DONE (host toggle + capped crowd bloc); split + fibvote are the same pattern,
->   not yet wired · **Quick Draw** (real-time stroke streaming) / Bingo / Call It (the
+> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks - `vote` +
+>   `fibvote` DONE (host toggle + capped crowd bloc); `split` remains (same fold, but needs a
+>   per-scenario yes/no audience surface) · **Quick Draw** (real-time stroke streaming) / Bingo / Call It (the
 >   remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now unblocked by
 >   the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated entries below.
 
@@ -62,11 +62,15 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   nudges a close round, capped, and never on the leaderboard" + revealSummary folds the same),
 >   typechecks, web build, and `scripts/crowd-vote-smoke.mjs` (real: toggle on, a spectator votes
 >   on a SCORED vote round, the leaderboard shows only the 2 players, 0 overflow at 390px).
-> - **Follow-on (split + fibvote):** same `crowdBloc` + context; fold each block's tally and add
->   its kind to `CROWD_VOTE_BLOCKS` (GameHost) + GameAudience's `canVote`. fibvote is single-choice
->   like vote (easy); split's input is per-scenario yes/no, so it ALSO needs a per-scenario audience
->   surface in GameAudience (the current one is single-choice). Decide per block how the crowd
->   folds into that block's scoring (vote = vote share; fibvote = fooled-count/truth; split = ratio).
+> - **fibvote: now DONE too (2026-06-08).** Same fold via its `tally()` (a crowd vote for a lie
+>   lifts that liar's fooled count, capped; a crowd vote for the truth is neutral since the truth
+>   has no author; truth-finder scoring is untouched because it iterates player inputs). Added to
+>   `CROWD_VOTE_BLOCKS` + GameAudience `canVote` (single-choice, same surface as vote). Unit-tested
+>   (`fibvote.test`); the end-to-end audience flow is the SAME shared code the vote smoke covers.
+> - **Follow-on (split only):** same `crowdBloc` + context, fold its per-scenario `tally()` (cap the
+>   crowd's yes/no against that scenario's player votes). BUT split's input is per-scenario yes/no,
+>   so it ALSO needs a NEW per-scenario audience surface in GameAudience (the current one is
+>   single-choice) + a split-room smoke. That UI is the real work; the scoring fold is a few lines.
 
 > **P4B for the SCORED vote blocks - DECIDED + scoped (2026-06-08).** The
 > owner picked the design: a **lobby host toggle "Let the crowd's votes count", default OFF**.
