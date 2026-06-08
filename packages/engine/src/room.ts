@@ -123,6 +123,8 @@ export interface RoomSnapshot {
   config: RelayValue | undefined
   meta: RoomMeta | undefined
   results: RelayValue | undefined
+  /** Running standings between rounds (cumulative through the revealed rounds). */
+  standings: RelayValue | undefined
   connected: boolean
   reconnecting: boolean
   error: string | null
@@ -176,6 +178,9 @@ export class RoomRuntime {
   private config: RelayValue | undefined
   private meta: RoomMeta | undefined
   private results: RelayValue | undefined
+  /** Running standings (cumulative through the revealed rounds). Host computes +
+   *  publishes; player/viewer read from the relay. */
+  private standings: RelayValue | undefined
 
   private connected = false
   private reconnecting = false
@@ -413,6 +418,10 @@ export class RoomRuntime {
         this.results = v
         this.emit()
       })
+      on(addr.standings(r), (v) => {
+        this.standings = v
+        this.emit()
+      })
       on(addr.hostPing(r), (v) => {
         this.lastHostPing = Number(v)
         this.emit()
@@ -552,6 +561,7 @@ export class RoomRuntime {
       config: this.config,
       meta: this.meta,
       results: this.results,
+      standings: this.standings,
       connected: this.connected,
       reconnecting: this.reconnecting,
       error: this.error,
@@ -996,6 +1006,16 @@ export class RoomRuntime {
     this.publish(addr.roundIndex(this.room), i)
     this.publish(addr.roundState(this.room), 'ready')
     this.publish(addr.roundDeadline(this.room), null)
+  }
+
+  /** Publish the running standings (cumulative scores through the revealed rounds)
+   *  so phones + the big screen can show a between-round leaderboard. Host only;
+   *  purely presentational and ephemeral, never the database. */
+  publishStandings(summary: RelayValue): void {
+    this.assertHost()
+    this.standings = summary
+    this.publish(addr.standings(this.room), summary)
+    this.emit()
   }
 
   /** End the game and publish the results summary the plugin computed. */

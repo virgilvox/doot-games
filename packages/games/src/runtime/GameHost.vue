@@ -7,11 +7,13 @@
 import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
-import { ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips } from '@doot-games/ui'
+import { ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek } from '@doot-games/ui'
+import type { StandardResults } from '@doot-games/sdk'
 import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
-import { getBlock, scoreGame } from './derive'
+import { type ScoreGameContext, getBlock, scoreGame } from './derive'
+import { standingsThrough } from './standings'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -192,12 +194,14 @@ function maybeAutoLock() {
   if (room.host.can('lock')) room.host.lock()
 }
 
-function finish() {
+// Build the inputs scoring needs (the effective config + the score context), shared
+// by finish() and the between-round standings. Score against the *effective* config:
+// a two-phase round is scored on its runtime-derived content (the vote options) and
+// runtime answer key (the author map), not the authored placeholder. Teams roll up
+// only when teams are ON (a stale pick lingers on the relay after teams are turned off).
+function scoreInputs(): { effectiveCfg: GameComposition; ctx: ScoreGameContext } | null {
   const cfg = config.value
-  if (!cfg) return
-  // Only roll up teams if teams are actually ON (meta.teams set). A player's team
-  // value lingers on the relay after the host turns teams off, so without this gate
-  // a disabled-teams game would still show a team board from the stale picks.
+  if (!cfg) return null
   const useTeams = (room.meta.value?.teams?.length ?? 0) > 0
   const players: ScorePlayer[] = room.players.value.map((p) => ({
     id: p.id,
@@ -205,10 +209,7 @@ function finish() {
     joinedAtIndex: p.joinedAtIndex,
     team: useTeams ? p.team : undefined,
   }))
-  // Score against the *effective* config: a two-phase round is scored on its
-  // runtime-derived content (the vote options) and runtime answer key (the author
-  // map), not the authored placeholder. `answerKeyFor` merges runtime + static.
-  const effectiveCfg = {
+  const effectiveCfg: GameComposition = {
     ...cfg,
     rounds: cfg.rounds.map((inst, i) => ({
       ...inst,
@@ -220,13 +221,40 @@ function finish() {
     const a = room.answerKeyFor(i)
     if (a !== undefined) answerKeys[i] = a
   })
-  const summary = scoreGame(props.plugin, effectiveCfg, {
-    inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>,
-    players,
-    answerKeys,
-  })
-  room.host.finish(summary as unknown as RelayValue)
+  return {
+    effectiveCfg,
+    ctx: { inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>, players, answerKeys },
+  }
 }
+
+function finish() {
+  const s = scoreInputs()
+  if (!s) return
+  room.host.finish(scoreGame(props.plugin, s.effectiveCfg, s.ctx) as unknown as RelayValue)
+}
+
+// Publish the running standings after a round is revealed, so phones + the big
+// screen can show a between-round leaderboard. Only for a scored game (a leaderboard
+// with entries); an unscored game publishes nothing. Cheap + purely presentational.
+function pushStandings() {
+  const s = scoreInputs()
+  if (!s) return
+  const summary = standingsThrough(props.plugin, s.effectiveCfg, index.value, s.ctx)
+  if (summary.leaderboard?.length) room.host.publishStandings(summary as unknown as RelayValue)
+}
+// The vote/answer reveal is a real stop (state stays 'reveal'); a make round's
+// transient reveal is coalesced away by the watcher, which is fine since it scores
+// nothing. Re-publishing on a no-score round would be harmless anyway.
+watch(state, (s) => {
+  if (s === 'reveal') pushStandings()
+})
+
+const standings = computed(() => room.standings.value as StandardResults | undefined)
+// Show the running standings on the big screen during the reveal beat of a scored
+// round (not on a display/slide round, and only once there's something to show).
+const showStandings = computed(
+  () => state.value === 'reveal' && !isDisplay.value && (standings.value?.leaderboard?.length ?? 0) > 0,
+)
 
 // Reload to host a fresh room of the same game (HostRoom re-resolves the config,
 // so a pooled flagship re-samples and a saved game re-loads its stored config).
@@ -503,6 +531,13 @@ watch(
       </div>
     </div>
 
+    <StandingsPeek
+      v-if="showStandings && standings"
+      :results="standings"
+      :teams="teams"
+      class="host-standings"
+    />
+
     <div v-if="driverName" class="driving-note">
       <span class="dn-label"><Icon name="mc" :size="16" /> {{ driverName }} is driving from their phone</span>
       <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
@@ -683,6 +718,12 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.host-standings {
+  flex: none;
+  align-self: center;
+  width: min(720px, 100%);
+  margin-top: 12px;
 }
 .driving-note {
   margin-top: 14px;

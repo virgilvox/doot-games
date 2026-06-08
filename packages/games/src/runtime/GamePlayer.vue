@@ -6,8 +6,8 @@
  */
 import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
-import type { GameComposition, GamePlugin } from '@doot-games/sdk'
-import { Icon, teamColor } from '@doot-games/ui'
+import type { GameComposition, GamePlugin, StandardResults } from '@doot-games/sdk'
+import { Icon, StandingsPeek, teamColor } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, ownMakeText } from './derive'
@@ -18,6 +18,13 @@ const room = injectDootRoom()
 // Teams (when the host turned them on): the names to pick from, and this player's
 // current pick. Shown in the lobby; the player taps to join a team.
 const teams = computed(() => room.meta.value?.teams ?? [])
+
+// Running standings (P3): the host publishes a between-round leaderboard; show it on
+// the phone during the lull (locked / reveal) so the player watches their rank.
+const standings = computed(() => room.standings.value as StandardResults | undefined)
+const showStandings = computed(
+  () => (state.value === 'reveal' || state.value === 'locked') && (standings.value?.leaderboard?.length ?? 0) > 0,
+)
 
 const config = computed<GameComposition | null>(
   () => (room.config.value as unknown as GameComposition) ?? null,
@@ -232,6 +239,14 @@ function reloadPage() {
       <h2>Results are up!</h2>
       <p>Check the big screen.</p>
     </div>
+
+    <StandingsPeek
+      v-if="showStandings && standings"
+      :results="standings"
+      :me="room.me.value.name"
+      :teams="teams"
+      class="player-standings"
+    />
   </div>
 </template>
 
@@ -304,6 +319,9 @@ function reloadPage() {
   color: var(--mute);
   font-size: 13px;
   font-weight: 600;
+}
+.player-standings {
+  flex: none;
 }
 /* Team picker (lobby) */
 .team-pick {

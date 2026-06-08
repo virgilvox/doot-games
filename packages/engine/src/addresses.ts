@@ -43,6 +43,11 @@ export const addr = {
   roundContentForPlayer: (room: string, i: number, pid: string) =>
     `${roomBase(room)}/round/${i}/content/${pid}`,
   resultsSummary: (room: string) => `${roomBase(room)}/results/summary`,
+  /** Running standings (cumulative scores through the revealed rounds), published
+   *  by the host after each reveal so phones + the big screen can show a between-
+   *  round leaderboard. Ephemeral, like everything else; the final results use the
+   *  separate resultsSummary. */
+  standings: (room: string) => `${roomBase(room)}/standings`,
   playerProfile: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/profile`,
   playerPing: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/ping`,
   /** A player's team (when teams are on): a team name, or '' to clear. The player

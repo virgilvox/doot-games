@@ -60,6 +60,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
     config: computed(() => snapshot.value.config),
     meta: computed(() => snapshot.value.meta),
     results: computed(() => snapshot.value.results),
+    standings: computed(() => snapshot.value.standings),
     theme: computed(() => snapshot.value.meta?.themeId ?? null),
     connected: computed(() => snapshot.value.connected),
     reconnecting: computed(() => snapshot.value.reconnecting),
@@ -129,6 +130,8 @@ export function useDootRoom(options: UseDootRoomOptions) {
       reveal: () => runtime.reveal(),
       next: () => runtime.next(),
       finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
+      publishStandings: (summary: Parameters<RoomRuntime['publishStandings']>[0]) =>
+        runtime.publishStandings(summary),
       setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
       setDriver: (pid: string | null) => runtime.setDriver(pid),
       setTeams: (names: string[] | null) => runtime.setTeams(names),

@@ -329,6 +329,33 @@ describe('RoomRuntime player cap (A8)', () => {
   })
 })
 
+describe('RoomRuntime running standings (P3)', () => {
+  it('host publishes standings; a player reads them from the relay', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    host.publishStandings({ leaderboard: [{ id: 'p_1', name: 'Ada', score: 3 }] } as RelayValue)
+    expect(hub.store.get(addr.standings('ABCD'))).toEqual({ leaderboard: [{ id: 'p_1', name: 'Ada', score: 3 }] })
+    expect(host.getSnapshot().standings).toEqual({ leaderboard: [{ id: 'p_1', name: 'Ada', score: 3 }] })
+
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    expect(ada.getSnapshot().standings).toEqual({ leaderboard: [{ id: 'p_1', name: 'Ada', score: 3 }] })
+  })
+
+  it('only the host may publish standings', async () => {
+    const hub = new FakeHub()
+    const ada = makePlayer(hub, 'Ada', () => 0)
+    await ada.connect()
+    expect(() => ada.publishStandings({} as RelayValue)).toThrow()
+  })
+})
+
 describe('RoomRuntime teams (P5)', () => {
   it('stamps team names into meta and clears them', async () => {
     const hub = new FakeHub()
