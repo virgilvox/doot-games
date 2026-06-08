@@ -40,9 +40,9 @@ Rules:
     center-crop it to a wide strip, the detail page shows the full image.
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
-  block kinds below (`guess`, `poll`, `rank`, `rate`, `draw`, `hivemind`,
-  `mostlikely`, `ballpark`, `buzzer`, the two-phase `quip` / `fill`, and the
-  hidden-imposter `faker`). You can repeat and mix them in any order.
+  block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
+  `hivemind`, `mostlikely`, `ballpark`, `buzzer`, the two-phase `quip` / `fill`,
+  and the hidden-imposter `faker`). You can repeat and mix them in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -62,6 +62,25 @@ timer: 15
 - Jupiter (correct)
 - Saturn
 - Earth
+```
+
+### `answer`: type-the-answer trivia
+No choices: every player types the answer on their phone. Fields: `subject`,
+`prompt`, `image`, `timer` (default 30), `answers:` (the accepted answer; add
+synonyms separated by ` | `), and `fuzzy:` (default `yes`, which forgives small
+typos and accents; set `no` for a strict match). The answer is hidden until
+reveal, and only a correct answer scores.
+
+```markdown
+## answer
+subject: Geography
+prompt: What is the capital of Japan?
+answers: Tokyo
+
+## answer
+prompt: What is the largest US city by population?
+answers: New York City | NYC
+fuzzy: yes
 ```
 
 ### `poll`: opinion question, no right answer

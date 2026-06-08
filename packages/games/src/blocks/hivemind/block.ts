@@ -18,6 +18,7 @@ import {
   z,
 } from '@doot-games/sdk'
 import { BASE_POINTS } from '../scoring'
+import { normalizeAnswer } from '../text-match'
 import HivemindHost from './HivemindHost.vue'
 import HivemindPlayer from './HivemindPlayer.vue'
 import HivemindReveal from './HivemindReveal.vue'
@@ -57,14 +58,10 @@ export interface HivemindRevealSummary {
   clusterSizeOf: Record<string, number>
 }
 
-/** Normalize an answer for matching: lowercase, trim, collapse whitespace, drop a
- *  leading article, strip surrounding punctuation. Pure. */
-export function normalizeAnswer(raw: string): string {
-  let s = (raw ?? '').toLowerCase().trim()
-  s = s.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-  s = s.replace(/^(the|a|an)\s+/u, '')
-  return s
-}
+/** Re-exported from the shared `text-match` primitive (the canonical aggressive
+ *  fold). Kept exported here so `HivemindReveal.vue` and the hivemind tests, which
+ *  import it from this module, are unaffected. */
+export { normalizeAnswer }
 
 /** Cluster a round's inputs by normalized answer. Order: largest first, then by
  *  first appearance, so the reveal is deterministic. Empty answers are dropped. */

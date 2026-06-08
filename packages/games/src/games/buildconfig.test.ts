@@ -191,9 +191,9 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
 describe('every deck-feedable game is self-consistent (meta)', () => {
   const feedable = builtinPlugins.filter((p) => p.contentPool)
 
-  it('covers all 14 deck-fed flagships', () => {
+  it('covers all 15 deck-fed flagships', () => {
     expect(feedable.map((p) => p.manifest.id).sort()).toEqual(
-      ['backronym', 'ballpark', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'truth-or-share', 'what-you-didnt-know'].sort(),
+      ['backronym', 'ballpark', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'truth-or-share', 'type-the-answer', 'what-you-didnt-know'].sort(),
     )
   })
 

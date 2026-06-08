@@ -134,6 +134,28 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'answer': {
+      // Type-the-answer trivia. Accepted answers come from an `answer:`/`answers:`
+      // line (synonyms split on | or ;) or, failing that, the list items. `fuzzy`
+      // (default on) forgives small typos/accents.
+      const raw2 = (p.answers ?? p.answer ?? '').trim()
+      const fromProp = raw2 ? raw2.split(/[|;]/).map((s) => s.trim()).filter(Boolean) : []
+      const answers = fromProp.length ? fromProp : labels
+      if (!answers.length) warnings.push('A "## answer" round needs an answer (e.g. "answer: Paris | NYC" or a list item).')
+      return [
+        {
+          block: 'answer',
+          content: {
+            subject: p.subject ?? '',
+            prompt: p.prompt ?? 'What is the answer?',
+            image: p.image ?? '',
+            answers: answers.length ? answers : ['Answer'],
+            fuzzy: p.fuzzy != null ? isTruthy(p.fuzzy) : true,
+            timer: toTimer(p.timer, 30),
+          },
+        },
+      ]
+    }
     case 'poll': {
       const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
       return [

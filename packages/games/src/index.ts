@@ -7,6 +7,7 @@ export * from './runtime'
 export { type ParsedGame, parseMarkdownGame } from './markdown'
 
 // Blocks (the reusable round kinds)
+export { answerBlock } from './blocks/answer/block'
 export { guessBlock } from './blocks/guess/block'
 export { rateBlock } from './blocks/rate/block'
 export { pollBlock } from './blocks/poll/block'
@@ -54,4 +55,5 @@ export { ballpark } from './games/ballpark'
 export { faker } from './games/faker'
 export { truthOrShare } from './games/truth-or-share'
 export { quizOrDie } from './games/quiz-or-die'
+export { typeTheAnswer } from './games/type-the-answer'
 export { custom } from './games/custom'

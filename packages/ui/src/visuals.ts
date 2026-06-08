@@ -25,6 +25,8 @@ export interface GameVisual {
 
 const VISUALS: Record<string, GameVisual> = {
   guess: { color: 'var(--c4)', icon: 'question' },
+  answer: { color: 'var(--c4)', icon: 'text' },
+  'type-the-answer': { color: 'var(--c4)', icon: 'text' },
   rate: { color: 'var(--c3)', icon: 'star' },
   poll: { color: 'var(--c5)', icon: 'bars' },
   rank: { color: 'var(--c1)', icon: 'rank' },

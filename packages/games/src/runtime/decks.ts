@@ -136,6 +136,20 @@ export function factFromRow(row: Record<string, string | number>): { question: s
   return q && tr ? { question: q, truth: tr } : null
 }
 
+/** Type the Answer: a trivia question + its accepted answer(s). Synonyms may be
+ *  delimited (`|`, `;`, or `,`) in one `answers`/`answer` column; the game splits
+ *  them. `answers` is kept as the raw delimited string for the flat pool row (the
+ *  game's buildConfig splits it). Skips a row missing a question or an answer. */
+export function answerRowFromRow(
+  row: Record<string, string | number>,
+): { prompt: string; answers: string } | null {
+  const prompt = pick(row, ['question', 'prompt', 'q']) || texts(row)[0] || ''
+  const answers = pick(row, ['answers', 'answer', 'a'])
+  const p = prompt
+  const a = answers || texts(row).find((x) => x !== p) || ''
+  return p && a ? { prompt: p, answers: a } : null
+}
+
 /** Ballpark: a numeric-answer question (+ optional unit/subject). Commas/spaces in the
  *  number are tolerated; a row with no parseable number is skipped. */
 export function ballparkFromRow(

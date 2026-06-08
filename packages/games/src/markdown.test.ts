@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { accuseBlock } from './blocks/accuse/block'
+import { answerBlock } from './blocks/answer/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
@@ -23,6 +24,7 @@ const NO_BLOCKS_PLUGIN = { manifest: { id: 't', name: 'T', version: '0', author:
 
 const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } }> = {
   guess: guessBlock.contentSchema,
+  answer: answerBlock.contentSchema,
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
@@ -287,6 +289,23 @@ describe('parseMarkdownGame', () => {
   it('warns when deck fields are used on a two-phase block (unsupported for now)', () => {
     const g = parseMarkdownGame('## deck d\nx\nv1\n## quip\nprompt: P\ndraw: 2\nbind: prompt = d.x')
     expect(g.warnings.join(' ')).toMatch(/single-round blocks/)
+  })
+
+  it('parses a ## answer round, accepting synonyms and a fuzzy flag', () => {
+    const fromLine = parseMarkdownGame('## answer\nprompt: Biggest US city?\nanswers: New York City | NYC')
+    const c = fromLine.rounds[0]!.content as { prompt: string; answers: string[]; fuzzy: boolean }
+    expect(fromLine.rounds[0]!.block).toBe('answer')
+    expect(c.answers).toEqual(['New York City', 'NYC'])
+    expect(c.fuzzy).toBe(true)
+    expect(SCHEMAS.answer!.safeParse(c).success).toBe(true)
+    // Single answer via list item + fuzzy off.
+    const fromItem = parseMarkdownGame('## answer\nprompt: Capital of Japan?\nfuzzy: no\n- Tokyo')
+    const c2 = fromItem.rounds[0]!.content as { answers: string[]; fuzzy: boolean }
+    expect(c2.answers).toEqual(['Tokyo'])
+    expect(c2.fuzzy).toBe(false)
+    // No answer -> a warning, but still parses to a valid (placeholder) round.
+    const empty = parseMarkdownGame('## answer\nprompt: ?')
+    expect(empty.warnings.join(' ')).toMatch(/needs an answer/)
   })
 
   it('warns on unknown blocks and empty input', () => {

@@ -48,6 +48,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'faker', name: 'Faker', version: '0.1.0', flagship: true, description: 'Everyone gets a secret word except one faker. Give a clue, then sniff out who is bluffing.', pool: { deckKind: 'card', placeholderBlock: 'faker', answerColumns: ['word', 'secret'] } },
   { id: 'truth-or-share', name: 'Truth or Share', version: '0.1.0', flagship: true, description: 'Put someone in the spotlight with a prompt, answer or pass, and the room reacts. Pick well and you score too.', pool: { deckKind: 'prompt', placeholderBlock: 'spotlight' } },
   { id: 'quiz-or-die', name: 'Quiz or Die', version: '0.1.0', flagship: true, description: 'A deadly quiz show. Answer right and walk free; answer wrong and meet the host in the Cellar. The last one out the door survives.', pool: { deckKind: 'quiz', placeholderBlock: 'cellar', answerColumns: ['correct', 'answer', 'belong'] } },
+  { id: 'type-the-answer', name: 'Type the Answer', version: '0.1.0', flagship: true, description: 'Free-text trivia: type the answer on your phone. Spelling and accents are forgiven.', pool: { deckKind: 'quiz', placeholderBlock: 'answer', answerColumns: ['answers', 'answer'] } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -71,6 +72,9 @@ export function isKnownPlugin(id: string): boolean {
  */
 export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   guess: { correct: -1 },
+  // Type-the-answer trivia: the accepted answers are the key; blank them before
+  // serving a saved answer-based game to a non-owner.
+  answer: { answers: [] },
   buzzer: { correct: -1 },
   // Fib Finder's truth is the answer key: strip it (and any derived options)
   // before serving a saved fibvote-based game to a non-owner.

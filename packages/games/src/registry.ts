@@ -24,6 +24,7 @@ import { rate } from './games/rate'
 import { sketchSpot } from './games/sketch-spot'
 import { splitRoom } from './games/split-room'
 import { truthOrShare } from './games/truth-or-share'
+import { typeTheAnswer } from './games/type-the-answer'
 import { voteBox } from './games/votebox'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
 
@@ -50,6 +51,7 @@ export const builtinPlugins: GamePlugin[] = [
   faker,
   truthOrShare,
   quizOrDie,
+  typeTheAnswer,
   custom,
 ]
 
