@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 32
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 33
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -25,19 +25,59 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **Engine primitives:** §4.3 Sessions (`nextGame`) · **P7 Pipeline foundation**
 >   (per-player content derived from a PRIOR round's inputs - `AssignContext.sources` +
 >   `assignContent(index, inputsFor)` + the pure chain-rotation helpers in
->   `runtime/chain.ts`). The chain GAMES are the next turn.
-> - **Tests:** ~601 unit + ~11 browser smokes (answer, audience, audience-vote, audio,
->   categories, quickwins, spectrum, standings, survey, teams, session, playlists, wager).
+>   `runtime/chain.ts`) · **Story Chain** (the first chain GAME, on that foundation) ·
+>   a generic `components.Results` seam (the renderer honors a game's custom results view)
+>   + a `ResultsFragment.recap` passthrough. Catalog now ~32 games.
+> - **Tests:** ~611 unit + ~12 browser smokes (answer, audience, audience-vote, audio,
+>   categories, quickwins, spectrum, standings, storychain, survey, teams, session,
+>   playlists, wager).
 > - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
->   (vote/split/fibvote weighting - poll done) · **P7 chain GAMES** (the foundation -
->   per-player content from a prior round - is now LANDED; Doodle Chain / Story Chain /
->   Quick Draw / Bingo / Call It are the games built on top) · the clue-giver "Wavelength"
->   Spectrum (now unblocked by the P7 foundation) · survey two-phase · custom prompt packs.
->   Detailed dated entries below.
+>   (vote/split/fibvote weighting - poll done) · **Doodle Chain** (the Pixi-draw chain, now
+>   a small increment on Story Chain's proven plumbing) + Quick Draw / Bingo / Call It · the
+>   clue-giver "Wavelength" Spectrum (now unblocked by the P7 foundation) · survey two-phase ·
+>   custom prompt packs. Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Story Chain - the first chain game on the P7 foundation (2026-06-08).** BUILT +
+> verified on the same branch (1 commit, not pushed). A collaborative "telephone" /
+> exquisite-corpse party game: everyone writes an opening line, then each round your line
+> is passed one seat and the next player, seeing ONLY that line, writes what comes next;
+> the end "unspools" every story at once. It is the first consumer of the P7 foundation and
+> proves a chain works as a STANDARD-COMPOSED game (so it is in Sessions + the picker), not
+> custom-flow.
+> - **`chainline` block** (`blocks/chainline/`): one block repeated. Its `assignContent`
+>   reads the prior round's inputs via `sources` (the foundation) and hands each player
+>   their LEFT neighbor's previous line; the seed round (no sources) hands out nothing and
+>   the player sees the authored opener. The FROZEN RING needs ZERO engine state: it is the
+>   sorted set of pids who submitted ROUND 0, passed to every later round as a source (the
+>   composition sets `from: [prev, 0]`); round 0's inputs never change after it locks, so
+>   the ring is stable + reconnect-safe + seeded (sorted seating). The seed source is found
+>   by its `content.seed` flag, not a fixed index, so the block stays a reusable primitive.
+>   `aggregate` unspools every thread (`runtime/chain.ts chainThreads`) into `recap`. No
+>   answerOf/redactContent (nothing secret is in the authored config; the in-progress lines
+>   are private per-player addresses the engine never publishes until the final unspool, so
+>   no `REDACTION_RULES` entry - catalog.test agrees).
+> - **`story-chain` game**: a `buildConfig` flagship (host picks 3-10 lines from the lobby;
+>   the opener is seeded per room), unscored, with a custom `components.Results`
+>   ("StoryChainResults", the unspool). minPlayers 3.
+> - **Two small GENERIC seams** (reused, not story-chain hacks): (1) `ResultsFragment.recap`
+>   + `StandardResults.recap`, passed through by `scoreGame`, so a block can hand a custom
+>   payload to a custom Results view; (2) the generic renderer (GameHost/GamePlayer/
+>   GameAudience) now honors `plugin.components?.Results ?? GameResults` (it hard-coded
+>   GameResults before), mirroring how the shell honors `components.Host/Player`. Byte-
+>   identical for every game that ships no custom Results.
+> - **Verified:** 611 unit tests (chainline rotation + unspool aggregate + buildConfig
+>   shape) + all typechecks + the web build + `scripts/storychain-smoke.mjs` (a real
+>   3-player game: asserts each PASS round privately delivers a NEIGHBOR's line - the
+>   foundation working through the live engine - never the player's own, and a 3-story
+>   unspool with 0 horizontal overflow at 390px). Reviewed adversarially; the two findings
+>   (key the ring off the seed flag not index 0; align the round clamp to 10) are fixed.
+> - **Note for the next chain game (Doodle Chain):** it is now a SMALL increment - same
+>   `chainline`-style plumbing with a `draw`-block input (Pixi `DrawCanvas`) on alternating
+>   rounds and a drawing-gallery unspool, instead of building chain machinery from scratch.
 
 > **P7 Pipeline foundation - per-player content derived from a prior round (2026-06-08).**
 > BUILT + verified on the same branch (1 commit, not pushed). The engine capability the

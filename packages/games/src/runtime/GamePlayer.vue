@@ -15,6 +15,10 @@ import { getBlock, ownMakeText } from './derive'
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
 
+// A game may ship a custom results view (e.g. a chain game's "unspool"); fall back
+// to the generic board otherwise. Mirrors how the shell honors components.Player.
+const ResultsView = computed(() => props.plugin.components?.Results ?? GameResults)
+
 // Teams (when the host turned them on): the names to pick from, and this player's
 // current pick. Shown in the lobby; the player taps to join a team.
 const teams = computed(() => room.meta.value?.teams ?? [])
@@ -180,7 +184,7 @@ function reloadPage() {
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <GameResults :results="room.results.value as any" :me="room.me.value.name" :teams="teams" compact />
+      <component :is="ResultsView" :results="room.results.value as any" :me="room.me.value.name" :teams="teams" compact />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 

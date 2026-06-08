@@ -216,6 +216,10 @@ export function scoreGame(
   }
 
   const leaderboard = fragments.find((f) => f.leaderboard)?.leaderboard
+  // A custom-Results payload (e.g. a chain game's unspooled threads): pass the first
+  // block that produced one through to the published results. The generic GameResults
+  // ignores it; a game's `components.Results` reads it.
+  const recap = fragments.find((f) => f.recap !== undefined)?.recap
   const awards = fragments.flatMap((f) => f.awards ?? [])
   const distributions = fragments.flatMap((f) => f.distributions ?? [])
   const stats = [
@@ -234,7 +238,7 @@ export function scoreGame(
     crownHeadline(leaderboard) ??
     (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
 
-  return { headline, leaderboard, teamLeaderboard: teams, awards, distributions, stats }
+  return { headline, leaderboard, teamLeaderboard: teams, awards, distributions, stats, recap }
 }
 
 /**

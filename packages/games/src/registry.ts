@@ -26,6 +26,7 @@ import { overUnder } from './games/over-under'
 import { sketchSpot } from './games/sketch-spot'
 import { spectrum } from './games/spectrum'
 import { splitRoom } from './games/split-room'
+import { storyChain } from './games/story-chain'
 import { survey } from './games/survey'
 import { tierList } from './games/tier-list'
 import { truthOrShare } from './games/truth-or-share'
@@ -66,6 +67,7 @@ export const builtinPlugins: GamePlugin[] = [
   survey,
   spectrum,
   wager,
+  storyChain,
   custom,
 ]
 

@@ -56,6 +56,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'survey', name: 'Survey', version: '0.1.0', flagship: true, description: 'Family-feud style: we surveyed the board; name the top answers to score.', pool: { deckKind: 'quiz', placeholderBlock: 'survey', answerColumns: ['answers', 'board'] } },
   { id: 'spectrum', name: 'Spectrum', version: '0.1.0', flagship: true, description: 'Slide the dial to place each hot take. Land near the room and you score.', pool: { deckKind: 'generic', placeholderBlock: 'spectrum' } },
   { id: 'wager', name: 'Wager', version: '0.1.0', flagship: true, description: 'High-stakes trivia: bet on your answer. Right adds your bet, wrong takes it. Richest wins.', pool: { deckKind: 'quiz', placeholderBlock: 'wager', answerColumns: ['correct', 'answer'] } },
+  { id: 'story-chain', name: 'Story Chain', version: '0.1.0', flagship: true, description: 'Pass-it-on storytelling: write a line, send it on, and watch each tale drift somewhere absurd.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

@@ -116,6 +116,11 @@ export interface ResultsFragment {
   awards?: Array<{ label: string; subject: string; value?: string | number }>
   distributions?: Distribution[]
   stats?: StatItem[]
+  /** Arbitrary extra payload a game's CUSTOM Results view understands but the
+   *  generic widgets don't (e.g. a chain game's unspooled threads). The generic
+   *  GameResults ignores it; `scoreGame` passes the first non-undefined `recap`
+   *  through to the published `StandardResults.recap`. */
+  recap?: unknown
 }
 
 export interface RoundBlock<Content = unknown, Input = unknown> {

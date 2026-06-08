@@ -19,6 +19,10 @@ import { standingsThrough } from './standings'
 // results page hides its own "play again / pick another" controls — the session
 // shell drives "next game" and shows the running session standings instead.
 const props = defineProps<{ plugin: GamePlugin; sessionMode?: boolean }>()
+
+// A game may ship a custom results view (e.g. a chain game's "unspool"); fall back
+// to the generic board otherwise. Mirrors how the shell honors components.Host.
+const ResultsView = computed(() => props.plugin.components?.Results ?? GameResults)
 const room = injectDootRoom()
 
 // Optional host round-count picker (provided by HostRoom for pooled flagships).
@@ -513,7 +517,7 @@ watch(
 
   <!-- RESULTS -->
   <div v-else-if="room.phase.value === 'results' && room.results.value" class="results-wrap">
-    <GameResults :results="room.results.value as any" :teams="teams" />
+    <component :is="ResultsView" :results="room.results.value as any" :teams="teams" />
     <!-- What next (host controls). Plain links/reload so the engine package stays
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
     <div v-if="!sessionMode" class="results-next">

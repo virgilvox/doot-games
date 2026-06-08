@@ -16,6 +16,10 @@ import { getBlock } from './derive'
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
 
+// Honor a game's custom results view (e.g. a chain game's "unspool") for spectators
+// too, falling back to the generic board. Mirrors GameHost/GamePlayer.
+const ResultsView = computed(() => props.plugin.components?.Results ?? GameResults)
+
 const config = computed<GameComposition | null>(() => (room.config.value as unknown as GameComposition) ?? null)
 const rounds = computed(() => config.value?.rounds ?? [])
 const index = computed(() => room.round.value.index)
@@ -76,7 +80,7 @@ const status = computed(() => {
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <GameResults :results="room.results.value as any" :teams="teams" compact />
+      <component :is="ResultsView" :results="room.results.value as any" :teams="teams" compact />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 

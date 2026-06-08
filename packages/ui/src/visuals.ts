@@ -54,6 +54,8 @@ const VISUALS: Record<string, GameVisual> = {
   survey: { color: 'var(--c3)', icon: 'bars' },
   spectrum: { color: 'var(--c2)', icon: 'rank' },
   wager: { color: 'var(--c4)', icon: 'burst' },
+  'story-chain': { color: 'var(--c2)', icon: 'text' },
+  chainline: { color: 'var(--c2)', icon: 'text' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },

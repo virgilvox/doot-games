@@ -69,4 +69,7 @@ export interface StandardResults extends Results {
   awards?: AwardCard[]
   distributions?: Distribution[]
   stats?: StatItem[]
+  /** Extra payload a game's custom Results view understands (e.g. a chain game's
+   *  unspooled threads). The generic widgets ignore it. */
+  recap?: unknown
 }
