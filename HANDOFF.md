@@ -11,6 +11,24 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Audio-clip support for trivia / Name That Tune (2026-06-08).** BUILT + verified on
+> the same branch `expansion-p1-answer-caption` (1 more commit, not yet pushed). An
+> optional `audio` field on the **guess** and **answer** blocks turns any trivia round
+> into a listen-and-answer round. New `AudioClip` component (ui): a themed play/pause +
+> seek bar over a native `<audio>` element, SSR-safe (renders inert; playback only ever
+> starts from a tap, so no autoplay and reduced-motion needs nothing), accessible, and
+> a clean no-op when the clip 404s. The clip plays on the **big screen** (the shared
+> speaker); phones show a "listen to the big screen" hint rather than 20 devices echoing
+> it. Rendered in all three prompt-area surfaces (GameHost, the editor big-screen
+> preview, plus the phone hint on GamePlayer + the phone preview). Authorable via an
+> `audio:` field on `## guess`/`## answer` + the MCP guide + docs. Clips are
+> user-provided URLs (none bundled), so a "Name That Tune" flagship is authorable today
+> but not shipped as built-in content (same content-sourcing call as Caption This).
+> Verified: 534 unit tests, all typechecks, the web build, `scripts/audio-smoke.mjs`
+> (renders, play/pause no crash, phone hint, broken-URL no-op), and the answer +
+> over-under play smokes still green. **Next (per plan §8):** P4 Phase B (weighted
+> audience voting), Wager (P3-unblocked, likely custom-flow), §4.3 sessions/playlists.
+
 > **Quick-win flagship games: Would You Rather, Tier List, Over/Under (2026-06-08).**
 > BUILT + verified on the same branch `expansion-p1-answer-caption` (1 more commit,
 > not yet pushed). Three classic party formats Doot lacked, each a small composition
