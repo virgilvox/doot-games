@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 34
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 35
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -28,7 +28,7 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   **Story Chain** (text telephone) + **Doodle Chain** (Gartic Phone, Pixi draw rounds)
 >   both on that foundation · a generic `components.Results` seam (the renderer honors a
 >   game's custom results view) + a `ResultsFragment.recap` passthrough. Catalog now ~33 games.
-> - **Tests:** ~619 unit + ~13 browser smokes (answer, audience, audience-vote, audio,
+> - **Tests:** ~629 unit + ~13 browser smokes (answer, audience, audience-vote, audio,
 >   categories, doodlechain, quickwins, spectrum, standings, storychain, survey, teams,
 >   session, playlists, wager).
 > - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
@@ -40,6 +40,28 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Audit of the chain games + fixes (2026-06-08).** A full audit of Story Chain + Doodle
+> Chain (style, gameplay, tests, usability) on the same branch (1 commit, not pushed). Style:
+> ZERO em/en dashes anywhere in source or docs (verified by grep); no AI-voice clichés in
+> the copy. Found + fixed: (1) a stray `✎` dingbat in DoodleHost (now a plain ASCII glyph,
+> honoring the no-emoji rule). Gameplay: (2) **Doodle Chain ended on a DRAW round** with even
+> counts (default 6), so the last drawing was never guessed and the "final guess vs the
+> original prompt" payoff was lost; the lobby unit is now **"Drawings"** (2-5), and the round
+> count is `1 + 2*drawings` (always ODD), so every chain ENDS ON A GUESS. (3) The results
+> headline counted ALL threads while the view filtered empty ones; both aggregates now drop
+> empty threads so the count matches the render. Usability: (4) the editor auto-form exposed
+> chain-internal fields (step/total/seed/mode); the chain blocks now mark them
+> `derivedFields` so a non-dev only sees prompt/timer (the editor hides them, and there is no
+> misleading "built from the previous round" copy since chain blocks have no `derive`). (5) a
+> small a11y label on the draw round's received prompt. Tests: +10 (the three shared ring
+> helpers `chainSeedSource`/`chainRingFromSources`/`chainPrevSource` now have DIRECT tests
+> incl. seed-flag-beats-lowest-index and late-joiner exclusion; a wrap test for rounds >
+> players; doodle `emptyInput`/`isComplete` mode-switch; an empty-drawing aggregate edge).
+> Verified: 629 unit tests, all typechecks, the web build, and BOTH chain smokes re-run green
+> (storychain + doodlechain, the latter updated for the new Drawings picker). KNOWN (not
+> bugs): small rooms (3 players) wrap the chain quickly - inherent and documented; the
+> "untimed option" lobby toggle is a platform-wide pattern not specific to these games.
 
 > **Doodle Chain - Gartic Phone, the second chain game on the P7 foundation (2026-06-08).**
 > BUILT + verified on the same branch (1 commit, not pushed). The draw-and-describe

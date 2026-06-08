@@ -1,6 +1,21 @@
+import type { DeriveSource } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
-import { chainOrder, chainSourceFor, chainThreads } from './chain'
+import {
+  chainOrder,
+  chainPrevSource,
+  chainRingFromSources,
+  chainSeedSource,
+  chainSourceFor,
+  chainThreads,
+} from './chain'
 import { seededShuffle } from './derive'
+
+const srcOf = (index: number, content: unknown, keys: string[]): DeriveSource => ({
+  index,
+  content,
+  inputs: new Map(keys.map((k) => [k, { text: k }])),
+  render: () => '',
+})
 
 describe('chainOrder', () => {
   it('is stable for the same SET regardless of input order (canonical sort first)', () => {
@@ -93,6 +108,48 @@ describe('chainThreads (unspool)', () => {
     expect(threads[0]?.[0]?.input).toBe('a0')
     expect(threads[0]?.[1]?.input).toBe('b1') // pos1 = b submitted round 1
     expect(threads[1]?.[0]?.input).toBeUndefined() // thread1 round0 held by b, who skipped
+  })
+})
+
+describe('chainSeedSource / chainRingFromSources (the frozen ring)', () => {
+  it('picks the seed-flagged source even when it is NOT the lowest index', () => {
+    // The exact case the seed flag exists for: the seed round is not at index 0.
+    const sources = [srcOf(2, { seed: false }, ['A', 'B']), srcOf(1, { seed: true }, ['A', 'B', 'C'])]
+    expect(chainSeedSource(sources)?.index).toBe(1)
+    expect(chainRingFromSources(sources)).toEqual(['A', 'B', 'C']) // sorted ring from the seed round
+  })
+
+  it('falls back to the lowest-index source when none is flagged', () => {
+    const sources = [srcOf(2, {}, ['A']), srcOf(1, {}, ['A', 'B'])]
+    expect(chainSeedSource(sources)?.index).toBe(1)
+    expect(chainRingFromSources(sources)).toEqual(['A', 'B'])
+  })
+
+  it('excludes a player who did not submit the seed round (late joiner / absentee)', () => {
+    const sources = [srcOf(0, { seed: true }, ['A', 'C'])] // B never submitted round 0
+    expect(chainRingFromSources(sources)).toEqual(['A', 'C'])
+  })
+
+  it('chainPrevSource returns the highest-indexed (immediately previous) source', () => {
+    const sources = [srcOf(3, {}, ['A']), srcOf(0, { seed: true }, ['A'])]
+    expect(chainPrevSource(sources)?.index).toBe(3)
+  })
+
+  it('returns an empty ring when there are no sources', () => {
+    expect(chainRingFromSources([])).toEqual([])
+    expect(chainSeedSource([])).toBeUndefined()
+  })
+})
+
+describe('chain wrap (rounds > players)', () => {
+  it('wraps the chain back to the origin author after n rounds, still reading the left neighbor', () => {
+    const order = ['a', 'b', 'c']
+    expect(chainSourceFor(order, 1, 'a')).toBe('c') // always the left neighbor, any round
+    const inputs = Array.from({ length: 4 }, (_, r) => new Map(order.map((p) => [p, `${p}${r}`])))
+    const threads = chainThreads(order, inputs)
+    // Thread 0 (origin a): a(r0) b(r1) c(r2) a(r3) -> back to the origin at round 3.
+    expect(threads[0]?.map((s) => s.pid)).toEqual(['a', 'b', 'c', 'a'])
+    expect(threads[0]?.map((s) => s.input)).toEqual(['a0', 'b1', 'c2', 'a3'])
   })
 })
 

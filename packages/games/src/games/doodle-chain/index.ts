@@ -15,7 +15,12 @@ import { doodleBlock } from '../../blocks/doodle/block'
 import { seededShuffle } from '../../runtime/derive'
 import DoodleChainResults from './DoodleChainResults.vue'
 
-const DEFAULT_ROUNDS = 6
+// The host picks how many DRAWINGS each chain makes. The round count is then
+// 1 (the opening prompt) + 2 per drawing (draw it, then guess it), which is always
+// ODD, so every chain ENDS on a guess (the classic "final guess vs the original
+// prompt" payoff). An even round count would end on an un-guessed drawing.
+const DEFAULT_DRAWINGS = 3
+const roundsForDrawings = (drawings: number): number => 1 + 2 * drawings
 
 /** Gentle nudges for the opening prompt (one is picked per room, for variety). */
 const SEEDS = [
@@ -58,14 +63,15 @@ export const doodleChain = defineGame({
     flagship: true,
   },
   blocks: [doodleBlock],
-  defaultConfig: { title: 'Doodle Chain', rounds: roundsFor(4, SEEDS[0] as string) },
+  defaultConfig: { title: 'Doodle Chain', rounds: roundsFor(roundsForDrawings(2), SEEDS[0] as string) },
   components: { Results: DoodleChainResults },
   buildConfig: (seed: string, opts?: { rounds?: number }) => {
-    // Best with rounds ~ number of players (each chain visits everyone once); with
-    // more the chains simply wrap and travel the room again, which is fine.
-    const n = Math.max(4, Math.min(opts?.rounds ?? DEFAULT_ROUNDS, 10))
+    // `opts.rounds` is the host-chosen number of DRAWINGS (the roundOptions unit);
+    // turn it into the odd round count so the chain ends on a guess. Best with
+    // drawings ~ players; more just wraps the chain around the room again.
+    const drawings = Math.max(2, Math.min(opts?.rounds ?? DEFAULT_DRAWINGS, 5))
     const seedPrompt = seededShuffle(`doodle-chain:${seed}`)(SEEDS)[0] as string
-    return { title: 'Doodle Chain', rounds: roundsFor(n, seedPrompt) }
+    return { title: 'Doodle Chain', rounds: roundsFor(roundsForDrawings(drawings), seedPrompt) }
   },
-  roundOptions: { min: 4, max: 8, default: DEFAULT_ROUNDS, label: 'Rounds' },
+  roundOptions: { min: 2, max: 5, default: DEFAULT_DRAWINGS, label: 'Drawings' },
 })

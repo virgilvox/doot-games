@@ -39,7 +39,7 @@ const sub = computed(() => {
       <p class="sub">Each chain moves one seat. The next player builds on what just got made.</p>
     </template>
     <template v-else>
-      <div class="glyph" aria-hidden="true">{{ content?.mode === 'draw' ? '✎' : '?' }}</div>
+      <div class="glyph" aria-hidden="true">~</div>
       <h2 class="title">{{ title }}</h2>
       <p class="sub">{{ sub }}</p>
     </template>

@@ -36,7 +36,7 @@ function onDraw(v: DrawValue) {
 
     <!-- DRAW round: show the prompt you were handed, then a canvas. -->
     <template v-if="isDraw">
-      <div class="card pass">
+      <div class="card pass" role="group" :aria-label="`Draw this prompt: ${receivedText || 'anything you like'}`">
         <span class="badge">Draw this</span>
         <p class="received">{{ receivedText || '(no prompt reached you, draw anything)' }}</p>
       </div>

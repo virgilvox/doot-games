@@ -105,6 +105,12 @@ export const chainlineBlock = defineBlock<ChainlineContent, ChainlineInput>({
     return { perPlayer: perPlayer as unknown as Record<string, ChainlineContent> }
   },
 
+  // Hide the composition-managed fields from the editor auto-form (the chain wires
+  // these; an author should only ever see the prompt + timer). `derivedFields` is the
+  // editor's generic "hide these" list; chain blocks have no `derive`, so no
+  // "built from the previous round" copy is shown.
+  derivedFields: ['step', 'total', 'seed'],
+
   toVoteText: (_content, input) => cleanLine(input.text),
 
   // Unspool every thread for the Results view. The ring is round-0's submitters; a
@@ -117,13 +123,17 @@ export const chainlineBlock = defineBlock<ChainlineContent, ChainlineInput>({
     const nameOf = new Map<string, string>(ctx.players.map((p: ScorePlayer) => [p.id, p.name]))
     const inputsByRound = rounds.map((r) => ctx.inputsFor(r.index))
     const raw = chainThreads(order, inputsByRound)
-    const threads: ChainStepView[][] = raw.map((thread) =>
-      thread.map((s) => ({
-        step: s.roundIndex + 1,
-        name: nameOf.get(s.pid) ?? 'Someone',
-        text: cleanLine((s.input as ChainlineInput | undefined)?.text ?? ''),
-      })),
-    )
+    const threads: ChainStepView[][] = raw
+      .map((thread) =>
+        thread.map((s) => ({
+          step: s.roundIndex + 1,
+          name: nameOf.get(s.pid) ?? 'Someone',
+          text: cleanLine((s.input as ChainlineInput | undefined)?.text ?? ''),
+        })),
+      )
+      // Drop a thread nobody contributed to (every holder skipped), so the headline
+      // count and the rendered stories agree.
+      .filter((thread) => thread.some((s) => s.text.length > 0))
     const recap: ChainlineRecap = { threads }
     const n = threads.length
     return {

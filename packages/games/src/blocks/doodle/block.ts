@@ -104,6 +104,10 @@ export const doodleBlock = defineBlock<DoodleContent, DoodleInput>({
     return { perPlayer: perPlayer as unknown as Record<string, DoodleContent> }
   },
 
+  // Hide the composition-managed fields from the editor auto-form (the chain wires
+  // mode/step/total/seed per round); an author should only see prompt/aspect/timer.
+  derivedFields: ['mode', 'step', 'total', 'seed'],
+
   toVoteText: (_content, input) => cleanText(input?.text ?? ''),
 
   // Unspool every thread, resolving each step to its written text or its drawing by
@@ -117,19 +121,22 @@ export const doodleBlock = defineBlock<DoodleContent, DoodleInput>({
     const inputsByRound = rounds.map((r) => ctx.inputsFor(r.index))
     const modeByRound = rounds.map((r) => (r.content as DoodleContent).mode)
     const raw = chainThreads(order, inputsByRound)
-    const threads: DoodleStepView[][] = raw.map((thread) =>
-      thread.map((s) => {
-        const input = s.input as DoodleInput | undefined
-        const mode = modeByRound[s.roundIndex] ?? 'describe'
-        return {
-          step: s.roundIndex + 1,
-          name: nameOf.get(s.pid) ?? 'Someone',
-          mode,
-          text: cleanText(input?.text ?? ''),
-          drawing: mode === 'draw' && hasStrokes(input) ? { strokes: input?.strokes ?? [] } : undefined,
-        }
-      }),
-    )
+    const threads: DoodleStepView[][] = raw
+      .map((thread) =>
+        thread.map((s) => {
+          const input = s.input as DoodleInput | undefined
+          const mode = modeByRound[s.roundIndex] ?? 'describe'
+          return {
+            step: s.roundIndex + 1,
+            name: nameOf.get(s.pid) ?? 'Someone',
+            mode,
+            text: cleanText(input?.text ?? ''),
+            drawing: mode === 'draw' && hasStrokes(input) ? { strokes: input?.strokes ?? [] } : undefined,
+          }
+        }),
+      )
+      // Drop a chain nobody contributed to, so the headline count matches the render.
+      .filter((thread) => thread.some((s) => s.text || s.drawing))
     const n = threads.length
     return {
       headline: n > 0 ? `${n} ${n === 1 ? 'doodle chain' : 'doodle chains'} unspooled` : undefined,

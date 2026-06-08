@@ -42,7 +42,7 @@ async function run() {
     await host.goto(`${BASE}/host/doodle-chain`)
     await host.waitForSelector('.code', { timeout: 40000 })
     await host.waitForSelector('.round-opt', { timeout: 40000 })
-    await host.locator('.round-opt', { hasText: /^4$/ }).first().click() // keep it short
+    await host.locator('.round-opt', { hasText: /^2$/ }).first().click() // 2 drawings = 5 rounds
     const code = (await host.textContent('.code')).trim()
 
     const names = ['Ana', 'Bo', 'Cy']
@@ -64,7 +64,7 @@ async function run() {
     let rounds = 0
     let sawDrawRound = false
     let sawReceivedDrawing = false
-    for (let r = 0; r < 5; r++) {
+    for (let r = 0; r < 7; r++) {
       await host.waitForSelector('button:has-text("Open voting")', { timeout: 40000 })
       await host.click('button:has-text("Open voting")')
 
@@ -98,7 +98,7 @@ async function run() {
       }
       await host.click('button:has-text("Next round")')
     }
-    if (rounds !== 4) throw new Error(`expected 4 rounds, played ${rounds}`)
+    if (rounds !== 5) throw new Error(`expected 5 rounds (2 drawings), played ${rounds}`)
     if (!sawDrawRound) throw new Error('never hit a draw round (canvas missing)')
     if (!sawReceivedDrawing) throw new Error('a describe round never showed a received drawing (rotation of drawings failed)')
     ok('draw rounds submitted strokes; describe rounds received a neighbor drawing')
