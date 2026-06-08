@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { flagshipGames, templateGames } from '@doot-games/games/catalog'
 import { GameCover, GameTypeIcon } from '@doot-games/ui'
+import { computed } from 'vue'
+
+// Custom leads the blocks grid: it's the "mix any blocks" starting point (and the
+// home of the markdown importer), so it's the most useful first card. The rest keep
+// their catalog order (sort is stable).
+const blockTypes = computed(() =>
+  [...templateGames].sort((a, b) => (a.id === 'custom' ? -1 : b.id === 'custom' ? 1 : 0)),
+)
 
 // Two on-ramps so you never start from nothing. Remix a ready-made game (it opens
 // in the editor with example rounds already in place), or build from a single block
@@ -61,7 +69,7 @@ useDootSeo({
           <p>Pick a round type and add your own content. Custom mixes any blocks in one game, or paste a markdown spec to build a whole game at once.</p>
         </div>
         <div class="typegrid">
-          <NuxtLink v-for="t in templateGames" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
+          <NuxtLink v-for="t in blockTypes" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
             <GameTypeIcon :type="t.id" :size="48" />
             <h3>{{ t.name }}</h3>
             <p>{{ t.description }}</p>
