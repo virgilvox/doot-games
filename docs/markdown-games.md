@@ -41,8 +41,9 @@ Rules:
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
-  `hivemind`, `categories`, `survey`, `mostlikely`, `ballpark`, `buzzer`, the
-  two-phase `quip` / `fill`, and the hidden-imposter `faker`). Mix in any order.
+  `hivemind`, `categories`, `survey`, `spectrum`, `mostlikely`, `ballpark`,
+  `buzzer`, the two-phase `quip` / `fill`, and the hidden-imposter `faker`). Mix
+  in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -114,6 +115,19 @@ guesses: 3
 - Cheese:25
 - Mushroom:15
 - Pineapple:5
+```
+
+### `spectrum`: place it on a dial (read the room)
+A dial between two poles; everyone slides the subject to a spot and scores by
+landing near the room's consensus. Fields: `prompt` (the subject or hot take),
+`left:` and `right:` (the pole labels, default Disagree / Agree), `timer`
+(default 30). No `- ` items.
+
+```markdown
+## spectrum
+prompt: Pineapple on pizza
+left: Disgusting
+right: Delicious
 ```
 
 ### `poll`: opinion question, no right answer

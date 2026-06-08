@@ -142,6 +142,19 @@ export function overUnderFromRow(row: Record<string, string | number>): { prompt
   return prompt && (correct === 0 || correct === 1) ? { prompt, correct } : null
 }
 
+/** Spectrum: a subject + the two dial poles. Reads `left`/`right` (or low/high,
+ *  min/max, a/b); a bare prompt deck with no poles falls back to Disagree/Agree, so
+ *  any one-column prompt deck still works. Skips a row with no prompt. */
+export function spectrumFromRow(
+  row: Record<string, string | number>,
+): { prompt: string; left: string; right: string } | null {
+  const prompt = pick(row, ['prompt', 'subject', 'question', 'statement']) || texts(row)[0] || ''
+  if (!prompt) return null
+  const left = pick(row, ['left', 'low', 'min', 'start', 'a']) || 'Disagree'
+  const right = pick(row, ['right', 'high', 'max', 'end', 'b']) || 'Agree'
+  return { prompt, left, right }
+}
+
 /** Survey (Family Feud): a question + its board. The board rides one `answers`/
  *  `board` column as "Text:points | Text:points | ..." (points optional; the game
  *  parses + rank-scores it). Skips a row missing the question or the board. */

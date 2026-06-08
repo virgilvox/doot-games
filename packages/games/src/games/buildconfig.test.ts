@@ -191,9 +191,9 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
 describe('every deck-feedable game is self-consistent (meta)', () => {
   const feedable = builtinPlugins.filter((p) => p.contentPool)
 
-  it('covers all 20 deck-fed flagships', () => {
+  it('covers all 21 deck-fed flagships', () => {
     expect(feedable.map((p) => p.manifest.id).sort()).toEqual(
-      ['backronym', 'ballpark', 'categories', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'over-under', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'split-room', 'survey', 'tier-list', 'truth-or-share', 'type-the-answer', 'what-you-didnt-know', 'would-you-rather'].sort(),
+      ['backronym', 'ballpark', 'categories', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'over-under', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'spectrum', 'split-room', 'survey', 'tier-list', 'truth-or-share', 'type-the-answer', 'what-you-didnt-know', 'would-you-rather'].sort(),
     )
   })
 
@@ -289,6 +289,15 @@ describe('new games build the shape they claim', () => {
     for (const r of rounds('type-the-answer')) {
       expect(r.block).toBe('answer')
       expect((r.content as { answers: string[] }).answers.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('spectrum: spectrum rounds with two non-empty dial poles', () => {
+    for (const r of rounds('spectrum')) {
+      expect(r.block).toBe('spectrum')
+      const c = r.content as { leftLabel: string; rightLabel: string }
+      expect(c.leftLabel.length).toBeGreaterThan(0)
+      expect(c.rightLabel.length).toBeGreaterThan(0)
     }
   })
 })

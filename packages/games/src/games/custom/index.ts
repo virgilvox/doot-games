@@ -25,6 +25,7 @@ import { quipBlock } from '../../blocks/quip/block'
 import { rankBlock } from '../../blocks/rank/block'
 import { rateBlock } from '../../blocks/rate/block'
 import { slideBlock } from '../../blocks/slide/block'
+import { spectrumBlock } from '../../blocks/spectrum/block'
 import { splitBlock } from '../../blocks/split/block'
 import { surveyBlock } from '../../blocks/survey/block'
 import { titleBlock } from '../../blocks/title/block'
@@ -53,6 +54,7 @@ export const custom = defineGame({
     answerBlock,
     categoriesBlock,
     surveyBlock,
+    spectrumBlock,
     rateBlock,
     pollBlock,
     rankBlock,

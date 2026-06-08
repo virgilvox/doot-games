@@ -24,6 +24,7 @@ import { rank } from './games/rank'
 import { rate } from './games/rate'
 import { overUnder } from './games/over-under'
 import { sketchSpot } from './games/sketch-spot'
+import { spectrum } from './games/spectrum'
 import { splitRoom } from './games/split-room'
 import { survey } from './games/survey'
 import { tierList } from './games/tier-list'
@@ -62,6 +63,7 @@ export const builtinPlugins: GamePlugin[] = [
   overUnder,
   categories,
   survey,
+  spectrum,
   custom,
 ]
 

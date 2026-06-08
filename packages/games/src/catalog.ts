@@ -54,6 +54,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'over-under', name: 'Over / Under', version: '0.1.0', flagship: true, description: 'Estimation trivia: is the real figure over or under the line? Closest call climbs the board.', pool: { deckKind: 'quiz', placeholderBlock: 'guess', answerColumns: ['correct', 'answer'] } },
   { id: 'categories', name: 'Categories', version: '0.1.0', flagship: true, description: 'Scattergories: a letter, a few categories, race to fill them in. Unique answers score.', pool: { deckKind: 'prompt', placeholderBlock: 'categories' } },
   { id: 'survey', name: 'Survey', version: '0.1.0', flagship: true, description: 'Family-feud style: we surveyed the board; name the top answers to score.', pool: { deckKind: 'quiz', placeholderBlock: 'survey', answerColumns: ['answers', 'board'] } },
+  { id: 'spectrum', name: 'Spectrum', version: '0.1.0', flagship: true, description: 'Slide the dial to place each hot take. Land near the room and you score.', pool: { deckKind: 'generic', placeholderBlock: 'spectrum' } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

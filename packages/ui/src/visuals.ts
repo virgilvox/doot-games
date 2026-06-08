@@ -52,6 +52,7 @@ const VISUALS: Record<string, GameVisual> = {
   'over-under': { color: 'var(--c4)', icon: 'bars' },
   categories: { color: 'var(--c5)', icon: 'grid' },
   survey: { color: 'var(--c3)', icon: 'bars' },
+  spectrum: { color: 'var(--c2)', icon: 'rank' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },

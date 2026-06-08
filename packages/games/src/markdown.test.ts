@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { accuseBlock } from './blocks/accuse/block'
 import { answerBlock } from './blocks/answer/block'
 import { categoriesBlock } from './blocks/categories/block'
+import { spectrumBlock } from './blocks/spectrum/block'
 import { surveyBlock } from './blocks/survey/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
@@ -29,6 +30,7 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   answer: answerBlock.contentSchema,
   categories: categoriesBlock.contentSchema,
   survey: surveyBlock.contentSchema,
+  spectrum: spectrumBlock.contentSchema,
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
@@ -338,6 +340,14 @@ describe('parseMarkdownGame', () => {
       { text: 'Orange', points: 5 }, // rank-scored (3rd of 3 -> (3-2)*5)
     ])
     expect(SCHEMAS.survey!.safeParse(c).success).toBe(true)
+  })
+
+  it('parses a ## spectrum round with two dial poles', () => {
+    const { rounds } = parseMarkdownGame('## spectrum\nprompt: Pineapple on pizza\nleft: Disgusting\nright: Delicious')
+    const c = rounds[0]!.content as { prompt: string; leftLabel: string; rightLabel: string }
+    expect(rounds[0]!.block).toBe('spectrum')
+    expect(c).toMatchObject({ prompt: 'Pineapple on pizza', leftLabel: 'Disgusting', rightLabel: 'Delicious' })
+    expect(SCHEMAS.spectrum!.safeParse(c).success).toBe(true)
   })
 
   it('parses a ## categories round with a letter and category list', () => {

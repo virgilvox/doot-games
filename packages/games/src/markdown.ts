@@ -189,6 +189,21 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'spectrum': {
+      // A dial between two poles (`left:` / `right:`); the room places the subject
+      // and scores by closeness to the consensus. No items.
+      return [
+        {
+          block: 'spectrum',
+          content: {
+            prompt: p.prompt ?? 'Where does it land?',
+            leftLabel: p.left ?? 'Disagree',
+            rightLabel: p.right ?? 'Agree',
+            timer: toTimer(p.timer, 30),
+          },
+        },
+      ]
+    }
     case 'poll': {
       const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
       return [
