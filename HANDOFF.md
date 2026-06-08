@@ -11,6 +11,22 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Durable playlists - save + reuse a session (§4.3 complete) (2026-06-08).** BUILT +
+> verified on the same branch (1 commit, not pushed). The durable half of Sessions: a
+> "playlist" is a saved, ordered list of game ids you host any time. Mirrors the
+> games/decks storage pattern exactly: a `playlists` table + `playlists-repo.ts` (zod
+> boundary, ownership, private/unlisted/public visibility, CRUD + list-mine/public) +
+> REST under `/api/playlists`; game ids validated against the server-safe catalog
+> (`isKnownPlugin`). UI: a "Save lineup" action in the session builder (auth-gated),
+> `/host/playlist/[id]` (SessionHostRoom gained a `gameIds` prop + skips the picker,
+> keeping only sequenceable games in order), and a `/playlists` list (host + delete). An
+> unlisted lineup is hostable by link without login. Verified: typechecks, web build,
+> `scripts/playlists-smoke.mjs` (authed API CRUD + visibility + a browser host-by-id
+> check), and the ad-hoc session smoke + 579 unit tests still green. DEFERRED: a richer
+> in-place editor (reorder/rename) + public-playlist discovery. **§4.3 Sessions is now
+> COMPLETE (ad-hoc + durable).** Next (per §8): P4 Phase B (weighted audience), P7
+> Pipeline -> Doodle Chain / Quick Draw / Bingo, Wager, the clue-giver Wavelength.
+
 > **Sessions / a night of games (§4.3) (2026-06-08).** BUILT + verified on the same
 > branch `expansion-p1-answer-caption` (2 commits, not yet pushed). The marquee
 > structural feature for bars/classrooms/parties: several games played back to back in
