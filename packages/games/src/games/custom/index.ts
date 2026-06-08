@@ -26,6 +26,7 @@ import { rankBlock } from '../../blocks/rank/block'
 import { rateBlock } from '../../blocks/rate/block'
 import { slideBlock } from '../../blocks/slide/block'
 import { splitBlock } from '../../blocks/split/block'
+import { surveyBlock } from '../../blocks/survey/block'
 import { titleBlock } from '../../blocks/title/block'
 import { voteBlock } from '../../blocks/vote/block'
 
@@ -51,6 +52,7 @@ export const custom = defineGame({
     guessBlock,
     answerBlock,
     categoriesBlock,
+    surveyBlock,
     rateBlock,
     pollBlock,
     rankBlock,

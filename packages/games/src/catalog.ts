@@ -53,6 +53,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'tier-list', name: 'Tier List', version: '0.1.0', flagship: true, description: 'Rank anything from S to D. The room decides where each one lands.', pool: { deckKind: 'prompt', placeholderBlock: 'rate' } },
   { id: 'over-under', name: 'Over / Under', version: '0.1.0', flagship: true, description: 'Estimation trivia: is the real figure over or under the line? Closest call climbs the board.', pool: { deckKind: 'quiz', placeholderBlock: 'guess', answerColumns: ['correct', 'answer'] } },
   { id: 'categories', name: 'Categories', version: '0.1.0', flagship: true, description: 'Scattergories: a letter, a few categories, race to fill them in. Unique answers score.', pool: { deckKind: 'prompt', placeholderBlock: 'categories' } },
+  { id: 'survey', name: 'Survey', version: '0.1.0', flagship: true, description: 'Family-feud style: we surveyed the board; name the top answers to score.', pool: { deckKind: 'quiz', placeholderBlock: 'survey', answerColumns: ['answers', 'board'] } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -79,6 +80,8 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   // Type-the-answer trivia: the accepted answers are the key; blank them before
   // serving a saved answer-based game to a non-owner.
   answer: { answers: [] },
+  // Survey (Family Feud): the ranked board is the answer key; blank it for non-owners.
+  survey: { answers: [] },
   buzzer: { correct: -1 },
   // Fib Finder's truth is the answer key: strip it (and any derived options)
   // before serving a saved fibvote-based game to a non-owner.

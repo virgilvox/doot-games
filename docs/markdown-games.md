@@ -41,8 +41,8 @@ Rules:
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
-  `hivemind`, `categories`, `mostlikely`, `ballpark`, `buzzer`, the two-phase
-  `quip` / `fill`, and the hidden-imposter `faker`). Repeat + mix in any order.
+  `hivemind`, `categories`, `survey`, `mostlikely`, `ballpark`, `buzzer`, the
+  two-phase `quip` / `fill`, and the hidden-imposter `faker`). Mix in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -98,6 +98,22 @@ letter: B
 - A food
 - A city
 - A movie
+```
+
+### `survey`: Family Feud (guess the top answers)
+A hidden board of the most popular answers; players name as many as they can, and
+each board answer they find scores its points. Fields: `prompt`, `guesses:` (how
+many tries, default 3), `timer` (default 45). List the board as `- Answer:points`
+items (points optional; a bare answer gets rank-based points, first = highest).
+
+```markdown
+## survey
+prompt: Name a popular pizza topping
+guesses: 3
+- Pepperoni:35
+- Cheese:25
+- Mushroom:15
+- Pineapple:5
 ```
 
 ### `poll`: opinion question, no right answer

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { accuseBlock } from './blocks/accuse/block'
 import { answerBlock } from './blocks/answer/block'
 import { categoriesBlock } from './blocks/categories/block'
+import { surveyBlock } from './blocks/survey/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
@@ -27,6 +28,7 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   guess: guessBlock.contentSchema,
   answer: answerBlock.contentSchema,
   categories: categoriesBlock.contentSchema,
+  survey: surveyBlock.contentSchema,
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
@@ -324,6 +326,18 @@ describe('parseMarkdownGame', () => {
     // No answer -> a warning, but still parses to a valid (placeholder) round.
     const empty = parseMarkdownGame('## answer\nprompt: ?')
     expect(empty.warnings.join(' ')).toMatch(/needs an answer/)
+  })
+
+  it('parses a ## survey round, reading the board with optional points', () => {
+    const { rounds } = parseMarkdownGame('## survey\nprompt: Name a fruit\n- Apple:30\n- Banana:25\n- Orange')
+    const c = rounds[0]!.content as { answers: Array<{ text: string; points: number }> }
+    expect(rounds[0]!.block).toBe('survey')
+    expect(c.answers).toEqual([
+      { text: 'Apple', points: 30 },
+      { text: 'Banana', points: 25 },
+      { text: 'Orange', points: 5 }, // rank-scored (3rd of 3 -> (3-2)*5)
+    ])
+    expect(SCHEMAS.survey!.safeParse(c).success).toBe(true)
   })
 
   it('parses a ## categories round with a letter and category list', () => {

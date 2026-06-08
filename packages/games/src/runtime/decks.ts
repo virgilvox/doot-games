@@ -142,6 +142,15 @@ export function overUnderFromRow(row: Record<string, string | number>): { prompt
   return prompt && (correct === 0 || correct === 1) ? { prompt, correct } : null
 }
 
+/** Survey (Family Feud): a question + its board. The board rides one `answers`/
+ *  `board` column as "Text:points | Text:points | ..." (points optional; the game
+ *  parses + rank-scores it). Skips a row missing the question or the board. */
+export function surveyFromRow(row: Record<string, string | number>): { prompt: string; answers: string } | null {
+  const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
+  const answers = pick(row, ['answers', 'board', 'responses', 'survey'])
+  return prompt && answers ? { prompt, answers } : null
+}
+
 /** Faker: a public category + the secret word. */
 export function secretFromRow(row: Record<string, string | number>): { category: string; word: string } | null {
   const category = pick(row, ['category', 'topic', 'theme'])

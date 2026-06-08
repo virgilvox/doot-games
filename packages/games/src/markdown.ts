@@ -22,6 +22,7 @@
  * block's schema.
  */
 import { PROMPT_MAX, type DeckUse, type RoundInstance } from '@doot-games/sdk'
+import { parseBoard } from './blocks/survey/logic'
 import { parseSheet } from './runtime/sheet'
 
 // Re-export the pure spreadsheet parser so server code (which can't import the package
@@ -154,6 +155,24 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
             answers: answers.length ? answers : ['Answer'],
             fuzzy: p.fuzzy != null ? isTruthy(p.fuzzy) : true,
             timer: toTimer(p.timer, 30),
+          },
+        },
+      ]
+    }
+    case 'survey': {
+      // Family Feud: the board is the list items, each "Answer:points" (points
+      // optional -> rank-scored). Reuses the block's parser so the two agree.
+      // Scored at reveal; the board is the withheld answer key.
+      const board = parseBoard((labels.length ? labels : ['Answer A:10', 'Answer B:5']).join('|'))
+      const gc = Number(p.guesses)
+      return [
+        {
+          block: 'survey',
+          content: {
+            prompt: p.prompt ?? 'Name a popular answer.',
+            answers: board,
+            guessCount: Number.isFinite(gc) && gc > 0 ? Math.min(8, gc) : 3,
+            timer: toTimer(p.timer, 45),
           },
         },
       ]

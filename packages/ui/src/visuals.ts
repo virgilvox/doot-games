@@ -51,6 +51,7 @@ const VISUALS: Record<string, GameVisual> = {
   'tier-list': { color: 'var(--c3)', icon: 'star' },
   'over-under': { color: 'var(--c4)', icon: 'bars' },
   categories: { color: 'var(--c5)', icon: 'grid' },
+  survey: { color: 'var(--c3)', icon: 'bars' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },
