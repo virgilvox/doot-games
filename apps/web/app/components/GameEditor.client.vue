@@ -10,7 +10,7 @@
 import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin, parseMarkdownGame, resolveComposition } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
-import { GameTypeIcon, IMAGE_UPLOAD, ImageField, SchemaForm, gameVisual } from '@doot-games/ui'
+import { AudioClip, GameTypeIcon, IMAGE_UPLOAD, ImageField, SchemaForm, gameVisual } from '@doot-games/ui'
 import { computed, onMounted, onScopeDispose, provide, reactive, ref, toRaw, watch } from 'vue'
 
 /** A saved game loaded into the editor (to edit in place or fork). */
@@ -784,6 +784,7 @@ onScopeDispose(() => {
                 <div class="kicker">{{ blockFor(cur)?.name }}</div>
                 <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
                 <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
+                <p v-if="previewContent.audio" class="ed-audio-hint">Listen to the big screen</p>
               </template>
               <template v-if="isDerived(cur)">
                 <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
@@ -808,6 +809,7 @@ onScopeDispose(() => {
               <div v-if="!curIsDisplay" class="ed-bs-prompt-area">
                 <h3 class="ed-bs-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
                 <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-bs-img" />
+                <AudioClip v-if="previewContent.audio" :src="previewContent.audio as string" class="ed-bs-audio" :label="previewPrompt || 'Listen'" />
               </div>
               <div v-if="isDerived(cur)" class="ed-bs-board">
                 <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
@@ -1642,6 +1644,15 @@ onScopeDispose(() => {
   object-fit: contain;
   border-radius: 12px;
   border: var(--bd) solid var(--line-soft);
+}
+.ed-bs-audio {
+  margin-top: 10px;
+}
+.ed-audio-hint {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink-soft);
 }
 .ed-bs-board {
   /* The real host view is sized for a projector; scale it down to the editor

@@ -25,6 +25,10 @@ export const answerContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen, e.g. a category.'),
   prompt: promptText('What is the answer?'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
+  audio: z
+    .string()
+    .default('')
+    .describe('Optional audio clip URL (for Name That Tune). The big screen plays it.'),
   /** Accepted answers; the first is shown as THE answer, the rest are synonyms.
    *  Stripped to [] in the published content (it is the answer key). */
   answers: z
@@ -77,6 +81,7 @@ export const answerBlock = defineBlock<AnswerContent, AnswerInput>({
     subject: '',
     prompt: 'What is the capital of France?',
     image: '',
+    audio: '',
     answers: ['Paris'],
     fuzzy: true,
     timer: 30,

@@ -7,7 +7,7 @@
 import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
-import { ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek } from '@doot-games/ui'
+import { AudioClip, ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek } from '@doot-games/ui'
 import type { StandardResults } from '@doot-games/sdk'
 import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
@@ -125,6 +125,10 @@ const promptStyle = computed<Record<string, string> | undefined>(() => {
   return { fontSize: 'clamp(20px, 2vw, 26px)' }
 })
 const image = computed(() => content.value?.image as string | undefined)
+// An audio clip prompt (Name That Tune): the big screen is the shared speaker, so
+// the host plays it. Phones get a "listen up" hint instead, to avoid 20 phones
+// echoing the same clip.
+const audio = computed(() => (content.value?.audio as string | undefined) || '')
 // Hide an image that fails to load rather than show a broken glyph on the big
 // screen. Tracked per URL so a later round's valid image still renders.
 const failedImages = reactive(new Set<string>())
@@ -520,6 +524,7 @@ watch(
         <span v-if="subject" class="subject">{{ subject }}</span>
         <h1 class="prompt" :style="promptStyle">{{ prompt }}</h1>
         <div v-if="showImage" class="imgbox"><img :src="image" alt="" @error="failedImages.add(image!)" /></div>
+        <AudioClip v-if="audio" :key="audio" :src="audio" class="stage-audio" :label="prompt || 'Listen'" />
       </div>
       <div class="right">
         <component
@@ -726,6 +731,10 @@ watch(
   align-self: center;
   width: min(720px, 100%);
   margin-top: 12px;
+}
+.stage-audio {
+  margin-top: 14px;
+  max-width: 560px;
 }
 .driving-note {
   margin-top: 14px;

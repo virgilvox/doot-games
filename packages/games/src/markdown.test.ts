@@ -298,6 +298,15 @@ describe('parseMarkdownGame', () => {
     expect(g.warnings.join(' ')).toMatch(/single-round blocks/)
   })
 
+  it('carries an audio clip URL on guess and answer rounds (Name That Tune)', () => {
+    const g = parseMarkdownGame('## guess\nprompt: Name that tune\naudio: https://example.com/clip.mp3\n- Song A (correct)\n- Song B')
+    expect((g.rounds[0]!.content as { audio: string }).audio).toBe('https://example.com/clip.mp3')
+    expect(SCHEMAS.guess!.safeParse(g.rounds[0]!.content).success).toBe(true)
+    const a = parseMarkdownGame('## answer\nprompt: Name that tune\naudio: https://example.com/clip.mp3\nanswers: Song A')
+    expect((a.rounds[0]!.content as { audio: string }).audio).toBe('https://example.com/clip.mp3')
+    expect(SCHEMAS.answer!.safeParse(a.rounds[0]!.content).success).toBe(true)
+  })
+
   it('parses a ## answer round, accepting synonyms and a fuzzy flag', () => {
     const fromLine = parseMarkdownGame('## answer\nprompt: Biggest US city?\nanswers: New York City | NYC')
     const c = fromLine.rounds[0]!.content as { prompt: string; answers: string[]; fuzzy: boolean }

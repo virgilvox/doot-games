@@ -28,6 +28,10 @@ export const guessContentSchema = z.object({
   subject: z.string().default('').describe('Optional label shown on the big screen, e.g. a category.'),
   prompt: promptText('Who is this?'),
   image: z.string().default('').describe('Optional picture shown with the question.'),
+  audio: z
+    .string()
+    .default('')
+    .describe('Optional audio clip URL (for Name That Tune). The big screen plays it.'),
   timer: z
     .number()
     .int()
@@ -57,6 +61,7 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
     subject: '',
     prompt: 'Who is this?',
     image: '',
+    audio: '',
     timer: 20,
     hideUntilReveal: true,
     options: [{ label: 'Option A' }, { label: 'Option B' }, { label: 'Option C' }, { label: 'Option D' }],

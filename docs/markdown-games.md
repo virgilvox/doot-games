@@ -51,8 +51,9 @@ Rules:
 ## Blocks
 
 ### `guess`: multiple choice with a right answer
-Fields: `subject` (optional label), `prompt`, `image`, `timer` (default 20).
-List the choices as `- ` items; mark the right one with `(correct)`.
+Fields: `subject` (optional label), `prompt`, `image`, `audio` (a clip URL, for
+Name That Tune; the big screen plays it), `timer` (default 20). List the choices
+as `- ` items; mark the right one with `(correct)`.
 
 ```markdown
 ## guess
@@ -66,7 +67,8 @@ timer: 15
 
 ### `answer`: type-the-answer trivia
 No choices: every player types the answer on their phone. Fields: `subject`,
-`prompt`, `image`, `timer` (default 30), `answers:` (the accepted answer; add
+`prompt`, `image`, `audio` (a clip URL for Name That Tune), `timer` (default 30),
+`answers:` (the accepted answer; add
 synonyms separated by ` | `), and `fuzzy:` (default `yes`, which forgives small
 typos and accents; set `no` for a strict match). The answer is hidden until
 reveal, and only a correct answer scores.

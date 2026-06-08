@@ -56,6 +56,9 @@ watch(image, () => {
   failedImage.value = false
 })
 const showImage = computed(() => !!image.value && !failedImage.value)
+// An audio clip prompt plays on the big screen (the shared speaker); the phone
+// shows a hint rather than echoing it from every device.
+const hasAudio = computed(() => !!((content.value as { audio?: string } | null)?.audio))
 const submitted = computed(() => room.inputFor(index.value) !== undefined)
 const eligible = computed(() => index.value >= room.joinedAtIndex.value)
 
@@ -209,6 +212,7 @@ function reloadPage() {
       <div class="kicker">{{ block.name }}</div>
       <h2 class="prompt">{{ prompt }}</h2>
       <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
+      <p v-if="hasAudio" class="audio-hint"><Icon name="mic" :size="16" /> Listen to the big screen</p>
       <component
         :is="block.PlayerInput"
         :content="content"
@@ -322,6 +326,18 @@ function reloadPage() {
 }
 .player-standings {
   flex: none;
+}
+.audio-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 999px;
+  padding: 8px 16px;
 }
 /* Team picker (lobby) */
 .team-pick {
