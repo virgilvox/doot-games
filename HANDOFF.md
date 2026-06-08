@@ -11,6 +11,26 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Audience tier (P4 Phase A) (2026-06-08).** BUILT + verified on the same branch
+> `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new `audience`
+> engine role for untrusted phone spectators: they read the display state but NEVER
+> subscribe to player inputs or the roster (so a spectator can't deanonymize a
+> two-phase gallery, and stays low-bandwidth, the PRD scale story), never submit,
+> never enter the scored roster, and never count toward the player cap (they
+> heartbeat on a separate `/audience/<id>/ping`; the host counts distinct live pings
+> as "N watching"). Because audience publish no player profile they are simply absent
+> from the roster `scoreGame` sees, so scoring needed no role filter. Join flow: the
+> JoinForm offers "Just watch instead" (no name), and a full room offers "Watch
+> instead" (auto-spill); a new `AudienceRoom` mounts a read-only `GameAudience` view
+> (prompt + image + a per-state status + the running standings + final results). The
+> host lobby shows "N joined · N watching". Verified: 522 unit tests (4 new audience
+> engine tests), all typechecks, the web build, `scripts/audience-smoke.mjs`, and the
+> answer/standings/teams player-path smokes still green after the `subscribe()`
+> restructure (the riskiest change). **Deferred:** P4 Phase B (weighted audience
+> voting) needs a contract addition (`weightFor`) + audience submitting on a separate
+> channel; not built. **Next (per plan §8):** Wager (needs P3, now landed), then
+> §4.3 sessions/playlists, then the Caption This flagship once images are sourced.
+
 > **Teams audit fixes + live standings (P3) (2026-06-08).** BUILT + verified on the
 > same branch `expansion-p1-answer-caption` (2 more commits, not yet pushed).
 > - **Teams audit (2 real bugs found + fixed):** (1) an unscored game (e.g. a
