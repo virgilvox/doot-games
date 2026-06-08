@@ -158,6 +158,18 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'categories': {
+      // Scattergories: a `letter:` + the categories as list items. Everyone fills
+      // one answer per category; valid + unique answers score (computed at reveal).
+      const cats = (labels.length ? labels : ['An animal', 'A food', 'A city']).map((label, i) => ({ id: `c${i}`, label }))
+      const letter = ((p.letter ?? 'C').trim().slice(0, 1) || 'C').toUpperCase()
+      return [
+        {
+          block: 'categories',
+          content: { prompt: p.prompt ?? 'Categories', letter, categories: cats, timer: toTimer(p.timer, 120) },
+        },
+      ]
+    }
     case 'poll': {
       const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
       return [

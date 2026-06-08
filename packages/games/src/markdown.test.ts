@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { accuseBlock } from './blocks/accuse/block'
 import { answerBlock } from './blocks/answer/block'
+import { categoriesBlock } from './blocks/categories/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
@@ -25,6 +26,7 @@ const NO_BLOCKS_PLUGIN = { manifest: { id: 't', name: 'T', version: '0', author:
 const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } }> = {
   guess: guessBlock.contentSchema,
   answer: answerBlock.contentSchema,
+  categories: categoriesBlock.contentSchema,
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
@@ -322,6 +324,15 @@ describe('parseMarkdownGame', () => {
     // No answer -> a warning, but still parses to a valid (placeholder) round.
     const empty = parseMarkdownGame('## answer\nprompt: ?')
     expect(empty.warnings.join(' ')).toMatch(/needs an answer/)
+  })
+
+  it('parses a ## categories round with a letter and category list', () => {
+    const { rounds } = parseMarkdownGame('## categories\nletter: B\n- An animal\n- A food\n- A city')
+    const c = rounds[0]!.content as { letter: string; categories: Array<{ id: string; label: string }> }
+    expect(rounds[0]!.block).toBe('categories')
+    expect(c.letter).toBe('B')
+    expect(c.categories.map((x) => x.label)).toEqual(['An animal', 'A food', 'A city'])
+    expect(SCHEMAS.categories!.safeParse(c).success).toBe(true)
   })
 
   it('warns on unknown blocks and empty input', () => {

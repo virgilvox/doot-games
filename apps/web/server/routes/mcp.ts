@@ -74,6 +74,7 @@ Header fields above also work as save_game / update_game / set_game_meta argumen
 * "## rate": score subjects on a scale. Fields: subject, prompt, image, timer, "categories: A, B, C", "scale:" (a range like "1-10", or labels like "F, D, C, B, A").
 * "## draw": players sketch the prompt. Fields: prompt, image, timer (default 60). Add "vote: true" for draw-then-vote (the room votes the best drawing). With vote: "voteprompt:", "votetimer:" (default 30).
 * "## hivemind": free-text answer, score by MATCHING the crowd ("read the room"). Fields: prompt, timer (default 30). Use prompts with an obvious popular answer ("Name a color of the rainbow"). No "- " items.
+* "## categories": Scattergories. A letter + a few categories; players type one answer each, and a VALID (starts with the letter) + UNIQUE (nobody else said it) answer scores. Fields: "letter:" (one letter), timer (default 120). List the categories as "- An animal", "- A food", etc.
 * "## mostlikely": the room votes a PLAYER from the lobby ("most likely to..."). Fields: prompt, timer (default 20). Options ARE the players, so no "- " items. Keep it party-safe.
 * "## ballpark": numeric trivia, closest guess wins. Fields: subject, prompt, image, "answer:" (the true NUMBER, hidden until reveal), "unit:" (optional: km, %, years), timer (default 30). No "- " items. Use facts nobody knows exactly.
 

@@ -50,6 +50,7 @@ const VISUALS: Record<string, GameVisual> = {
   'would-you-rather': { color: 'var(--c1)', icon: 'rank' },
   'tier-list': { color: 'var(--c3)', icon: 'star' },
   'over-under': { color: 'var(--c4)', icon: 'bars' },
+  categories: { color: 'var(--c5)', icon: 'grid' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },

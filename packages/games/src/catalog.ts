@@ -52,6 +52,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'would-you-rather', name: 'Would You Rather', version: '0.1.0', flagship: true, description: 'Forced-choice dilemmas: the room picks a side and you see how it split.', pool: { deckKind: 'generic', placeholderBlock: 'poll' } },
   { id: 'tier-list', name: 'Tier List', version: '0.1.0', flagship: true, description: 'Rank anything from S to D. The room decides where each one lands.', pool: { deckKind: 'prompt', placeholderBlock: 'rate' } },
   { id: 'over-under', name: 'Over / Under', version: '0.1.0', flagship: true, description: 'Estimation trivia: is the real figure over or under the line? Closest call climbs the board.', pool: { deckKind: 'quiz', placeholderBlock: 'guess', answerColumns: ['correct', 'answer'] } },
+  { id: 'categories', name: 'Categories', version: '0.1.0', flagship: true, description: 'Scattergories: a letter, a few categories, race to fill them in. Unique answers score.', pool: { deckKind: 'prompt', placeholderBlock: 'categories' } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

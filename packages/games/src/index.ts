@@ -8,6 +8,7 @@ export { type ParsedGame, parseMarkdownGame } from './markdown'
 
 // Blocks (the reusable round kinds)
 export { answerBlock } from './blocks/answer/block'
+export { categoriesBlock } from './blocks/categories/block'
 export { guessBlock } from './blocks/guess/block'
 export { rateBlock } from './blocks/rate/block'
 export { pollBlock } from './blocks/poll/block'
@@ -59,4 +60,5 @@ export { typeTheAnswer } from './games/type-the-answer'
 export { wouldYouRather } from './games/would-you-rather'
 export { tierList } from './games/tier-list'
 export { overUnder } from './games/over-under'
+export { categories } from './games/categories'
 export { custom } from './games/custom'

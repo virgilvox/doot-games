@@ -41,8 +41,8 @@ Rules:
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
-  `hivemind`, `mostlikely`, `ballpark`, `buzzer`, the two-phase `quip` / `fill`,
-  and the hidden-imposter `faker`). You can repeat and mix them in any order.
+  `hivemind`, `categories`, `mostlikely`, `ballpark`, `buzzer`, the two-phase
+  `quip` / `fill`, and the hidden-imposter `faker`). Repeat + mix in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -83,6 +83,21 @@ answers: Tokyo
 prompt: What is the largest US city by population?
 answers: New York City | NYC
 fuzzy: yes
+```
+
+### `categories`: Scattergories
+A letter plus a few categories; players type one answer for each, and an answer
+scores only if it is valid (starts with the letter) AND unique (nobody else gave
+it). Fields: `letter:` (one letter), `timer` (default 120). List the categories as
+`- ` items.
+
+```markdown
+## categories
+letter: B
+- An animal
+- A food
+- A city
+- A movie
 ```
 
 ### `poll`: opinion question, no right answer
