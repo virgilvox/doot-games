@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 35
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 36
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -28,20 +28,47 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   **Story Chain** (text telephone) + **Doodle Chain** (Gartic Phone, Pixi draw rounds)
 >   both on that foundation · a generic `components.Results` seam (the renderer honors a
 >   game's custom results view) + a `ResultsFragment.recap` passthrough. Catalog now ~33 games.
-> - **Tests:** ~629 unit + ~13 browser smokes (answer, audience, audience-vote, audio,
->   categories, doodlechain, quickwins, spectrum, standings, storychain, survey, teams,
->   session, playlists, wager).
-> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
->   (vote/split/fibvote weighting - poll done; DESIGN DECIDED + scoped, see the dated entry
->   below, ready to build) · **Quick Draw** (real-time stroke streaming) / Bingo / Call It
->   (the remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now unblocked
->   by the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated entries below.
+> - **Tests:** ~639 unit + ~14 browser smokes (answer, audience, audience-vote, audio,
+>   categories, crowd-vote, doodlechain, quickwins, spectrum, standings, storychain, survey,
+>   teams, session, playlists, wager).
+> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks - the `vote`
+>   block is DONE (host toggle + capped crowd bloc); split + fibvote are the same pattern,
+>   not yet wired · **Quick Draw** (real-time stroke streaming) / Bingo / Call It (the
+>   remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now unblocked by
+>   the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
-> **P4B for the SCORED vote blocks - DECIDED + scoped, ready to build (2026-06-08).** The
+> **P4B audience-counts on the `vote` block - BUILT (2026-06-08).** The first scored judge
+> block now honors the owner's chosen design: a **lobby host toggle "Let the crowd's votes
+> count", default OFF**. OFF keeps scoring player-only (unchanged). ON lets spectators vote on
+> the vote round and folds them into the tally as a CAPPED, DISCOUNTED bloc (the whole crowd is
+> worth at most ~half the players, split by the crowd's own choices), so the crowd can nudge a
+> close round and the option author's score, while audience members NEVER enter the leaderboard.
+> - **Reused:** the engine audience-vote transport + GameHost's `provide('dootAudienceVotes')`.
+> - **New:** `RoomMeta.crowdCounts` + `room.host.setCrowdCounts` (engine, mirrors setTeams) +
+>   a lobby toggle (shown only for games with a vote block) · a pure `runtime/crowd.ts`
+>   (`crowdBloc` cap = `max(1, round(playerTotal * 0.5))`, `crowdChoiceCounts`) · optional
+>   `BlockResultsContext.audienceVotesFor` + `RevealContext.audienceVotes`, supplied by
+>   `scoreInputs`/`buildRevealSummary` ONLY when `meta.crowdCounts` is on (so the block code is
+>   uniform and a no-op when off) · the `vote` block folds the crowd in its shared `tally()`,
+>   used by BOTH `aggregate` (scoring) and `revealSummary` (the published reveal) - and VoteHost
+>   reads that published summary at reveal, so the big screen, the phones, and the leaderboard
+>   all agree with NO host-view change · GameAudience renders a vote surface on a vote round
+>   when the toggle is on (options from the derived content, never the author map).
+> - **Verified:** 639 unit tests (`crowd.test` cap/discount/floor + `vote.test` "a big crowd
+>   nudges a close round, capped, and never on the leaderboard" + revealSummary folds the same),
+>   typechecks, web build, and `scripts/crowd-vote-smoke.mjs` (real: toggle on, a spectator votes
+>   on a SCORED vote round, the leaderboard shows only the 2 players, 0 overflow at 390px).
+> - **Follow-on (split + fibvote):** same `crowdBloc` + context; fold each block's tally and add
+>   its kind to `CROWD_VOTE_BLOCKS` (GameHost) + GameAudience's `canVote`. fibvote is single-choice
+>   like vote (easy); split's input is per-scenario yes/no, so it ALSO needs a per-scenario audience
+>   surface in GameAudience (the current one is single-choice). Decide per block how the crowd
+>   folds into that block's scoring (vote = vote share; fibvote = fooled-count/truth; split = ratio).
+
+> **P4B for the SCORED vote blocks - DECIDED + scoped (2026-06-08).** The
 > owner picked the design: a **lobby host toggle "Let the crowd's votes count", default OFF**.
 > OFF keeps a scored game pure (players decide the score, the existing behavior). ON folds the
 > audience as a CAPPED, DISCOUNTED bloc into the tally so the crowd can nudge which answer wins

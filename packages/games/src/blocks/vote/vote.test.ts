@@ -196,6 +196,47 @@ describe('vote block keeps a departed author scored', () => {
   })
 })
 
+describe('vote block audience bloc (P4B: capped crowd, never on the leaderboard)', () => {
+  function ctxWith(crowd?: Map<string, VoteInput>): BlockResultsContext<VoteContent, VoteInput> {
+    const { publish, answer } = derive() // o0=A(apple) o1=B(banana) o2=C(cherry)
+    const votes = new Map<string, VoteInput>([
+      ['A', { choice: 'o1' }], // A -> B's banana
+      ['B', { choice: 'o0' }], // B -> A's apple
+      ['C', { choice: 'o0' }], // C -> A's apple  => o0=2 (Ada), o1=1 (Bea)
+    ])
+    return {
+      rounds: [{ index: 1, content: publish }],
+      inputsFor: () => votes,
+      answerFor: () => answer,
+      players,
+      audienceVotesFor: crowd ? () => crowd : undefined,
+    }
+  }
+
+  it('player-only by default: Ada (apple, 2 votes) wins', () => {
+    expect((voteBlock.aggregate!(ctxWith()).leaderboard ?? [])[0]?.name).toBe('Ada')
+  })
+
+  it('a big crowd can NUDGE a close round, capped at ~half the room', () => {
+    // 100 spectators all back o1 (Bea). playerTotal 3 -> cap 2, so o1 gains 2 (not 100):
+    // o0=2, o1=3. Bea flips the round, but the crowd could not run it up.
+    const crowd = new Map<string, VoteInput>(Array.from({ length: 100 }, (_, i) => [`s${i}`, { choice: 'o1' }]))
+    const board = voteBlock.aggregate!(ctxWith(crowd)).leaderboard ?? []
+    expect(board[0]?.name).toBe('Bea')
+    // Spectators never enter the leaderboard.
+    expect(board.map((e) => e.id).sort()).toEqual(['A', 'B', 'C'])
+    expect(board.some((e) => e.id?.startsWith('s'))).toBe(false)
+  })
+
+  it('revealSummary folds the same crowd, so the big screen matches the score', () => {
+    const { publish, answer } = derive()
+    const votes = new Map<string, VoteInput>([['A', { choice: 'o1' }], ['B', { choice: 'o0' }], ['C', { choice: 'o0' }]])
+    const crowd = new Map<string, VoteInput>([['s0', { choice: 'o1' }], ['s1', { choice: 'o1' }], ['s2', { choice: 'o1' }]])
+    const summary = voteBlock.revealSummary!({ content: publish, inputs: votes, answer, players, audienceVotes: crowd }) as VoteRevealSummary
+    expect(summary.tallies.find((t) => t.id === 'o1')?.votes).toBeGreaterThan(1) // includes the capped crowd
+  })
+})
+
 describe('vote block derive edge cases', () => {
   const baseCtx = (inputs: Map<string, unknown>): DeriveContext<VoteContent> => ({
     content: { prompt: 'Which wins?', options: [], mode: 'field', timer: 30 },

@@ -76,4 +76,9 @@ export interface RoomMeta {
    *  Players self-pick from these; the results show a team board. Absent/empty
    *  means no teams. Ephemeral (lobby control), like `playerCap`. */
   teams?: string[]
+  /** P4B: when true, the audience can vote on a SCORED judge round and their votes
+   *  fold into the tally as a capped, discounted bloc (the crowd can nudge who wins
+   *  but never appears on the leaderboard). Off by default so a competitive game
+   *  stays player-decided. Ephemeral (lobby control), like `teams`. */
+  crowdCounts?: boolean
 }

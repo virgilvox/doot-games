@@ -987,6 +987,19 @@ export class RoomRuntime {
     this.emit()
   }
 
+  /** P4B: turn on/off "the crowd's votes count" for scored judge rounds. Republishes
+   *  meta so the audience phone shows a vote surface. Ephemeral lobby control, mirrors
+   *  setTeams. Host only. */
+  setCrowdCounts(on: boolean): void {
+    this.assertHost()
+    const base = this.meta ?? this.game?.meta
+    if (!base) return
+    this.meta = { ...base, crowdCounts: on ? true : undefined }
+    if (this.game) this.game = { ...this.game, meta: this.meta }
+    this.publish(addr.meta(this.room), this.meta as unknown as RelayValue)
+    this.emit()
+  }
+
   /** Host: assign (or clear with null) a player's team, e.g. an auto-balance.
    *  Publishes to that player's team address, exactly as the player would; the
    *  host's own team subscription folds it back into the roster. */

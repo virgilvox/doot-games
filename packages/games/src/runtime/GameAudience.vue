@@ -40,15 +40,31 @@ const teams = computed(() => room.meta.value?.teams ?? [])
 const standings = computed(() => room.standings.value as StandardResults | undefined)
 const hasStandings = computed(() => (standings.value?.leaderboard?.length ?? 0) > 0)
 
-// P4B: the audience can weigh in on a poll (an opinion round, nothing scored). Their
-// votes go to a separate channel and show on the big screen as a capped "crowd" bloc.
-const canVote = computed(() => block.value?.kind === 'poll' && state.value === 'open')
-const pollOptions = computed(() => (content.value as { options?: Array<{ label: string }> } | null)?.options ?? [])
-const myVote = ref<number | null>(null)
+// P4B: the audience can weigh in. On a POLL (unscored) they always can; on a SCORED
+// judge round (vote/fibvote) only when the host turned on "the crowd's votes count",
+// where their votes fold into the tally as a capped bloc. Their votes ride a separate
+// channel and never put them on the leaderboard.
+const crowdOn = computed(() => !!room.meta.value?.crowdCounts)
+const canVote = computed(() => {
+  if (state.value !== 'open') return false
+  const k = block.value?.kind
+  if (k === 'poll') return true // unscored, always
+  // Scored judge rounds: only when the host turned the toggle on. `vote` is wired
+  // today; fibvote/split fold the same way and join this list when shipped.
+  return crowdOn.value && k === 'vote'
+})
+// Normalize the votable options: a poll's choice is the option INDEX; a derived vote
+// round's choice is the option ID (a string). Read from the public derived content.
+const voteOptions = computed<Array<{ key: number | string; label: string }>>(() => {
+  const opts = (content.value as { options?: Array<{ label?: string; id?: string; text?: string }> } | null)?.options ?? []
+  if (block.value?.kind === 'poll') return opts.map((o, i) => ({ key: i, label: o.label ?? '' }))
+  return opts.map((o) => ({ key: o.id ?? '', label: o.text ?? '' }))
+})
+const myVote = ref<number | string | null>(null)
 watch(index, () => {
   myVote.value = null
 })
-function vote(choice: number) {
+function vote(choice: number | string) {
   if (myVote.value != null) return
   room.submitAudience({ choice })
   myVote.value = choice
@@ -96,14 +112,14 @@ const status = computed(() => {
         <div v-if="canVote" class="aud-vote" role="group" aria-label="Vote with the crowd">
           <p class="vote-hint">{{ myVote == null ? 'Vote with the crowd:' : "Your vote is in. Watch the big screen." }}</p>
           <button
-            v-for="(o, i) in pollOptions"
-            :key="i"
+            v-for="o in voteOptions"
+            :key="o.key"
             type="button"
             class="aud-opt"
-            :class="{ on: myVote === i }"
-            :aria-pressed="myVote === i"
+            :class="{ on: myVote === o.key }"
+            :aria-pressed="myVote === o.key"
             :disabled="myVote != null"
-            @click="vote(i)"
+            @click="vote(o.key)"
           >
             {{ o.label }}
           </button>

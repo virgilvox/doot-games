@@ -122,6 +122,9 @@ export interface ScoreGameContext {
   inputsFor: (index: number) => Map<string, unknown>
   players: ScorePlayer[]
   answerKeys: Record<number, unknown>
+  /** P4B: the audience's votes per round, supplied only when "the crowd's votes
+   *  count" is on; the vote-tallying blocks fold them as a capped bloc. */
+  audienceVotesFor?: (index: number) => Map<string, unknown>
 }
 
 /**
@@ -211,6 +214,7 @@ export function scoreGame(
         inputsFor: ctx.inputsFor,
         answerFor: (i) => ctx.answerKeys[i],
         players: ctx.players,
+        audienceVotesFor: ctx.audienceVotesFor,
       }),
     )
   }
@@ -414,6 +418,9 @@ export function buildRevealSummary(
   getPlayers: () => ScorePlayer[],
   runtimeContentFor: (index: number) => unknown | undefined,
   answerFor: (index: number) => unknown,
+  /** P4B: the audience's votes for a round, supplied only when "the crowd's votes
+   *  count" is on, so the published reveal tally matches the scored tally. */
+  audienceVotesFor?: (index: number) => Map<string, unknown>,
 ): (index: number, inputsFor: (i: number) => Map<string, unknown>) => unknown | undefined {
   return (index, inputsFor) => {
     const inst = config.rounds[index]
@@ -426,6 +433,7 @@ export function buildRevealSummary(
       inputs: inputsFor(index),
       answer: answerFor(index),
       players: getPlayers(),
+      audienceVotes: audienceVotesFor?.(index),
     })
   }
 }

@@ -18,6 +18,7 @@ import {
   promptText,
   z,
 } from '@doot-games/sdk'
+import { crowdBloc, crowdChoiceCounts } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
 import { BASE_POINTS, pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
 import VoteHost from './VoteHost.vue'
@@ -83,12 +84,23 @@ function tally(
   options: VoteOption[],
   inputs: Map<string, VoteInput>,
   authors: Record<string, string>,
+  /** P4B: spectator votes for this round, folded in as a capped, discounted bloc
+   *  (present only when "the crowd's votes count" is on). The crowd are not authors,
+   *  so there is no self-vote to exclude. */
+  crowd?: Map<string, VoteInput>,
 ): Map<string, number> {
   const counts = new Map<string, number>(options.map((o) => [o.id, 0]))
   for (const [pid, v] of inputs) {
     if (!v?.choice || !counts.has(v.choice)) continue
     if (authors[v.choice] === pid) continue // self-vote: does not count
     counts.set(v.choice, (counts.get(v.choice) ?? 0) + 1)
+  }
+  if (crowd?.size) {
+    const playerTotal = [...counts.values()].reduce((a, b) => a + b, 0)
+    const crowdCounts = crowdChoiceCounts(crowd)
+    for (const [id, add] of crowdBloc(playerTotal, crowdCounts)) {
+      if (counts.has(id)) counts.set(id, (counts.get(id) ?? 0) + add)
+    }
   }
   return counts
 }
@@ -176,7 +188,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
     // (so an author who has since left is still named, not "Someone").
     const nameOf = (pid: string) =>
       ctx.players.find((p) => p.id === pid)?.name ?? ans?.names?.[pid] ?? 'Someone'
-    const counts = tally(ctx.content.options, ctx.inputs, authors)
+    const counts = tally(ctx.content.options, ctx.inputs, authors, ctx.audienceVotes)
     const tallies = ctx.content.options.map((o) => ({
       id: o.id,
       text: o.text,
@@ -204,7 +216,7 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
       const authors = ans?.authors ?? {}
       const safety = new Set(ans?.safety ?? [])
       const inputs = ctx.inputsFor(round.index)
-      const counts = tally(round.content.options, inputs, authors)
+      const counts = tally(round.content.options, inputs, authors, ctx.audienceVotesFor?.(round.index))
       const total = [...counts.values()].reduce((a, b) => a + b, 0)
       const mult = roundMultiplier(ri, ctx.rounds.length)
       for (const opt of round.content.options) {

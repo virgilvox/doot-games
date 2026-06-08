@@ -144,6 +144,7 @@ export function useDootRoom(options: UseDootRoomOptions) {
       setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
       setDriver: (pid: string | null) => runtime.setDriver(pid),
       setTeams: (names: string[] | null) => runtime.setTeams(names),
+      setCrowdCounts: (on: boolean) => runtime.setCrowdCounts(on),
       assignTeam: (pid: string, team: string | null) => runtime.assignTeam(pid, team),
       can: (action: HostAction['type']) => runtime.can(action),
     },

@@ -166,6 +166,10 @@ function load() {
       getPlayers,
       (i) => room.runtimeContentFor(i),
       (i) => room.answerKeyFor(i),
+      // P4B: fold the crowd into the published reveal tally only when the toggle is on,
+      // so the big screen + phones match the scored result. Read at reveal time, so the
+      // lobby toggle is current.
+      (i) => (room.meta.value?.crowdCounts ? (room.audienceVotesFor(i) as Map<string, unknown>) : new Map()),
     ) as never,
   })
 }

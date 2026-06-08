@@ -29,6 +29,12 @@ export interface BlockResultsContext<Content = unknown, Input = unknown> {
   /** The answer key for a round (the host holds these privately). */
   answerFor: (index: number) => unknown
   players: ScorePlayer[]
+  /** P4B: the audience's votes for a round (separate from player inputs), supplied
+   *  ONLY when the host turned on "the crowd's votes count". A vote-tallying block
+   *  folds them into its tally as a capped, discounted bloc; every other block
+   *  ignores them. Absent (or empty) when the toggle is off, so scoring is
+   *  player-only by default. Audience members never enter the leaderboard. */
+  audienceVotesFor?: (index: number) => Map<string, Input>
 }
 
 /** One source ("make") round a derived block consumes. `inputs` is cross-block
@@ -107,6 +113,10 @@ export interface RevealContext<Content = unknown, Input = unknown> {
   inputs: Map<string, Input>
   answer: unknown
   players: ScorePlayer[]
+  /** P4B: the audience's votes for this round (capped, discounted bloc), supplied
+   *  only when "the crowd's votes count" is on, so the published reveal tally matches
+   *  the scored tally. Absent/empty otherwise. */
+  audienceVotes?: Map<string, Input>
 }
 
 /** A block's contribution to the results page; fragments are merged across blocks. */

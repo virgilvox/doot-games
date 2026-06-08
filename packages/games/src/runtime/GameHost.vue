@@ -88,6 +88,19 @@ function autoBalance() {
   room.players.value.forEach((p, i) => room.host.assignTeam(p.id, names[i % names.length]!))
 }
 
+// P4B (lobby control): "let the crowd's votes count" on scored judge rounds. Shown
+// only for games that actually have a vote-tallying block, so it doesn't clutter the
+// lobby of games where it would do nothing. Ephemeral, on meta (mirrors teams).
+// Only `vote` folds the crowd today; split/fibvote are the same pattern (fold their
+// tally + add their kind here and to GameAudience) but ship later, so the toggle
+// shows only where it actually does something.
+const CROWD_VOTE_BLOCKS = ['vote']
+const hasJudgeVote = computed(() => props.plugin.blocks.some((b) => CROWD_VOTE_BLOCKS.includes(b.kind)))
+const crowdOn = computed(() => !!room.meta.value?.crowdCounts)
+function toggleCrowd(on: boolean) {
+  room.host.setCrowdCounts(on)
+}
+
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
@@ -239,9 +252,18 @@ function scoreInputs(): { effectiveCfg: GameComposition; ctx: ScoreGameContext }
     const a = room.answerKeyFor(i)
     if (a !== undefined) answerKeys[i] = a
   })
+  // P4B: only feed the audience's votes into scoring when the host turned the toggle
+  // on; otherwise the blocks score player-only (the default). Gated here at the wiring
+  // layer so the block code is uniform.
+  const useCrowd = !!room.meta.value?.crowdCounts
   return {
     effectiveCfg,
-    ctx: { inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>, players, answerKeys },
+    ctx: {
+      inputsFor: (i) => room.inputsFor(i) as Map<string, unknown>,
+      players,
+      answerKeys,
+      audienceVotesFor: useCrowd ? (i) => room.audienceVotesFor(i) as Map<string, unknown> : undefined,
+    },
   }
 }
 
@@ -455,6 +477,18 @@ watch(
           <p class="note">Players pick a team on their phones, or tap Auto-balance to split them evenly.</p>
         </template>
       </div>
+      <label v-if="hasJudgeVote" class="cap-row timers-row">
+        <input
+          type="checkbox"
+          class="crowd-toggle"
+          :checked="crowdOn"
+          @change="toggleCrowd(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="kicker">Let the crowd's votes count</span>
+      </label>
+      <p v-if="hasJudgeVote && crowdOn" class="note">
+        Spectators can vote too. The crowd counts as a capped bloc that can nudge a round, never decide it, and never joins the leaderboard.
+      </p>
       <label class="cap-row timers-row">
         <input
           type="checkbox"
