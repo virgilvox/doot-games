@@ -5,7 +5,7 @@
  * Doot field-name conventions on top of the raw schema:
  *   - `image` (string)            → URL input + live preview
  *   - `timer` / any nullable num  → a number with an on/off toggle
- *   - `prompt`                    → a multi-line textarea
+ *   - `prompt` / `body`           → a multi-line textarea
  *   - `correct` (number, with a sibling `options` array) → a "mark correct" select
  *   - `id` inside an array item   → a compact, auto-seeded slug field
  * Anything it doesn't recognise falls back to a plain input for its kind.
@@ -30,7 +30,8 @@ const label = computed(() => props.forceLabel ?? (props.name === 'id' ? 'ID' : h
 const hint = computed(() => props.node.description ?? '')
 
 const isImage = computed(() => props.node.kind === 'string' && props.name === 'image')
-const isPrompt = computed(() => props.node.kind === 'string' && props.name === 'prompt')
+// Multi-line fields: a question prompt, or a slide's body copy.
+const isPrompt = computed(() => props.node.kind === 'string' && (props.name === 'prompt' || props.name === 'body'))
 const isId = computed(() => props.node.kind === 'string' && props.name === 'id')
 const isCorrect = computed(
   () => props.node.kind === 'number' && props.name === 'correct' && Array.isArray(props.parent?.options),

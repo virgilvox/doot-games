@@ -72,6 +72,11 @@ const isMakeRound = computed(() => {
 })
 const driverAction = computed<{ type: ControlAction; label: string } | null>(() => {
   if (!room.isDriver.value || room.phase.value !== 'active') return null
+  // A display round (slide / title card) advances as one step (the host collapses
+  // the open/lock/reveal beat), so the driver gets a single button.
+  if (block.value?.display) {
+    return { type: 'next', label: isLast.value ? 'Final results' : 'Next slide →' }
+  }
   switch (state.value) {
     case 'ready':
       return { type: 'open', label: isMakeRound.value ? 'Collect answers' : 'Open voting' }
@@ -155,6 +160,12 @@ function reloadPage() {
     </div>
 
     <div v-else-if="!instance || !block" class="big">Getting the next round…</div>
+
+    <!-- Display block (slide / title card): show it to everyone, no input. -->
+    <div v-else-if="block.display && content" class="slide-mirror">
+      <component :is="block.PlayerInput" :content="content" />
+      <p class="slide-foot">Watch the big screen.</p>
+    </div>
 
     <div v-else-if="!eligible" class="big">
       <h2>You joined mid-game</h2>
@@ -258,5 +269,19 @@ function reloadPage() {
   border-radius: 14px;
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
+}
+/* A mirrored slide / title card on the phone: fills the space and centers. */
+.slide-mirror {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.slide-foot {
+  text-align: center;
+  color: var(--mute);
+  font-size: 13px;
+  font-weight: 600;
 }
 </style>

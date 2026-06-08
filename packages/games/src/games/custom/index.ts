@@ -22,7 +22,9 @@ import { pollBlock } from '../../blocks/poll/block'
 import { quipBlock } from '../../blocks/quip/block'
 import { rankBlock } from '../../blocks/rank/block'
 import { rateBlock } from '../../blocks/rate/block'
+import { slideBlock } from '../../blocks/slide/block'
 import { splitBlock } from '../../blocks/split/block'
+import { titleBlock } from '../../blocks/title/block'
 import { voteBlock } from '../../blocks/vote/block'
 
 export const custom = defineGame({
@@ -42,6 +44,8 @@ export const custom = defineGame({
   // offered alone (the editor hides anything with a `derive`), and a make-only
   // block is offered only inside a recipe. buzzer is a standalone trivia block.
   blocks: [
+    titleBlock,
+    slideBlock,
     guessBlock,
     rateBlock,
     pollBlock,

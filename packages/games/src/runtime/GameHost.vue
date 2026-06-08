@@ -122,6 +122,9 @@ const countdown = computed(() => {
   if (!dl || !timer) return null
   return { remaining: Math.max(0, dl - now.value), total: timer * 1000 }
 })
+// A display block (an info slide / title card) has no player input: the room just
+// reads it and the host advances with a single button.
+const isDisplay = computed(() => !!block.value?.display)
 // "Voting" only fits the judge rounds (Vote/Split); a make/standalone round
 // collects answers, so label the state by what's actually happening.
 const isJudge = computed(() => !!block.value?.derive)
@@ -220,6 +223,27 @@ function startVote() {
   room.host.next()
 }
 
+// Display blocks (slides/title cards) auto-open on enter so the room sees them at
+// once, and advance with one button. Transitions update local state synchronously,
+// so we can chain through the unused open/lock/reveal beat to the next round.
+watch(
+  [index, state, isDisplay],
+  () => {
+    if (isDisplay.value && state.value === 'ready' && room.host.can('open')) room.host.openVoting()
+  },
+  { immediate: true },
+)
+function advanceDisplay() {
+  if (room.host.can('open')) room.host.openVoting()
+  if (room.host.can('lock')) room.host.lock()
+  if (room.host.can('reveal')) room.host.reveal()
+  if (isLast.value) {
+    finish()
+    return
+  }
+  if (room.host.can('next')) room.host.next()
+}
+
 // ── Co-host / MC delegation ────────────────────────────────────────────────
 // The host can hand the advance controls to a joined player. Default on: the
 // first player to join drives from their phone (handy when hosting off a TV
@@ -246,6 +270,8 @@ watch(
     const cmd = room.command.value
     if (!cmd || nonce == null) return
     const a = cmd.action
+    // A display round advances as one step regardless of the underlying state.
+    if (isDisplay.value && a === 'next') return advanceDisplay()
     if (a === 'start' && room.host.can('start')) room.host.start()
     else if (a === 'open' && room.host.can('open')) room.host.openVoting()
     else if (a === 'lock' && room.host.can('lock')) room.host.lock()
@@ -398,7 +424,11 @@ watch(
 
   <!-- ACTIVE -->
   <div v-else-if="instance && block" class="stage">
-    <div class="stage-grid">
+    <!-- A display block (slide / title card) owns the whole stage. -->
+    <div v-if="isDisplay" class="stage-full">
+      <component :is="block.HostDisplay" :key="index" :content="content" :state="state" />
+    </div>
+    <div v-else class="stage-grid">
       <div class="left">
         <span v-if="subject" class="subject">{{ subject }}</span>
         <h1 class="prompt" :style="promptStyle">{{ prompt }}</h1>
@@ -429,7 +459,11 @@ watch(
       :total="answering ? lockCount.total : 0"
     >
       <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" />
-      <DButton v-if="room.host.can('open')" variant="primary" size="lg" @click="room.host.openVoting()">
+      <!-- Display blocks: one button advances past the slide. -->
+      <DButton v-if="isDisplay" variant="primary" size="lg" @click="advanceDisplay()">
+        {{ isLast ? 'Final results' : 'Next →' }}
+      </DButton>
+      <DButton v-else-if="room.host.can('open')" variant="primary" size="lg" @click="room.host.openVoting()">
         {{ isMakeRound ? 'Collect answers' : 'Open voting' }}
       </DButton>
       <DButton v-else-if="room.host.can('lock')" @click="room.host.lock()">
@@ -639,6 +673,13 @@ watch(
   grid-template-columns: 1fr 1fr;
   gap: 22px;
   align-items: stretch;
+}
+/* A display block (slide / title card) takes the whole stage, not the split grid. */
+.stage-full {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: 8px 0;
 }
 /* Each column fills the stage height and centers its content. The prompt font
    scales down by length (see promptStyle) so even a paragraph-length question

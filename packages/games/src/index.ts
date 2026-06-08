@@ -27,6 +27,8 @@ export { buzzerBlock } from './blocks/buzzer/block'
 export { barsBlock } from './blocks/bars/block'
 export { fibBlock } from './blocks/fibvote/block'
 export { drawVoteBlock } from './blocks/drawvote/block'
+export { slideBlock } from './blocks/slide/block'
+export { titleBlock } from './blocks/title/block'
 export * from './blocks/scoring'
 
 // Games (block compositions). One export per registered game; folders match ids.

@@ -11,6 +11,22 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Display blocks: Info Slide + Title Card (2026-06-07).** NEW. Two no-input
+> presentation blocks for the Custom game (mix them with any rounds in the editor):
+> **Info Slide** (`slide`, heading + body + image, any combination) and **Title Card**
+> (`title`, big centered title + kicker). Both set a new SDK flag `RoundBlock.display`.
+> The generic renderer learned the display path: the host shows the block **full-bleed**
+> (a `.stage-full`, not the split prompt grid), **auto-opens** the round on enter so the
+> room sees it at once, and advances with a **single button** (it chains the unused
+> open/lock/reveal beat to the next round; last slide = Final results). Phones **mirror**
+> the slide with no "Lock it in" (a delegated MC gets one "Next slide →"). No
+> aggregate/answer, so they score nothing and need no REDACTION_RULES. The schema-form
+> now renders a `body` field as a textarea (like `prompt`); `image` already gets the
+> uploader. Files: `packages/games/src/blocks/slide/` + `blocks/title/` (each a `block.ts`
+> + a shared `*View.vue` used for both host + phone, `inheritAttrs:false`); wired into
+> `games/custom`, `index.ts`, and the GameHost/GamePlayer renderer. Verified host+player in
+> a real browser (title, text slide, image combo, finish); 473 tests + all typechecks green.
+
 > **Social link previews / Open Graph (2026-06-07).** NEW. Links now unfurl with a
 > title, description, and preview image. A shared `useDootSeo()` composable
 > (`apps/web/app/composables/useSeo.ts`) sets og:* + twitter:* (summary_large_image) and

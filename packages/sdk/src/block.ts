@@ -112,6 +112,11 @@ export interface ResultsFragment {
 export interface RoundBlock<Content = unknown, Input = unknown> {
   kind: string
   name: string
+  /** An informational block with NO player input (a slide, a title card). The
+   *  renderer shows its HostDisplay full-bleed on the big screen and mirrors it on
+   *  phones with no submit button, and the host advances it with a single button
+   *  instead of the open/lock/reveal beat. Such a block has no aggregate/answer. */
+  display?: boolean
   /** One round's content. The editor auto-forms from this (image fields get
    *  an uploader with preview). */
   contentSchema: z.ZodType<Content>
