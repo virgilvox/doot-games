@@ -41,7 +41,13 @@ const monogram = computed(() => (displayName.value || '?').charAt(0).toUpperCase
 const avatarBroken = ref(false)
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
-useHead(() => ({ title: `${displayName.value} on Doot` }))
+useDootSeo({
+  title: `${displayName.value} on Doot`,
+  shareTitle: displayName.value,
+  description: profile.value.bio || `${displayName.value}'s party games on Doot.`,
+  image: profile.value.image || undefined,
+  type: 'profile',
+})
 </script>
 
 <template>

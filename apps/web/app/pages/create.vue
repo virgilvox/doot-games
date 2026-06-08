@@ -7,6 +7,11 @@ import { GameCover, GameTypeIcon } from '@doot-games/ui'
 // and add your own content. Both route to /editor/{id}. The ready-made games use the
 // same GameCover art cards as the home/explore pages; the blocks keep their compact
 // icon cards (a clean, uniform grid for the primitives).
+
+useDootSeo({
+  title: 'Create a game on Doot',
+  description: 'Remix a ready-made party game or build your own from blocks: trivia, polls, drawing, and more.',
+})
 </script>
 
 <template>

@@ -11,6 +11,10 @@ const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.st
 const session = authClient.useSession()
 const user = computed(() => session.value?.data?.user ?? null)
 const loggedIn = computed(() => !!user.value)
+
+// Site-wide OG/Twitter defaults (branded /og.png card, site name, summary_large_image).
+// Pages override with their own title/description/image (a game uses its cover).
+useDootSeo()
 </script>
 
 <template>

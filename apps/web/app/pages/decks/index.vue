@@ -35,6 +35,11 @@ const { data: publicData } = await useFetch<{ decks: DeckSummary[] }>('/api/deck
 const kindLabel = { generic: 'Generic', quiz: 'Quiz', prompt: 'Prompt', card: 'Card' } as const
 const visLabel = { private: 'Private', unlisted: 'Unlisted', public: 'Public' } as const
 
+useDootSeo({
+  title: 'Content decks on Doot',
+  description: 'Reusable content decks for Doot party games: trivia, prompts, and cards. Browse, remix, or build your own.',
+})
+
 // The catalog gives a game id its display name (and a stable display order for the chips).
 const gameOrder = gameCatalog.map((g) => g.id)
 const gameName = (id: string | null) => (id ? (gameCatalog.find((g) => g.id === id)?.name ?? id) : null)

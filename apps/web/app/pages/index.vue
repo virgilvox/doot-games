@@ -51,6 +51,11 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => {
   if (ai !== -1 || bi !== -1) return (ai === -1 ? Infinity : ai) - (bi === -1 ? Infinity : bi)
   return a.name.localeCompare(b.name)
 })
+
+useDootSeo({
+  description:
+    'Doot runs live party games for any room. Host trivia, drawing, polls, and party games on a screen, everyone joins from their phone. No app, no account to play.',
+})
 </script>
 
 <template>

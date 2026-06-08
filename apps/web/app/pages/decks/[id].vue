@@ -30,6 +30,13 @@ if (error.value || !deck.value) {
 const kindLabel = { generic: 'Generic', quiz: 'Quiz', prompt: 'Prompt', card: 'Card' } as const
 const sample = computed(() => deck.value?.rows.slice(0, 12) ?? [])
 
+useDootSeo({
+  title: `${deck.value.name} on Doot`,
+  shareTitle: deck.value.name,
+  description: deck.value.description || `A reusable content deck for Doot party games (${deck.value.rows.length} rows).`,
+  type: 'article',
+})
+
 const copying = ref(false)
 async function copyToLibrary() {
   if (copying.value) return

@@ -38,6 +38,18 @@ const themeName = computed(
 )
 const roundCount = computed(() => game.value?.config.rounds.length ?? 0)
 
+// Link preview: the game's own cover as the image, the title as the headline, and
+// "Doot" as the site so a shared link reads as a game from doot.games.
+useDootSeo({
+  title: `${game.value.title} on Doot`,
+  shareTitle: game.value.title,
+  description:
+    game.value.description ||
+    `Play ${game.value.title}, a ${typeName.value} game on Doot. Host it on a screen, everyone joins from their phone.`,
+  image: gameOgImage(game.value.coverImage, game.value.pluginId),
+  type: 'article',
+})
+
 const session = authClient.useSession()
 const loggedIn = computed(() => !!session.value?.data?.user)
 const isOwner = computed(() => !!game.value?.isOwner)

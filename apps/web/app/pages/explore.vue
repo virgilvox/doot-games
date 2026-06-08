@@ -26,6 +26,11 @@ const typeFilter = ref<string>('all')
 const themeFilter = ref<string>('all')
 const types = computed(() => gameCatalog.map((c) => ({ id: c.id, name: c.name })))
 
+useDootSeo({
+  title: 'Browse party games on Doot',
+  description: 'Ready-to-play Games From Doot plus games made by the community. Host any of them on a big screen.',
+})
+
 const q = computed(() => search.value.trim().toLowerCase())
 function textMatch(title: string, type: string) {
   return !q.value || title.toLowerCase().includes(q.value) || typeName(type).toLowerCase().includes(q.value)

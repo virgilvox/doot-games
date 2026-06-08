@@ -20,7 +20,15 @@ if (!game.value) {
 // Pool-driven games can be remixed with a creator's own content deck.
 const canRemix = computed(() => !!getPlugin(id.value)?.contentPool)
 
-useHead(() => ({ title: `${game.value?.name} on Doot` }))
+useDootSeo({
+  title: `${game.value?.name} on Doot`,
+  shareTitle: game.value?.name,
+  description:
+    game.value?.description ||
+    `Play ${game.value?.name} on Doot. Host it on a big screen, everyone joins from their phone.`,
+  image: gameOgImage(null, game.value?.id),
+  type: 'article',
+})
 </script>
 
 <template>
