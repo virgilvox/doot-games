@@ -2,7 +2,9 @@ import type { GameComposition } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
 import { redactDecks } from '../catalog'
 import {
+  answerRowFromRow,
   ballparkFromRow,
+  binaryFromRow,
   cellarQuestionFromRow,
   cellarRowFromRow,
   choiceFromRow,
@@ -11,12 +13,14 @@ import {
   factFromRow,
   frameFromRow,
   inlineDecks,
+  overUnderFromRow,
   poolRowsFor,
   poolStarter,
   promptFromRow,
   resolveComposition,
   secretFromRow,
   storyFromRow,
+  surveyFromRow,
 } from './decks'
 
 // Mode-1 binding never calls getBlock, so a blocks-free plugin is fine for those.
@@ -118,6 +122,40 @@ describe('typed-pool row mappers (creator deck row -> a game pool row)', () => {
     expect(storyFromRow({ template: 'A {x} and a {y}' })).toEqual({ template: 'A {x} and a {y}', blanks: '' })
     expect(storyFromRow({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })).toEqual({ template: 'A {x}', blanks: '[{"id":"x","label":"A thing"}]' })
     expect(storyFromRow({ template: 'no blanks here' })).toBeNull()
+  })
+})
+
+describe('quick-win + new-block row mappers', () => {
+  it('answerRowFromRow: a question + its accepted answer(s)', () => {
+    expect(answerRowFromRow({ question: 'Capital of Japan?', answers: 'Tokyo' })).toEqual({ prompt: 'Capital of Japan?', answers: 'Tokyo' })
+    expect(answerRowFromRow({ prompt: 'X', answer: 'Y' })).toEqual({ prompt: 'X', answers: 'Y' }) // `answer` synonym
+    expect(answerRowFromRow({ q: 'Q', extra: 'A' })).toEqual({ prompt: 'Q', answers: 'A' }) // positional fallback
+    expect(answerRowFromRow({ question: 'no answer here' })).toBeNull()
+  })
+
+  it('binaryFromRow: two distinct choices, by column or position', () => {
+    expect(binaryFromRow({ a: 'Fly', b: 'Be invisible' })).toEqual({ a: 'Fly', b: 'Be invisible' })
+    expect(binaryFromRow({ left: 'Coffee', right: 'Tea' })).toEqual({ a: 'Coffee', b: 'Tea' })
+    expect(binaryFromRow({ one: 'P', two: 'Q' })).toEqual({ a: 'P', b: 'Q' }) // positional
+    expect(binaryFromRow({ a: 'Only one' })).toBeNull() // needs two
+    expect(binaryFromRow({ a: 'Same', b: 'Same' })).toBeNull() // must differ
+  })
+
+  it('overUnderFromRow: an explicit side, a 0/1 index, or computed from threshold + actual', () => {
+    expect(overUnderFromRow({ prompt: 'Tall?', correct: 'over' })).toEqual({ prompt: 'Tall?', correct: 0 })
+    expect(overUnderFromRow({ question: 'Tall?', answer: 'Under' })).toEqual({ prompt: 'Tall?', correct: 1 })
+    expect(overUnderFromRow({ prompt: 'Tall?', correct: 0 })).toEqual({ prompt: 'Tall?', correct: 0 }) // numeric index
+    expect(overUnderFromRow({ prompt: 'Pop?', threshold: '30', actual: '37' })).toEqual({ prompt: 'Pop?', correct: 0 }) // 37 > 30 -> over
+    expect(overUnderFromRow({ prompt: 'Pop?', threshold: '100', actual: '50' })).toEqual({ prompt: 'Pop?', correct: 1 }) // 50 < 100 -> under
+    expect(overUnderFromRow({ prompt: 'Pop?', threshold: '1,000', actual: '2,500' })).toEqual({ prompt: 'Pop?', correct: 0 }) // commas tolerated
+    expect(overUnderFromRow({})).toBeNull() // no prompt, no side
+    expect(overUnderFromRow({ prompt: 'no side given' })).toBeNull() // a prompt but no resolvable side
+  })
+
+  it('surveyFromRow: a question + its board string', () => {
+    expect(surveyFromRow({ prompt: 'Name a fruit', answers: 'Apple:30|Banana:25' })).toEqual({ prompt: 'Name a fruit', answers: 'Apple:30|Banana:25' })
+    expect(surveyFromRow({ question: 'X', board: 'A|B' })).toEqual({ prompt: 'X', answers: 'A|B' }) // `board` synonym
+    expect(surveyFromRow({ prompt: 'no board' })).toBeNull()
   })
 })
 

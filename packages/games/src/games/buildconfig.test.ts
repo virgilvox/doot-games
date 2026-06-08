@@ -234,6 +234,65 @@ describe('every deck-feedable game is self-consistent (meta)', () => {
   }
 })
 
+// Beyond "the output parses" (compositions.test) and "the pool is consistent" (the
+// meta-test), lock the SEMANTIC shape each new quick-win/standalone game builds: a
+// swapped or wrong-field bug would still parse-valid, so assert the derived shape.
+describe('new games build the shape they claim', () => {
+  const plugin = (id: string) => builtinPlugins.find((p) => p.manifest.id === id)!
+  const rounds = (id: string) => plugin(id).buildConfig!('seed').rounds as RoundInstance[]
+
+  it('over-under: guess rounds with [Over, Under] options + a 0/1 correct side', () => {
+    for (const r of rounds('over-under')) {
+      expect(r.block).toBe('guess')
+      const c = r.content as { options: Array<{ label: string }>; correct: number }
+      expect(c.options.map((o) => o.label)).toEqual(['Over', 'Under'])
+      expect([0, 1]).toContain(c.correct)
+    }
+  })
+
+  it('would-you-rather: poll rounds with exactly two choices', () => {
+    for (const r of rounds('would-you-rather')) {
+      expect(r.block).toBe('poll')
+      expect((r.content as { options: unknown[] }).options).toHaveLength(2)
+    }
+  })
+
+  it('tier-list: rate rounds on a labelled tier scale', () => {
+    for (const r of rounds('tier-list')) {
+      expect(r.block).toBe('rate')
+      const c = r.content as { scale: { kind: string }; categories: Array<{ id: string }>; subject: string }
+      expect(c.scale.kind).toBe('levels')
+      expect(c.categories[0]!.id).toBe('tier')
+      expect(c.subject.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('categories: a single uppercase letter + at least one category', () => {
+    for (const r of rounds('categories')) {
+      expect(r.block).toBe('categories')
+      const c = r.content as { letter: string; categories: unknown[] }
+      expect(c.letter).toMatch(/^[A-Z]$/)
+      expect(c.categories.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('survey: a parsed board of {text, points}, highest-ranked usable', () => {
+    for (const r of rounds('survey')) {
+      expect(r.block).toBe('survey')
+      const c = r.content as { answers: Array<{ text: string; points: number }> }
+      expect(c.answers.length).toBeGreaterThanOrEqual(2)
+      expect(c.answers.every((a) => a.text.length > 0 && a.points > 0)).toBe(true)
+    }
+  })
+
+  it('type-the-answer: answer rounds with at least one accepted answer', () => {
+    for (const r of rounds('type-the-answer')) {
+      expect(r.block).toBe('answer')
+      expect((r.content as { answers: string[] }).answers.length).toBeGreaterThan(0)
+    }
+  })
+})
+
 describe('Circuit Cypher composition (custom-flow tournament)', () => {
   it('is a single guided bars write round; the head-to-head battle is custom state', () => {
     const rounds = circuitCypher.buildConfig!('seed').rounds as RoundInstance[]
