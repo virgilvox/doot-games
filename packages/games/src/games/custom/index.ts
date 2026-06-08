@@ -29,6 +29,7 @@ import { spectrumBlock } from '../../blocks/spectrum/block'
 import { splitBlock } from '../../blocks/split/block'
 import { surveyBlock } from '../../blocks/survey/block'
 import { titleBlock } from '../../blocks/title/block'
+import { wagerBlock } from '../../blocks/wager/block'
 import { voteBlock } from '../../blocks/vote/block'
 
 export const custom = defineGame({
@@ -55,6 +56,7 @@ export const custom = defineGame({
     categoriesBlock,
     surveyBlock,
     spectrumBlock,
+    wagerBlock,
     rateBlock,
     pollBlock,
     rankBlock,

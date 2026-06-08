@@ -67,6 +67,7 @@ Header fields above also work as save_game / update_game / set_game_meta argumen
 
 == STANDALONE BLOCKS (one heading = one round) ==
 * "## guess": multiple choice, ONE right answer (scored: faster correct = more). Fields: subject (optional), prompt, image, "audio:" (a clip URL, for Name That Tune; the big screen plays it), timer (default 20). List 2+ "- choice"; mark the right one "(correct)".
+* "## wager": high-stakes multiple choice. Before answering, players bet a tier (100/300/500); a right answer adds the bet, a wrong one subtracts it, off a 1000 base bankroll. Fields: subject, prompt, image, timer (default 25). List 2+ "- choice"; mark the right one "(correct)".
 * "## answer": type-the-answer trivia (no choices; players TYPE it). Fields: subject, prompt, image, "audio:" (a clip URL for Name That Tune), timer (default 30), "answers:" (the accepted answer; add synonyms split by " | ", e.g. "New York City | NYC"), "fuzzy:" (default yes, forgives typos/accents; set "no" for a strict match). Hidden until reveal; correct-only scoring. No "- " items (or use one "- item" as the answer).
 * "## buzzer": first-correct trivia, fastest right answer scores most. Fields: subject, prompt, image, timer (default 20), "points:" (worth, default 100; raise each round to escalate). 2+ "- choice"; "(correct)" marks the answer.
 * "## poll": opinion, no right answer. Fields: prompt, image, timer (default none). 2+ "- choice".

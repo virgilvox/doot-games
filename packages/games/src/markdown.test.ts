@@ -4,6 +4,7 @@ import { answerBlock } from './blocks/answer/block'
 import { categoriesBlock } from './blocks/categories/block'
 import { spectrumBlock } from './blocks/spectrum/block'
 import { surveyBlock } from './blocks/survey/block'
+import { wagerBlock } from './blocks/wager/block'
 import { ballparkBlock } from './blocks/ballpark/block'
 import { buzzerBlock } from './blocks/buzzer/block'
 import { drawBlock } from './blocks/draw/block'
@@ -31,6 +32,7 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   categories: categoriesBlock.contentSchema,
   survey: surveyBlock.contentSchema,
   spectrum: spectrumBlock.contentSchema,
+  wager: wagerBlock.contentSchema,
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
@@ -340,6 +342,15 @@ describe('parseMarkdownGame', () => {
       { text: 'Orange', points: 5 }, // rank-scored (3rd of 3 -> (3-2)*5)
     ])
     expect(SCHEMAS.survey!.safeParse(c).success).toBe(true)
+  })
+
+  it('parses a ## wager round with options and a correct answer', () => {
+    const { rounds } = parseMarkdownGame('## wager\nprompt: Capital of Australia?\n- Sydney\n- Canberra (correct)\n- Perth')
+    const c = rounds[0]!.content as { options: Array<{ label: string }>; correct: number }
+    expect(rounds[0]!.block).toBe('wager')
+    expect(c.options.map((o) => o.label)).toEqual(['Sydney', 'Canberra', 'Perth'])
+    expect(c.correct).toBe(1)
+    expect(SCHEMAS.wager!.safeParse(c).success).toBe(true)
   })
 
   it('parses a ## spectrum round with two dial poles', () => {

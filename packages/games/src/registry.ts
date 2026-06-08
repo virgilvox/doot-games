@@ -30,6 +30,7 @@ import { survey } from './games/survey'
 import { tierList } from './games/tier-list'
 import { truthOrShare } from './games/truth-or-share'
 import { typeTheAnswer } from './games/type-the-answer'
+import { wager } from './games/wager'
 import { wouldYouRather } from './games/would-you-rather'
 import { voteBox } from './games/votebox'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
@@ -64,6 +65,7 @@ export const builtinPlugins: GamePlugin[] = [
   categories,
   survey,
   spectrum,
+  wager,
   custom,
 ]
 

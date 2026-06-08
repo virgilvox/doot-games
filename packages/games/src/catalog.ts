@@ -55,6 +55,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'categories', name: 'Categories', version: '0.1.0', flagship: true, description: 'Scattergories: a letter, a few categories, race to fill them in. Unique answers score.', pool: { deckKind: 'prompt', placeholderBlock: 'categories' } },
   { id: 'survey', name: 'Survey', version: '0.1.0', flagship: true, description: 'Family-feud style: we surveyed the board; name the top answers to score.', pool: { deckKind: 'quiz', placeholderBlock: 'survey', answerColumns: ['answers', 'board'] } },
   { id: 'spectrum', name: 'Spectrum', version: '0.1.0', flagship: true, description: 'Slide the dial to place each hot take. Land near the room and you score.', pool: { deckKind: 'generic', placeholderBlock: 'spectrum' } },
+  { id: 'wager', name: 'Wager', version: '0.1.0', flagship: true, description: 'High-stakes trivia: bet on your answer. Right adds your bet, wrong takes it. Richest wins.', pool: { deckKind: 'quiz', placeholderBlock: 'wager', answerColumns: ['correct', 'answer'] } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -83,6 +84,8 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   answer: { answers: [] },
   // Survey (Family Feud): the ranked board is the answer key; blank it for non-owners.
   survey: { answers: [] },
+  // Wager: the correct option is the key; strip it for non-owners (like guess).
+  wager: { correct: -1 },
   buzzer: { correct: -1 },
   // Fib Finder's truth is the answer key: strip it (and any derived options)
   // before serving a saved fibvote-based game to a non-owner.

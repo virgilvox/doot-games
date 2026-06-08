@@ -191,9 +191,9 @@ describe('typed-pool games are deck-fed (contentPool)', () => {
 describe('every deck-feedable game is self-consistent (meta)', () => {
   const feedable = builtinPlugins.filter((p) => p.contentPool)
 
-  it('covers all 21 deck-fed flagships', () => {
+  it('covers all 22 deck-fed flagships', () => {
     expect(feedable.map((p) => p.manifest.id).sort()).toEqual(
-      ['backronym', 'ballpark', 'categories', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'over-under', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'spectrum', 'split-room', 'survey', 'tier-list', 'truth-or-share', 'type-the-answer', 'what-you-didnt-know', 'would-you-rather'].sort(),
+      ['backronym', 'ballpark', 'categories', 'faker', 'fib-finder', 'hivemind', 'mad-libs', 'most-likely', 'open-mic', 'over-under', 'quip-clash', 'quiz-or-die', 'sketch-spot', 'spectrum', 'split-room', 'survey', 'tier-list', 'truth-or-share', 'type-the-answer', 'wager', 'what-you-didnt-know', 'would-you-rather'].sort(),
     )
   })
 
@@ -298,6 +298,16 @@ describe('new games build the shape they claim', () => {
       const c = r.content as { leftLabel: string; rightLabel: string }
       expect(c.leftLabel.length).toBeGreaterThan(0)
       expect(c.rightLabel.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('wager: wager rounds with 2+ options and an in-range correct index', () => {
+    for (const r of rounds('wager')) {
+      expect(r.block).toBe('wager')
+      const c = r.content as { options: unknown[]; correct: number }
+      expect(c.options.length).toBeGreaterThanOrEqual(2)
+      expect(c.correct).toBeGreaterThanOrEqual(0)
+      expect(c.correct).toBeLessThan(c.options.length)
     }
   })
 })

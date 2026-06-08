@@ -41,9 +41,9 @@ Rules:
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
-  `hivemind`, `categories`, `survey`, `spectrum`, `mostlikely`, `ballpark`,
-  `buzzer`, the two-phase `quip` / `fill`, and the hidden-imposter `faker`). Mix
-  in any order.
+  `hivemind`, `categories`, `survey`, `spectrum`, `wager`, `mostlikely`,
+  `ballpark`, `buzzer`, the two-phase `quip` / `fill`, and the hidden-imposter
+  `faker`). Mix in any order.
 - Inside a round, `key: value` lines set fields and `- item` lines add options /
   items / categories.
 - `timer:` is seconds, or `none` for no timer.
@@ -64,6 +64,20 @@ timer: 15
 - Jupiter (correct)
 - Saturn
 - Earth
+```
+
+### `wager`: high-stakes multiple choice
+Like `guess`, but before answering each player bets a tier (100 / 300 / 500): a
+correct answer adds the bet, a wrong one subtracts it, off a 1000-point base
+bankroll. The richest wins. Fields: `subject`, `prompt`, `image`, `timer` (default
+25). List the choices as `- ` items; mark the right one `(correct)`.
+
+```markdown
+## wager
+prompt: What is the capital of Australia?
+- Sydney
+- Canberra (correct)
+- Perth
 ```
 
 ### `answer`: type-the-answer trivia

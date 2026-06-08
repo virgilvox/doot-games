@@ -136,6 +136,25 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'wager': {
+      // High-stakes trivia: like guess, but each player bets a tier (the bet is a
+      // play-time choice, so the author just sets the question + options).
+      const options = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label) => ({ label }))
+      const correctIdx = raw.items.findIndex((i) => i.flags.includes('correct'))
+      return [
+        {
+          block: 'wager',
+          content: {
+            subject: p.subject ?? '',
+            prompt: p.prompt ?? 'Bet on it: which is true?',
+            image: p.image ?? '',
+            timer: toTimer(p.timer, 25),
+            options,
+            correct: correctIdx >= 0 ? correctIdx : 0,
+          },
+        },
+      ]
+    }
     case 'answer': {
       // Type-the-answer trivia. Accepted answers come from an `answer:`/`answers:`
       // line (synonyms split on | or ;) or, failing that, the list items. `fuzzy`
