@@ -11,6 +11,24 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Quick-win flagship games: Would You Rather, Tier List, Over/Under (2026-06-08).**
+> BUILT + verified on the same branch `expansion-p1-answer-caption` (1 more commit,
+> not yet pushed). Three classic party formats Doot lacked, each a small composition
+> over an existing block + a curated, deck-feedable content pool (creators can remix
+> them like every other flagship): **Would You Rather** (poll, forced-choice
+> dilemmas, unscored, generic 2-column deck), **Tier List** (rate, place each subject
+> on an S-to-D tier scale, prompt deck of subjects), **Over/Under** (guess,
+> estimation trivia, SCORED so it shows the P3 running standings + P5 team board;
+> correct side withheld via the guess block's redaction; built-in figures
+> fact-checked, quiz deck). Two pure deck-row mappers (`binaryFromRow`,
+> `overUnderFromRow`) join `runtime/decks.ts`; Tier List reuses `promptFromRow`. The
+> deck-feed meta-test now covers **18** flagships. Verified: 533 unit tests (the
+> meta-test proves each pool is self-consistent), all typechecks, the web build, and
+> `scripts/quickwins-smoke.mjs` (each game hosts + plays a round to reveal, 0
+> horizontal overflow at 390px). **Next (per plan §8):** P4 Phase B (weighted
+> audience voting), Wager (P3-unblocked), §4.3 sessions/playlists, the Caption This
+> flagship once images are sourced.
+
 > **Audience tier (P4 Phase A) (2026-06-08).** BUILT + verified on the same branch
 > `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new `audience`
 > engine role for untrusted phone spectators: they read the display state but NEVER
