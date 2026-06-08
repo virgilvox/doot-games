@@ -21,10 +21,13 @@ import { quipClash } from './games/quip-clash'
 import { quizOrDie } from './games/quiz-or-die'
 import { rank } from './games/rank'
 import { rate } from './games/rate'
+import { overUnder } from './games/over-under'
 import { sketchSpot } from './games/sketch-spot'
 import { splitRoom } from './games/split-room'
+import { tierList } from './games/tier-list'
 import { truthOrShare } from './games/truth-or-share'
 import { typeTheAnswer } from './games/type-the-answer'
+import { wouldYouRather } from './games/would-you-rather'
 import { voteBox } from './games/votebox'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
 
@@ -52,6 +55,9 @@ export const builtinPlugins: GamePlugin[] = [
   truthOrShare,
   quizOrDie,
   typeTheAnswer,
+  wouldYouRather,
+  tierList,
+  overUnder,
   custom,
 ]
 

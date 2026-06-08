@@ -116,6 +116,32 @@ export function frameFromRow(row: Record<string, string | number>): { frame: str
   return { frame: v }
 }
 
+/** Would You Rather: two choices. Reads `a`/`b` (or left/right/this/that/option1/2),
+ *  else the first two distinct text cells. Skips a row without two distinct choices. */
+export function binaryFromRow(row: Record<string, string | number>): { a: string; b: string } | null {
+  const a = pick(row, ['a', 'left', 'this', 'option1', 'optiona']) || texts(row)[0] || ''
+  const b = pick(row, ['b', 'right', 'that', 'option2', 'optionb']) || texts(row).find((x) => x !== a) || ''
+  return a && b && a !== b ? { a, b } : null
+}
+
+/** Over/Under: a prompt + which side is correct (0 = Over, 1 = Under). Reads an
+ *  explicit `correct`/`answer`/`side` (over/under text, or a 0/1 index), else derives
+ *  it from a `threshold` + `actual` number. Skips a row with no usable side. */
+export function overUnderFromRow(row: Record<string, string | number>): { prompt: string; correct: number } | null {
+  const prompt = pick(row, ['prompt', 'question', 'q']) || texts(row)[0] || ''
+  let correct = -1
+  const c = pick(row, ['correct', 'answer', 'side'])
+  if (c === '0' || c === '1') correct = Number(c)
+  else if (/^(over|higher|more|greater|above)/i.test(c)) correct = 0
+  else if (/^(under|lower|less|fewer|below)/i.test(c)) correct = 1
+  else {
+    const threshold = Number(pick(row, ['threshold', 'line']).replace(/[,\s]/g, ''))
+    const actual = Number(pick(row, ['actual', 'value', 'real']).replace(/[,\s]/g, ''))
+    if (Number.isFinite(threshold) && Number.isFinite(actual) && threshold !== actual) correct = actual > threshold ? 0 : 1
+  }
+  return prompt && (correct === 0 || correct === 1) ? { prompt, correct } : null
+}
+
 /** Faker: a public category + the secret word. */
 export function secretFromRow(row: Record<string, string | number>): { category: string; word: string } | null {
   const category = pick(row, ['category', 'topic', 'theme'])

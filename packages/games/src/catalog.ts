@@ -49,6 +49,9 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'truth-or-share', name: 'Truth or Share', version: '0.1.0', flagship: true, description: 'Put someone in the spotlight with a prompt, answer or pass, and the room reacts. Pick well and you score too.', pool: { deckKind: 'prompt', placeholderBlock: 'spotlight' } },
   { id: 'quiz-or-die', name: 'Quiz or Die', version: '0.1.0', flagship: true, description: 'A deadly quiz show. Answer right and walk free; answer wrong and meet the host in the Cellar. The last one out the door survives.', pool: { deckKind: 'quiz', placeholderBlock: 'cellar', answerColumns: ['correct', 'answer', 'belong'] } },
   { id: 'type-the-answer', name: 'Type the Answer', version: '0.1.0', flagship: true, description: 'Free-text trivia: type the answer on your phone. Spelling and accents are forgiven.', pool: { deckKind: 'quiz', placeholderBlock: 'answer', answerColumns: ['answers', 'answer'] } },
+  { id: 'would-you-rather', name: 'Would You Rather', version: '0.1.0', flagship: true, description: 'Forced-choice dilemmas: the room picks a side and you see how it split.', pool: { deckKind: 'generic', placeholderBlock: 'poll' } },
+  { id: 'tier-list', name: 'Tier List', version: '0.1.0', flagship: true, description: 'Rank anything from S to D. The room decides where each one lands.', pool: { deckKind: 'prompt', placeholderBlock: 'rate' } },
+  { id: 'over-under', name: 'Over / Under', version: '0.1.0', flagship: true, description: 'Estimation trivia: is the real figure over or under the line? Closest call climbs the board.', pool: { deckKind: 'quiz', placeholderBlock: 'guess', answerColumns: ['correct', 'answer'] } },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
