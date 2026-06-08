@@ -36,6 +36,20 @@ const teams = computed(() => room.meta.value?.teams ?? [])
 const standings = computed(() => room.standings.value as StandardResults | undefined)
 const hasStandings = computed(() => (standings.value?.leaderboard?.length ?? 0) > 0)
 
+// P4B: the audience can weigh in on a poll (an opinion round, nothing scored). Their
+// votes go to a separate channel and show on the big screen as a capped "crowd" bloc.
+const canVote = computed(() => block.value?.kind === 'poll' && state.value === 'open')
+const pollOptions = computed(() => (content.value as { options?: Array<{ label: string }> } | null)?.options ?? [])
+const myVote = ref<number | null>(null)
+watch(index, () => {
+  myVote.value = null
+})
+function vote(choice: number) {
+  if (myVote.value != null) return
+  room.submitAudience({ choice })
+  myVote.value = choice
+}
+
 const status = computed(() => {
   switch (state.value) {
     case 'ready':
@@ -75,7 +89,22 @@ const status = computed(() => {
         <div class="kicker">{{ block.name }}</div>
         <h2 class="prompt">{{ prompt || block.name }}</h2>
         <img v-if="showImage" :src="image" alt="" class="aud-img" @error="failedImage = true" />
-        <p class="status">{{ status }}</p>
+        <div v-if="canVote" class="aud-vote" role="group" aria-label="Vote with the crowd">
+          <p class="vote-hint">{{ myVote == null ? 'Vote with the crowd:' : "Your vote is in. Watch the big screen." }}</p>
+          <button
+            v-for="(o, i) in pollOptions"
+            :key="i"
+            type="button"
+            class="aud-opt"
+            :class="{ on: myVote === i }"
+            :aria-pressed="myVote === i"
+            :disabled="myVote != null"
+            @click="vote(i)"
+          >
+            {{ o.label }}
+          </button>
+        </div>
+        <p v-else class="status">{{ status }}</p>
       </template>
       <StandingsPeek
         v-if="hasStandings && standings"
@@ -148,6 +177,36 @@ const status = computed(() => {
 .status {
   color: var(--ink-soft);
   font-weight: 600;
+}
+.aud-vote {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vote-hint {
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.aud-opt {
+  font: inherit;
+  font-weight: 700;
+  font-size: 17px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 2px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+.aud-opt.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface));
+  color: var(--primary);
+}
+.aud-opt:disabled {
+  cursor: default;
+  opacity: 0.85;
 }
 .slide-mirror {
   flex: 1;

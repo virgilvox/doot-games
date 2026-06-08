@@ -60,6 +60,9 @@ export const addr = {
   playerTeam: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/team`,
   /** A player's submission for round `i`. */
   input: (room: string, i: number, pid: string) => `${roomBase(room)}/input/${i}/${pid}`,
+  /** An audience member's vote for round `i` (P4B). A separate namespace from player
+   *  inputs so spectator votes never mix into scoring or deanonymize a player. */
+  audienceVote: (room: string, i: number, id: string) => `${roomBase(room)}/avote/${i}/${id}`,
   /** Ephemeral image or drawing, TTL-scoped. */
   media: (room: string, key: string) => `${roomBase(room)}/media/${key}`,
   /** A game-defined custom channel (custom-flow games, e.g. the Circuit Cypher
@@ -77,6 +80,8 @@ export const patterns = {
   audiencePing: (room: string) => `${roomBase(room)}/audience/*/ping`,
   /** All players' inputs for all rounds (host only). */
   allInputs: (room: string) => `${roomBase(room)}/input/*/*`,
+  /** Every audience member's vote for all rounds (host only). */
+  audienceVotes: (room: string) => `${roomBase(room)}/avote/*/*`,
   /** This player's own inputs across rounds (reconnect restore + private score). */
   inputsForPlayer: (room: string, pid: string) => `${roomBase(room)}/input/*/${pid}`,
   /** Runtime-derived content for all rounds (player/viewer reads these). */
@@ -129,4 +134,13 @@ export function parseInputAddress(address: string): { roundIndex: number; pid: s
   const roundIndex = Number.parseInt(parts[4], 10)
   if (Number.isNaN(roundIndex)) return null
   return { roundIndex, pid: parts[5] }
+}
+
+/** Extract { roundIndex, id } from an `/avote/<i>/<id>` audience-vote address. */
+export function parseAudienceVoteAddress(address: string): { roundIndex: number; id: string } | null {
+  const parts = address.split('/')
+  if (parts[3] !== 'avote' || parts[4] === undefined || !parts[5]) return null
+  const roundIndex = Number.parseInt(parts[4], 10)
+  if (Number.isNaN(roundIndex)) return null
+  return { roundIndex, id: parts[5] }
 }

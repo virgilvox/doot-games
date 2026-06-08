@@ -79,6 +79,12 @@ export function useDootRoom(options: UseDootRoomOptions) {
     // player actions
     submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
     sendControl: (action: Parameters<RoomRuntime['sendControl']>[0]) => runtime.sendControl(action),
+    // audience action (P4B): a spectator votes on a poll.
+    submitAudience: (vote: Parameters<RoomRuntime['submitAudience']>[0]) => runtime.submitAudience(vote),
+    audienceVotesFor: (i: number) => {
+      void snapshot.value
+      return runtime.audienceVotesFor(i)
+    },
     // teams: a player picks (or the host assigns) a team in the lobby.
     setTeam: (team: string | null) => runtime.setTeam(team),
     myTeam: computed(() => {

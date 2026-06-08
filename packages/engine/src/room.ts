@@ -11,6 +11,7 @@
  */
 import {
   addr,
+  parseAudienceVoteAddress,
   parseInputAddress,
   parseRoundContentForPlayer,
   parseRoundSubAddress,
@@ -160,6 +161,10 @@ export class RoomRuntime {
   private playersMap = new Map<string, Player>()
   /** Host-only: audience id -> last heartbeat, for the "N watching" count. */
   private audiencePings = new Map<string, number>()
+  /** Audience votes (P4B). Host collects every spectator's; an audience member
+   *  keeps its own. Key `${round}:${id}`. Kept apart from `inputs` so spectator
+   *  votes never enter scoring. */
+  private audienceVotes = new Map<string, RelayValue>()
   private inputs = new Map<string, RelayValue>() // key `${round}:${pid}`
   /** Runtime-derived content per round (two-phase). Host fills it on publish;
    *  player/viewer fill it from the relay. Overrides authored content. */
@@ -572,6 +577,16 @@ export class RoomRuntime {
         else this.inputs.set(key, v)
         this.emit()
       })
+      // Host/viewer also collect audience votes (P4B), kept separate from inputs so
+      // they never reach scoring; only display blocks (the poll) read them.
+      on(patterns.audienceVotes(r), (v, a) => {
+        const parsed = parseAudienceVoteAddress(a)
+        if (!parsed) return
+        const key = `${parsed.roundIndex}:${parsed.id}`
+        if (v == null) this.audienceVotes.delete(key)
+        else this.audienceVotes.set(key, v)
+        this.emit()
+      })
       // Host only: drive intents from the delegated player. Apply one only if it
       // comes from the CURRENT driver and targets the CURRENT round (so a stale
       // tap after the round advanced can't double-fire), and drop relay
@@ -721,6 +736,26 @@ export class RoomRuntime {
     this.inputs.set(`${i}:${this.me.id}`, input)
     this.publish(addr.input(this.room, i, this.me.id), input)
     this.emit()
+  }
+
+  /** Publish this audience member's vote for the current round (P4B). Audience-only;
+   *  goes to a separate namespace so it never enters scoring or deanonymizes players. */
+  submitAudience(vote: RelayValue): void {
+    if (this.me.role !== 'audience') throw new Error('Only the audience submits votes.')
+    const i = this.state.round.index
+    this.audienceVotes.set(`${i}:${this.me.id}`, vote)
+    this.publish(addr.audienceVote(this.room, i, this.me.id), vote)
+    this.emit()
+  }
+
+  /** Audience votes for a round, id -> vote (host reads these for the crowd bloc). */
+  audienceVotesFor(roundIndex: number): Map<string, RelayValue> {
+    const out = new Map<string, RelayValue>()
+    for (const [key, value] of this.audienceVotes) {
+      const [idx, id] = key.split(':')
+      if (idx === String(roundIndex) && id) out.set(id, value)
+    }
+    return out
   }
 
   /** Send a drive intent as the delegated player (co-host/MC). A no-op unless the
@@ -1110,6 +1145,7 @@ export class RoomRuntime {
     this.incomingCommand = null
     // Clear local ephemeral state for the previous game.
     this.inputs.clear()
+    this.audienceVotes.clear()
     this.runtimeContent.clear()
     this.perPlayerContent.clear()
     this.roundReveals.clear()

@@ -9,7 +9,7 @@ import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
 import { AudioClip, ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek } from '@doot-games/ui'
 import type { StandardResults } from '@doot-games/sdk'
-import { type Ref, computed, inject, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
 import { type ScoreGameContext, getBlock, scoreGame } from './derive'
@@ -103,6 +103,13 @@ const config = computed<GameComposition | null>(
 const rounds = computed(() => config.value?.rounds ?? [])
 const index = computed(() => room.round.value.index)
 const state = computed(() => room.round.value.state)
+// P4B: expose the current round's audience votes to the block's host view (the poll
+// reads them to show a capped "crowd" bloc). provide/inject so non-poll host views
+// aren't handed a prop they don't declare.
+provide(
+  'dootAudienceVotes',
+  computed(() => room.audienceVotesFor(index.value)),
+)
 const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,

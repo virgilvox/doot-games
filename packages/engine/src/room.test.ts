@@ -460,6 +460,37 @@ describe('RoomRuntime audience tier (P4)', () => {
     expect(() => aud.submit({ choice: 0 } as RelayValue)).toThrow()
   })
 
+  it('collects audience votes for the host (P4B) without touching player inputs', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.submit({ choice: 1 } as RelayValue)
+
+    const a1 = makeAudience(hub, now)
+    const a2 = makeAudience(hub, now)
+    await a1.connect()
+    await a2.connect()
+    await flush()
+    a1.submitAudience({ choice: 0 } as RelayValue)
+    a2.submitAudience({ choice: 0 } as RelayValue)
+    await flush()
+
+    // The host sees both audience votes, separate from the single player input.
+    expect(host.audienceVotesFor(0).size).toBe(2)
+    expect(host.inputsFor(0).size).toBe(1)
+    // An audience member keeps its own vote, and a player can't submit one.
+    expect(a1.audienceVotesFor(0).size).toBe(1)
+    expect(() => ada.submitAudience({ choice: 0 } as RelayValue)).toThrow()
+  })
+
   it('counts multiple spectators and ages out stale ones', async () => {
     const hub = new FakeHub()
     let t = 0
