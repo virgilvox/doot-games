@@ -15,7 +15,10 @@ import type { FilterTier } from './contentFilter'
 import { type ScoreGameContext, getBlock, scoreGame } from './derive'
 import { standingsThrough } from './standings'
 
-const props = defineProps<{ plugin: GamePlugin }>()
+// `sessionMode`: this game is one leg of a session (a "night of games"), so the
+// results page hides its own "play again / pick another" controls — the session
+// shell drives "next game" and shows the running session standings instead.
+const props = defineProps<{ plugin: GamePlugin; sessionMode?: boolean }>()
 const room = injectDootRoom()
 
 // Optional host round-count picker (provided by HostRoom for pooled flagships).
@@ -506,7 +509,7 @@ watch(
     <GameResults :results="room.results.value as any" :teams="teams" />
     <!-- What next (host controls). Plain links/reload so the engine package stays
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
-    <div class="results-next">
+    <div v-if="!sessionMode" class="results-next">
       <button type="button" class="btn btn-primary btn-lg" @click="playAgain">Play again</button>
       <a class="btn btn-ghost btn-lg" href="/explore">Pick another game</a>
       <a class="btn btn-ghost btn-lg" href="/">Home</a>
