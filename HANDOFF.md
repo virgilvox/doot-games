@@ -2,11 +2,28 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-03. Branch: `main` (the GitHub **default** branch; every push to
-`main` deploys to prod via CI, no staging). Everything on `main` is **pushed and deployed**
-(verified live: `doot.games` + `stats.doot.games` 200). Any "committed locally, not yet
-pushed" notes in the older entries below are superseded._
->
+_Last updated: 2026-06-08. The default branch is `main` (every push to `main` deploys to
+prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
+NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
+
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** ~26
+> commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
+> and a real-browser smoke per interactive feature), commit messages clean (no AI
+> attribution). Implements `docs/expansion-plan.md`:
+> - **Primitives:** P1 text-match · P5 Teams · P3 live standings · P4 Phase A audience tier.
+> - **New games/blocks:** answer + Type the Answer · caption (quip image) · Would You
+>   Rather · Tier List · Over/Under · Categories (Scattergories) · Survey (Family Feud) ·
+>   Spectrum (consensus dial). Catalog now ~30 games.
+> - **Content/UI:** audio-clip support (AudioClip) · SpectrumDial · StandingsPeek.
+> - **§4.3 Sessions COMPLETE:** engine `nextGame` + the SessionHostRoom orchestrator +
+>   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
+> - **Tests:** ~579 unit + ~9 browser smokes (answer, audience, audio, categories,
+>   quickwins, spectrum, standings, survey, teams, session, playlists).
+> - **REMAINING toward completeness (per §8):** P4 Phase B (weighted audience voting) ·
+>   P7 Pipeline -> Doodle Chain / Quick Draw / Bingo / Call It (the big custom-flow games) ·
+>   Wager · the clue-giver "Wavelength" Spectrum (needs per-player content in a derived
+>   round, an engine gap). Detailed dated entries below.
+
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
