@@ -42,6 +42,11 @@ describe('teamLeaderboard', () => {
     expect(teamLeaderboard(lb([['A', 5]]), none)).toBeUndefined()
   })
 
+  it('returns undefined with an empty leaderboard (an unscored game shows no team board)', () => {
+    // Teams are on, but the game produced no per-player scores (e.g. a poll round).
+    expect(teamLeaderboard([], players)).toBeUndefined()
+  })
+
   it('sorts by score desc, then team name', () => {
     const out = teamLeaderboard(lb([['A', 2], ['C', 2]]), players)
     expect(out!.map((t) => t.team)).toEqual(['Blue', 'Red']) // tie -> alphabetical

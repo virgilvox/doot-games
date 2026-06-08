@@ -195,11 +195,15 @@ function maybeAutoLock() {
 function finish() {
   const cfg = config.value
   if (!cfg) return
+  // Only roll up teams if teams are actually ON (meta.teams set). A player's team
+  // value lingers on the relay after the host turns teams off, so without this gate
+  // a disabled-teams game would still show a team board from the stale picks.
+  const useTeams = (room.meta.value?.teams?.length ?? 0) > 0
   const players: ScorePlayer[] = room.players.value.map((p) => ({
     id: p.id,
     name: p.name,
     joinedAtIndex: p.joinedAtIndex,
-    team: p.team,
+    team: useTeams ? p.team : undefined,
   }))
   // Score against the *effective* config: a two-phase round is scored on its
   // runtime-derived content (the vote options) and runtime answer key (the author

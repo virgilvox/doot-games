@@ -150,6 +150,9 @@ export function teamLeaderboard(
   leaderboard: Array<{ id?: string; score: number }>,
   players: ScorePlayer[],
 ): TeamScore[] | undefined {
+  // No per-player leaderboard means an unscored game (a poll/draw with no winner);
+  // a team board of all-zeros would be noise, so there is nothing to roll up.
+  if (!leaderboard.length) return undefined
   const teamOf = new Map<string, string>()
   for (const p of players) if (p.team) teamOf.set(p.id, p.team)
   if (teamOf.size === 0) return undefined

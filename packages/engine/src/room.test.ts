@@ -329,6 +329,96 @@ describe('RoomRuntime player cap (A8)', () => {
   })
 })
 
+describe('RoomRuntime teams (P5)', () => {
+  it('stamps team names into meta and clears them', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.loadGame(GAME)
+
+    host.setTeams(['Red', 'Blue'])
+    expect((hub.store.get(addr.meta('ABCD')) as { teams?: string[] }).teams).toEqual(['Red', 'Blue'])
+
+    host.setTeams(null)
+    expect((hub.store.get(addr.meta('ABCD')) as { teams?: string[] }).teams).toBeUndefined()
+    host.setTeams([])
+    expect((hub.store.get(addr.meta('ABCD')) as { teams?: string[] }).teams).toBeUndefined()
+  })
+
+  it('a player picks a team; the host rosters it; a reconnect keeps it', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.setTeam('Red')
+    expect(ada.myTeam).toBe('Red')
+
+    const pid = playerId('ABCD', 'Ada')
+    expect(hub.store.get(addr.playerTeam('ABCD', pid))).toBe('Red')
+    // The host sees the team on the roster entry.
+    expect(host.recentPlayers().find((p) => p.id === pid)?.team).toBe('Red')
+
+    // A reconnect (new runtime, same name) recovers the team from the retained value.
+    const ada2 = makePlayer(hub, 'Ada', now)
+    await ada2.connect()
+    await flush()
+    expect(ada2.me.id).toBe(pid)
+    expect(ada2.myTeam).toBe('Red')
+  })
+
+  it('a profile/ping arriving after the team does not wipe the team', async () => {
+    const hub = new FakeHub()
+    const now = () => 1_000
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    const pid = playerId('ABCD', 'Bo')
+    // The team value lands first (e.g. a retained value delivered before profile/ping).
+    hub.set(addr.playerTeam('ABCD', pid), 'Blue')
+    // Then the profile + a fresh ping arrive.
+    hub.set(addr.playerProfile('ABCD', pid), { name: 'Bo', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', pid), 1_000)
+    const bo = host.recentPlayers().find((p) => p.id === pid)
+    expect(bo?.name).toBe('Bo')
+    expect(bo?.team).toBe('Blue') // preserved through both handlers
+  })
+
+  it('the host can assign (and clear) a player team, e.g. auto-balance', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+
+    host.assignTeam(ada.me.id, 'Green')
+    expect(ada.myTeam).toBe('Green') // the player sees the host's assignment
+    expect(host.recentPlayers().find((p) => p.id === ada.me.id)?.team).toBe('Green')
+
+    host.assignTeam(ada.me.id, null)
+    expect(ada.myTeam).toBeNull()
+  })
+
+  it('setTeam is a no-op for the host (only players pick their own team)', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 0)
+    await host.connect()
+    host.setTeam('Red')
+    expect(hub.store.get(addr.playerTeam('ABCD', host.me.id))).toBeUndefined()
+  })
+})
+
 describe('RoomRuntime co-host / MC delegation (B9)', () => {
   async function setup() {
     const hub = new FakeHub()
