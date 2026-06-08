@@ -11,6 +11,27 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Spectrum / consensus dial (2026-06-08).** BUILT + verified on the same branch
+> `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new standard block
+> + a "Spectrum" flagship: everyone slides a 0-100 dial to place the subject between
+> two poles and scores by landing near the room's CONSENSUS (the mean) - read the room
+> on a continuous scale. Nothing withheld (the target is the emergent mean), so no
+> redaction; points-style scored (works with teams + standings). Closeness reuses
+> ballpark's P6 scorer against a FIXED half-scale (50), NOT the round's worst error,
+> because a field-relative curve degenerates for 2-3 players (all equidistant -> all 0);
+> the absolute curve is fair at any size (unit-tested). New reusable `SpectrumDial` (ui,
+> CSS-first): a draggable accessible range for input + a readonly track plotting marks +
+> the consensus line for host/reveal. Deck-feedable (generic deck of prompts + optional
+> left/right poles; bare prompt falls back to Disagree/Agree); `## spectrum` markdown +
+> MCP guide + docs. The meta-test now covers **21** flagships. **IMPORTANT:** this is
+> the crowd-consensus variant, NOT the clue-giver "Wavelength" the plan's §2 spectrum
+> describes - true Wavelength needs per-player views inside a DERIVED round (the
+> clue-giver sees the target + types a clue, others guess), which the engine doesn't
+> wire (the reserved `assignment:'per-player'`/`promptFor` is unbuilt, and a derived
+> round can't cleanly do per-player content); it'd need that engine wiring or a
+> custom-flow game. Left as a future item. Verified: 576 tests, typechecks, web build,
+> `scripts/spectrum-smoke.mjs`, 0 overflow at 390px.
+
 > **Test-coverage audit + backfill (2026-06-08).** A pass over this branch's tests
 > found ONE gap and closed it: the four deck-row mappers added for the new games
 > (`answerRowFromRow`, `binaryFromRow`, `overUnderFromRow`, `surveyFromRow`) were only
