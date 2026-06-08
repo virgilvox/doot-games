@@ -11,6 +11,37 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Admin console + moderation + play counts + first-account-admin + featured (2026-06-07).**
+> SHIPPED (verified: 473 tests, web typecheck + prod build green, live smokes against `pnpm dev`
+> incl. a fresh-DB throwaway instance for the bootstrap). An auth-gated `/admin` console
+> (`docs/admin.md`).
+> - **Who is admin:** the **FIRST account ever created** is auto-promoted to `user.role='admin'`
+>   **exactly once, forever** (`ensureFirstAdmin` in `admin-repo.ts`, run at startup + after every
+>   sign-up, guarded by a durable `app_meta` marker so it never re-fires even if that admin is
+>   later removed). `DOOT_ADMIN_EMAILS` is an optional env override (always-grants + ban-immune,
+>   and picks WHICH existing account the bootstrap promotes). Verified all 3 paths: fresh-deploy
+>   first-signup, existing-deploy startup-promotes-earliest, and marker-blocks-re-promotion.
+> - **Security:** every `/api/admin/*` route calls `requireAdmin` server-side (401/403,
+>   live-verified incl. a non-admin 403); page + nav link only reflect `/api/admin/me`.
+> - **Tabs:** Overview (users/games/decks/plays metrics, by-type, most-played), Users (role +
+>   suspend/unsuspend with reason), Games (visibility override, **Feature** flag, delete any),
+>   Decks (visibility, delete any).
+> - **Featured:** the Feature toggle sets `games.featured`; `listPublicGames` orders featured-first
+>   (then newest), so a featured public game leads `/api/games` and shows first (with a "Featured"
+>   badge) in the homepage "Fresh from creators" rail. Live-verified.
+> - **Play counts:** durable `games.play_count`/`last_played_at`, bumped best-effort by the host
+>   when a saved game's room leaves the lobby (`POST /api/games/[id]/play`, anonymous, rate-limited)
+>   - a historical stat (PRD §1), never live room state.
+> - **Bans:** enforced across the content-write surface by `server/middleware/ban-guard.ts` (403 +
+>   reason; live-verified).
+> - **Schema (additive + idempotent):** games play_count/last_played_at/featured + an `app_meta`
+>   key/value table via `ensureSchema`; user role/banned/banReason/bannedAt via the auth-migrate
+>   fallback. **Local dev** ships a generic admin `admin@doot.test` / `dootadmin` (local-only).
+> - New files: `server/utils/admin.ts` + `admin-config.ts` + `admin-repo.ts`,
+>   `server/middleware/ban-guard.ts`, `server/api/admin/*`, `server/api/games/[id]/play.post.ts`,
+>   `app/pages/admin.vue`, `scripts/set-admin.mjs`, `docs/admin.md`. Still open (was bundled in
+>   E18): DB-backed official games + game versioning.
+
 > **Deck-fed TYPED pools + "Decks by Doot" (2026-06-04).** SHIPPED. Phase 2 of deck-fed
 > pools: the 6 TYPED-pool games (fib-finder, faker, ballpark, what-you-didnt-know, mad-libs,
 > split-room) now take a creator deck too, like the 6 prompt games already could. Each lifts

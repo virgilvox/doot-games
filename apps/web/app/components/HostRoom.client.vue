@@ -33,6 +33,9 @@ const props = defineProps<{
   config?: GameComposition
   /** Theme to host under; falls back to the global theme selection. */
   themeId?: string
+  /** The saved game's id, present only when hosting a stored game (not a template).
+   *  Used to record a play (durable historical stat) when the room actually starts. */
+  gameId?: string
 }>()
 const runtime = useRuntimeConfig()
 
@@ -171,6 +174,22 @@ load()
 if (roundConfig) watch(() => roundConfig.value, () => { if (room.phase.value === 'lobby') load() })
 // Re-load with/without timers when the host toggles them (lobby only).
 watch(timersOff, () => { if (room.phase.value === 'lobby') load() })
+
+// Record a play once, when a saved game's room first leaves the lobby (the game
+// actually started). Best-effort and fire-and-forget: a failed ping never disrupts
+// the live room. Templates (no gameId) and re-entering the lobby don't re-count.
+let playRecorded = false
+if (props.gameId) {
+  watch(
+    () => room.phase.value,
+    (phase) => {
+      if (phase !== 'lobby' && !playRecorded) {
+        playRecorded = true
+        $fetch(`/api/games/${props.gameId}/play`, { method: 'POST' }).catch(() => {})
+      }
+    },
+  )
+}
 
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)

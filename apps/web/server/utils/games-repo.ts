@@ -124,6 +124,8 @@ export interface SavedGameSummary extends GameMeta {
   /** The author's claimed @handle (lowercase), or null. Lets a card link to
    *  /u/@handle; absent until the author claims a handle in /account. */
   authorHandle: string | null
+  /** Admin-curated spotlight flag. Featured games sort first in public listings. */
+  featured: boolean
   createdAt: number
 }
 
@@ -178,6 +180,7 @@ const SUMMARY_COLUMNS = {
   tags: games.tags,
   coverImage: games.coverImage,
   forkable: games.forkable,
+  featured: games.featured,
   createdAt: games.createdAt,
 }
 
@@ -192,6 +195,7 @@ interface SummaryRow {
   tags: string | null
   coverImage: string | null
   forkable: boolean
+  featured: boolean
   createdAt: number
 }
 
@@ -215,6 +219,7 @@ async function toSummaries(rows: SummaryRow[]): Promise<SavedGameSummary[]> {
       tags: parseTags(r.tags),
       coverImage: r.coverImage,
       forkable: r.forkable,
+      featured: r.featured,
       createdAt: r.createdAt,
     }
   })
@@ -413,14 +418,14 @@ export async function listMyGames(ownerId: string, limit = 100): Promise<SavedGa
   return toSummaries(rows as SummaryRow[])
 }
 
-/** Publicly listed games (visibility = public), most recent first. */
+/** Publicly listed games (visibility = public): admin-featured first, then most recent. */
 export async function listPublicGames(limit = 100): Promise<SavedGameSummary[]> {
   const db = await useDb()
   const rows = await db
     .select(SUMMARY_COLUMNS)
     .from(games)
     .where(eq(games.visibility, 'public'))
-    .orderBy(desc(games.createdAt))
+    .orderBy(desc(games.featured), desc(games.createdAt))
     .limit(limit)
   return toSummaries(rows as SummaryRow[])
 }

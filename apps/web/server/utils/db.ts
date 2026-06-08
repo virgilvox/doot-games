@@ -37,6 +37,14 @@ export const games = sqliteTable('games', {
   coverImage: text('cover_image'),
   /** Whether others may fork (copy) this game into their own editor. */
   forkable: integer('forkable', { mode: 'boolean' }).notNull().default(false),
+  /** How many times this game has been hosted (a live room actually started). A
+   *  historical stat (PRD §1 allows durable historical stats), incremented best-effort
+   *  by the host when a room leaves the lobby. Nothing else about a live room is stored. */
+  playCount: integer('play_count').notNull().default(0),
+  /** When this game was last hosted (epoch ms), or null if never. */
+  lastPlayedAt: integer('last_played_at'),
+  /** Admin curation flag: a featured game an admin has chosen to spotlight. */
+  featured: integer('featured', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
@@ -83,6 +91,14 @@ export const bookmarks = sqliteTable(
   (t) => ({ pk: primaryKey({ columns: [t.userId, t.gameId] }) }),
 )
 
+/** A tiny durable key/value store for app-level flags that must persist and run
+ *  once (e.g. the first-admin bootstrap marker). NOT room state. */
+export const appMeta = sqliteTable('app_meta', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedAt: integer('updated_at').notNull(),
+})
+
 /** Game visibility levels. */
 export type Visibility = 'private' | 'unlisted' | 'public'
 export const VISIBILITIES: Visibility[] = ['private', 'unlisted', 'public']
@@ -123,6 +139,9 @@ async function ensureSchema(c: Client): Promise<void> {
     'ALTER TABLE games ADD COLUMN tags TEXT',
     'ALTER TABLE games ADD COLUMN cover_image TEXT',
     'ALTER TABLE games ADD COLUMN forkable INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE games ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE games ADD COLUMN last_played_at INTEGER',
+    'ALTER TABLE games ADD COLUMN featured INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE decks ADD COLUMN game TEXT',
   ]) {
     try {
@@ -163,6 +182,14 @@ async function ensureSchema(c: Client): Promise<void> {
   `)
   await c.execute('CREATE INDEX IF NOT EXISTS decks_owner_idx ON decks(owner_id)')
   await c.execute('CREATE INDEX IF NOT EXISTS decks_visibility_idx ON decks(visibility)')
+  // App-level persistent flags (e.g. the one-time first-admin bootstrap marker).
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at INTEGER NOT NULL
+    )
+  `)
 }
 
 async function init(): Promise<LibSQLDatabase> {

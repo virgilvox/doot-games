@@ -9,6 +9,24 @@ const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.st
 const session = authClient.useSession()
 const user = computed(() => session.value?.data?.user ?? null)
 const loggedIn = computed(() => !!user.value)
+
+// Admin status drives only whether the Admin nav link shows; every admin route
+// re-checks server-side (requireAdmin), so this is cosmetic, never a security gate.
+const isAdmin = useState('doot-is-admin', () => false)
+async function refreshAdmin() {
+  if (!import.meta.client) return
+  if (!user.value) {
+    isAdmin.value = false
+    return
+  }
+  try {
+    const r = await $fetch<{ admin: boolean }>('/api/admin/me')
+    isAdmin.value = !!r.admin
+  } catch {
+    isAdmin.value = false
+  }
+}
+watch(() => user.value?.id, refreshAdmin, { immediate: true })
 const handle = computed(() => (user.value as { username?: string | null } | null)?.username ?? null)
 // Nudge the user to personalize while the signup default is still in place (no
 // handle claimed and the display name still equals the email local-part).
@@ -43,6 +61,7 @@ async function logout() {
           <NuxtLink to="/decks" class="navlink">Decks</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/mine" class="navlink">Your Games</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/saved" class="navlink">Saved</NuxtLink>
+          <NuxtLink v-if="isAdmin" to="/admin" class="navlink nav-admin">Admin</NuxtLink>
         </nav>
         <div class="bar-spacer" />
         <div class="account">
@@ -80,6 +99,10 @@ async function logout() {
 </template>
 
 <style scoped>
+.nav-admin {
+  color: var(--primary);
+  font-weight: 800;
+}
 .account {
   display: flex;
   align-items: center;

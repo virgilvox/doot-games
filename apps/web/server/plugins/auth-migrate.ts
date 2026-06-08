@@ -52,6 +52,13 @@ export default defineNitroPlugin(async () => {
       'ALTER TABLE user ADD COLUMN username TEXT',
       'ALTER TABLE user ADD COLUMN displayUsername TEXT',
       'ALTER TABLE user ADD COLUMN bio TEXT',
+      // Admin/moderation columns (see server/utils/admin.ts). Plain columns, so a
+      // simple ALTER works on an existing table (unlike the UNIQUE username column).
+      // `role` is 'user' (default/null) or 'admin'; `banned` gates content actions.
+      "ALTER TABLE user ADD COLUMN role TEXT DEFAULT 'user'",
+      'ALTER TABLE user ADD COLUMN banned INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE user ADD COLUMN banReason TEXT',
+      'ALTER TABLE user ADD COLUMN bannedAt INTEGER',
     ]) {
       try {
         await client.execute(ddl)
@@ -63,5 +70,16 @@ export default defineNitroPlugin(async () => {
     await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON user(username)')
   } catch (err) {
     console.error('[doot] profile-column migration failed:', err)
+  }
+
+  // Now that the `user` table + role column exist, run the one-time first-admin
+  // bootstrap: on an existing deployment this promotes the earliest account on the
+  // first boot of this code; on a brand-new (empty) deployment it no-ops here and the
+  // sign-up hook (server/utils/auth.ts) catches the first account instead.
+  try {
+    const { ensureFirstAdmin } = await import('../utils/admin-repo')
+    await ensureFirstAdmin()
+  } catch (err) {
+    console.error('[doot] first-admin bootstrap (startup) failed:', err)
   }
 })

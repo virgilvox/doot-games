@@ -18,6 +18,7 @@ interface SavedGameSummary {
   authorHandle: string | null
   coverImage: string | null
   description: string | null
+  featured: boolean
   createdAt: number
 }
 const { data: pub } = await useFetch<{ games: SavedGameSummary[] }>('/api/games', {
@@ -27,7 +28,12 @@ const publicGames = computed(() => pub.value?.games ?? [])
 // Rails only appear once there's a real shelf to browse (no thin/empty rows).
 const MIN_RAIL = 5
 const enoughCommunity = computed(() => publicGames.value.length >= MIN_RAIL)
-const fresh = computed(() => [...publicGames.value].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8))
+// Admin-featured games lead the rail, then newest first within each group.
+const fresh = computed(() =>
+  [...publicGames.value]
+    .sort((a, b) => Number(b.featured) - Number(a.featured) || b.createdAt - a.createdAt)
+    .slice(0, 8),
+)
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
 // "Create with blocks": Custom leads (mix any blocks or use a two-phase recipe),
@@ -133,6 +139,7 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => {
           <div v-for="g in fresh" :key="g.id" class="card rail-card card-link">
             <NuxtLink :to="`/g/${g.id}`" class="card-stretch" :aria-label="`${g.title}, view and host`" />
             <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
+            <span v-if="g.featured" class="feat-badge">Featured</span>
             <div class="card-body">
               <div class="card-title">{{ g.title }}</div>
               <p v-if="g.description" class="rail-desc">{{ g.description }}</p>
@@ -449,6 +456,22 @@ const flagshipsSorted = [...flagshipGames].sort((a, b) => {
 .rail-card {
   min-width: 248px;
   scroll-snap-align: start;
+}
+.feat-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  pointer-events: none;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
 }
 .card-by {
   margin: 8px 0 0;

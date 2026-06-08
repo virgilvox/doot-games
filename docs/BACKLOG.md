@@ -158,7 +158,17 @@ each group; `[size]` is a rough effort hint.
     still completes). Computed locally, so the gallery stays anonymous. Pure helper unit-tested
     (`runtime/derive.test.ts`); verified in a browser (`scripts/own-answer-smoke.mjs`: neither
     player sees their own story in mad-libs or split-room).
-  - **admin role** + DB-backed official games + versioning.
+  - [x] **admin role + console + moderation** (`/admin`, `docs/admin.md`): a real admin
+    surface gated by `requireAdmin` on every `/api/admin/*` route. **The first account ever
+    created is auto-promoted to admin, once forever** (`ensureFirstAdmin`, startup + post-signup,
+    `app_meta` marker; `DOOT_ADMIN_EMAILS` is an env override). Overview metrics
+    (users/games/decks/plays, by-type, most-played), Users tab (role + ban/suspend), Games tab
+    (visibility override, **Feature** flag, delete), Decks tab (visibility, delete). **Featured**
+    games sort first in `listPublicGames` and lead the homepage "Fresh from creators" rail (badge).
+    **Play counts**: durable `games.play_count`/`last_played_at` bumped when a room leaves the
+    lobby (`/api/games/[id]/play`); a historical stat, not live room state. **Bans** enforced on
+    the whole content-write surface via `server/middleware/ban-guard.ts`. Still open here:
+    DB-backed official games + game versioning.
 - [ ] **E15. External-plugin runtime** - sandboxed iframe on a separate `plugins.doot.games`
   origin + a typed postMessage bridge + manifest-by-URL with a SHA pin. Security-critical;
   designed in `docs/external-plugins.md`. `[large]`

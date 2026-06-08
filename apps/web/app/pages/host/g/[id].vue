@@ -26,6 +26,7 @@ if (error.value || !game.value) {
       :plugin-id="game.pluginId"
       :config="game.config"
       :theme-id="game.themeId"
+      :game-id="game.id"
     />
     <template #fallback>
       <div class="boot">Setting up the room…</div>

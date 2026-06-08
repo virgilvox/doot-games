@@ -39,6 +39,23 @@ const validateProfile = createAuthMiddleware(async (ctx) => {
 })
 
 /**
+ * After a sign-up, run the one-time first-admin bootstrap so the very first account on
+ * a fresh deployment becomes admin (the startup pass can't, there are no accounts yet).
+ * Idempotent + marker-guarded in `ensureFirstAdmin`, so this never re-promotes. Imported
+ * lazily to avoid an auth <-> admin-repo import cycle, and never allowed to fail the
+ * sign-up.
+ */
+const bootstrapFirstAdmin = createAuthMiddleware(async (ctx) => {
+  if (ctx.path !== '/sign-up/email') return
+  try {
+    const { ensureFirstAdmin } = await import('./admin-repo')
+    await ensureFirstAdmin()
+  } catch {
+    /* bootstrap retries on the next sign-up / restart */
+  }
+})
+
+/**
  * Handles that collide with a top-level route (or are otherwise reserved) and so
  * may never be claimed as a profile @handle. Enforced server-side by the username
  * plugin's `usernameValidator`; the editor mirrors this list for a live hint.
@@ -124,8 +141,9 @@ export const authOptions = {
       bio: { type: 'string', required: false, input: true },
     },
   },
-  // Bound the user-editable profile fields server-side (length + avatar scheme).
-  hooks: { before: validateProfile },
+  // Bound the user-editable profile fields server-side (length + avatar scheme), and
+  // run the first-admin bootstrap after a sign-up.
+  hooks: { before: validateProfile, after: bootstrapFirstAdmin },
   // Throttle auth endpoints (per IP) to blunt brute-force and signup spam.
   rateLimit: { enabled: true, window: 60, max: 20 },
   // `satisfies` (not a `: BetterAuthOptions` annotation) so the plugin-augmented
