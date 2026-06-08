@@ -67,7 +67,9 @@ export function useDootRoom(options: UseDootRoomOptions) {
     error: computed(() => snapshot.value.error),
     ready: computed(() => snapshot.value.ready),
     isHost: computed(() => snapshot.value.me.role === 'host'),
+    isAudience: computed(() => snapshot.value.me.role === 'audience'),
     hostPresent: computed(() => snapshot.value.hostPresent),
+    audienceCount: computed(() => snapshot.value.audienceCount),
     joinedAtIndex: computed(() => snapshot.value.joinedAtIndex),
     // co-host / MC delegation
     driverPid: computed(() => snapshot.value.driverPid),

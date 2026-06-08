@@ -367,7 +367,9 @@ watch(
       </div>
       <div class="roster-head">
         <div class="kicker">In the room</div>
-        <span class="count mono">{{ room.players.value.length }} joined</span>
+        <span class="count mono">
+          {{ room.players.value.length }} joined<template v-if="room.audienceCount.value > 0"> · {{ room.audienceCount.value }} watching</template>
+        </span>
       </div>
       <RosterChips :players="room.players.value" :teams="teams" />
       <div v-if="roundConfig" class="round-pick">

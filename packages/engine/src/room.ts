@@ -135,6 +135,8 @@ export interface RoomSnapshot {
   /** Whether the host's heartbeat is current (true for the host itself, and
    *  true before any ping is seen so the join screen doesn't flash "gone"). */
   hostPresent: boolean
+  /** Host only: how many spectators are watching (0 for other roles). */
+  audienceCount: number
   /** The delegated driver's pid (co-host/MC), or null if the host drives. */
   driverPid: string | null
   /** True when this client is the delegated driver (a player who may advance). */
@@ -156,6 +158,8 @@ export class RoomRuntime {
 
   private state: RoomState = { ...INITIAL_STATE, round: { ...INITIAL_STATE.round } }
   private playersMap = new Map<string, Player>()
+  /** Host-only: audience id -> last heartbeat, for the "N watching" count. */
+  private audiencePings = new Map<string, number>()
   private inputs = new Map<string, RelayValue>() // key `${round}:${pid}`
   /** Runtime-derived content per round (two-phase). Host fills it on publish;
    *  player/viewer fill it from the relay. Overrides authored content. */
@@ -214,7 +218,16 @@ export class RoomRuntime {
     this.me = {
       role: opts.role,
       name,
-      id: opts.role === 'player' ? playerId(opts.room, name) : `${opts.role}_${opts.room}`,
+      // A player id is derived from room+name (reconnect-by-name). An audience member
+      // needs a UNIQUE id per tab so the host can count distinct spectators, but it is
+      // never scored, so it does not need to be reconnect-stable. Host/viewer are
+      // singletons under a role-scoped id.
+      id:
+        opts.role === 'player'
+          ? playerId(opts.room, name)
+          : opts.role === 'audience'
+            ? `aud_${opts.room}_${Math.random().toString(36).slice(2, 10)}`
+            : `${opts.role}_${opts.room}`,
     }
   }
 
@@ -340,7 +353,25 @@ export class RoomRuntime {
       // dead one and notice if the host's screen goes away mid-game.
       this.startHostHeartbeat()
     }
+    // An audience member broadcasts its own liveness so the host can count watchers.
+    if (this.me.role === 'audience') this.startAudienceHeartbeat()
     this.emit()
+  }
+
+  private startAudienceHeartbeat(): void {
+    if (this.heartbeatTimer || this.me.role !== 'audience') return
+    const beat = () => this.publish(addr.audiencePing(this.room, this.me.id), this.now())
+    beat()
+    this.heartbeatTimer = setInterval(beat, HEARTBEAT_INTERVAL_MS)
+  }
+
+  /** Host-only: how many spectators are currently watching (a recent audience ping). */
+  private audienceCount(): number {
+    if (this.me.role !== 'host') return 0
+    const now = this.now()
+    let n = 0
+    for (const ts of this.audiencePings.values()) if (now - ts < PRESENCE_WINDOW_MS) n++
+    return n
   }
 
   private startHostHeartbeat(): void {
@@ -447,11 +478,14 @@ export class RoomRuntime {
       })
     }
 
-    // Roster: EVERY role tracks who is in the room (public names + presence). This
-    // is deliberately NOT player inputs, those stay host/viewer-only below, so a
+    // Roster: host/player/viewer track who is in the room (public names + presence).
+    // This is deliberately NOT player inputs, those stay host/viewer-only below, so a
     // player can never read another player's answers (the withholding invariant).
     // Players need the roster for roster games like Most Likely To (you vote for
-    // another player) and Truth or Share (the picker chooses a target).
+    // another player) and Truth or Share (the picker chooses a target). An AUDIENCE
+    // member skips the roster (and every input below): a spectator reads only the
+    // display state, which keeps their bandwidth low and never deanonymizes inputs.
+    if (this.me.role !== 'audience') {
     on(patterns.playerProfile(r), (v, a) => {
       const pid = pidFromPlayerAddress(a)
       if (!pid) return
@@ -499,6 +533,7 @@ export class RoomRuntime {
       })
       this.emit()
     })
+    } // end roster (skipped for audience)
 
     if (this.me.role === 'player') {
       // A player only needs its own inputs back (reconnect restore + private score).
@@ -516,9 +551,11 @@ export class RoomRuntime {
         this.perPlayerContent.set(parsed.roundIndex, v)
         this.emit()
       })
-    } else {
+    } else if (this.me.role === 'host' || this.me.role === 'viewer') {
       // Host/viewer also receive every player's inputs (for tallying + the big
-      // screen). A player never subscribes here, so it can't read others' answers.
+      // screen). A player never subscribes here, so it can't read others' answers,
+      // and an AUDIENCE member never subscribes here either (spectators must not be
+      // able to read raw inputs, which would deanonymize a two-phase gallery).
       on(patterns.allInputs(r), (v, a) => {
         const parsed = parseInputAddress(a)
         if (!parsed) return
@@ -540,6 +577,13 @@ export class RoomRuntime {
           if (cmd.nonce === this.lastCommandNonce) return // drop a relay re-delivery
           this.lastCommandNonce = cmd.nonce
           this.incomingCommand = { action: cmd.action, nonce: cmd.nonce }
+          this.emit()
+        })
+        // Track audience heartbeats so the host can show "N watching". A spectator's
+        // id is unique per tab, so distinct live pings = the audience size.
+        on(patterns.audiencePing(r), (v, a) => {
+          const id = a.split('/')[4]
+          if (id) this.audiencePings.set(id, Number(v))
           this.emit()
         })
       }
@@ -568,6 +612,7 @@ export class RoomRuntime {
       ready: this.ready,
       joinedAtIndex: this.myJoinedAtIndex,
       hostPresent: this.hostIsPresent(),
+      audienceCount: this.audienceCount(),
       driverPid: this.driverPid,
       isDriver: this.me.role === 'player' && this.driverPid != null && this.driverPid === this.me.id,
       command: this.me.role === 'host' ? this.incomingCommand : null,

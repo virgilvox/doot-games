@@ -50,6 +50,10 @@ export const addr = {
   standings: (room: string) => `${roomBase(room)}/standings`,
   playerProfile: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/profile`,
   playerPing: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/ping`,
+  /** An audience member's liveness heartbeat (a separate namespace from players, so
+   *  spectators never count toward the player cap or the scored roster). The host
+   *  watches these to show "N watching". */
+  audiencePing: (room: string, id: string) => `${roomBase(room)}/audience/${id}/ping`,
   /** A player's team (when teams are on): a team name, or '' to clear. The player
    *  writes their own; the host may write any player's (assign / auto-balance).
    *  Retained + TTL-scoped, so a reconnecting player keeps their team. */
@@ -69,6 +73,8 @@ export const patterns = {
   playerPing: (room: string) => `${roomBase(room)}/player/*/ping`,
   /** Every player's team (everyone tracks the roster's teams). */
   playerTeam: (room: string) => `${roomBase(room)}/player/*/team`,
+  /** Every audience member's heartbeat (the host counts spectators). */
+  audiencePing: (room: string) => `${roomBase(room)}/audience/*/ping`,
   /** All players' inputs for all rounds (host only). */
   allInputs: (room: string) => `${roomBase(room)}/input/*/*`,
   /** This player's own inputs across rounds (reconnect restore + private score). */

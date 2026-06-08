@@ -14,8 +14,11 @@ export type Phase = 'lobby' | 'active' | 'results'
  */
 export type RoundState = 'ready' | 'open' | 'locked' | 'reveal'
 
-/** Who a connected client is in the room. */
-export type Role = 'host' | 'player' | 'viewer'
+/** Who a connected client is in the room. `audience` is an untrusted spectator on
+ *  their phone: they read the display state but never submit, never appear in the
+ *  scored roster, and never count toward the player cap. `viewer` is a trusted
+ *  second screen (it reads inputs); audience does not. */
+export type Role = 'host' | 'player' | 'viewer' | 'audience'
 
 /** Current round pointer and timing. */
 export interface RoundInfo {

@@ -8,10 +8,16 @@ const runtime = useRuntimeConfig()
 const roomCode = computed(() => String(route.params.room).toUpperCase())
 const name = ref('')
 const joined = ref(false)
+const watching = ref(false)
 
 function onJoin(payload: { code: string; name: string }) {
   name.value = payload.name
   joined.value = true
+}
+
+// "Just watch": join as audience (display-only, never counts toward the cap).
+function onWatch() {
+  watching.value = true
 }
 
 // Pre-join checks, bounded and fail-open (a slow or dead relay must never stop
@@ -64,12 +70,13 @@ async function probeName(
 <template>
   <main class="play">
     <ClientOnly>
-      <PlayerRoom v-if="joined" :room="roomCode" :name="name" />
+      <AudienceRoom v-if="watching" :room="roomCode" />
+      <PlayerRoom v-else-if="joined" :room="roomCode" :name="name" />
       <div v-else class="gate">
         <div class="panel card">
           <DootLogo :size="48" />
           <p class="lead">Joining room <b class="mono">{{ roomCode }}</b></p>
-          <JoinForm :initial-code="roomCode" :probe="probeName" @join="onJoin" />
+          <JoinForm :initial-code="roomCode" :probe="probeName" @join="onJoin" @watch="onWatch" />
         </div>
       </div>
       <template #fallback><div class="gate">Loading…</div></template>

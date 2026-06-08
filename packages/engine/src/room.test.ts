@@ -87,6 +87,11 @@ function makePlayer(hub: FakeHub, name: string, now: () => number) {
   cleanups.push(() => r.dispose())
   return r
 }
+function makeAudience(hub: FakeHub, now: () => number) {
+  const r = new RoomRuntime({ relay: new FakeRelayClient(hub), room: 'ABCD', role: 'audience', now })
+  cleanups.push(() => r.dispose())
+  return r
+}
 
 const GAME = {
   meta: {
@@ -326,6 +331,75 @@ describe('RoomRuntime player cap (A8)', () => {
     }
     const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => 1_000, 5)
     expect(count).toBe(0)
+  })
+})
+
+describe('RoomRuntime audience tier (P4)', () => {
+  it('a spectator reads display state but never joins the roster or counts to the cap', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    const aud = makeAudience(hub, now)
+    await aud.connect()
+    await flush()
+
+    // The audience sees the phase + meta (the display state).
+    expect(aud.getSnapshot().phase).toBe('active')
+    expect(aud.getSnapshot().meta).toEqual(GAME.meta)
+    // ...but it is NOT in the player roster (neither the host's nor its own).
+    expect(host.recentPlayers()).toHaveLength(0)
+    expect(aud.getSnapshot().players).toHaveLength(0)
+    // The host counts it as a watcher instead.
+    expect(host.getSnapshot().audienceCount).toBe(1)
+  })
+
+  it('a spectator never receives player inputs (no deanonymization)', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.submit({ choice: 1 } as RelayValue)
+
+    const aud = makeAudience(hub, now)
+    await aud.connect()
+    await flush()
+    // The host tallies the input; the audience never sees it (no input subscription).
+    expect(host.inputsFor(0).size).toBe(1)
+    expect(aud.inputsFor(0).size).toBe(0)
+  })
+
+  it('rejects a submit from a spectator (only players submit)', async () => {
+    const hub = new FakeHub()
+    const aud = makeAudience(hub, () => 0)
+    await aud.connect()
+    expect(() => aud.submit({ choice: 0 } as RelayValue)).toThrow()
+  })
+
+  it('counts multiple spectators and ages out stale ones', async () => {
+    const hub = new FakeHub()
+    let t = 0
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    const a1 = makeAudience(hub, () => t)
+    const a2 = makeAudience(hub, () => t)
+    await a1.connect()
+    await a2.connect()
+    await flush()
+    expect(host.getSnapshot().audienceCount).toBe(2)
+    // Time advances past the presence window with no new pings -> they age out.
+    t = 30_000
+    expect(host.getSnapshot().audienceCount).toBe(0)
   })
 })
 

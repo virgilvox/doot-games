@@ -19,7 +19,11 @@ const props = withDefaults(
   }>(),
   { initialCode: '', initialName: '', probe: undefined },
 )
-const emit = defineEmits<{ join: [payload: { code: string; name: string }] }>()
+const emit = defineEmits<{
+  join: [payload: { code: string; name: string }]
+  /** Join as audience (just watch): no name needed, never counts toward the cap. */
+  watch: [payload: { code: string }]
+}>()
 
 const code = ref(props.initialCode.toUpperCase())
 const name = ref(props.initialName)
@@ -88,6 +92,18 @@ async function submit() {
   emit('join', v)
 }
 
+/** Just watch: join as audience. Needs only a valid room code (no name), and is
+ *  never turned away by the player cap. */
+function watchOnly() {
+  const c = code.value.trim().toUpperCase()
+  if (!isValidRoomCode(c)) {
+    error.value = 'Enter the 4-character room code.'
+    return
+  }
+  error.value = ''
+  emit('watch', { code: c })
+}
+
 /** Re-check after a "room is full" (in case someone has since left). */
 function tryAgain() {
   roomFull.value = false
@@ -146,14 +162,18 @@ function onNameInput() {
         @keyup.enter="submit"
       />
     </label>
-    <DButton v-if="!nameTaken && !roomFull" variant="primary" type="submit" block :disabled="checking">
-      {{ checking ? 'Checking…' : 'Join game' }}
-    </DButton>
-    <div v-if="roomFull" class="taken" role="alert">
-      <p class="taken-msg">This room is full. Ask the host to raise the limit, then try again.</p>
-      <DButton variant="primary" type="button" block :disabled="checking" @click="tryAgain">
-        {{ checking ? 'Checking…' : 'Try again' }}
+    <template v-if="!nameTaken && !roomFull">
+      <DButton variant="primary" type="submit" block :disabled="checking">
+        {{ checking ? 'Checking…' : 'Join game' }}
       </DButton>
+      <button type="button" class="link-btn watch-link" @click="watchOnly">Just watch instead</button>
+    </template>
+    <div v-if="roomFull" class="taken" role="alert">
+      <p class="taken-msg">This room is full for players. You can still watch along.</p>
+      <DButton variant="primary" type="button" block @click="watchOnly">Watch instead</DButton>
+      <button type="button" class="link-btn" :disabled="checking" @click="tryAgain">
+        {{ checking ? 'Checking…' : 'Try to join again' }}
+      </button>
     </div>
     <div v-if="nameTaken" class="taken" role="alert">
       <p class="taken-msg">That name is already in this room. Pick another, or reconnect if it's you.</p>
@@ -235,5 +255,9 @@ function onNameInput() {
 }
 .link-btn:hover {
   color: var(--ink);
+}
+.watch-link {
+  justify-self: center;
+  text-align: center;
 }
 </style>
