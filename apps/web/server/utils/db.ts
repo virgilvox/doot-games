@@ -79,6 +79,22 @@ export const decks = sqliteTable('decks', {
   updatedAt: integer('updated_at').notNull(),
 })
 
+/** A saved SESSION lineup ("playlist"): an ordered list of game ids played back to
+ *  back in one room. Owned + visibility'd like games/decks. Ephemeral play state is
+ *  never stored here, only the durable lineup the host curated. */
+export const playlists = sqliteTable('playlists', {
+  id: text('id').primaryKey(),
+  ownerId: text('owner_id'),
+  name: text('name').notNull(),
+  description: text('description'),
+  /** JSON-serialized string[] of game ids, in play order. */
+  games: text('games').notNull(),
+  visibility: text('visibility').notNull().default('private'),
+  remixable: integer('remixable', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+})
+
 /** A user's bookmark ("save") of a game, so they can find it again. One row per
  *  (user, game); the user id is better-auth's account id. */
 export const bookmarks = sqliteTable(
@@ -182,6 +198,22 @@ async function ensureSchema(c: Client): Promise<void> {
   `)
   await c.execute('CREATE INDEX IF NOT EXISTS decks_owner_idx ON decks(owner_id)')
   await c.execute('CREATE INDEX IF NOT EXISTS decks_visibility_idx ON decks(visibility)')
+  // Session lineups ("playlists"): an ordered list of game ids played back to back.
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS playlists (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT,
+      name TEXT NOT NULL,
+      description TEXT,
+      games TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      remixable INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `)
+  await c.execute('CREATE INDEX IF NOT EXISTS playlists_owner_idx ON playlists(owner_id)')
+  await c.execute('CREATE INDEX IF NOT EXISTS playlists_visibility_idx ON playlists(visibility)')
   // App-level persistent flags (e.g. the one-time first-admin bootstrap marker).
   await c.execute(`
     CREATE TABLE IF NOT EXISTS app_meta (

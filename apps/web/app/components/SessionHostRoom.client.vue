@@ -26,8 +26,11 @@ import {
 } from '@doot-games/games'
 import type { GamePlugin, ScorePlayer, StandardResults } from '@doot-games/sdk'
 import { DootLogo, Stage } from '@doot-games/ui'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
+// `gameIds`: a saved playlist's lineup (from /host/playlist/[id]); when given, the
+// picker is skipped and the session starts on that lineup.
+const props = defineProps<{ gameIds?: string[] }>()
 const runtime = useRuntimeConfig()
 const themeState = useState<string>('doot-theme', () => 'doot')
 const themeId = themeState.value
@@ -99,6 +102,34 @@ function startSession() {
   idx.value = 0
   const plugin = currentPlugin.value
   if (plugin) room.host.loadGame(buildLoaded(plugin) as never)
+}
+
+// A saved playlist: keep only games this session can sequence (known + generic), in
+// the saved order, and start straight away (skipping the picker).
+onMounted(() => {
+  const ids = (props.gameIds ?? []).filter((id) => candidates.some((c) => c.manifest.id === id))
+  if (ids.length) {
+    picks.value = ids
+    startSession()
+  }
+})
+
+// Save the current lineup as a reusable playlist (needs a login, like saving a game).
+const saveName = ref('')
+const savedId = ref('')
+const saveError = ref('')
+async function saveLineup() {
+  if (!picks.value.length) return
+  saveError.value = ''
+  try {
+    const r = await $fetch<{ id: string }>('/api/playlists', {
+      method: 'POST',
+      body: { name: saveName.value.trim() || 'My session', games: picks.value },
+    })
+    savedId.value = r.id
+  } catch (e) {
+    saveError.value = (e as { statusCode?: number })?.statusCode === 401 ? 'Log in to save a lineup.' : 'Could not save.'
+  }
 }
 
 /** Placement points for one game's leaderboard: 1st 5, 2nd 3, 3rd 2, the rest 1
@@ -173,6 +204,14 @@ const playerCount = computed(() => room.players.value.length)
       <button type="button" class="btn btn-primary btn-lg start" :disabled="!picks.length" @click="startSession">
         Start session ({{ picks.length }} {{ picks.length === 1 ? 'game' : 'games' }})
       </button>
+      <div v-if="picks.length" class="save-row">
+        <template v-if="!savedId">
+          <input v-model="saveName" class="save-input" maxlength="120" placeholder="Name this lineup (optional)" aria-label="Lineup name" />
+          <button type="button" class="btn btn-ghost" @click="saveLineup">Save lineup</button>
+          <span v-if="saveError" class="save-err">{{ saveError }}</span>
+        </template>
+        <p v-else class="save-ok">Saved. Host it any time at <a :href="`/host/playlist/${savedId}`" class="mono">/host/playlist/{{ savedId }}</a></p>
+      </div>
     </div>
 
     <!-- DONE: the final session leaderboard -->
@@ -243,6 +282,14 @@ const playerCount = computed(() => room.players.value.length)
   background: var(--primary); color: var(--primary-ink); font-weight: 800; font-size: 13px;
 }
 .start { margin-top: 6px; }
+.save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.save-input {
+  font: inherit; font-size: 15px; padding: 9px 13px; border-radius: 10px;
+  border: var(--bd) solid var(--line-soft); background: var(--surface-2); color: var(--ink); min-width: 240px;
+}
+.save-err { color: var(--primary); font-weight: 700; font-size: 13px; }
+.save-ok { color: var(--ink-soft); font-weight: 600; }
+.save-ok a { color: var(--primary); }
 
 .session-bar {
   flex: none; margin-top: 14px; display: flex; align-items: center; justify-content: space-between;
