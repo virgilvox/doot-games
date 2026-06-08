@@ -11,6 +11,31 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Teams audit fixes + live standings (P3) (2026-06-08).** BUILT + verified on the
+> same branch `expansion-p1-answer-caption` (2 more commits, not yet pushed).
+> - **Teams audit (2 real bugs found + fixed):** (1) an unscored game (e.g. a
+>   poll-only Custom game) with teams on rendered a meaningless all-zeros team board;
+>   `teamLeaderboard()` now returns undefined when the per-player board is empty. (2)
+>   After the host turned teams OFF, each player's team value lingers on the relay, so
+>   `finish()` still rolled up a board; `finish()` now gates the team on `meta.teams`
+>   being set (the lobby toggle is authoritative). Added engine-level coverage for the
+>   team transport (set/assign/reconnect/handler-order).
+> - **P3 live standings:** after each scored reveal the host computes the cumulative
+>   standings and publishes them to an ephemeral `/standings` address; the big screen
+>   (during reveal) and every phone (during the locked/reveal lull) show a running
+>   leaderboard. Reuses `scoreGame` over the revealed rounds (`runtime/standings.ts`
+>   `standingsThrough`), so it folds the SAME per-block aggregates + team roll-up the
+>   final results use (one scoring path). A shared `scoreInputs()` in GameHost feeds
+>   both `finish()` and the standings; a `watch` on the reveal state publishes (scored
+>   games only). Shared `StandingsPeek` in ui (no sdk import, per the dependency
+>   direction, which the typecheck enforced). Engine: `addr.standings` +
+>   `publishStandings` + `room.standings` on the Vue binding.
+> - **Verified:** 518 unit tests, all typechecks, the web build, and three real-browser
+>   smokes (`answer-smoke`, `teams-smoke`, `standings-smoke`): accumulating standings,
+>   the team board + "Red wins", 0 horizontal overflow at 390px. **Next (per plan §8):**
+>   audience tier (P4), then Wager (now unblocked by P3), then the Caption This flagship
+>   once images are sourced.
+
 > **Expansion plan slice 1: text-match (P1), the answer block, caption, and Teams
 > (P5) (2026-06-08).** BUILT + verified on branch `expansion-p1-answer-caption`,
 > NOT yet pushed/deployed (3 commits; `main` auto-deploys, so push when ready).
