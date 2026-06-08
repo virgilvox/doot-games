@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 33
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 34
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -24,22 +24,52 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
 > - **Engine primitives:** §4.3 Sessions (`nextGame`) · **P7 Pipeline foundation**
 >   (per-player content derived from a PRIOR round's inputs - `AssignContext.sources` +
->   `assignContent(index, inputsFor)` + the pure chain-rotation helpers in
->   `runtime/chain.ts`) · **Story Chain** (the first chain GAME, on that foundation) ·
->   a generic `components.Results` seam (the renderer honors a game's custom results view)
->   + a `ResultsFragment.recap` passthrough. Catalog now ~32 games.
-> - **Tests:** ~611 unit + ~12 browser smokes (answer, audience, audience-vote, audio,
->   categories, quickwins, spectrum, standings, storychain, survey, teams, session,
->   playlists, wager).
+>   `assignContent(index, inputsFor)` + the pure chain helpers in `runtime/chain.ts`) ·
+>   **Story Chain** (text telephone) + **Doodle Chain** (Gartic Phone, Pixi draw rounds)
+>   both on that foundation · a generic `components.Results` seam (the renderer honors a
+>   game's custom results view) + a `ResultsFragment.recap` passthrough. Catalog now ~33 games.
+> - **Tests:** ~619 unit + ~13 browser smokes (answer, audience, audience-vote, audio,
+>   categories, doodlechain, quickwins, spectrum, standings, storychain, survey, teams,
+>   session, playlists, wager).
 > - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
->   (vote/split/fibvote weighting - poll done) · **Doodle Chain** (the Pixi-draw chain, now
->   a small increment on Story Chain's proven plumbing) + Quick Draw / Bingo / Call It · the
->   clue-giver "Wavelength" Spectrum (now unblocked by the P7 foundation) · survey two-phase ·
->   custom prompt packs. Detailed dated entries below.
+>   (vote/split/fibvote weighting - poll done) · **Quick Draw** (real-time stroke streaming)
+>   / Bingo / Call It (the remaining §5 custom-flow games) · the clue-giver "Wavelength"
+>   Spectrum (now unblocked by the P7 foundation) · survey two-phase · custom prompt packs.
+>   Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Doodle Chain - Gartic Phone, the second chain game on the P7 foundation (2026-06-08).**
+> BUILT + verified on the same branch (1 commit, not pushed). The draw-and-describe
+> telephone: everyone writes a prompt, the next player DRAWS it, the next DESCRIBES the
+> drawing, the next draws that, and so on; the end unspools each chain as a gallery (prompt
+> -> drawing -> guess -> drawing). It is the picture cousin of Story Chain and proves the
+> chain plumbing generalizes to a mixed text/drawing input, still standard-composed.
+> - **`doodle` block** (`blocks/doodle/`): a single block with two `mode`s (`draw` /
+>   `describe`). Same rotation as `chainline` (the seed round's submitters are the frozen
+>   ring; `from: [prev, 0]`), but the per-player `received` is the neighbor's TEXT on a draw
+>   round and their DRAWING (strokes) on a describe round. Input is `{ text? | strokes? }`.
+>   `aggregate` unspools each thread, resolving every step to text or a drawing by that
+>   round's mode. No answer/secret in the config (same privacy model as chainline).
+> - **Reuse, no new drawing tech:** `DrawCanvas` (ui, the existing Pixi surface) is the
+>   draw-round input; `DrawThumb` (ui, pure-SVG readonly) renders the received drawing on a
+>   describe round AND every drawing in the unspool gallery. Strokes ride inline in the
+>   input (the proven `DrawValue` shape), so a drawing delivers fine as per-player content.
+> - **Shared chain helpers lifted to `runtime/chain.ts`:** `chainSeedSource` /
+>   `chainRingFromSources` / `chainPrevSource` (the seed-by-flag ring + prev-source logic),
+>   now used by BOTH chainline and doodle (chainline refactored onto them; behavior
+>   unchanged, its tests still pass). Keeps the chain primitive DRY.
+> - **`doodle-chain` game**: a `buildConfig` flagship (host picks 4-8 rounds; round 0 writes
+>   a prompt seeded per room, then alternates draw/describe), unscored, with a custom
+>   gallery `components.Results`. minPlayers 3.
+> - **Verified:** 619 unit tests (doodle rotation for both modes + the mode-aware unspool +
+>   buildConfig alternation) + all typechecks + the web build + `scripts/doodlechain-smoke.mjs`
+>   (a real 3-player 4-round game: a draw round mounts the Pixi canvas and submits a real
+>   stroke; a describe round privately shows a NEIGHBOR's drawing - the rotation of drawings
+>   through the live engine; the unspool is a 3-chain gallery with 6 drawings; 0 horizontal
+>   overflow at 390px). Pixi runs fine headless.
 
 > **Story Chain - the first chain game on the P7 foundation (2026-06-08).** BUILT +
 > verified on the same branch (1 commit, not pushed). A collaborative "telephone" /

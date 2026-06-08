@@ -34,7 +34,7 @@ import {
   defineBlock,
   z,
 } from '@doot-games/sdk'
-import { chainOrder, chainSourceFor, chainThreads } from '../../runtime/chain'
+import { chainOrder, chainPrevSource, chainRingFromSources, chainSourceFor, chainThreads } from '../../runtime/chain'
 import ChainlineHost from './ChainlineHost.vue'
 import ChainlinePlayer from './ChainlinePlayer.vue'
 
@@ -77,26 +77,6 @@ export function cleanLine(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim().slice(0, 240)
 }
 
-/** The frozen ring: sorted pids that submitted the SEED round. The seed source is
- *  identified by its content flag (`seed: true`), not a fixed index, so the chain
- *  survives a composition where the seed round is not at config index 0; it falls
- *  back to the lowest-indexed source. */
-function ringFromSources(sources: AssignContext<ChainlineContent>['sources']): string[] {
-  const seed =
-    sources.find((s) => (s.content as { seed?: boolean } | undefined)?.seed === true) ??
-    [...sources].sort((a, b) => a.index - b.index)[0]
-  if (!seed) return []
-  return chainOrder([...seed.inputs.keys()], (x) => x)
-}
-
-/** The immediate-previous round's inputs (the source with the highest index). */
-function prevSource(sources: AssignContext<ChainlineContent>['sources']) {
-  return sources.reduce<(typeof sources)[number] | undefined>(
-    (best, s) => (best === undefined || s.index > best.index ? s : best),
-    undefined,
-  )
-}
-
 export const chainlineBlock = defineBlock<ChainlineContent, ChainlineInput>({
   kind: 'chainline',
   name: 'Chain line',
@@ -113,8 +93,8 @@ export const chainlineBlock = defineBlock<ChainlineContent, ChainlineInput>({
   // the immediately-previous round. The seed round (no sources) hands out nothing,
   // so the player falls back to the authored seed prompt.
   assignContent: (ctx: AssignContext<ChainlineContent>): AssignedContent<ChainlineContent> => {
-    const order = ringFromSources(ctx.sources)
-    const prev = prevSource(ctx.sources)
+    const order = chainRingFromSources(ctx.sources)
+    const prev = chainPrevSource(ctx.sources)
     if (!order.length || !prev) return { perPlayer: {} }
     const perPlayer: Record<string, ChainlineSecret> = {}
     for (const pid of order) {

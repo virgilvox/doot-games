@@ -16,6 +16,7 @@
  * start), since a changing set would re-order the ring; this module assumes the set
  * it is given is final.
  */
+import type { DeriveSource } from '@doot-games/sdk'
 
 /**
  * The fixed, ordered ring of chain participants. The input pids are sorted to a
@@ -53,6 +54,41 @@ export function chainSourceFor(
   if (pos < 0) return undefined
   if (roundIndex <= 0) return pid
   return order[(pos - 1 + n) % n]
+}
+
+/**
+ * The seed source of a chain among a round's `sources`: the one whose content is
+ * flagged `seed: true` (the round where every thread starts), falling back to the
+ * lowest-indexed source. Its submitters define the frozen ring. Identifying the seed
+ * by flag (not a fixed config index) keeps a chain block usable even when the seed
+ * round is not at composition index 0. Pure.
+ */
+export function chainSeedSource(sources: DeriveSource[]): DeriveSource | undefined {
+  return (
+    sources.find((s) => (s.content as { seed?: boolean } | undefined)?.seed === true) ??
+    [...sources].sort((a, b) => a.index - b.index)[0]
+  )
+}
+
+/** The frozen ring for a chain round: sorted pids that submitted the seed round.
+ *  Pass a ROOM-STABLE shuffle (default identity = sorted seating); never a per-round
+ *  one (see `chainOrder`). Pure. */
+export function chainRingFromSources(
+  sources: DeriveSource[],
+  shuffle: <T>(items: T[]) => T[] = (x) => x,
+): string[] {
+  const seed = chainSeedSource(sources)
+  if (!seed) return []
+  return chainOrder([...seed.inputs.keys()], shuffle)
+}
+
+/** The immediately-previous round's source (the highest-indexed one): the line or
+ *  drawing this round builds on. Pure. */
+export function chainPrevSource(sources: DeriveSource[]): DeriveSource | undefined {
+  return sources.reduce<DeriveSource | undefined>(
+    (best, s) => (best === undefined || s.index > best.index ? s : best),
+    undefined,
+  )
 }
 
 /** One step of an unspooled thread: the round, who held it, and what they made. */
