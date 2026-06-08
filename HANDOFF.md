@@ -32,14 +32,50 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   categories, doodlechain, quickwins, spectrum, standings, storychain, survey, teams,
 >   session, playlists, wager).
 > - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
->   (vote/split/fibvote weighting - poll done) · **Quick Draw** (real-time stroke streaming)
->   / Bingo / Call It (the remaining §5 custom-flow games) · the clue-giver "Wavelength"
->   Spectrum (now unblocked by the P7 foundation) · survey two-phase · custom prompt packs.
->   Detailed dated entries below.
+>   (vote/split/fibvote weighting - poll done; DESIGN DECIDED + scoped, see the dated entry
+>   below, ready to build) · **Quick Draw** (real-time stroke streaming) / Bingo / Call It
+>   (the remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now unblocked
+>   by the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **P4B for the SCORED vote blocks - DECIDED + scoped, ready to build (2026-06-08).** The
+> owner picked the design: a **lobby host toggle "Let the crowd's votes count", default OFF**.
+> OFF keeps a scored game pure (players decide the score, the existing behavior). ON folds the
+> audience as a CAPPED, DISCOUNTED bloc into the tally so the crowd can nudge which answer wins
+> (and thus the author's score), while audience members NEVER appear on the leaderboard. This
+> is the §4.2 Phase-B intent, now gated so a competitive host can opt out. NOT yet built (a
+> scoring-touching change held back from a long session to keep it properly verified). Concrete
+> plan (all reusable transport already exists from the poll work):
+> - **Reuse as-is:** the engine transport (`submitAudience`/`audienceVotesFor`, the `/avote/<i>/<id>`
+>   channel + host collector) and `GameHost.vue`'s `provide('dootAudienceVotes', ...)`.
+> - **Toggle:** add `crowdCounts?: boolean` to `RoomMeta` (engine) + a host `setCrowdCounts` that
+>   republishes meta (mirror the teams toggle exactly: `setTeams`/`meta.teams` is the template),
+>   and a lobby switch in the GameHost lobby shown when the game has a vote/split/fibvote block.
+> - **The primitive (pure + unit-test it):** a shared `runtime/crowd.ts` `crowdBloc(playerTotal,
+>   crowdCountsPerOption) -> per-option additions`, CAPPED + DISCOUNTED (suggest: the whole crowd
+>   is worth at most ~half the room, `cap = max(1, round(playerTotal * 0.5))`, distributed by the
+>   crowd's own choice split). Note: poll's existing `max(3, playerTotal)` blend is NOT discounted
+>   (full room) and is display-only; do NOT reuse that weight for scoring.
+> - **Context threading:** add optional `audienceVotesFor?: (index) => Map<string, unknown>` to
+>   `BlockResultsContext` and `audienceVotes?` to `RevealContext` (sdk). `HostRoom.client.vue`
+>   passes `room.audienceVotesFor` into `scoreGame`/standings/`buildRevealSummary` ONLY when
+>   `meta.crowdCounts` is true (so the toggle is enforced at the wiring layer; block code is
+>   uniform and a no-op when off).
+> - **Blocks (vote, split, fibvote):** in `aggregate` + `revealSummary`, fold the crowd into the
+>   per-option/per-scenario tally via `crowdBloc` BEFORE scoring, so the big screen, the phone
+>   reveal, and the leaderboard all agree. Audience is never added to `scores`/the leaderboard.
+>   vote/fibvote crowd input is `{choice: optionId}`; split is `{votes: {scenarioId: 'yes'|'no'}}`.
+> - **Audience phone view:** generalize `GameAudience.vue`'s `canVote` from `kind === 'poll'` to
+>   also allow vote/split/fibvote WHEN `meta.crowdCounts` is on, rendering options from
+>   `runtimeContentFor` (the derived, anonymized gallery) - never the author map.
+> - **Host views:** VoteHost/SplitHost/FibHost blend the crowd into the displayed tally when
+>   `meta.crowdCounts` is on (mirror PollHost's inject), so the screen matches the score.
+> - **Verify:** unit-test `crowdBloc` + each block's aggregate-with-crowd (capped, off-leaderboard,
+>   no effect when off); a browser smoke (vote round, toggle ON, a spectator votes, the crowd
+>   nudges the tally, the results leaderboard shows ONLY players). Template: `scripts/audience-vote-smoke.mjs`.
 
 > **Audit of the chain games + fixes (2026-06-08).** A full audit of Story Chain + Doodle
 > Chain (style, gameplay, tests, usability) on the same branch (1 commit, not pushed). Style:
