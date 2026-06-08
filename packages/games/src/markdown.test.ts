@@ -187,6 +187,13 @@ describe('parseMarkdownGame', () => {
     expect(warnings).toEqual([])
   })
 
+  it('carries an image on a quip make round (Caption This)', () => {
+    const { rounds } = parseMarkdownGame('## quip\nprompt: Caption this\nimage: https://example.com/meme.jpg\nvoteprompt: Funniest wins')
+    expect(rounds.map((r) => r.block)).toEqual(['quip', 'vote'])
+    expect((rounds[0]!.content as { image: string }).image).toBe('https://example.com/meme.jpg')
+    for (const r of rounds) expect(SCHEMAS[r.block]!.safeParse(r.content).success).toBe(true)
+  })
+
   it('expands quip with truth into quip + fibvote (Lie Detector)', () => {
     const { rounds } = parseMarkdownGame('## quip\nprompt: How tall is the Eiffel Tower?\ntruth: 330 metres')
     expect(rounds.map((r) => r.block)).toEqual(['quip', 'fibvote'])

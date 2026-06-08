@@ -122,9 +122,15 @@ interface Recipe {
   description: string
   make: string
   judge: string
+  /** Optional content overrides merged onto each block's defaultContent, so two
+   *  recipes that share the same blocks (e.g. Write & Vote vs Caption This) can
+   *  start from different prompts/fields. */
+  makeContent?: Record<string, unknown>
+  judgeContent?: Record<string, unknown>
 }
 const ALL_RECIPES: Recipe[] = [
   { id: 'write-vote', name: 'Write & Vote', description: 'Everyone writes an answer, then the room votes for the best one.', make: 'quip', judge: 'vote' },
+  { id: 'caption-vote', name: 'Caption This', description: 'Players write a caption for an image you pick, then the room votes for the funniest.', make: 'quip', judge: 'vote', makeContent: { prompt: 'Write a caption for this image.', image: '' }, judgeContent: { prompt: 'Which caption wins?' } },
   { id: 'madlib-vote', name: 'Mad Lib & Vote', description: 'Players fill in the blanks, then vote on the funniest result.', make: 'fill', judge: 'vote' },
   { id: 'would-you-split', name: 'Would You & Split', description: 'Players write would-you dares, then the room votes yes or no on each.', make: 'fill', judge: 'split' },
   { id: 'lie-detector', name: 'Lie Detector', description: 'Players write convincing lies; you set the real truth; the room hunts it down.', make: 'quip', judge: 'fibvote' },
@@ -368,9 +374,11 @@ function addRecipe(recipe: Recipe) {
   const judge = getBlock(plugin!, recipe.judge)
   if (!make || !judge) return
   // Push the make round then the judge round derived from it; the judge's
-  // default source is the round right above it, so adjacency wires the pair.
-  config.rounds.push({ block: make.kind, content: make.defaultContent() })
-  config.rounds.push({ block: judge.kind, content: judge.defaultContent() })
+  // default source is the round right above it, so adjacency wires the pair. A
+  // recipe may override fields onto the defaults (e.g. Caption This sets a caption
+  // prompt + an empty image the author fills in via the uploader).
+  config.rounds.push({ block: make.kind, content: { ...make.defaultContent(), ...(recipe.makeContent ?? {}) } })
+  config.rounds.push({ block: judge.kind, content: { ...judge.defaultContent(), ...(recipe.judgeContent ?? {}) } })
   selected.value = config.rounds.length - 2 // land on the make round
   showAdd.value = false
 }

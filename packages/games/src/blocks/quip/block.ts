@@ -14,6 +14,10 @@ import QuipPlayer from './QuipPlayer.vue'
 
 export const quipContentSchema = z.object({
   prompt: promptText('Finish the sentence...'),
+  /** Optional image shown with the prompt (the generic renderer shows it on the
+   *  big screen AND the phone). This is what turns a quip round into a "caption
+   *  this image" / meme round; the typed answers still feed the next vote round. */
+  image: z.string().default('').describe('Optional image to caption. Players write a caption for it.'),
   /** Optional placeholder text shown inside the empty answer box on the phone. */
   placeholder: z.string().default('').describe('Greyed-out hint text inside the empty answer box.'),
   maxLength: z.number().int().positive().max(280).default(80).describe('Max characters in an answer.'),
@@ -40,6 +44,7 @@ export const quipBlock = defineBlock<QuipContent, QuipInput>({
   contentSchema: quipContentSchema,
   defaultContent: () => ({
     prompt: 'The worst thing to say on a first date is ___',
+    image: '',
     placeholder: '',
     maxLength: 80,
     timer: 60,

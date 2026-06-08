@@ -79,7 +79,7 @@ Header fields above also work as save_game / update_game / set_game_meta argumen
 
 == TWO-PHASE BLOCKS (one heading expands to TWO rounds: a "make" round, then a "judge" round) ==
 How they work: the make round collects everyone's PRIVATE submission; the judge round is built AT RUNTIME from those submissions, anonymized and shuffled, for the room to vote on. You never write the judge options yourself - they ARE the players' answers. A player can't vote for their own.
-* "## quip": everyone writes an answer, then the room votes the best (Write & Vote / Quiplash). Fields: prompt, timer (default 60), maxlength, "voteprompt:", "votetimer:" (default 30).
+* "## quip": everyone writes an answer, then the room votes the best (Write & Vote / Quiplash). Fields: prompt, timer (default 60), maxlength, "voteprompt:", "votetimer:" (default 30). Add "image:" (a URL) to make it CAPTION THIS: players caption the image, then vote the funniest.
    - Add "truth: <the real answer>" => Lie Detector (Fibbage): players write a believable LIE to your trivia question (the prompt); the room hunts the one TRUE answer mixed in. Score by fooling others AND by finding the truth.
    - Optional "safety: a | b | c" (pipe-separated): canned answers auto-given to anyone who runs out of time, so there's no dead air and no zero (scored at half).
 * "## fill" (Mad Libs): players fill blanks BLIND (they never see the sentence), then the room votes the funniest completed story. Put the sentence in "template:" with {placeholders}; blanks are taken from the {placeholders} automatically. Add "- id: hint" lines to label a blank (e.g. "- noun: an animal"). Fields: prompt, "template:", timer (default 75), maxlength, "voteprompt:", "votetimer:".

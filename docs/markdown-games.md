@@ -204,16 +204,24 @@ stories become the gallery the room votes on.)
 
 ### `quip`: everyone writes, then the room votes
 Write & Vote (Quiplash). Fields: `prompt`, `timer` (default 60), `maxlength`,
-`voteprompt:` and `votetimer:` (default 30). Add `truth: <the real answer>` to turn
-it into **Lie Detector** (Fibbage): players write a believable lie to your trivia
-question (the `prompt`), then hunt the one true answer. Optional `safety: a | b | c`
-(pipe-separated): canned answers handed to anyone who runs out of time, so there is
-no dead air and no zero (scored at half, so they never out-win a real answer).
+`voteprompt:` and `votetimer:` (default 30). Add `image: <a URL>` to make it
+**Caption This**: the image shows on the big screen and every phone, players write
+a caption for it, then the room votes the funniest. Add `truth: <the real answer>`
+to turn it into **Lie Detector** (Fibbage): players write a believable lie to your
+trivia question (the `prompt`), then hunt the one true answer. Optional
+`safety: a | b | c` (pipe-separated): canned answers handed to anyone who runs out
+of time, so there is no dead air and no zero (scored at half, so they never
+out-win a real answer).
 
 ```markdown
 ## quip
 prompt: The worst possible name for a boat
 voteprompt: Which name wins?
+
+## quip
+prompt: Write a caption for this image.
+image: https://example.com/funny.jpg
+voteprompt: Funniest caption wins?
 
 ## quip
 prompt: How tall is the Eiffel Tower?

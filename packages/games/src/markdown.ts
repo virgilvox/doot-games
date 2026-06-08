@@ -293,6 +293,7 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         block: 'quip',
         content: {
           prompt: p.prompt ?? 'Write your funniest answer.',
+          image: p.image ?? '',
           placeholder: p.placeholder ?? '',
           maxLength: Number.isFinite(ml) && ml > 0 ? ml : 80,
           timer: toTimer(p.timer, 60),
