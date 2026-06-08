@@ -13,7 +13,7 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **Primitives:** P1 text-match · P5 Teams · P3 live standings · P4 Phase A audience tier.
 > - **New games/blocks:** answer + Type the Answer · caption (quip image) · Would You
 >   Rather · Tier List · Over/Under · Categories (Scattergories) · Survey (Family Feud) ·
->   Spectrum (consensus dial). Catalog now ~30 games.
+>   Spectrum (consensus dial) · Wager (bet-a-tier trivia). Catalog now ~31 games.
 > - **Content/UI:** audio-clip support (AudioClip) · SpectrumDial · StandingsPeek.
 > - **§4.3 Sessions COMPLETE:** engine `nextGame` + the SessionHostRoom orchestrator +
 >   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
@@ -21,12 +21,26 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   quickwins, spectrum, standings, survey, teams, session, playlists).
 > - **REMAINING toward completeness (per §8):** P4 Phase B (weighted audience voting) ·
 >   P7 Pipeline -> Doodle Chain / Quick Draw / Bingo / Call It (the big custom-flow games) ·
->   Wager · the clue-giver "Wavelength" Spectrum (needs per-player content in a derived
->   round, an engine gap). Detailed dated entries below.
+>   the clue-giver "Wavelength" Spectrum (needs per-player content in a derived round,
+>   an engine gap) · survey two-phase · custom prompt packs. Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Wager / high-stakes trivia (2026-06-08).** BUILT + verified on the same branch (1
+> commit, not pushed). A scored standalone block + a "Wager" flagship: each round is a
+> multiple-choice question, but first you bet a tier (100/300/500); right adds your bet,
+> wrong subtracts it, off a 1000 base bankroll, richest wins. A CLEAN standard block (no
+> engine change, no custom flow): the bet + answer ride in one input, scored in one
+> aggregate (no cross-round coupling). Correct option withheld (redactContent + answerOf
+> + REDACTION_RULES, like guess); bankroll = max(0, 1000 + net), order-independent. Pure
+> scoring tested; reuses the guess option schema + OptionGrid; the phone reveal shows the
+> +bet/-bet swing. Flagship draws fact-checked MC questions, deck-feedable via a quiz deck
+> (choiceFromRow). `## wager` markdown + MCP guide + docs. Meta-test now covers 22
+> flagships. NOTE: fixed tiers, NOT a fraction of the live bankroll (which would need
+> per-player content seeded by the standings - an engine bit deferred). Verified: 589
+> unit tests, typechecks, web build, `scripts/wager-smoke.mjs`, 0 overflow at 390px.
 
 > **Durable playlists - save + reuse a session (§4.3 complete) (2026-06-08).** BUILT +
 > verified on the same branch (1 commit, not pushed). The durable half of Sessions: a
