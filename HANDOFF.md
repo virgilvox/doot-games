@@ -11,6 +11,45 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Expansion plan slice 1: text-match (P1), the answer block, caption, and Teams
+> (P5) (2026-06-08).** BUILT + verified on branch `expansion-p1-answer-caption`,
+> NOT yet pushed/deployed (3 commits; `main` auto-deploys, so push when ready).
+> Working from `docs/expansion-plan.md` (corrected three layering mismatches first:
+> `visuals.ts` is in `packages/ui` and is not test-enforced; `fibvote.norm` is a
+> DIFFERENT normalizer from hivemind's, NOT the same, so it was left alone;
+> `ballparkCloseness`/`ballparkBounds` are already exported).
+> - **P1 text-match** (`packages/games/src/blocks/text-match.ts`): the shared
+>   free-text matcher. The aggressive `normalizeAnswer` lifted out of hivemind
+>   (which now re-exports it, its tests the regression lock) + diacritics fold +
+>   synonym list + a bounded edit-distance typo tolerance. Pure + unit-tested.
+> - **`answer` block + Type the Answer game**: type-the-answer trivia (free text,
+>   no options). Answers withheld (`redactContent` + `answerOf` + `REDACTION_RULES`)
+>   and graded by P1; correct-only scoring; host shows the answer + who got it; the
+>   phone self-grades. A flagship `type-the-answer` game (built-in pool + buildConfig
+>   + a deck-feedable quiz `contentPool` with answer columns withheld). `## answer`
+>   markdown + MCP guide + docs.
+> - **Caption** rounds: an additive optional `image` on the `quip` block (rendered
+>   by the generic renderer on host + phone, the proven image path), a one-click
+>   "Caption This" editor recipe, and `image:` on `## quip` markdown. A bundled
+>   "Caption This" flagship is DEFERRED (needs curated self-hosted images, a content
+>   call); caption is fully authorable/hostable today via the recipe + editor + md.
+> - **Teams (P5)**: a cross-cutting roll-up, blocks untouched, non-team games
+>   byte-identical. Ephemeral (invariant #1): team names on meta; each player's team
+>   on their own `/player/<pid>/team` relay address (retained + TTL, reconnect-safe).
+>   `Player.team` + `RoomMeta.teams` + the playerTeam address/pattern (folded into the
+>   roster, preserved through profile/ping handlers); `setTeam`/`setTeams`/`assignTeam`
+>   on the engine + Vue binding. `ScorePlayer.team` + `StandardResults.teamLeaderboard`;
+>   pure tested `teamLeaderboard()` + `teamCrownHeadline()` in `runtime/derive.ts`,
+>   called by `scoreGame`. UI: a lobby Teams toggle + count (2-4) + Auto-balance, a
+>   player team picker, team-coloured roster chips, and a results team board (host +
+>   phone) via a shared `teamColor()` helper.
+> - **Verified:** 509 unit tests, all package typechecks, the web build, and the
+>   real-browser smokes (`scripts/answer-smoke.mjs`, `scripts/teams-smoke.mjs`):
+>   correct/wrong feedback, the team board + "Red wins", 0 horizontal overflow at
+>   390px. **Next (per plan §8):** P3 live standings, then the Caption This flagship
+>   once images are sourced; a teams default ("teams suggested" manifest capability)
+>   is an optional later nicety.
+
 > **Display-block follow-ups + Create ordering (2026-06-07).** SHIPPED + deployed.
 > Three small follow-ups to the display blocks below: (1) the **Create** page's "Blocks
 > and Custom" grid now leads with **Custom** (`apps/web/app/pages/create.vue`, a stable
