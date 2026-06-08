@@ -11,6 +11,24 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Test-coverage audit + backfill (2026-06-08).** A pass over this branch's tests
+> found ONE gap and closed it: the four deck-row mappers added for the new games
+> (`answerRowFromRow`, `binaryFromRow`, `overUnderFromRow`, `surveyFromRow`) were only
+> exercised on their happy-path default rows by the pool meta-test; their real logic
+> (over/under text + 0/1 index + threshold/actual computation, two-choice column/
+> positional fallbacks, synonym columns, rejection of unusable rows) is now unit-tested
+> in `runtime/decks.test.ts`, matching how the existing mappers are covered. Also added
+> 6 "build shape" tests in `buildconfig.test.ts` locking the new games' semantic
+> output (a swapped/wrong-field bug parses-valid, so `compositions.test` wouldn't catch
+> it and the smokes don't always assert it). Coverage map for the branch: every block
+> has pure logic tests; engine changes (teams/standings/audience transport) are in
+> `engine/room.test.ts`; every new markdown block has a parse test; ALL games are
+> auto-covered by `compositions.test` (it iterates `builtinPlugins`, validating every
+> defaultConfig + buildConfig against the block schemas) + the deck-feed meta-test +
+> `catalog.test`; and 8 browser smokes cover the interactive flows (answer, audience,
+> audio, categories, quickwins, standings, survey, teams). 565 unit tests, typechecks,
+> web build all green.
+
 > **Survey / Family Feud (2026-06-08).** BUILT + verified on the same branch
 > `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new scored
 > standalone block + a "Survey" flagship. A round has a hidden BOARD of ranked
