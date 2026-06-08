@@ -56,6 +56,29 @@ function setCap(raw: string) {
   playerCap.value = Number.isFinite(n) && n > 0 ? n : null
 }
 
+// Teams (lobby control). The host turns teams on and picks how many; players then
+// self-pick on their phones (or the host taps Auto-balance). Ephemeral: the team
+// names ride on meta, each player's team on their own relay address. Blocks never
+// change; the results roll per-player scores into a team board.
+const DEFAULT_TEAM_NAMES = ['Red', 'Blue', 'Green', 'Gold']
+const teams = computed(() => room.meta.value?.teams ?? [])
+const teamsOn = computed(() => teams.value.length > 0)
+const teamCount = ref(2)
+function toggleTeams(on: boolean) {
+  if (on) room.host.setTeams(DEFAULT_TEAM_NAMES.slice(0, teamCount.value))
+  else room.host.setTeams(null)
+}
+function setTeamCount(n: number) {
+  teamCount.value = n
+  if (teamsOn.value) room.host.setTeams(DEFAULT_TEAM_NAMES.slice(0, n))
+}
+function autoBalance() {
+  const names = teams.value
+  if (!names.length) return
+  // Round-robin across the teams in roster order, so the split is even.
+  room.players.value.forEach((p, i) => room.host.assignTeam(p.id, names[i % names.length]!))
+}
+
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
@@ -176,6 +199,7 @@ function finish() {
     id: p.id,
     name: p.name,
     joinedAtIndex: p.joinedAtIndex,
+    team: p.team,
   }))
   // Score against the *effective* config: a two-phase round is scored on its
   // runtime-derived content (the vote options) and runtime answer key (the author
@@ -313,7 +337,7 @@ watch(
         <div class="kicker">In the room</div>
         <span class="count mono">{{ room.players.value.length }} joined</span>
       </div>
-      <RosterChips :players="room.players.value" />
+      <RosterChips :players="room.players.value" :teams="teams" />
       <div v-if="roundConfig" class="round-pick">
         <span class="kicker">{{ roundConfig.label }}</span>
         <div class="round-opts" role="group" :aria-label="roundConfig.label">
@@ -349,6 +373,35 @@ watch(
           aria-label="Maximum players"
           @input="setCap(($event.target as HTMLInputElement).value)"
         />
+      </div>
+      <div class="cap-pick">
+        <label class="cap-row">
+          <input
+            type="checkbox"
+            :checked="teamsOn"
+            @change="toggleTeams(($event.target as HTMLInputElement).checked)"
+          />
+          <span class="kicker">Play in teams</span>
+        </label>
+        <template v-if="teamsOn">
+          <div class="round-opts" role="group" aria-label="Number of teams">
+            <button
+              v-for="n in [2, 3, 4]"
+              :key="n"
+              type="button"
+              class="round-opt"
+              :class="{ on: teams.length === n }"
+              :aria-pressed="teams.length === n"
+              @click="setTeamCount(n)"
+            >
+              {{ n }}
+            </button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-block" @click="autoBalance">
+            Auto-balance players
+          </button>
+          <p class="note">Players pick a team on their phones, or tap Auto-balance to split them evenly.</p>
+        </template>
       </div>
       <label class="cap-row timers-row">
         <input
@@ -412,7 +465,7 @@ watch(
 
   <!-- RESULTS -->
   <div v-else-if="room.phase.value === 'results' && room.results.value" class="results-wrap">
-    <GameResults :results="room.results.value as any" />
+    <GameResults :results="room.results.value as any" :teams="teams" />
     <!-- What next (host controls). Plain links/reload so the engine package stays
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
     <div class="results-next">

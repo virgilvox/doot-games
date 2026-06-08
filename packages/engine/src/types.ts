@@ -44,6 +44,10 @@ export interface Player extends PlayerProfile {
   id: string
   /** Epoch ms of the last heartbeat, or null if never seen. */
   lastPing: number | null
+  /** The team this player picked or was assigned, when teams are on. Published to
+   *  the player's own `/team` address (ephemeral, retained, reconnect-safe).
+   *  Absent when not playing in teams. */
+  team?: string
 }
 
 /** This client's own identity. */
@@ -65,4 +69,8 @@ export interface RoomMeta {
    *  reads it and turns away a new player past the cap (a reconnecting name still
    *  gets in). Absent/0 means no cap. */
   playerCap?: number | null
+  /** The team names the host configured in the lobby, when playing in teams.
+   *  Players self-pick from these; the results show a team board. Absent/empty
+   *  means no teams. Ephemeral (lobby control), like `playerCap`. */
+  teams?: string[]
 }

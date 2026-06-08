@@ -66,3 +66,12 @@ const VISUALS: Record<string, GameVisual> = {
 export function gameVisual(type: string): GameVisual {
   return VISUALS[type] ?? { color: 'var(--primary)', icon: 'grid' }
 }
+
+/** Distinct theme-token accents for team play, picked by a team's index in the
+ *  lobby team list. Reads the same theme CSS custom properties as everything else,
+ *  so team colours match the active theme. Wraps for more than five teams. */
+const TEAM_COLORS = ['var(--c5)', 'var(--c3)', 'var(--c4)', 'var(--c1)', 'var(--c2)']
+export function teamColor(index: number): string {
+  const n = TEAM_COLORS.length
+  return TEAM_COLORS[((index % n) + n) % n]!
+}

@@ -49,10 +49,23 @@ export interface StatItem {
   value: string | number
 }
 
+/** One team's rolled-up total, when a game is played in teams. Built by the
+ *  generic renderer from the per-player leaderboard + each player's team; blocks
+ *  never produce this. */
+export interface TeamScore {
+  team: string
+  score: number
+  /** How many players are on the team. */
+  members: number
+}
+
 /** A conventional results shape the built-in widgets understand out of the box. */
 export interface StandardResults extends Results {
   headline?: string
   leaderboard?: LeaderboardEntry[]
+  /** Team totals, present only when the game was played in teams. Rendered as a
+   *  team board above the per-player leaderboard. */
+  teamLeaderboard?: TeamScore[]
   awards?: AwardCard[]
   distributions?: Distribution[]
   stats?: StatItem[]

@@ -10,21 +10,31 @@
  * games have no scored winner, so they open on the first breakdown.
  */
 import type { StandardResults } from '@doot-games/sdk'
-import { ConfettiBurst, Leaderboard, StatStrip, VoteBars } from '@doot-games/ui'
+import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, teamColor } from '@doot-games/ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { distributionToBars } from './derive'
 
 const props = withDefaults(
-  defineProps<{ results: StandardResults; me?: string | null; compact?: boolean }>(),
-  { me: null, compact: false },
+  defineProps<{ results: StandardResults; me?: string | null; compact?: boolean; teams?: string[] }>(),
+  { me: null, compact: false, teams: () => [] },
 )
 
 const hasLeaderboard = computed(() => !!props.results.leaderboard && props.results.leaderboard.length > 0)
+const hasTeams = computed(() => !!props.results.teamLeaderboard && props.results.teamLeaderboard.length > 0)
 const hasAwards = computed(() => !!props.results.awards && props.results.awards.length > 0)
 const hasStats = computed(() => !!props.results.stats && props.results.stats.length > 0)
 
+// Colour a team by its index in the lobby team list (passed in), so the results
+// board matches the lobby roster colours. Falls back to its rank if unknown.
+function teamTint(team: string, rank: number): string {
+  const i = props.teams.indexOf(team)
+  return teamColor(i >= 0 ? i : rank)
+}
+const topTeamScore = computed(() => props.results.teamLeaderboard?.[0]?.score ?? 0)
+
 type Distribution = NonNullable<StandardResults['distributions']>[number]
 type Slide =
+  | { kind: 'teams'; label: string }
   | { kind: 'leaderboard'; label: string }
   | { kind: 'awards'; label: string }
   | { kind: 'dist'; label: string; dist: Distribution }
@@ -34,6 +44,7 @@ type Slide =
 // pinned at the bottom so the run's tally is always in view.
 const slides = computed<Slide[]>(() => {
   const out: Slide[] = []
+  if (hasTeams.value) out.push({ kind: 'teams', label: 'Team scores' })
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
   if (hasAwards.value) out.push({ kind: 'awards', label: 'Top rated' })
   for (const d of props.results.distributions ?? [])
@@ -50,13 +61,14 @@ const currentSlide = computed(() => slides.value[current.value] ?? null)
 const currentKind = computed(() => currentSlide.value?.kind ?? null)
 const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? currentSlide.value.dist : null))
 const currentLabel = computed(() => currentSlide.value?.label ?? '')
-const onLeaderboard = computed(() => currentKind.value === 'leaderboard')
+// The "podium" payoff is the team board when teams are on, else the leaderboard.
+const onPodium = computed(() => currentKind.value === 'teams' || currentKind.value === 'leaderboard')
 
-// Burst the confetti ONCE, the first time the leaderboard is shown on the host
-// screen. Latched so paging away and back to the leaderboard does not replay it.
+// Burst the confetti ONCE, the first time a podium (team board / leaderboard) is
+// shown on the host screen. Latched so paging away and back does not replay it.
 const showConfetti = ref(false)
 watch(
-  onLeaderboard,
+  onPodium,
   (v) => {
     if (v && !props.compact) showConfetti.value = true
   },
@@ -91,6 +103,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
     <!-- Phone: stacked, the page scrolls. -->
     <div v-if="compact" class="rgrid">
+      <section v-if="hasTeams" class="panel board">
+        <h3>Team scores</h3>
+        <ol class="teamboard">
+          <li
+            v-for="(t, i) in results.teamLeaderboard"
+            :key="t.team"
+            class="team-row"
+            :class="{ win: t.score === topTeamScore && t.score > 0 }"
+            :style="{ '--team': teamTint(t.team, i) }"
+          >
+            <span class="team-rank mono">{{ i + 1 }}</span>
+            <span class="team-dot" aria-hidden="true" />
+            <span class="team-name">{{ t.team }}</span>
+            <span class="team-meta">{{ t.members }} player{{ t.members === 1 ? '' : 's' }}</span>
+            <span class="team-score mono">{{ t.score }}</span>
+          </li>
+        </ol>
+      </section>
+
       <section v-if="hasLeaderboard" class="panel board">
         <h3>Leaderboard</h3>
         <Leaderboard :entries="results.leaderboard ?? []" :highlight="me" :max="6" />
@@ -137,8 +168,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <div class="cstage">
             <Transition name="slide" mode="out-in">
               <section :key="current" class="panel slide">
+                <ol v-if="currentKind === 'teams'" class="teamboard host">
+                  <li
+                    v-for="(t, i) in results.teamLeaderboard"
+                    :key="t.team"
+                    class="team-row"
+                    :class="{ win: t.score === topTeamScore && t.score > 0 }"
+                    :style="{ '--team': teamTint(t.team, i) }"
+                  >
+                    <span class="team-rank mono">{{ i + 1 }}</span>
+                    <span class="team-dot" aria-hidden="true" />
+                    <span class="team-name">{{ t.team }}</span>
+                    <span class="team-meta">{{ t.members }} player{{ t.members === 1 ? '' : 's' }}</span>
+                    <span class="team-score mono">{{ t.score }}</span>
+                  </li>
+                </ol>
                 <Leaderboard
-                  v-if="currentKind === 'leaderboard'"
+                  v-else-if="currentKind === 'leaderboard'"
                   :entries="results.leaderboard ?? []"
                   :highlight="me"
                   :max="10"
@@ -329,6 +375,60 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   font-size: 20px;
   margin-bottom: 14px;
   color: var(--primary);
+}
+
+/* Team board ------------------------------------------------------------- */
+.teamboard {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+}
+.teamboard.host {
+  width: min(720px, 100%);
+}
+.team-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+  border-left: 4px solid var(--team);
+  border-radius: 13px;
+  padding: 12px 16px;
+}
+.team-row.win {
+  background: color-mix(in srgb, var(--team) 14%, var(--surface-2));
+  border-color: var(--team);
+}
+.team-rank {
+  font-weight: 800;
+  color: var(--ink-soft);
+  font-size: 16px;
+}
+.team-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--team);
+}
+.team-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(18px, 2.4vw, 24px);
+  overflow-wrap: anywhere;
+}
+.team-meta {
+  font-size: 13px;
+  color: var(--mute);
+  font-weight: 600;
+}
+.team-score {
+  font-weight: 800;
+  font-size: clamp(20px, 2.6vw, 28px);
+  color: var(--team);
 }
 .award {
   display: flex;

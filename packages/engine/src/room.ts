@@ -456,6 +456,7 @@ export class RoomRuntime {
         // first arrival as a presence pulse (show them immediately, without waiting
         // for the heartbeat). `?? this.now()` only fires on first sight.
         lastPing: prev?.lastPing ?? this.now(),
+        team: prev?.team, // preserve a team that arrived before the profile
       })
       this.emit()
     })
@@ -468,6 +469,24 @@ export class RoomRuntime {
         name: prev?.name ?? 'Player',
         joinedAtIndex: prev?.joinedAtIndex ?? 0,
         lastPing: Number(v),
+        team: prev?.team,
+      })
+      this.emit()
+    })
+    // Teams (when on): every role tracks each player's team so the host roster and
+    // the team board can group/colour by it. A player writes their own; the host
+    // may write any player's (assign / auto-balance). '' clears it.
+    on(patterns.playerTeam(r), (v, a) => {
+      const pid = pidFromPlayerAddress(a)
+      if (!pid) return
+      const team = typeof v === 'string' && v.length ? v : undefined
+      const prev = this.playersMap.get(pid)
+      this.playersMap.set(pid, {
+        id: pid,
+        name: prev?.name ?? 'Player',
+        joinedAtIndex: prev?.joinedAtIndex ?? 0,
+        lastPing: prev?.lastPing ?? null,
+        team,
       })
       this.emit()
     })
@@ -657,6 +676,29 @@ export class RoomRuntime {
     })
   }
 
+  /** Set (or clear with null) this player's team. A no-op unless we are a player.
+   *  Published to the player's own team address (ephemeral, retained), so a
+   *  reconnecting player keeps it. Updates local state at once for a snappy UI. */
+  setTeam(team: string | null): void {
+    if (this.me.role !== 'player') return
+    const value = team && team.length ? team : ''
+    const prev = this.playersMap.get(this.me.id)
+    this.playersMap.set(this.me.id, {
+      id: this.me.id,
+      name: prev?.name ?? this.me.name,
+      joinedAtIndex: prev?.joinedAtIndex ?? this.myJoinedAtIndex,
+      lastPing: prev?.lastPing ?? this.now(),
+      team: value || undefined,
+    })
+    this.publish(addr.playerTeam(this.room, this.me.id), value)
+    this.emit()
+  }
+
+  /** This player's own team, or null (for the lobby picker's selected state). */
+  get myTeam(): string | null {
+    return this.playersMap.get(this.me.id)?.team ?? null
+  }
+
   // ---- custom channels (for custom-flow games) -----------------------------
 
   /**
@@ -826,6 +868,27 @@ export class RoomRuntime {
     this.lastCommandNonce = null
     this.incomingCommand = null
     this.emit()
+  }
+
+  /** Turn teams on with these names (or off with [] / null). Republishes meta so
+   *  players see the team picker. Ephemeral lobby control, mirrors setPlayerCap. */
+  setTeams(names: string[] | null): void {
+    this.assertHost()
+    const base = this.meta ?? this.game?.meta
+    if (!base) return
+    const teams = names && names.length ? names : undefined
+    this.meta = { ...base, teams }
+    if (this.game) this.game = { ...this.game, meta: this.meta }
+    this.publish(addr.meta(this.room), this.meta as unknown as RelayValue)
+    this.emit()
+  }
+
+  /** Host: assign (or clear with null) a player's team, e.g. an auto-balance.
+   *  Publishes to that player's team address, exactly as the player would; the
+   *  host's own team subscription folds it back into the roster. */
+  assignTeam(pid: string, team: string | null): void {
+    this.assertHost()
+    this.publish(addr.playerTeam(this.room, pid), team && team.length ? team : '')
   }
 
   start(): void {

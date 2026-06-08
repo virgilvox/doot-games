@@ -76,6 +76,12 @@ export function useDootRoom(options: UseDootRoomOptions) {
     // player actions
     submit: (input: Parameters<RoomRuntime['submit']>[0]) => runtime.submit(input),
     sendControl: (action: Parameters<RoomRuntime['sendControl']>[0]) => runtime.sendControl(action),
+    // teams: a player picks (or the host assigns) a team in the lobby.
+    setTeam: (team: string | null) => runtime.setTeam(team),
+    myTeam: computed(() => {
+      void snapshot.value
+      return runtime.myTeam
+    }),
     // custom channels (custom-flow games)
     publishExtra: (key: string, value: Parameters<RoomRuntime['publishExtra']>[1]) =>
       runtime.publishExtra(key, value),
@@ -125,6 +131,8 @@ export function useDootRoom(options: UseDootRoomOptions) {
       finish: (summary: Parameters<RoomRuntime['finish']>[0]) => runtime.finish(summary),
       setPlayerCap: (cap: number | null) => runtime.setPlayerCap(cap),
       setDriver: (pid: string | null) => runtime.setDriver(pid),
+      setTeams: (names: string[] | null) => runtime.setTeams(names),
+      assignTeam: (pid: string, team: string | null) => runtime.assignTeam(pid, team),
       can: (action: HostAction['type']) => runtime.can(action),
     },
   }

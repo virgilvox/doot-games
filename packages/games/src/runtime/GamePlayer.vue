@@ -7,13 +7,17 @@
 import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin } from '@doot-games/sdk'
-import { Icon } from '@doot-games/ui'
+import { Icon, teamColor } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, ownMakeText } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
+
+// Teams (when the host turned them on): the names to pick from, and this player's
+// current pick. Shown in the lobby; the player taps to join a team.
+const teams = computed(() => room.meta.value?.teams ?? [])
 
 const config = computed<GameComposition | null>(
   () => (room.config.value as unknown as GameComposition) ?? null,
@@ -141,6 +145,23 @@ function reloadPage() {
 
     <div v-else-if="room.phase.value === 'lobby'" class="big">
       <h2>You are in!</h2>
+      <div v-if="teams.length" class="team-pick">
+        <p class="team-pick-label">{{ room.myTeam.value ? 'Your team' : 'Pick your team' }}</p>
+        <div class="team-opts" role="group" aria-label="Pick your team">
+          <button
+            v-for="(t, i) in teams"
+            :key="t"
+            type="button"
+            class="team-opt"
+            :class="{ on: room.myTeam.value === t }"
+            :aria-pressed="room.myTeam.value === t"
+            :style="{ '--team': teamColor(i) }"
+            @click="room.setTeam(t)"
+          >
+            {{ t }}
+          </button>
+        </div>
+      </div>
       <template v-if="room.isDriver.value">
         <p><Icon name="mc" :size="15" /> You're the MC. Kick it off when everyone's in.</p>
         <button class="btn btn-primary btn-block" @click="room.sendControl('start')">Start game →</button>
@@ -149,7 +170,7 @@ function reloadPage() {
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <GameResults :results="room.results.value as any" :me="room.me.value.name" compact />
+      <GameResults :results="room.results.value as any" :me="room.me.value.name" :teams="teams" compact />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 
@@ -283,5 +304,46 @@ function reloadPage() {
   color: var(--mute);
   font-size: 13px;
   font-weight: 600;
+}
+/* Team picker (lobby) */
+.team-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.team-pick-label {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.team-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.team-opt {
+  font: inherit;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 2px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.1s, background 0.1s;
+}
+.team-opt:hover {
+  transform: translateY(-1px);
+  border-color: var(--team);
+}
+.team-opt.on {
+  border-color: var(--team);
+  background: color-mix(in srgb, var(--team) 20%, var(--surface));
+  color: var(--team);
 }
 </style>

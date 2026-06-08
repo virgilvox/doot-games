@@ -11,6 +11,7 @@ import type {
   ResultsFragment,
   ScorePlayer,
   StandardResults,
+  TeamScore,
 } from '@doot-games/sdk'
 import { type ShareInput, pickShare } from './shares'
 
@@ -138,6 +139,51 @@ export function crownHeadline(leaderboard?: Array<{ name: string; score: number 
   return `${winners.length}-way tie: ${winners.slice(0, -1).join(', ')} & ${winners[winners.length - 1]}`
 }
 
+/**
+ * Roll the per-player leaderboard into team totals, when the game is played in
+ * teams. Pure: sums each scored player's points into their team and counts every
+ * teamed player as a member (even a zero-scorer). Returns undefined when no player
+ * has a team, so a non-team game is unchanged. This is the ONE place teams touch
+ * scoring; blocks never see a team.
+ */
+export function teamLeaderboard(
+  leaderboard: Array<{ id?: string; score: number }>,
+  players: ScorePlayer[],
+): TeamScore[] | undefined {
+  const teamOf = new Map<string, string>()
+  for (const p of players) if (p.team) teamOf.set(p.id, p.team)
+  if (teamOf.size === 0) return undefined
+  const totals = new Map<string, { score: number; members: number }>()
+  for (const p of players) {
+    if (!p.team) continue
+    const t = totals.get(p.team) ?? { score: 0, members: 0 }
+    t.members++
+    totals.set(p.team, t)
+  }
+  for (const e of leaderboard) {
+    const team = e.id ? teamOf.get(e.id) : undefined
+    if (!team) continue
+    const t = totals.get(team)
+    if (t) t.score += typeof e.score === 'number' ? e.score : 0
+  }
+  return [...totals.entries()]
+    .map(([team, t]) => ({ team, score: t.score, members: t.members }))
+    .sort((a, b) => b.score - a.score || a.team.localeCompare(b.team))
+}
+
+/** The win headline for team play, co-crowning a tie ("Red wins", "Red & Blue
+ *  tie"). Null when no team scored above 0, so the caller falls back to the
+ *  per-player crown. Pure + tested. */
+export function teamCrownHeadline(teams?: TeamScore[]): string | null {
+  if (!teams?.length) return null
+  const max = Math.max(...teams.map((t) => t.score))
+  if (max <= 0) return null
+  const winners = teams.filter((t) => t.score === max).map((t) => t.team)
+  if (winners.length === 1) return `${winners[0]} wins`
+  if (winners.length === 2) return `${winners[0]} & ${winners[1]} tie`
+  return `${winners.length}-way tie: ${winners.slice(0, -1).join(', ')} & ${winners[winners.length - 1]}`
+}
+
 /** Group rounds by block, run each block's aggregate, and merge the fragments. */
 export function scoreGame(
   plugin: GamePlugin,
@@ -172,11 +218,19 @@ export function scoreGame(
     { label: 'Players', value: ctx.players.length },
     ...fragments.flatMap((f) => f.stats ?? []),
   ]
+  // Teams (when on): roll the per-player board into team totals. The per-player
+  // board is kept too (the MVP is still per player); the headline crowns the team.
+  const teams = teamLeaderboard(leaderboard ?? [], ctx.players)
+
   // Crown the winner(s) only when the top score is above zero (else "Nobody wins
   // at 0" reads oddly); co-crown a top-score tie; fall back to a block headline.
-  const headline = crownHeadline(leaderboard) ?? (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
+  // In team play the headline crowns the winning TEAM.
+  const headline =
+    teamCrownHeadline(teams) ??
+    crownHeadline(leaderboard) ??
+    (fragments.find((f) => f.headline)?.headline ?? 'The results are in')
 
-  return { headline, leaderboard, awards, distributions, stats }
+  return { headline, leaderboard, teamLeaderboard: teams, awards, distributions, stats }
 }
 
 /**

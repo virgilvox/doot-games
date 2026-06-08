@@ -45,6 +45,10 @@ export const addr = {
   resultsSummary: (room: string) => `${roomBase(room)}/results/summary`,
   playerProfile: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/profile`,
   playerPing: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/ping`,
+  /** A player's team (when teams are on): a team name, or '' to clear. The player
+   *  writes their own; the host may write any player's (assign / auto-balance).
+   *  Retained + TTL-scoped, so a reconnecting player keeps their team. */
+  playerTeam: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/team`,
   /** A player's submission for round `i`. */
   input: (room: string, i: number, pid: string) => `${roomBase(room)}/input/${i}/${pid}`,
   /** Ephemeral image or drawing, TTL-scoped. */
@@ -58,6 +62,8 @@ export const addr = {
 export const patterns = {
   playerProfile: (room: string) => `${roomBase(room)}/player/*/profile`,
   playerPing: (room: string) => `${roomBase(room)}/player/*/ping`,
+  /** Every player's team (everyone tracks the roster's teams). */
+  playerTeam: (room: string) => `${roomBase(room)}/player/*/team`,
   /** All players' inputs for all rounds (host only). */
   allInputs: (room: string) => `${roomBase(room)}/input/*/*`,
   /** This player's own inputs across rounds (reconnect restore + private score). */

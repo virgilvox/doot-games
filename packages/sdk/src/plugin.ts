@@ -8,6 +8,11 @@ export interface ScorePlayer {
   id: string
   name: string
   joinedAtIndex: number
+  /** The team this player picked (or was assigned) in the lobby, when teams are
+   *  on. Ephemeral, set on the relay like `name`. Absent when not playing in teams.
+   *  Blocks ignore it; the generic renderer rolls per-player scores into team
+   *  totals (it never changes how a block scores a player). */
+  team?: string
 }
 
 /** The three (plus two optional) views a game renders. Games usually let the
