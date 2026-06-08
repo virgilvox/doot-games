@@ -6,45 +6,11 @@ const theme = useState('doot-theme', () => 'doot')
 const route = useRoute()
 const chrome = computed(() => !route.path.startsWith('/host/') && !route.path.startsWith('/play/'))
 
+// The account control (avatar + dropdown, or Log in / Sign up) lives in
+// <AccountMenu>; the shell only needs `loggedIn` to gate the Your Games / Saved nav.
 const session = authClient.useSession()
 const user = computed(() => session.value?.data?.user ?? null)
 const loggedIn = computed(() => !!user.value)
-
-// Admin status drives only whether the Admin nav link shows; every admin route
-// re-checks server-side (requireAdmin), so this is cosmetic, never a security gate.
-const isAdmin = useState('doot-is-admin', () => false)
-async function refreshAdmin() {
-  if (!import.meta.client) return
-  if (!user.value) {
-    isAdmin.value = false
-    return
-  }
-  try {
-    const r = await $fetch<{ admin: boolean }>('/api/admin/me')
-    isAdmin.value = !!r.admin
-  } catch {
-    isAdmin.value = false
-  }
-}
-watch(() => user.value?.id, refreshAdmin, { immediate: true })
-const handle = computed(() => (user.value as { username?: string | null } | null)?.username ?? null)
-// Nudge the user to personalize while the signup default is still in place (no
-// handle claimed and the display name still equals the email local-part).
-const needsSetup = computed(() => {
-  const u = user.value
-  if (!u) return false
-  const prefix = (u.email ?? '').split('@')[0] ?? ''
-  return !handle.value && (!u.name || u.name === prefix)
-})
-const accountLabel = computed(() => {
-  if (needsSetup.value) return 'Finish your profile'
-  if (handle.value) return `@${handle.value}`
-  return user.value?.name || 'Account'
-})
-async function logout() {
-  await authClient.signOut()
-  await navigateTo('/')
-}
 </script>
 
 <template>
@@ -61,19 +27,9 @@ async function logout() {
           <NuxtLink to="/decks" class="navlink">Decks</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/mine" class="navlink">Your Games</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/saved" class="navlink">Saved</NuxtLink>
-          <NuxtLink v-if="isAdmin" to="/admin" class="navlink nav-admin">Admin</NuxtLink>
         </nav>
         <div class="bar-spacer" />
-        <div class="account">
-          <template v-if="loggedIn">
-            <NuxtLink to="/account" class="navlink account-link" :class="{ nudge: needsSetup }">{{ accountLabel }}</NuxtLink>
-            <button class="linkbtn" @click="logout">Log out</button>
-          </template>
-          <template v-else>
-            <NuxtLink to="/login" class="navlink">Log in</NuxtLink>
-            <NuxtLink to="/login?signup=1" class="signup-btn">Sign up</NuxtLink>
-          </template>
-        </div>
+        <AccountMenu class="account" />
         <div class="themebar" role="group" aria-label="Theme">
           <span class="lbl mono">theme</span>
           <button
@@ -99,52 +55,11 @@ async function logout() {
 </template>
 
 <style scoped>
-.nav-admin {
-  color: var(--primary);
-  font-weight: 800;
-}
+/* The account control is <AccountMenu>; this just spaces it from the theme bar.
+   A parent's scoped style reaches a child component's root element, so this lands
+   on the AccountMenu root (which carries class="account"). */
 .account {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin-right: 14px;
-}
-.account-link {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.account-link.nudge {
-  color: var(--primary-ink);
-  background: var(--primary);
-  border-radius: 999px;
-}
-.linkbtn {
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-weight: 700;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: inherit;
-  padding: 0;
-}
-.signup-btn {
-  display: inline-flex;
-  align-items: center;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: var(--bd) solid var(--line);
-  background: var(--ink);
-  color: var(--bg);
-  font-weight: 800;
-  font-size: 13px;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.signup-btn:hover {
-  opacity: 0.9;
 }
 .themebar {
   display: flex;
@@ -212,9 +127,6 @@ async function logout() {
 }
 @media (max-width: 720px) {
   .themebar {
-    display: none;
-  }
-  .account-email {
     display: none;
   }
   .topbar .inner {
