@@ -15,6 +15,7 @@ import {
   promptText,
   z,
 } from '@doot-games/sdk'
+import { crowdBloc } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
 import { closenessToHalf, roundMultiplier, splitPoints } from '../scoring'
 import SplitHost from './SplitHost.vue'
@@ -50,11 +51,15 @@ export interface SplitRevealSummary {
   results: Array<{ id: string; text: string; author: string; yes: number; no: number; points: number }>
 }
 
-/** Per-scenario yes/no counts, excluding the author's own vote on their scenario. */
+/** Per-scenario yes/no counts, excluding the author's own vote on their scenario.
+ *  P4B: when "the crowd's votes count" is on, the audience's yes/no for THIS scenario
+ *  folds in as a capped, discounted bloc (capped against this scenario's player votes),
+ *  so the crowd can nudge how divided the room looks but never run it up. */
 function tally(
   scenario: SplitScenario,
   inputs: Map<string, SplitInput>,
   authorPid: string | undefined,
+  crowd?: Map<string, SplitInput>,
 ): { yes: number; no: number } {
   let yes = 0
   let no = 0
@@ -63,6 +68,16 @@ function tally(
     const v = input?.votes?.[scenario.id]
     if (v === 'yes') yes++
     else if (v === 'no') no++
+  }
+  if (crowd?.size) {
+    const cc = new Map<string, number>()
+    for (const input of crowd.values()) {
+      const v = input?.votes?.[scenario.id]
+      if (v === 'yes' || v === 'no') cc.set(v, (cc.get(v) ?? 0) + 1)
+    }
+    const add = crowdBloc(yes + no, cc)
+    yes += add.get('yes') ?? 0
+    no += add.get('no') ?? 0
   }
   return { yes, no }
 }
@@ -119,7 +134,7 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
       ctx.players.find((p) => p.id === pid)?.name ?? ans?.names?.[pid] ?? 'Someone'
     const results = ctx.content.scenarios.map((s) => {
       const author = authors[s.id]
-      const { yes, no } = tally(s, ctx.inputs, author)
+      const { yes, no } = tally(s, ctx.inputs, author, ctx.audienceVotes)
       return { id: s.id, text: s.text, author: nameOf(author ?? ''), yes, no, points: splitPoints(yes, yes + no) }
     })
     results.sort((a, b) => b.points - a.points)
@@ -145,7 +160,7 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
       for (const s of round.content.scenarios) {
         const pid = authors[s.id]
         if (!pid) continue
-        const { yes, no } = tally(s, inputs, pid)
+        const { yes, no } = tally(s, inputs, pid, ctx.audienceVotesFor?.(round.index))
         const total = yes + no
         let pts = splitPoints(yes, total) * mult
         if (safety.has(s.id)) pts = Math.round(pts / 2) // a timed-out safety dilemma scores half

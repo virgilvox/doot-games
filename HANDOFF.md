@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 36
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 38
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -18,7 +18,8 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **New games/blocks:** answer + Type the Answer · caption (quip image) · Would You
 >   Rather · Tier List · Over/Under · Categories (Scattergories) · Survey (Family Feud) ·
 >   Spectrum (consensus dial) · Wager (bet-a-tier trivia). Catalog now ~31 games.
->   P4 audience tier: A (watch + standings) AND B (vote on polls as a capped crowd bloc).
+>   P4 audience tier: A (watch + standings) AND B (vote as a capped crowd bloc - polls always,
+>   plus scored vote/fibvote/split behind a host toggle).
 > - **Content/UI:** audio-clip support (AudioClip) · SpectrumDial · StandingsPeek.
 > - **§4.3 Sessions COMPLETE:** engine `nextGame` + the SessionHostRoom orchestrator +
 >   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
@@ -28,14 +29,14 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   **Story Chain** (text telephone) + **Doodle Chain** (Gartic Phone, Pixi draw rounds)
 >   both on that foundation · a generic `components.Results` seam (the renderer honors a
 >   game's custom results view) + a `ResultsFragment.recap` passthrough. Catalog now ~33 games.
-> - **Tests:** ~639 unit + ~14 browser smokes (answer, audience, audience-vote, audio,
->   categories, crowd-vote, doodlechain, quickwins, spectrum, standings, storychain, survey,
->   teams, session, playlists, wager).
-> - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks - `vote` +
->   `fibvote` DONE (host toggle + capped crowd bloc); `split` remains (same fold, but needs a
->   per-scenario yes/no audience surface) · **Quick Draw** (real-time stroke streaming) / Bingo / Call It (the
->   remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now unblocked by
->   the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated entries below.
+> - **Tests:** ~642 unit + ~15 browser smokes (answer, audience, audience-vote, audio,
+>   categories, crowd-vote, doodlechain, quickwins, spectrum, split-crowd, standings,
+>   storychain, survey, teams, session, playlists, wager).
+> - **REMAINING toward completeness (per §8):** **P4B COMPLETE** (host toggle + capped crowd
+>   bloc on vote + fibvote + split) · **Quick Draw** (real-time stroke streaming) / Bingo /
+>   Call It (the remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now
+>   unblocked by the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated
+>   entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
@@ -67,10 +68,14 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   has no author; truth-finder scoring is untouched because it iterates player inputs). Added to
 >   `CROWD_VOTE_BLOCKS` + GameAudience `canVote` (single-choice, same surface as vote). Unit-tested
 >   (`fibvote.test`); the end-to-end audience flow is the SAME shared code the vote smoke covers.
-> - **Follow-on (split only):** same `crowdBloc` + context, fold its per-scenario `tally()` (cap the
->   crowd's yes/no against that scenario's player votes). BUT split's input is per-scenario yes/no,
->   so it ALSO needs a NEW per-scenario audience surface in GameAudience (the current one is
->   single-choice) + a split-room smoke. That UI is the real work; the scoring fold is a few lines.
+> - **split: now DONE too (2026-06-08).** Folds the crowd in its per-scenario `tally()` (the
+>   crowd's yes/no for a scenario is capped against that scenario's player votes, so the crowd
+>   can nudge how divided the room looks - changing the author's closeness-to-50/50 score - but
+>   never run it up). GameAudience gained a NEW per-scenario yes/no surface (`.aud-split`, each
+>   tap re-publishes the whole votes object; partial answers are fine). Unit-tested + a real
+>   `scripts/split-crowd-smoke.mjs` (a spectator votes yes/no per scenario on a split-room round;
+>   leaderboard stays player-only; 0 overflow at 390px). **P4B is now COMPLETE for vote +
+>   fibvote + split.**
 
 > **P4B for the SCORED vote blocks - DECIDED + scoped (2026-06-08).** The
 > owner picked the design: a **lobby host toggle "Let the crowd's votes count", default OFF**.

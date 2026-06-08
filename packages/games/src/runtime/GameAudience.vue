@@ -45,16 +45,16 @@ const hasStandings = computed(() => (standings.value?.leaderboard?.length ?? 0) 
 // where their votes fold into the tally as a capped bloc. Their votes ride a separate
 // channel and never put them on the leaderboard.
 const crowdOn = computed(() => !!room.meta.value?.crowdCounts)
+const isSplit = computed(() => block.value?.kind === 'split')
 const canVote = computed(() => {
   if (state.value !== 'open') return false
   const k = block.value?.kind
   if (k === 'poll') return true // unscored, always
-  // Scored judge rounds: only when the host turned the toggle on. `vote` + `fibvote`
-  // are single-choice and wired; `split` (per-scenario yes/no) needs its own surface.
-  return crowdOn.value && (k === 'vote' || k === 'fibvote')
+  // Scored judge rounds: only when the host turned the toggle on.
+  return crowdOn.value && (k === 'vote' || k === 'fibvote' || k === 'split')
 })
-// Normalize the votable options: a poll's choice is the option INDEX; a derived vote
-// round's choice is the option ID (a string). Read from the public derived content.
+// Single-choice surface (poll/vote/fibvote): a poll's choice is the option INDEX; a
+// derived vote round's choice is the option ID (a string). From the public content.
 const voteOptions = computed<Array<{ key: number | string; label: string }>>(() => {
   const opts = (content.value as { options?: Array<{ label?: string; id?: string; text?: string }> } | null)?.options ?? []
   if (block.value?.kind === 'poll') return opts.map((o, i) => ({ key: i, label: o.label ?? '' }))
@@ -63,11 +63,23 @@ const voteOptions = computed<Array<{ key: number | string; label: string }>>(() 
 const myVote = ref<number | string | null>(null)
 watch(index, () => {
   myVote.value = null
+  splitVotes.value = {}
 })
 function vote(choice: number | string) {
   if (myVote.value != null) return
   room.submitAudience({ choice })
   myVote.value = choice
+}
+
+// Per-scenario surface (split): the audience answers yes/no on each scenario and we
+// re-publish the whole votes object on every tap (partial answers are fine).
+const scenarios = computed(
+  () => (content.value as { scenarios?: Array<{ id: string; text: string }> } | null)?.scenarios ?? [],
+)
+const splitVotes = ref<Record<string, 'yes' | 'no'>>({})
+function splitVote(id: string, v: 'yes' | 'no') {
+  splitVotes.value = { ...splitVotes.value, [id]: v }
+  room.submitAudience({ votes: { ...splitVotes.value } })
 }
 
 const status = computed(() => {
@@ -109,7 +121,33 @@ const status = computed(() => {
         <div class="kicker">{{ block.name }}</div>
         <h2 class="prompt">{{ prompt || block.name }}</h2>
         <img v-if="showImage" :src="image" alt="" class="aud-img" @error="failedImage = true" />
-        <div v-if="canVote" class="aud-vote" role="group" aria-label="Vote with the crowd">
+        <div v-if="canVote && isSplit" class="aud-split" role="group" aria-label="Vote yes or no with the crowd">
+          <p class="vote-hint">Vote with the crowd on each:</p>
+          <div v-for="s in scenarios" :key="s.id" class="aud-scenario">
+            <p class="scen-text">{{ s.text }}</p>
+            <div class="yn">
+              <button
+                type="button"
+                class="aud-opt yn-btn"
+                :class="{ on: splitVotes[s.id] === 'yes' }"
+                :aria-pressed="splitVotes[s.id] === 'yes'"
+                @click="splitVote(s.id, 'yes')"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                class="aud-opt yn-btn"
+                :class="{ on: splitVotes[s.id] === 'no' }"
+                :aria-pressed="splitVotes[s.id] === 'no'"
+                @click="splitVote(s.id, 'no')"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else-if="canVote" class="aud-vote" role="group" aria-label="Vote with the crowd">
           <p class="vote-hint">{{ myVote == null ? 'Vote with the crowd:' : "Your vote is in. Watch the big screen." }}</p>
           <button
             v-for="o in voteOptions"
@@ -227,6 +265,34 @@ const status = computed(() => {
 .aud-opt:disabled {
   cursor: default;
   opacity: 0.85;
+}
+.aud-split {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.aud-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface-2);
+}
+.scen-text {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.yn {
+  display: flex;
+  gap: 10px;
+}
+.yn-btn {
+  flex: 1;
+  text-align: center;
 }
 .slide-mirror {
   flex: 1;

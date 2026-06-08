@@ -43,6 +43,41 @@ describe('split block derive', () => {
   })
 })
 
+describe('split block audience bloc (P4B: capped crowd, never on the board)', () => {
+  function ctx(crowd?: Map<string, SplitInput>): BlockResultsContext<SplitContent, SplitInput> {
+    const { publish, answer } = derive() // s0 = Ada's scenario, s1 = Bea's
+    // Everyone votes YES on s0 -> 3-0, very one-sided, so Ada (who wants to DIVIDE) scores low.
+    const votes = new Map<string, SplitInput>([
+      ['B', { votes: { s0: 'yes', s1: 'yes' } }],
+      ['C', { votes: { s0: 'yes', s1: 'no' } }],
+      ['D', { votes: { s0: 'yes', s1: 'no' } }],
+    ])
+    return {
+      rounds: [{ index: 1, content: publish }],
+      inputsFor: () => votes,
+      answerFor: () => answer,
+      players,
+      audienceVotesFor: crowd ? () => crowd : undefined,
+    }
+  }
+  const scoreOf = (c: BlockResultsContext<SplitContent, SplitInput>, name: string) =>
+    (splitBlock.aggregate!(c).leaderboard ?? []).find((e) => e.name === name)?.score ?? 0
+
+  it("a crowd's NO votes even out a one-sided scenario (lifting its author), capped + off the board", () => {
+    const base = scoreOf(ctx(), 'Ada') // s0 is 3-0 -> one-sided -> low split score
+    const crowd = new Map<string, SplitInput>(
+      Array.from({ length: 100 }, (_, i) => [`aud${i}`, { votes: { s0: 'no' } }]),
+    )
+    const withCrowd = ctx(crowd)
+    // playerTotal on s0 is 3 -> cap 2, so the 100 crowd NOs add only 2: s0 becomes 3-2,
+    // closer to 50/50, so Ada (rewarded for dividing) scores MORE, but the crowd couldn't run it up.
+    expect(scoreOf(withCrowd, 'Ada')).toBeGreaterThan(base)
+    const board = splitBlock.aggregate!(withCrowd).leaderboard ?? []
+    expect(board.some((e) => e.id?.startsWith('aud'))).toBe(false) // spectators never on the board
+    expect(board.map((e) => e.id).sort()).toEqual(['A', 'B', 'C', 'D'])
+  })
+})
+
 describe('split block timeout safety net', () => {
   // Only A submits; B/C/D are eligible non-submitters and get the canned dilemma.
   function deriveWithPool() {
