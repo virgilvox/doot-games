@@ -11,6 +11,24 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Categories / Scattergories (2026-06-08).** BUILT + verified on the same branch
+> `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new scored
+> standalone block + a "Categories" flagship. Everyone gets the same letter + a few
+> categories and types one answer each; an answer scores only if VALID (starts with
+> the letter) AND UNIQUE (no one else gave it), using the shared P1 normalize fold for
+> the uniqueness test. It's a STANDARD block (no engine changes, no answer-withholding:
+> scoring is computed at reveal, so no REDACTION_RULES), correct-style scored so it
+> works with teams + standings. Pure tested logic (`scoreCategories`/`startsWithLetter`);
+> the host reveal flags every answer scored/duplicate/invalid, the phone grades the
+> player's own. The flagship draws a random playable letter + category set per round
+> (seeded), deck-feedable via a prompt deck of categories; authorable via `## categories`
+> markdown + the MCP guide + docs. The deck-feed meta-test now covers **19** flagships.
+> Verified: 544 unit tests, all typechecks, the web build, and
+> `scripts/categories-smoke.mjs` (two players type valid+unique answers, host scores +
+> reveals, phone shows the score, to final results), 0 overflow at 390px. **Next (per
+> plan §8):** P4 Phase B (weighted audience voting), Wager (custom-flow), §4.3
+> sessions/playlists, survey (Family Feud).
+
 > **Audio-clip support for trivia / Name That Tune (2026-06-08).** BUILT + verified on
 > the same branch `expansion-p1-answer-caption` (1 more commit, not yet pushed). An
 > optional `audio` field on the **guess** and **answer** blocks turns any trivia round
