@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 31
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 32
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -22,17 +22,56 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 > - **Content/UI:** audio-clip support (AudioClip) · SpectrumDial · StandingsPeek.
 > - **§4.3 Sessions COMPLETE:** engine `nextGame` + the SessionHostRoom orchestrator +
 >   durable playlists (table/repo/API + /host/playlist/[id] + /playlists).
-> - **Tests:** ~590 unit + ~11 browser smokes (answer, audience, audience-vote, audio,
+> - **Engine primitives:** §4.3 Sessions (`nextGame`) · **P7 Pipeline foundation**
+>   (per-player content derived from a PRIOR round's inputs - `AssignContext.sources` +
+>   `assignContent(index, inputsFor)` + the pure chain-rotation helpers in
+>   `runtime/chain.ts`). The chain GAMES are the next turn.
+> - **Tests:** ~601 unit + ~11 browser smokes (answer, audience, audience-vote, audio,
 >   categories, quickwins, spectrum, standings, survey, teams, session, playlists, wager).
 > - **REMAINING toward completeness (per §8):** P4B for the SCORED vote blocks
->   (vote/split/fibvote weighting - poll done) · P7 Pipeline -> Doodle Chain / Quick Draw /
->   Bingo / Call It (the big custom-flow games) · the clue-giver "Wavelength" Spectrum
->   (needs per-player content in a derived round, an engine gap) · survey two-phase ·
->   custom prompt packs. Detailed dated entries below.
+>   (vote/split/fibvote weighting - poll done) · **P7 chain GAMES** (the foundation -
+>   per-player content from a prior round - is now LANDED; Doodle Chain / Story Chain /
+>   Quick Draw / Bingo / Call It are the games built on top) · the clue-giver "Wavelength"
+>   Spectrum (now unblocked by the P7 foundation) · survey two-phase · custom prompt packs.
+>   Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **P7 Pipeline foundation - per-player content derived from a prior round (2026-06-08).**
+> BUILT + verified on the same branch (1 commit, not pushed). The engine capability the
+> chain games (Doodle Chain / Story Chain) are built on, and ONLY the foundation this turn:
+> the game is next, mirroring the `nextGame` -> Sessions precedent (build the engine bit,
+> fully unit-tested, then the game). Generalizes the hidden-role per-player primitive so an
+> assignment can derive from EARLIER ROUNDS' INPUTS, not just the roster:
+> - **SDK:** `AssignContext` gains `sources: DeriveSource[]` (mirrors `DeriveContext`).
+> - **Engine:** `LoadedGame.assignContent` gains the `inputsFor` param (mirrors
+>   `deriveContent`); `publishAssignedIfAny` threads `(i) => this.inputsFor(i)`. At round i
+>   the prior round's inputs are already host-side, so `sources[0]` (= round i-1) is
+>   complete. Faker ignores it (no `from` -> empty sources): byte-identical, locked by the
+>   existing faker integration test.
+> - **Runtime:** `buildAssignContent` is now `(index, inputsFor)` + a `getAnswerKey` param,
+>   building `sources` from `RoundInstance.from` via a shared `buildSources` helper extracted
+>   from `buildDeriveContent` (so the two never drift). Host wiring (HostRoom +
+>   SessionHostRoom) forwards `inputsFor` + `answerKeyFor`.
+> - **Pure rotation helpers** (`packages/games/src/runtime/chain.ts`): `chainOrder` (a
+>   stable seeded ring, sorted-canonical so it depends only on the SET not arrival order),
+>   `chainSourceFor` (round 0 = your own thread; round >= 1 = your LEFT neighbor, one seat
+>   back), `chainThreads` (the end-of-game "unspool" reconstruction). Fully unit-tested incl.
+>   the 2-player + reconnect-agreement cases.
+> - **Verified:** 601 unit tests, all typechecks, the web build. New: an engine-path
+>   integration test drives a real 3-player / 2-round chain through `RoomRuntime` over an
+>   in-memory relay (each player privately receives ONLY their left-neighbor's round-0
+>   output) + `chain.test` rotation math + a `buildAssignContent` sources test. No browser
+>   smoke (the foundation has no UI yet).
+> - **DEFERRED to the game turn:** the `chain` + draw blocks, the Doodle Chain custom
+>   Results "unspool" view, the Pixi `DrawCanvas` draw rounds, and the FROZEN-ROSTER at
+>   start. The frozen roster is kept in the GAME layer (not the engine): the ring is stable
+>   after round 0 since every chain member then has an input, so freeze at round-0
+>   completion and seat via `chainOrder` with a ROOM-stable shuffle (NOT the per-index
+>   shuffle `assignContent` hands the block - see the `chainOrder` doc note). This same
+>   primitive also unblocks the clue-giver "Wavelength" Spectrum and a text-only Story Chain.
 
 > **P4 Phase B - audience votes on polls (2026-06-08).** BUILT + verified on the same
 > branch (1 commit, not pushed). Spectators weigh in: on a poll round, an audience phone

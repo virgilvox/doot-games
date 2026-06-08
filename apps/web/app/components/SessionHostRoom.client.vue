@@ -80,7 +80,7 @@ function buildLoaded(plugin: GamePlugin) {
     rounds: gameRounds(plugin, config),
     answerKeys: gameAnswerKeys(plugin, config) as unknown as Record<number, RelayValue>,
     deriveContent: buildDeriveContent(plugin, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
-    assignContent: buildAssignContent(plugin, config, roomCode, getPlayers) as never,
+    assignContent: buildAssignContent(plugin, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
     revealSummary: buildRevealSummary(
       plugin,
       config,

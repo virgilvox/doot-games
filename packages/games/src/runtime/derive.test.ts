@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest'
 import { fillBlock } from '../blocks/fill/block'
 import { quipBlock } from '../blocks/quip/block'
 import { voteBlock } from '../blocks/vote/block'
-import { buildDeriveContent, buildRevealSummary, crownHeadline, ownMakeText, seededShuffle } from './derive'
+import { chainOrder, chainSourceFor } from './chain'
+import {
+  buildAssignContent,
+  buildDeriveContent,
+  buildRevealSummary,
+  crownHeadline,
+  ownMakeText,
+  seededShuffle,
+} from './derive'
 
 describe('seededShuffle', () => {
   it('is deterministic for a given seed', () => {
@@ -178,5 +186,71 @@ describe('buildRevealSummary', () => {
     expect(reveal(0, () => new Map())).toBeUndefined() // quip has no revealSummary
     const summary = reveal(1, () => new Map([['B', { choice: 'o0' }]])) as { winnerId: string }
     expect(summary.winnerId).toBe('o0')
+  })
+})
+
+describe('buildAssignContent (per-player content from a prior round: the chain)', () => {
+  // A synthetic chain block: each player receives their LEFT neighbor's submission
+  // from the source round (sources[0] = the prior round, by RoundInstance.from
+  // default). The ring is seated by sorted pid (stable across rounds), so the
+  // rotation reads a deterministic neighbor. This exercises the new wiring: that
+  // buildAssignContent threads `inputsFor` through and builds `sources` from `from`.
+  const chainBlock = {
+    kind: 'dchain',
+    name: 'Chain',
+    contentSchema: quipBlock.contentSchema,
+    defaultContent: () => ({}),
+    emptyInput: () => ({ text: '' }),
+    PlayerInput: {} as never,
+    HostDisplay: {} as never,
+    assignContent: (ctx: {
+      players: Array<{ id: string }>
+      sources: Array<{ inputs: Map<string, unknown> }>
+    }) => {
+      const order = chainOrder(
+        ctx.players.map((p) => p.id),
+        (x) => x, // sorted seating, stable across rounds
+      )
+      const prev = ctx.sources[0]?.inputs ?? new Map<string, unknown>()
+      const perPlayer: Record<string, unknown> = {}
+      for (const p of ctx.players) {
+        const src = chainSourceFor(order, 1, p.id) // left neighbor
+        perPlayer[p.id] = { received: src ? prev.get(src) : undefined }
+      }
+      return { perPlayer }
+    },
+  } as never
+  const chainPlugin = { ...(plugin as object), blocks: [quipBlock, chainBlock] } as never
+  const chainConfig: GameComposition = {
+    title: 'Chain',
+    rounds: [
+      { block: 'quip', content: { prompt: 'Draw a thing', placeholder: '', maxLength: 80, timer: null } },
+      { block: 'dchain', content: {} }, // from defaults to [0]
+    ],
+  }
+  const trio = () => [
+    { id: 'A', name: 'Ada', joinedAtIndex: 0 },
+    { id: 'B', name: 'Bo', joinedAtIndex: 0 },
+    { id: 'C', name: 'Cy', joinedAtIndex: 0 },
+  ]
+
+  it('hands each player their left-neighbor prior-round input (sources threaded from `from`)', () => {
+    const assign = buildAssignContent(chainPlugin, chainConfig, 'seed', trio)
+    const round0 = new Map<string, unknown>([
+      ['A', { text: 'cat' }],
+      ['B', { text: 'dog' }],
+      ['C', { text: 'fish' }],
+    ])
+    const out = assign(1, (i) => (i === 0 ? round0 : new Map()))
+    const perPlayer = out?.perPlayer as Record<string, { received?: { text: string } }>
+    // Ring is sorted ['A','B','C']; left neighbor (one seat back, wrapping):
+    expect(perPlayer.A?.received?.text).toBe('fish') // A <- C
+    expect(perPlayer.B?.received?.text).toBe('cat') // B <- A
+    expect(perPlayer.C?.received?.text).toBe('dog') // C <- B
+  })
+
+  it('returns undefined for a round whose block has no assignContent', () => {
+    const assign = buildAssignContent(chainPlugin, chainConfig, 'seed', trio)
+    expect(assign(0, () => new Map())).toBeUndefined() // the quip make round
   })
 })

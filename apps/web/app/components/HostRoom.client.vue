@@ -159,7 +159,7 @@ function load() {
       const out = baseDerive(index, inputsFor)
       return out ? { ...out, publish: maskDerivedPublish(out.publish, contentFilter.value) } : out
     }) as never,
-    assignContent: buildAssignContent(game, config, roomCode, getPlayers) as never,
+    assignContent: buildAssignContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
     revealSummary: buildRevealSummary(
       game,
       config,

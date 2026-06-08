@@ -5,6 +5,7 @@
  */
 import type {
   AnyBlock,
+  DeriveSource,
   Distribution,
   GameComposition,
   GamePlugin,
@@ -237,6 +238,47 @@ export function scoreGame(
 }
 
 /**
+ * Resolve the source ("make") rounds a derived/assigned round consumes: the rounds
+ * named by `RoundInstance.from` (default the immediately prior round), each carrying
+ * that round's authored content, every player's input, the source round's withheld
+ * answer key (host-side, via `getAnswerKey`), and a `render` that turns one
+ * submission into votable text via its block's `toVoteText`. Shared by
+ * `buildDeriveContent` (many->one judge rounds) and `buildAssignContent` (per-player
+ * chains), so the two never drift. Pure.
+ */
+function buildSources(
+  plugin: GamePlugin,
+  config: GameComposition,
+  index: number,
+  inputsFor: (i: number) => Map<string, unknown>,
+  getAnswerKey?: (i: number) => unknown,
+): DeriveSource[] {
+  const inst = config.rounds[index]
+  const from = inst?.from ?? (index > 0 ? [index - 1] : [])
+  return from
+    .filter((i) => i >= 0 && config.rounds[i])
+    .map((i) => {
+      const srcInst = config.rounds[i] as GameComposition['rounds'][number]
+      const srcBlock = getBlock(plugin, srcInst.block)
+      return {
+        index: i,
+        content: srcInst.content,
+        inputs: inputsFor(i),
+        // The source round's withheld answer key (e.g. the faker round's
+        // { fakerPid, word }), read host-side so a consuming round can use a hidden
+        // fact without it ever reaching the relay. Undefined when there is none.
+        answer: getAnswerKey?.(i),
+        // Render a source submission to votable text via its block's toVoteText
+        // (e.g. Mad Libs fills its template), else fall back to a `.text` field.
+        render: (input: unknown) =>
+          srcBlock?.toVoteText?.(srcInst.content, input) ??
+          (input as { text?: string } | undefined)?.text ??
+          '',
+      }
+    })
+}
+
+/**
  * Build the engine's `deriveContent` callback from the blocks: for a round whose
  * block declares `derive`, gather its source rounds' inputs (`RoundInstance.from`,
  * default the previous round) and run the block's pure derivation. The engine
@@ -274,28 +316,7 @@ export function buildDeriveContent(
     }
     const block = getBlock(plugin, inst.block)
     if (!block?.derive) return undefined
-    const from = inst.from ?? (index > 0 ? [index - 1] : [])
-    const sources = from
-      .filter((i) => i >= 0 && config.rounds[i])
-      .map((i) => {
-        const srcInst = config.rounds[i] as GameComposition['rounds'][number]
-        const srcBlock = getBlock(plugin, srcInst.block)
-        return {
-          index: i,
-          content: srcInst.content,
-          inputs: inputsFor(i),
-          // The source round's withheld answer key (e.g. the faker round's
-          // { fakerPid, word }), read host-side so a judge round can use a hidden
-          // fact without it ever reaching the relay. Undefined when there is none.
-          answer: getAnswerKey?.(i),
-          // Render a source submission to votable text via its block's toVoteText
-          // (e.g. Mad Libs fills its template), else fall back to a `.text` field.
-          render: (input: unknown) =>
-            srcBlock?.toVoteText?.(srcInst.content, input) ??
-            (input as { text?: string } | undefined)?.text ??
-            '',
-        }
-      })
+    const sources = buildSources(plugin, config, index, inputsFor, getAnswerKey)
     const result = block.derive({
       content: inst.content,
       sources,
@@ -341,19 +362,29 @@ export function ownMakeText(
 
 /**
  * Build the engine's `assignContent` callback from the blocks: for a round whose
- * block declares `assignContent` (the hidden-role pattern), run its pure
- * assignment over the current roster and return the SECRET per-player content map
- * plus the withheld answer (e.g. which player is the imposter). The engine
- * publishes each player's content to their own private address. Undefined for an
- * ordinary round.
+ * block declares `assignContent`, run its pure assignment and return the SECRET
+ * per-player content map plus the withheld answer. The engine publishes each
+ * player's content to their own private address. Undefined for an ordinary round.
+ *
+ * Like `buildDeriveContent`, this resolves the round's source rounds (their inputs
+ * keyed by player, via `RoundInstance.from`, default the previous round) and hands
+ * them to the block as `sources`. The hidden-role case (faker) has no `from`, so
+ * `sources` is empty and the assignment reads only the roster, exactly as before; a
+ * per-player chain reads `sources[0].inputs` to hand each player a PRIOR round's
+ * output. `getAnswerKey` mirrors `buildDeriveContent` so a source's withheld key is
+ * available too (omitted by callers with no answer keys).
  */
 export function buildAssignContent(
   plugin: GamePlugin,
   config: GameComposition,
   seed: string,
   getPlayers: () => ScorePlayer[],
-): (index: number) => { perPlayer: Record<string, unknown>; answer?: unknown } | undefined {
-  return (index) => {
+  getAnswerKey?: (i: number) => unknown,
+): (
+  index: number,
+  inputsFor: (i: number) => Map<string, unknown>,
+) => { perPlayer: Record<string, unknown>; answer?: unknown } | undefined {
+  return (index, inputsFor) => {
     const inst = config.rounds[index]
     if (!inst) return undefined
     const block = getBlock(plugin, inst.block)
@@ -362,6 +393,7 @@ export function buildAssignContent(
       content: inst.content,
       players: getPlayers(),
       shuffle: seededShuffle(`${seed}:assign:${index}`),
+      sources: buildSources(plugin, config, index, inputsFor, getAnswerKey),
     })
     return { perPlayer: result.perPlayer, answer: result.answer }
   }

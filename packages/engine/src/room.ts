@@ -83,15 +83,19 @@ export interface LoadedGame {
     inputsFor: (i: number) => Map<string, RelayValue>,
   ) => RelayValue | undefined
   /**
-   * Hidden-role pattern: build SECRET per-player content for round `index` from
-   * the current roster (e.g. one player gets a different prompt). Host-only,
-   * called when the host lands on the round. Returns a `perPlayer` map (pid ->
-   * that player's content, published to their own private address) plus an
-   * optional withheld `answer` (e.g. which player is the imposter), revealed at
-   * reveal like any other answer key. Undefined for an ordinary round.
+   * Hidden-role / per-player pattern: build SECRET per-player content for round
+   * `index` from the current roster AND earlier rounds' inputs. Host-only, called
+   * when the host lands on the round. Like `deriveContent` it receives `inputsFor`,
+   * so a per-player chain (Gartic Phone) can hand each player another player's
+   * round N-1 output; the hidden-role case (faker) ignores it and reads only the
+   * roster. Returns a `perPlayer` map (pid -> that player's content, published to
+   * their own private address) plus an optional withheld `answer` (e.g. which
+   * player is the imposter), revealed at reveal like any other answer key.
+   * Undefined for an ordinary round.
    */
   assignContent?: (
     index: number,
+    inputsFor: (i: number) => Map<string, RelayValue>,
   ) => { perPlayer: Record<string, RelayValue>; answer?: RelayValue } | undefined
 }
 
@@ -1033,7 +1037,11 @@ export class RoomRuntime {
    */
   private publishAssignedIfAny(index: number): void {
     if (this.me.role !== 'host' || !this.game?.assignContent) return
-    const assigned = this.game.assignContent(index)
+    // Like `deriveContent`, hand the assigner earlier rounds' inputs so per-player
+    // content can be derived from a prior round (a chain), not just the roster. At
+    // round i the prior round's inputs are already in `this.inputs` (we advanced
+    // past its reveal), so `inputsFor(i-1)` is complete.
+    const assigned = this.game.assignContent(index, (i) => this.inputsFor(i))
     if (!assigned) return
     for (const [pid, content] of Object.entries(assigned.perPlayer)) {
       this.publish(addr.roundContentForPlayer(this.room, index, pid), content)

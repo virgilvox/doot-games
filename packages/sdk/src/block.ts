@@ -75,11 +75,20 @@ export interface DerivedContent<Content = unknown> {
  * What a hidden-role block's `assignContent` receives: this round's authored
  * content, the current roster, and a seeded shuffle so the role assignment (e.g.
  * which player is the imposter) is deterministic and reconnect-safe.
+ *
+ * `sources` mirrors `DeriveContext`: the earlier rounds this round consumes
+ * (their inputs, keyed by player id, plus a renderer), wired by the composition
+ * (`RoundInstance.from`, default: the previous round). It lets per-player content
+ * be derived from a PRIOR round's inputs, not just the roster, which is what a
+ * per-player chain (Gartic Phone) needs: round N hands each player another
+ * player's round N-1 output. Empty for the hidden-role case (faker), which only
+ * reads the roster.
  */
 export interface AssignContext<Content = unknown> {
   content: Content
   players: ScorePlayer[]
   shuffle: <T>(items: T[]) => T[]
+  sources: DeriveSource[]
 }
 
 /**
