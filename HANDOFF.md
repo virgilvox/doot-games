@@ -11,6 +11,23 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Survey / Family Feud (2026-06-08).** BUILT + verified on the same branch
+> `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new scored
+> standalone block + a "Survey" flagship. A round has a hidden BOARD of ranked
+> answers worth points; players name as many as they can and each board answer they
+> find scores its points (matched via the shared P1 tolerant matcher; no
+> double-counting). A STANDARD block: the board is the answer key (redactContent +
+> answerOf + a REDACTION_RULES entry, revealed only at reveal), points-style scored
+> so it works with teams + standings. Pure tested logic (`scoreSurvey`, `parseBoard`);
+> the host flips a "survey says" board with per-answer find counts, the phone
+> highlights the player's matches. The flagship is deck-feedable via a quiz deck whose
+> `answers` column lists the board ("Text:points | ...", points optional -> rank
+> scored); authorable via `## survey` markdown (reusing `parseBoard`) + the MCP guide
+> + docs. The deck-feed meta-test now covers **20** flagships. Verified: 555 unit
+> tests, all typechecks, the web build, and `scripts/survey-smoke.mjs`, 0 overflow at
+> 390px. **Next (per plan §8):** P4 Phase B (weighted audience voting), Wager
+> (custom-flow), §4.3 sessions/playlists.
+
 > **Categories / Scattergories (2026-06-08).** BUILT + verified on the same branch
 > `expansion-p1-answer-caption` (1 more commit, not yet pushed). A new scored
 > standalone block + a "Categories" flagship. Everyone gets the same letter + a few
