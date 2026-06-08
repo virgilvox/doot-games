@@ -11,6 +11,17 @@ pushed" notes in the older entries below are superseded._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
+> **Display-block follow-ups + Create ordering (2026-06-07).** SHIPPED + deployed.
+> Three small follow-ups to the display blocks below: (1) the **Create** page's "Blocks
+> and Custom" grid now leads with **Custom** (`apps/web/app/pages/create.vue`, a stable
+> custom-first sort), since it's the mix-any-blocks / markdown-import starting point.
+> (2) **Fixed a double image** on Info Slide: the editor preview wrapped the block in the
+> generic kicker/prompt/`<img>` chrome AND rendered the block's own view (which already
+> shows the image), so it appeared twice. The preview now skips that chrome for display
+> blocks (`curIsDisplay` guard in `GameEditor.client.vue`, both phone + big-screen modes).
+> (3) **Mobile-verified** the new blocks in a real browser at 390px (player + host hosting
+> from a phone): image renders once, text wraps, zero horizontal overflow.
+
 > **Display blocks: Info Slide + Title Card (2026-06-07).** NEW. Two no-input
 > presentation blocks for the Custom game (mix them with any rounds in the editor):
 > **Info Slide** (`slide`, heading + body + image, any combination) and **Title Card**
