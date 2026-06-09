@@ -58,6 +58,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'wager', name: 'Wager', version: '0.1.0', flagship: true, description: 'High-stakes trivia: bet on your answer. Right adds your bet, wrong takes it. Richest wins.', pool: { deckKind: 'quiz', placeholderBlock: 'wager', answerColumns: ['correct', 'answer'] } },
   { id: 'story-chain', name: 'Story Chain', version: '0.1.0', flagship: true, description: 'Pass-it-on storytelling: write a line, send it on, and watch each tale drift somewhere absurd.' },
   { id: 'doodle-chain', name: 'Doodle Chain', version: '0.1.0', flagship: true, description: 'Draw-and-describe telephone: write a prompt, draw what you got, guess the drawing, and watch each chain go sideways.' },
+  { id: 'wavelength', name: 'Wavelength', version: '0.1.0', flagship: true, description: 'One player sees a secret point on a spectrum and gives a clue. The room guesses where it lands.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 
@@ -97,6 +98,9 @@ export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
   // Faker's secret word is delivered privately per-player; strip it from the public
   // config so a non-owner (or a spectator) never reads the word from a saved game.
   faker: { word: '' },
+  // Wavelength's secret target is delivered privately to the clue-giver; strip it
+  // from the public config so a non-owner never reads it from a saved game.
+  wavelength: { target: -1 },
   // Quiz or Die's trivia keys (per-question correct index) + finale "belongs"
   // flags live in the cellar block content: blank the answer-bearing arrays so a
   // non-owner viewing a saved game can't read the answers.

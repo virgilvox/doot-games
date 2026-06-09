@@ -35,6 +35,7 @@ import { typeTheAnswer } from './games/type-the-answer'
 import { wager } from './games/wager'
 import { wouldYouRather } from './games/would-you-rather'
 import { voteBox } from './games/votebox'
+import { wavelength } from './games/wavelength'
 import { whatYouDidntKnow } from './games/what-you-didnt-know'
 
 export const builtinPlugins: GamePlugin[] = [
@@ -70,6 +71,7 @@ export const builtinPlugins: GamePlugin[] = [
   wager,
   storyChain,
   doodleChain,
+  wavelength,
   custom,
 ]
 

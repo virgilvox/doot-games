@@ -6,7 +6,7 @@ _Last updated: 2026-06-08. The default branch is `main` (every push to `main` de
 prod via CI, no staging). **Active work is on branch `expansion-p1-answer-caption`,
 NOT pushed** (per the owner: hold until the expansion plan reaches completeness)._
 
-> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 38
+> **Branch `expansion-p1-answer-caption` at a glance (the expansion-plan work).** 39
 > commits ahead of `main`, all individually verified (unit tests + typechecks + web build,
 > and a real-browser smoke per interactive feature), commit messages clean (no AI
 > attribution). **Picking this up:** `git checkout expansion-p1-answer-caption`; the plan
@@ -28,19 +28,43 @@ NOT pushed** (per the owner: hold until the expansion plan reaches completeness)
 >   `assignContent(index, inputsFor)` + the pure chain helpers in `runtime/chain.ts`) ·
 >   **Story Chain** (text telephone) + **Doodle Chain** (Gartic Phone, Pixi draw rounds)
 >   both on that foundation · a generic `components.Results` seam (the renderer honors a
->   game's custom results view) + a `ResultsFragment.recap` passthrough. Catalog now ~33 games.
-> - **Tests:** ~642 unit + ~15 browser smokes (answer, audience, audience-vote, audio,
+>   game's custom results view) + a `ResultsFragment.recap` passthrough · **Wavelength** (the
+>   clue-giver dial - the first game using the foundation in a JUDGE round). Catalog now ~34 games.
+> - **Tests:** ~653 unit + ~16 browser smokes (answer, audience, audience-vote, audio,
 >   categories, crowd-vote, doodlechain, quickwins, spectrum, split-crowd, standings,
->   storychain, survey, teams, session, playlists, wager).
-> - **REMAINING toward completeness (per §8):** **P4B COMPLETE** (host toggle + capped crowd
->   bloc on vote + fibvote + split) · **Quick Draw** (real-time stroke streaming) / Bingo /
->   Call It (the remaining §5 custom-flow games) · the clue-giver "Wavelength" Spectrum (now
->   unblocked by the P7 foundation) · survey two-phase · custom prompt packs. Detailed dated
->   entries below.
+>   storychain, survey, teams, wavelength, session, playlists, wager).
+> - **REMAINING toward completeness (per §8):** **P4B COMPLETE** (vote + fibvote + split) ·
+>   **Wavelength DONE** (clue-giver dial) · **Quick Draw** (real-time stroke streaming) / Bingo /
+>   Call It (the remaining §5 custom-flow games) · survey two-phase · custom prompt packs.
+>   Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Wavelength - the clue-giver dial, the first game using the P7 foundation in a JUDGE round
+> (2026-06-08).** BUILT + verified on the same branch (1 commit, not pushed). The §2 spectrum
+> the plan intended (distinct from the already-shipped consensus Spectrum): each "read" is two
+> rounds of one `wavelength` block (a `phase` field, like doodle). A rotating clue-giver is
+> privately shown a SECRET target on a 0-100 spectrum and writes a clue; everyone else then
+> guesses where it lands. Guessers score by closeness (ballparkCloseness vs the target, fixed
+> half-scale 50); the clue-giver scores by the room's average closeness (a good clue lands all).
+> - **The foundation usage:** the GUESS round's `assignContent` reads the prior CLUE round (its
+>   inputs + its withheld answer, via `sources` - the P7 capability) to override ONLY the
+>   clue-giver with a dial-less "watch" view; guessers fall back to the round's `derive`d content
+>   (the shared clue + poles). So one round mixes a shared derived view (host + guessers) with a
+>   per-player override (the clue-giver) - the "per-player view inside a derived round" the
+>   handoff flagged as an engine gap, now closed.
+> - **Withholding:** the target is stripped from the public config (`redactContent` +
+>   `REDACTION_RULES wavelength:{target:-1}`) and reaches only the clue-giver's private address;
+>   the clue round derives only the poles (target -1), so nothing leaks. The guess round's reveal
+>   publishes the target via `revealSummary` (the big screen reads it).
+> - **Reuse:** `SpectrumDial` (ui) for the dial + `ballparkCloseness` for scoring; a rotating
+>   clue-giver via `chainOrder` seated by sorted pid, rotated by `item`. Standard-composed.
+> - **Verified:** 653 unit tests (`logic` + `assignContent` clue rotation + the guess-round
+>   foundation override + `derive` strips target + `aggregate`), typechecks, web build, and
+>   `scripts/wavelength-smoke.mjs` (real 3-player: each clue round has one clue-giver; each guess
+>   round splits the clue-giver off the dial; leaderboard scores the players; 0 overflow 390px).
 
 > **P4B audience-counts on the `vote` block - BUILT (2026-06-08).** The first scored judge
 > block now honors the owner's chosen design: a **lobby host toggle "Let the crowd's votes
