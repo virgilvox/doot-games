@@ -131,7 +131,7 @@ REMIX A FLAGSHIP WITH YOUR OWN CONTENT: many flagships play a built-in pool, but
 - TYPED games (fib-finder + ballpark + what-you-didnt-know + quiz-or-die = "quiz"; faker = "card"; mad-libs = "generic"): multiple columns (e.g. question + answer). The single-column "csv" can't carry these, so first save_deck a multi-column deck, then remix_game with its deckId. Conventional columns per game: fib-finder = question, truth; ballpark = prompt, answer (+ optional unit); what-you-didnt-know = prompt, options (a |-separated list) , correct (1-based index); quiz-or-die = question, options, correct (1-based) + an optional lurid category (the finale stays built-in); faker = category, word; mad-libs = template (with {token} blanks). Answer columns (truth, answer, correct, word) are withheld from non-owners, so KEEP A TYPED REMIX DECK PRIVATE.
 
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
-Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, and "What, You Didn't Know That?" have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and remix it, or call list_game_types.
+Circuit Cypher (robot rap battle), Open Mic, Truth or Share, Quiz or Die, "What, You Didn't Know That?", Story Chain (a pass-it-on writing telephone), Doodle Chain (the draw-and-describe Gartic-Phone telephone), and Wavelength (a clue-giver privately sees a hidden point on a spectrum and the room guesses) build their rounds at play time and have bespoke flows. Don't try to write them as markdown; tell the user to open one from the Create page and host it, or call list_game_types.
 
 == EXAMPLE ==
 # Trivia and Vibes Night

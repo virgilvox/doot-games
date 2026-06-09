@@ -147,8 +147,41 @@ Scoring helpers for these games are pure and tested in `blocks/scoring.ts`:
 | `PlayerReveal?` | phone reveal view. Props `{ content, myInput, reveal }` (the public per-round reveal payload). Falls back to a generic notice |
 | `revealSummary(ctx)?` | host computes a public per-round payload (tallies, winner) published at reveal so phones can show personal feedback |
 | `Editor?` | a custom per-round editor (auto-generated from the schema otherwise) |
-| **two-phase:** `derive(ctx)?` | build this round's content from earlier rounds' inputs; returns `{ publish, answer? }` |
+| **two-phase:** `derive(ctx)?` | build this round's SHARED content from earlier rounds' inputs (`ctx.sources`); returns `{ publish, answer? }` |
+| **per-player:** `assignContent(ctx)?` | build SECRET per-player content (a hidden role, OR a per-player slice of a prior round); returns `{ perPlayer: Record<pid, content>, answer? }`. `ctx.sources` carries earlier rounds' inputs + their withheld answer, so an assignment can derive from a PRIOR round (the P7 foundation), not just the roster |
 | `toVoteText(content, input)?` | render this block's submission to votable text for a later judge round |
+
+A block's `aggregate`/`derive`/`revealSummary` may also read `ctx.audienceVotesFor`/
+`ctx.audienceVotes` (P4B: spectator votes, supplied only when the host turns on "let
+the crowd's votes count"; the vote-tallying blocks fold them as a capped bloc) and a
+fragment may carry `recap` (an arbitrary payload a game's `components.Results` reads;
+the generic board ignores it).
+
+---
+
+## 4.5 Per-player content and chains (the P7 foundation)
+
+Some games hand each player a DIFFERENT view of a round, derived from a prior round:
+
+- **Hidden role** (Faker): `assignContent` reads the roster and gives one player a
+  different prompt; the secret is delivered only to that player's private relay
+  address (the engine publishes each `perPlayer` entry to `addr.roundContentForPlayer`),
+  stripped from the public config (`redactContent`) and listed in `REDACTION_RULES`.
+- **A per-player CHAIN** (Story Chain / Doodle Chain): each round, `assignContent` reads
+  the PRIOR round's inputs (via `ctx.sources`) and hands each player their left
+  neighbor's previous output. The pure rotation lives in `runtime/chain.ts`
+  (`chainOrder` / `chainSourceFor` / `chainThreads`); the frozen ring is just the
+  sorted set of round-0 submitters (`chainRingFromSources`), passed forward as a source
+  via `RoundInstance.from: [prev, 0]`.
+- **A per-player slice of a DERIVED round** (Wavelength): the guess round's `derive`
+  publishes the shared clue + poles (for the host and guessers) while its
+  `assignContent` reads the prior clue round to override ONLY the clue-giver with a
+  "watch" view. One round mixes a shared derived view with a per-player override.
+
+A game that needs a non-leaderboard results screen (a chain's "unspool", Wavelength's
+dial) overrides `components.Results` (the generic renderer honors it) and feeds it via a
+block `aggregate` returning `{ recap }`, which `scoreGame` passes through to the
+published `StandardResults.recap`.
 
 ---
 
@@ -174,7 +207,9 @@ generic form can't express something, set `Editor` on the block.
 The editor is a three-pane layout: a rounds rail on the left (reorder/remove + an
 **Add** panel), the selected round's auto-form in the center, and a persistent
 host/phone preview on the right. The Add panel offers **Single rounds** (guess,
-rate, poll, rank, draw, hivemind, most-likely, ballpark, buzzer) and **Two-phase
+answer, wager, rate, poll, rank, draw, hivemind, most-likely, ballpark, buzzer,
+categories, survey, spectrum, plus the no-input `slide` / `title` display cards)
+and **Two-phase
 recipes** that insert a make+judge pair in one click, Write & Vote (`quip`→`vote`),
 Mad Lib & Vote (`fill`→`vote`), Would You & Split (`fill`→`split`), Lie Detector
 (`quip`→`fibvote`, you author the truth), Sketch & Vote (`draw`→`drawvote`), and
@@ -197,9 +232,13 @@ optional account; hosting and playing never do. Each saved game has a visibility
   large pool each play. The host calls `buildConfig(roomCode)`, so a room is
   internally consistent across reconnects but differs from other rooms. Use
   `seededShuffle(seed)` from `@doot-games/games` for a deterministic shuffle. (Way 3.)
-- **Markdown import:** the editor can build a whole game from a markdown spec
-  (guess/poll/rank/rate/draw/hivemind/mostlikely/ballpark; a `## draw` round with
-  `vote: true` expands to draw-then-vote). Format:
+- **Markdown import:** the editor can build a whole game from a markdown spec. The
+  standalone kinds are guess/answer/wager/poll/rank/rate/draw/buzzer/hivemind/
+  mostlikely/ballpark/categories/survey/spectrum, plus the two-phase make blocks
+  quip/fill/faker (`quip`+`truth:` -> Fibbage, `fill`+`split: true` -> Split the
+  Room, `faker` -> the Hidden Faker); a `## draw` round with `vote: true` expands to
+  draw-then-vote. The custom-flow flagships (Quiz or Die, Circuit Cypher, the chain
+  games, Wavelength, ...) are NOT markdown-authorable. Full format + the current list:
   [`docs/markdown-games.md`](./markdown-games.md).
 - **Content decks (the data-driven path):** a reusable `/decks` library deck (a
   named-column table of rows) that a round draws rows from and binds fields to, used

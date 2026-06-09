@@ -447,7 +447,7 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
     }
     default:
       warnings.push(
-        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, poll, rank, rate, draw, buzzer, hivemind, mostlikely, ballpark, quip, fill, faker.`,
+        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, answer, wager, poll, rank, rate, draw, buzzer, hivemind, mostlikely, ballpark, categories, survey, spectrum, quip, fill, faker.`,
       )
       return []
   }

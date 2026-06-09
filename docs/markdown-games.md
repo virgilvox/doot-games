@@ -319,9 +319,11 @@ category: In the kitchen
 word: Toaster
 ```
 
-> Truth or Share, Circuit Cypher, Open Mic, Quiz or Die, and "What, You Didn't Know
-> That?" have custom flows that markdown does not author. Open one from the Create page
-> and remix it instead.
+> Truth or Share, Circuit Cypher, Open Mic, Quiz or Die, "What, You Didn't Know That?",
+> Story Chain, Doodle Chain, and Wavelength have custom flows that markdown does not
+> author (they build their rounds at play time: a per-player chain, the draw-and-describe
+> telephone, or a clue-giver who privately sees a hidden target). Open one from the Create
+> page and host it (or remix the deck-backed ones) instead.
 
 ## Content decks (data-driven rounds)
 
