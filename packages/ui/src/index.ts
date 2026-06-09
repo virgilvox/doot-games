@@ -60,6 +60,8 @@ export {
 // The cast-safe robot vox (Web Audio; survives tab casting, unlike speechSynthesis).
 export { type VoxOptions, type VoxPlanned, canPlayVox, speakVox, voxPlan } from './audio/vox'
 export { playDing } from './audio/sfx'
+// The flagship cover map (one source of truth for cards + og:image).
+export { FLAGSHIP_COVERS } from './covers'
 // Stage SFX for the generic big-screen host (join pop, lock click, ticks, sting, fanfare).
 export { type StageSfx, createStageSfx } from './audio/stage'
 // The procedural arena audio engine (beat + analyser + SFX; raw Web Audio, SSR-safe).

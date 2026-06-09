@@ -6,7 +6,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
-    include: ['packages/**/*.{test,spec}.ts'],
+    // apps/web coverage is the plain-TS server utils only (no nuxt context needed).
+    include: ['packages/**/*.{test,spec}.ts', 'apps/web/server/**/*.{test,spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.nuxt/**'],
     environment: 'node',
   },

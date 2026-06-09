@@ -28,7 +28,7 @@ tools (a connector-directory requirement, see below).
 | `save_game` | write | Save the game (+ description/visibility/remixable/cover/tags) and return a link |
 | `update_game` | write | Replace one of the account's own games' rounds + settings (owner-checked) |
 | `set_game_meta` | write | Change a game's settings (description/visibility/remixable/cover/tags/theme) without re-sending rounds |
-| `upload_image` | write | Fetch an https image URL, re-host it on Doot, return a URL (round image or game cover) |
+| `upload_image` | write | Host an image on Doot and return a URL (round image or game cover). Takes base64 `data` (for art the model rendered itself) or a public https `url` to fetch |
 
 All tools run behind OAuth (`withMcpAuth`); an unauthenticated POST gets a 401 with
 `WWW-Authenticate`, which is how Claude discovers the OAuth flow.
@@ -53,11 +53,13 @@ All tools run behind OAuth (`withMcpAuth`); an unauthenticated POST gets a 401 w
 - `save_game` writes only to `session.userId` and is validated through
   `gameInputSchema` (title <= 120, rounds <= 50). The theme is passed through (only if
   it is a known theme).
-- `upload_image` is SSRF-guarded (`server/utils/fetch-image.ts`): https only; blocks
-  private, loopback, link-local, cloud-metadata, CGNAT, NAT64, and 6to4 addresses,
-  re-validating on every redirect hop; requires an image content-type; 5MB streamed
-  cap; 10s timeout. Residual: DNS rebinding between lookup and connect is not fully
-  closed (would need connect-to-pinned-IP).
+- `upload_image` is SSRF-guarded on the URL path (`server/utils/fetch-image.ts`): https
+  only; blocks private, loopback, link-local, cloud-metadata, CGNAT, NAT64, and 6to4
+  addresses, re-validating on every redirect hop; requires an image content-type; 5MB
+  streamed cap; 10s timeout. Residual: DNS rebinding between lookup and connect is not
+  fully closed (would need connect-to-pinned-IP). The base64 `data` path never fetches
+  anything: it decodes, caps at the same 5MB, and identifies the type from the magic
+  bytes (`sniffImageType`), so a mislabeled payload can't smuggle a non-image.
 - `/mcp` writes are throttled per user (30/min) in-memory (the per-IP middleware does
   not cover `/mcp`, and Claude traffic can share egress IPs).
 - Open follow-ups from the audit: sweep expired `oauthAccessToken` and unused

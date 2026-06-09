@@ -5,6 +5,31 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **SHIPPED: MCP art + design guides, base64 upload, and 13 game covers (2026-06-09,
+> merged to `main` from `polish-audit` and deployed).** Three pieces, audited (a 7-angle
+> code review; fixes applied: upload_image schema `minProperties`, restored min-width
+> guidance, lazy-loaded cover images, the cover map deduped into the shared
+> `packages/ui/src/covers.ts` `FLAGSHIP_COVERS`, type-set sync comments):
+> (1) the MCP FORMAT_GUIDE gained a "WHAT MAKES A PARTY GAME FUN" design-science
+> section and a "COVER ART (make it, don't search for it)" guide with crop-safe composition
+> rules (mirrored into docs/markdown-games.md + docs/connect-claude.md); (2) `upload_image`
+> now accepts base64 `data` (a bare string or data: URI) alongside `url`, decoded +
+> size-capped (5MB) with the type read from MAGIC BYTES (`decodeImageData`/`sniffImageType`
+> in server/utils/fetch-image.ts, unit-tested; vitest now includes apps/web/server); (3)
+> `scripts/gen-covers.mjs` renders cover art (1280x720 @2x JPEG) for the 13 flagships that
+> showed the squared-grid placeholder (type-the-answer, would-you-rather, tier-list,
+> over-under, categories, survey, spectrum, wager, story-chain, doodle-chain, wavelength,
+> bingo, call-it), registered ONCE in `packages/ui/src/covers.ts` (`FLAGSHIP_COVERS`,
+> imported by GameCover.vue AND useSeo.ts so cards and og:image can never drift).
+> ART DIRECTION (the owner's bar, set by the luggage-label /
+> enameled-die / desert-dusk custom-game covers): every game gets its OWN world (a
+> typewriter desk, a carnival, an awards gala, a casino, a chalkboard, a 70s game show, a
+> parchment storybook, a corkboard, a deco radio, a bingo parlor, a stadium), with period
+> typography and one dimensional emblem; never one template with swapped props. That rule
+> is codified in the FORMAT_GUIDE's COVER ART section. Gate: 703 unit tests, all
+> typechecks, web build, /explore renders all covers with 0 errors and 0 overflow at
+> 1440px. The covers ship as static assets in apps/web/public/covers and were verified live on prod after the deploy.
+
 > **SHIPPED: the deep-audit polish pass is on `main` and deployed (2026-06-09).** A full
 > repo/app/engine audit (TTS reliability + casting, round-stage sound feedback, crowded vote
 > galleries, a11y, copy rules) and its four fix slices, merged from `polish-audit`. Gate at

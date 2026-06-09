@@ -12,6 +12,9 @@ import net from 'node:net'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_REDIRECTS = 4
+// Keep in sync with sniffImageType below and storage.ts extensionFor: the URL
+// path trusts this set, the base64 path trusts the magic bytes, storage maps
+// the extension. All three must agree on the allowed formats.
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
 function isBlockedIp(ip: string): boolean {
@@ -133,4 +136,49 @@ export async function fetchImage(rawUrl: string): Promise<FetchedImage> {
     return { contentType: ct, bytes }
   }
   throw new Error('That image URL redirected too many times.')
+}
+
+/**
+ * Identify an image by its magic bytes. The byte signature is authoritative for
+ * the base64 upload path (a caller-claimed content type proves nothing), and it
+ * keeps the accepted set identical to the URL path: PNG, JPEG, GIF, WebP.
+ */
+export function sniffImageType(b: Uint8Array): string | null {
+  if (b.length > 11 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png'
+  if (b.length > 2 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg'
+  if (b.length > 5 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return 'image/gif'
+  if (
+    b.length > 11 &&
+    b[0] === 0x52 &&
+    b[1] === 0x49 &&
+    b[2] === 0x46 &&
+    b[3] === 0x46 &&
+    b[8] === 0x57 &&
+    b[9] === 0x45 &&
+    b[10] === 0x42 &&
+    b[11] === 0x50
+  )
+    return 'image/webp'
+  return null
+}
+
+/**
+ * Decode raw base64 image data (the MCP `upload_image` "data" argument), with or
+ * without a `data:image/...;base64,` prefix. Same caps as the URL path: 5MB,
+ * PNG/JPEG/GIF/WebP only, with the type read from the bytes themselves.
+ */
+export function decodeImageData(raw: string): FetchedImage {
+  let b64 = raw.trim()
+  const dataUri = /^data:[a-z0-9.+/-]+;base64,/i.exec(b64)
+  if (dataUri) b64 = b64.slice(dataUri[0].length)
+  b64 = b64.replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/')
+  if (!b64 || !/^[A-Za-z0-9+/]+=*$/.test(b64)) throw new Error('That is not valid base64 image data.')
+  // Cheap pre-decode cap: base64 is ~4/3 the byte size.
+  if (b64.length > MAX_BYTES * 1.4) throw new Error('Image is too large (5MB limit).')
+  const bytes = new Uint8Array(Buffer.from(b64, 'base64'))
+  if (bytes.length === 0) throw new Error('Empty image data.')
+  if (bytes.length > MAX_BYTES) throw new Error('Image is too large (5MB limit).')
+  const contentType = sniffImageType(bytes)
+  if (!contentType) throw new Error('That data is not a PNG, JPEG, GIF, or WebP image.')
+  return { contentType, bytes }
 }

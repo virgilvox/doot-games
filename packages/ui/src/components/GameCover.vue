@@ -7,6 +7,7 @@
  * restyle with the active theme.
  */
 import { computed, ref, watch } from 'vue'
+import { FLAGSHIP_COVERS } from '../covers'
 
 const props = withDefaults(
   defineProps<{
@@ -46,15 +47,9 @@ watch(
     imageFailed.value = false
   },
 )
-// Flagship games can ship a real in-game screenshot as their cover (served from
-// `/public/covers`); an uploaded `image` still wins, and a dead URL falls back to
-// the generated gradient art.
-const FLAGSHIP_COVER: Record<string, string> = {
-  'quiz-or-die': '/covers/quiz-or-die.jpg',
-  'circuit-cypher': '/covers/circuit-cypher.jpg',
-  'open-mic': '/covers/open-mic.jpg',
-}
-const coverSrc = computed(() => props.image || FLAGSHIP_COVER[props.type] || null)
+// Flagship covers ship in /public/covers; the shared map (covers.ts) is the one
+// source of truth for cards AND og:image, so the two can never drift.
+const coverSrc = computed(() => props.image || FLAGSHIP_COVERS[props.type] || null)
 const showImage = computed(() => !!coverSrc.value && !imageFailed.value)
 
 const ACCENTS = ['--c1', '--c2', '--c3', '--c4', '--c5', '--primary']
@@ -115,7 +110,7 @@ const SF = 'rgba(255,255,255,.32)'
 
 <template>
   <div class="cover" :style="coverStyle">
-    <img v-if="showImage" class="cover-img" :src="coverSrc!" alt="" @error="imageFailed = true" />
+    <img v-if="showImage" class="cover-img" :src="coverSrc!" alt="" loading="lazy" decoding="async" @error="imageFailed = true" />
     <svg v-if="!showImage" class="motif" viewBox="0 0 300 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <template v-if="motif === 'q'">
         <circle cx="150" cy="62" r="40" fill="none" :stroke="SF" stroke-width="10" />

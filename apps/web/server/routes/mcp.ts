@@ -91,8 +91,27 @@ How they work: the make round collects everyone's PRIVATE submission; the judge 
    - Optional "safety: a | b | c": canned full-sentence answers for anyone who times out (scored at half).
 * "## faker" (Hidden Faker / social deduction): everyone is shown a category and a secret WORD except one random "faker" (told the category only). Everyone gives a one-word clue, then the room accuses who the faker is. Fields: "category:" (public theme, e.g. "Animals"), "word:" (the SECRET word, never shown on the big screen or to the faker), prompt (the clue instruction), timer (default 45), "voteprompt:" (the accusation question), "votetimer:". Use a word every non-faker can hint at.
 
-== COVER IMAGE ==
-Host the image with upload_image (pass a public https URL), then put the returned Doot URL in the spec's "cover:" header or pass it as the coverImage argument to save_game/update_game/set_game_meta. Best results: a LANDSCAPE 16:9 image (e.g. 1200x675), at least ~600px wide. On game cards it is center-cropped to a wide strip (~full width x 150px) so keep the key subject centered; the detail page shows the full 16:9 image uncropped.
+== WHAT MAKES A PARTY GAME FUN (design these in) ==
+The proven shape of the genre (big-screen quip battles, drawing telephones, live quiz shows) comes down to a few rules. Build your game around them:
+1. THE ROOM IS THE CONTENT. The funniest material is the players' own words, lies, drawings, and votes. When the goal is laughs, prefer make-then-judge blocks (quip, fill, faker, draw with vote) over pure trivia; the game is a machine for making friends funny.
+2. ONE SIMPLE VERB PER ROUND. A phone instruction must be obvious in 3 seconds: type, tap, slide, draw. Depth comes from the social layer (bluffing, voting, reading the room), never from rules.
+3. EVERYONE ACTS AT ONCE, NOBODY WAITS. Simultaneous private input, then a shared payoff. Dead air kills a party.
+4. ANONYMITY BUYS BRAVERY. Anonymized galleries make shy people bold; authorship is revealed at the punchline, not before. That reveal IS the show: don't leak tallies or answers early.
+5. SHORT ROUNDS, RISING STAKES. 30-90 seconds per round; later rounds score more (the engine already escalates), so nobody is mathematically out before the end. Close on your biggest beat.
+6. SPLIT THE SCREENS. The big screen is shared spectacle (galleries, bars, reveals, the scoreboard); the phone is private input. Never put a secret on the big screen; never make the phone the show.
+7. PRESSURE WITH FAIRNESS. Timers make energy; correct-only and closeness scoring keep it fair; "safety:" answers mean a slow player is teased, not zeroed.
+8. ARC THE NIGHT. Open with an instant hook (a poll or one easy guess), alternate write-and-vote with trivia, end on a social finale (faker, a big wager). 5-8 rounds is a tight 15-25 minutes.
+9. KEEP IT PLAYFUL, NOT POINTED. Prompts should invite absurdity about situations, not meanness about people in the room.
+
+== COVER ART (make it, don't search for it) ==
+Make the cover yourself, as code: compose a single self-contained HTML/CSS/SVG scene (no external assets), render it at 1200x675 (16:9, and never below ~600px wide or it pixelates on cards), screenshot it, and upload the result with upload_image using the "data" argument (base64 bytes). Put the returned URL in the spec's "cover:" header or the coverImage argument of save_game/update_game/set_game_meta.
+Composition rules (learned from the covers that work):
+- GIVE THE GAME ITS OWN WORLD. The best covers read like posters from different decades and places, not one template with swapped props: a true-crime night gets a 1930s luggage-label look (aged serif, brass and leather); a western gets a desert-dusk scene; a heritage quiz gets its flag's palette and an ornamental border. Pick an era/genre aesthetic that matches the game's soul and commit: background, type, and emblem all from that world.
+- ONE DIMENSIONAL EMBLEM as the focal subject: a trunk, a die, a tombstone, a trophy. Build it from layered shapes WITH shading (gradients inside shapes, bevel highlights, inset shadows, a cast shadow), not flat outlines. It must read at thumbnail size: a game card is only ~248px wide.
+- A TITLE LOCKUP, not just text: a display face with character (an elegant serif, a slab, a typewriter, a western face... whatever the world calls for; never default to one round font for everything), tight letterspacing choices, an optional one-line subtitle in small caps, maybe a thin rule or diamond ornament. At most one short tagline; NO fine print or paragraph text.
+- CROP-SAFE ZONE: cards center-crop the 16:9 image to a wider, shorter strip and hero spots can crop deeper. Keep the lockup + emblem inside the middle 80% of the width and the middle 70% of the height; nothing critical at the edges.
+- PALETTE: 2-4 colors from the game's world (felt green + gold for a casino, parchment + ink for a storybook, slate + chalk for a classroom). Depth comes from vignettes, soft light, and texture (dots, grain, pattern), not from maximum saturation.
+- NEVER: photos you don't own, watermarks, brand names or logos, emoji glyphs as art, or text baked in below ~28px at 1200-wide.
 
 == VISIBILITY & REMIXABLE ==
 visibility private (default, owner only) | unlisted (anyone with the link, not listed) | public (listed in discovery). remixable yes lets others copy the game into their own editor (they get a fresh private copy). Set via the spec header or the save/update/set_game_meta arguments.
@@ -332,11 +351,20 @@ const TOOLS = [
   {
     name: 'upload_image',
     description:
-      'Fetch an image from a public https URL and host it on Doot, returning a Doot URL. Use it for a round "image:" field OR as a game "coverImage" (then pass that URL to save_game/update_game/set_game_meta). PNG, JPEG, GIF, or WebP, up to 5MB. For a cover, prefer a LANDSCAPE 16:9 image (e.g. 1200x675); cards center-crop it to a wide strip, the detail page shows it full.',
+      'Host an image on Doot and get back a Doot URL. Send EITHER "data" (base64 image bytes, with or without a data: URI prefix; the way to upload art you generated/rendered yourself) OR "url" (a public https URL to fetch). Use the returned URL for a round "image:" field or as a game "coverImage" (then pass it to save_game/update_game/set_game_meta). PNG, JPEG, GIF, or WebP, up to 5MB. For a cover, make a LANDSCAPE 16:9 image (e.g. 1200x675) and see the COVER ART section of doot_format_guide for composition + crop-safe rules.',
     inputSchema: {
       type: 'object',
-      properties: { url: { type: 'string', description: 'A public https URL of a PNG, JPEG, GIF, or WebP image.' } },
-      required: ['url'],
+      properties: {
+        data: {
+          type: 'string',
+          description:
+            'Base64-encoded image bytes (a bare base64 string or a full data:image/...;base64,... URI). PNG, JPEG, GIF, or WebP; max 5MB decoded. Preferred when you generated the image yourself.',
+        },
+        url: { type: 'string', description: 'A public https URL of a PNG, JPEG, GIF, or WebP image (alternative to "data").' },
+      },
+      // Exactly one source is required; expressed here so schema-validating
+      // clients reject an empty call before it ever reaches the handler.
+      minProperties: 1,
       additionalProperties: false,
     },
     annotations: { title: 'Upload an image to Doot', readOnlyHint: false },
@@ -686,13 +714,25 @@ async function callTool(name: string, args: Record<string, unknown>, userId: str
   if (name === 'upload_image') {
     if (!writeAllowed(userId)) return text('Too many uploads in a short time. Wait a minute and try again.', true)
     if (!isStorageConfigured()) return text('Image upload is not set up on this Doot instance.', true)
+    const data = typeof args.data === 'string' ? args.data.trim() : ''
     const src = typeof args.url === 'string' ? args.url.trim() : ''
-    if (!src) return text('Provide an image URL in the "url" argument.', true)
     let img: { contentType: string; bytes: Uint8Array }
-    try {
-      img = await fetchImage(src)
-    } catch (e) {
-      return text(e instanceof Error ? e.message : 'Could not fetch the image.', true)
+    if (data) {
+      // Direct upload: the caller generated the image (cover art, a rendered
+      // scene) and sends the bytes; the type is sniffed from the bytes.
+      try {
+        img = decodeImageData(data)
+      } catch (e) {
+        return text(e instanceof Error ? e.message : 'Could not decode the image data.', true)
+      }
+    } else if (src) {
+      try {
+        img = await fetchImage(src)
+      } catch (e) {
+        return text(e instanceof Error ? e.message : 'Could not fetch the image.', true)
+      }
+    } else {
+      return text('Provide "data" (base64 image bytes) or "url" (a public https image URL).', true)
     }
     const ext = extensionFor(img.contentType)
     if (!ext) return text('Unsupported image type.', true)

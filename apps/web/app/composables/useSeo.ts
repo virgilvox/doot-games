@@ -1,3 +1,4 @@
+import { FLAGSHIP_COVERS } from '@doot-games/ui'
 /**
  * Per-page Open Graph / Twitter metadata so links unfurl with a title, description,
  * and preview image. Resolves relative paths to absolute URLs (scrapers require
@@ -34,13 +35,8 @@ const DEFAULT_IMAGE = '/og.png'
  * wins, then a flagship's shipped screenshot, then the branded default. Keep the
  * flagship map in sync with packages/ui/src/components/GameCover.vue.
  */
-const FLAGSHIP_COVER: Record<string, string> = {
-  'quiz-or-die': '/covers/quiz-or-die.jpg',
-  'circuit-cypher': '/covers/circuit-cypher.jpg',
-  'open-mic': '/covers/open-mic.jpg',
-}
 export function gameOgImage(image: string | null | undefined, type: string | null | undefined): string {
-  return image || (type ? FLAGSHIP_COVER[type] : undefined) || DEFAULT_IMAGE
+  return image || (type ? FLAGSHIP_COVERS[type] : undefined) || DEFAULT_IMAGE
 }
 
 export function useDootSeo(opts: DootSeoOptions = {}): void {

@@ -35,9 +35,14 @@ Rules:
   - `visibility: <private|unlisted|public>` (default `private`). `public` lists it in
     discovery; `unlisted` is link-only. (`published: yes` also means public.)
   - `remixable: <yes|no>` (default no) lets others copy the game into their own editor.
-  - `cover: <url>` a cover image URL. Upload one first (via the MCP `upload_image` or the
-    editor) and paste the returned URL. Best as a **16:9 landscape** (e.g. 1200×675); cards
-    center-crop it to a wide strip, the detail page shows the full image.
+  - `cover: <url>` a cover image URL. Upload one first (via the MCP `upload_image`, which
+    accepts either a public https `url` or base64 `data` for art you rendered yourself, or
+    the editor) and paste the returned URL. Best as a **16:9 landscape** (e.g. 1200×675);
+    cards center-crop it to a wide strip, the detail page shows the full image. Keep the
+    title and the focal subject inside the middle ~80% width x ~70% height so no crop cuts
+    them; one bold subject and chunky type, no fine print (a card is ~248px wide). The MCP
+    `doot_format_guide` has the full COVER ART composition guide and a party-game design
+    section worth reading before authoring.
   - `tags: a, b, c` up to 8 short discovery tags.
 - Each `## <block>` heading starts one **round** of that block kind. Use the
   block kinds below (`guess`, `answer`, `poll`, `rank`, `rate`, `draw`,
