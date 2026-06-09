@@ -5,7 +5,9 @@
 import type { GamePlugin } from '@doot-games/sdk'
 import { backronym } from './games/backronym'
 import { ballpark } from './games/ballpark'
+import { bingo } from './games/bingo'
 import { buzzer } from './games/buzzer'
+import { callIt } from './games/call-it'
 import { categories } from './games/categories'
 import { circuitCypher } from './games/circuit-cypher'
 import { custom } from './games/custom'
@@ -72,6 +74,8 @@ export const builtinPlugins: GamePlugin[] = [
   storyChain,
   doodleChain,
   wavelength,
+  bingo,
+  callIt,
   custom,
 ]
 

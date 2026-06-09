@@ -59,6 +59,8 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'story-chain', name: 'Story Chain', version: '0.1.0', flagship: true, description: 'Pass-it-on storytelling: write a line, send it on, and watch each tale drift somewhere absurd.' },
   { id: 'doodle-chain', name: 'Doodle Chain', version: '0.1.0', flagship: true, description: 'Draw-and-describe telephone: write a prompt, draw what you got, guess the drawing, and watch each chain go sideways.' },
   { id: 'wavelength', name: 'Wavelength', version: '0.1.0', flagship: true, description: 'One player sees a secret point on a spectrum and gives a clue. The room guesses where it lands.' },
+  { id: 'bingo', name: 'Bingo', version: '0.1.0', flagship: true, description: 'Everyone gets a unique card. The host calls it; mark yours and race to a line. First bingo wins.' },
+  { id: 'call-it', name: 'Call It', version: '0.1.0', flagship: true, description: 'Live predictions for a room with a screen on. The host calls it, you pick, and calling it right scores.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

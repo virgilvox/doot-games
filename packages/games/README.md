@@ -7,8 +7,8 @@ First-party blocks, games, the generic renderer, and the registry.
   `pollBlock`, `rankBlock`, `drawBlock`, `hivemindBlock`, `mostLikelyBlock`,
   `ballparkBlock`, `buzzerBlock`, `categoriesBlock`, `surveyBlock`, `spectrumBlock`;
   the no-input display kinds `slideBlock`, `titleBlock`; the two-phase **make** kinds
-  `quipBlock`, `fillBlock`, `fakerBlock` (plus the custom-flow `barsBlock`,
-  `spotlightBlock`, `cellarBlock`); the two-phase **judge** kinds `voteBlock`,
+  `quipBlock`, `fillBlock`, `fakerBlock` (plus the custom-flow parked kinds `barsBlock`,
+  `spotlightBlock`, `cellarBlock`, `bingoBlock`, `callitBlock`); the two-phase **judge** kinds `voteBlock`,
   `splitBlock`, `fibBlock`, `drawVoteBlock`, `accuseBlock` (each derives its content
   from the round above it); and the per-player **chain/role** kinds `chainlineBlock`
   (Story Chain), `doodleBlock` (Doodle Chain), `wavelengthBlock` (Wavelength) - built
@@ -17,13 +17,14 @@ First-party blocks, games, the generic renderer, and the registry.
   re-exported. Plus pure scoring knobs (`blocks/scoring.ts`: `voteSharePoints`,
   `roundMultiplier`, `sweepBonus`, `pityPoints`, `closenessToHalf`, `splitPoints`,
   `speedDecay`) and the capped-crowd helper (`runtime/crowd.ts`, P4B).
-- Games (~33 + `custom`): the single-block `guess`, `rate`, `poll`, `rank`, `draw`,
+- Games (~35 + `custom`): the single-block `guess`, `rate`, `poll`, `rank`, `draw`,
   `buzzer`; `voteBox` (`[guess, rate]`); `custom` (composes every block); and the
   flagship "Games From Doot" (ready-to-play content pools / custom flows): `quipClash`,
   `madLibs`, `splitRoom`, `fibFinder`, `sketchSpot`, `circuitCypher`, `whatYouDidntKnow`,
   `backronym`, `openMic`, `hivemind`, `mostLikely`, `ballpark`, `faker`, `truthOrShare`,
   `quizOrDie`, `typeTheAnswer`, `wouldYouRather`, `tierList`, `overUnder`, `categories`,
-  `survey`, `spectrum`, `wager`, `storyChain`, `doodleChain`, `wavelength`. The
+  `survey`, `spectrum`, `wager`, `storyChain`, `doodleChain`, `wavelength`, `bingo`
+  (per-player cards, host-called), `callIt` (host-resolved live predictions). The
   authoritative list is `gameCatalog` (`@doot-games/games/catalog`).
 - Registry: `builtinPlugins`, `getPlugin`, `listPlugins`.
 - Renderer: `GameHost`, `GamePlayer`, `GameResults` (generic) + `derive.ts`

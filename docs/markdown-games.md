@@ -320,10 +320,11 @@ word: Toaster
 ```
 
 > Truth or Share, Circuit Cypher, Open Mic, Quiz or Die, "What, You Didn't Know That?",
-> Story Chain, Doodle Chain, and Wavelength have custom flows that markdown does not
-> author (they build their rounds at play time: a per-player chain, the draw-and-describe
-> telephone, or a clue-giver who privately sees a hidden target). Open one from the Create
-> page and host it (or remix the deck-backed ones) instead.
+> Story Chain, Doodle Chain, Wavelength, Bingo, and Call It have custom flows that markdown
+> does not author (they build their rounds at play time: a per-player chain, the
+> draw-and-describe telephone, a clue-giver who privately sees a hidden target, a
+> per-player bingo card the host calls live, or host-resolved live predictions). Open one
+> from the Create page and host it (or remix the deck-backed ones) instead.
 
 ## Content decks (data-driven rounds)
 

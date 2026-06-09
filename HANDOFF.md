@@ -5,6 +5,17 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **IN PROGRESS, NOT YET ON `main`: Bingo + Call It (branch `bingo-call-it`).** Two custom-flow
+> games are BUILT, player-UX-audited, and fully verified, but the work is **uncommitted in the
+> working tree** on branch `bingo-call-it` (no commits made, not pushed, so prod is unaffected).
+> To resume: `git status` shows the new files (`packages/games/src/games/{bingo,call-it}/`,
+> `packages/games/src/blocks/{bingo,callit}/`, `scripts/{bingo,call-it,audit-shots}-smoke.mjs`)
+> plus registration/doc edits. Re-run the gate to confirm it's intact (`pnpm test && pnpm -r
+> typecheck && pnpm --filter @doot-games/web build`), then the two smokes. It is ready to commit +
+> fast-forward-merge to `main` once you decide to ship it. Full dated entry below. Remaining §8
+> work after this: **Quick Draw** (the big streaming game), **survey two-phase**, **custom prompt
+> packs via share code**.
+
 > **SHIPPED: the expansion-plan work is MERGED to `main` and DEPLOYED (2026-06-09).** The
 > `expansion-p1-answer-caption` work (43 commits) fast-forward-merged to `main` and pushed,
 > which triggered the prod deploy. It was held on the branch until the plan reached
@@ -30,21 +41,72 @@ prod via CI, no staging)._
 >   both on that foundation · a generic `components.Results` seam (the renderer honors a
 >   game's custom results view) + a `ResultsFragment.recap` passthrough · **Wavelength** (the
 >   clue-giver dial - the first game using the foundation in a JUDGE round). Catalog now ~34 games.
-> - **Tests:** ~653 unit + ~16 browser smokes (answer, audience, audience-vote, audio,
->   categories, crowd-vote, doodlechain, quickwins, spectrum, split-crowd, standings,
->   storychain, survey, teams, wavelength, session, playlists, wager).
+> - **Tests:** ~681 unit + ~18 browser smokes (answer, audience, audience-vote, audio,
+>   bingo, call-it, categories, crowd-vote, doodlechain, quickwins, spectrum, split-crowd,
+>   standings, storychain, survey, teams, wavelength, session, playlists, wager).
+> - **Bingo + Call It - DONE (2026-06-09, branch `bingo-call-it`, not yet pushed).** Two
+>   custom-flow party games for a room with a screen up front. Bingo: every player gets a
+>   UNIQUE card dealt by a pure seeded function (`buildCard(room, pid, pool)` - no relay write,
+>   reconnect-safe), the host calls items live off the big screen, players mark, and the first
+>   to a line claims a bingo the host VERIFIES (re-derives the claimant's card + checks it
+>   against what was called, so a tampered phone can't win). Call It: host poses a live
+>   prediction (prompt + 2-4 options), the room picks, the host taps the real outcome, correct
+>   callers score, and the board rolls across as many calls as the host wants. Both over the
+>   proven `/x/` transport (no engine change); pure tested logic; excluded from Sessions/picker
+>   (they ship `components`). Catalog now ~36 games. Dated entry below.
 > - **REMAINING (now post-ship, per §8):** **Quick Draw** (real-time stroke streaming - the
 >   big §5 custom-flow game; reuses the Pixi `DrawCanvas` + a `/x/strokes` channel + P1 fuzzy
->   matching + speed scoring) · **Bingo** (P2 per-player card via `assignContent` + host calls +
->   win detection) · **Call It** (host-resolved live predictions) · **P4B split/fibvote are DONE
->   too** (the whole crowd-toggle is shipped) · **survey two-phase** (a board clustered from the
->   room's own answers) · **custom prompt packs via share code**. The P7 chain foundation +
->   `assignContent`-reads-sources is the reusable primitive for Bingo's per-player cards.
->   Detailed dated entries below.
+>   matching + speed scoring) · **survey two-phase** (a board clustered from the room's own
+>   answers) · **custom prompt packs via share code** (would also make Bingo + Call It
+>   deck-feedable, today they ship built-in packs/starters only). Detailed dated entries below.
 
 > _Deploy note: the Docker base image is now **digest-pinned** (`docker/Dockerfile`, a
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
+
+> **Bingo + Call It - two custom-flow games for a room with a screen (2026-06-09).** BUILT +
+> verified on branch `bingo-call-it` (not yet pushed). Both follow the proven Truth or Share /
+> Circuit Cypher custom-flow pattern: a parked block gives the engine a round to sit on while a
+> custom Host + Player drive the whole show over the relay's `/x/` channels; all win/score math
+> is pure, tested `logic.ts`; both ship `components`, so they're auto-excluded from Sessions +
+> the picker (`nextGame` only resets the engine, not `/x/` state).
+> - **Bingo** (`games/bingo/`, block `blocks/bingo/`): the per-player card is NOT secret, so it
+>   needs no `assignContent`/relay routing - each phone deals its own card with a pure seeded
+>   function `buildCard(room, pid, pool, size)` (sizes 3/4/5, free center on odd), so it is
+>   identical on every client and survives reconnect with zero relay writes. Cells **auto-mark**
+>   from the retained `/x/calls` (a cell is covered iff its item was called), so the whole phone
+>   surface is reconnect-safe by construction (no local mark state to lose) and there's no
+>   tap-the-tiny-cell race; the player's one action is to claim BINGO when a line lights up. The
+>   phone shows a live `role="status"` "Just called: X" line. Channels: `/x/setup` (host publishes
+>   pack + size + pool), `/x/calls` (the growing called list), `/x/claim/<pid>` (a phone shouts
+>   bingo; a 4s timeout reverts the claim so it can't hang), `/x/result` (verified winners). The
+>   host VERIFIES every claim by re-deriving that pid's card from the seed and checking `hasBingo`
+>   against the called set, so a tampered phone can't win. Built-in packs: Meeting / Party / Road
+>   Trip (brand-free, short items, 28-30 each). Placement-scored leaderboard.
+> - **Call It** (`games/call-it/`, block `blocks/callit/`): host-resolved live predictions, the
+>   perfect second screen for a bar with a game already on the TV. The host poses a call (prompt +
+>   2-4 options, with ready-made option sets + example prompts), the room locks a pick (`/x/pick`),
+>   the host locks then taps the real-world outcome, correct callers earn flat points, and the
+>   running board (`/x/board`) carries across as many calls as the host runs. Voidable calls.
+> - **Verified:** 681 unit tests (`bingo/logic.test` 18: deterministic + reconnect-agreement +
+>   distinct cards + win on row/col/diag + no false positive + host verify; `call-it/logic.test`
+>   5: tally/score/accumulate/playable), all typechecks, the web build, and two real-browser
+>   smokes - `scripts/bingo-smoke.mjs` (3 phones get DISTINCT auto-marking cards; host calls; a
+>   phone RELOADS + rejoins and its marks come back; a player hits a line; the host verifies +
+>   crowns; 0 horizontal overflow at 390px AND 1440px) and `scripts/call-it-smoke.mjs` (host
+>   receives picks over the custom channel; a phone reconnects mid-open and its pick is restored;
+>   correct callers show their win card + points; the board carries across a 2nd call; 0 overflow).
+>   No DB change.
+> - **Player-UX audit pass (2026-06-09):** an independent UX/a11y review + 390px/1440px screenshots
+>   surfaced two reconnect defects (Bingo marks + Call It pick were local-only, lost on a drop) plus
+>   gaps (no "what was just called" on the Bingo phone; one `aria-live` around a wholesale-swapped
+>   subtree; a confusing loss icon; tiny long-pack text). All fixed: auto-mark + retained-pick
+>   rehydrate make both phones reconnect-safe (now asserted by the smokes), each phone has a
+>   persistent `role="status"` line, covered cells carry a non-color corner-dot marker, the loss
+>   icon is gone, and the long pack items were tightened. ConfettiBurst is reduced-motion-safe.
+> - **Follow-up:** deck-feedable packs/prompts via the planned "custom prompt packs via share
+>   code" (today both ship built-in content only); a per-player card seeded by the live standing
+>   would let Bingo run as a Session leg.
 
 > **Wavelength - the clue-giver dial, the first game using the P7 foundation in a JUDGE round
 > (2026-06-08).** BUILT + verified on the same branch (1 commit, not pushed). The §2 spectrum

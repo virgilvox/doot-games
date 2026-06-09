@@ -59,6 +59,8 @@ const VISUALS: Record<string, GameVisual> = {
   'doodle-chain': { color: 'var(--c2)', icon: 'squiggle' },
   doodle: { color: 'var(--c2)', icon: 'squiggle' },
   wavelength: { color: 'var(--c2)', icon: 'rank' },
+  bingo: { color: 'var(--c3)', icon: 'grid' },
+  'call-it': { color: 'var(--c1)', icon: 'check' },
   quip: { color: 'var(--primary)', icon: 'text' },
   vote: { color: 'var(--c5)', icon: 'check' },
   bars: { color: 'var(--c5)', icon: 'mic' },

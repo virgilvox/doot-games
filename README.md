@@ -14,7 +14,7 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **[Live at doot.games](https://doot.games).** Pick a ready-to-play game or compose your own in the schema-driven editor, host it on a big screen, and the room joins from their phones over the CLASP relay, no installs, no accounts, no artificial player caps. Reconnect by name if a phone drops; nothing about a live room ever touches the database. Doot ships a couple dozen composable game **blocks** and 30-plus ready-to-play **"Games From Doot"** (Quip Clash, Fib Finder, Quiz or Die, Wavelength, the draw-and-describe Doodle Chain, and more), with cross-cutting **Teams**, a watch-along **audience** tier, and **Sessions** (a whole night of games in one room). New game types are small declarative plugins, not platform forks.
+> **[Live at doot.games](https://doot.games).** Pick a ready-to-play game or compose your own in the schema-driven editor, host it on a big screen, and the room joins from their phones over the CLASP relay, no installs, no accounts, no artificial player caps. Reconnect by name if a phone drops; nothing about a live room ever touches the database. Doot ships a couple dozen composable game **blocks** and 30-plus ready-to-play **"Games From Doot"** (Quip Clash, Fib Finder, Quiz or Die, Wavelength, the draw-and-describe Doodle Chain, per-player Bingo, host-called live predictions in Call It, and more), with cross-cutting **Teams**, a watch-along **audience** tier, and **Sessions** (a whole night of games in one room). New game types are small declarative plugins, not platform forks.
 >
 > See the [feature tour](#features) below, [`docs/`](./docs) for guides, or [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
@@ -54,7 +54,7 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 
 ## Features
 
-- 🎮 **30-plus built-in games**, the ready-to-play **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?", Quiz or Die, Fib Finder, Faker, Survey, Wager, the writing/drawing telephones Story Chain & Doodle Chain, the clue-giver Wavelength, and more), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks). The authoritative list is the in-app catalog.
+- 🎮 **30-plus built-in games**, the ready-to-play **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?", Quiz or Die, Fib Finder, Faker, Survey, Wager, the writing/drawing telephones Story Chain & Doodle Chain, the clue-giver Wavelength, per-player Bingo, host-called live predictions in Call It, and more), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks). The authoritative list is the in-app catalog.
 - 🧩 **Blocks + compositions**, a *block* is a round kind (content schema + Player/Host views + aggregate + answer-withholding); a *game* composes blocks. Most games are ~20 lines and need no components. Import a whole game from a [markdown spec](./docs/markdown-games.md).
 - 👥 **Teams, audience, and sessions**, group play with a rolled-up team board; a watch-along spectator tier (with opt-in crowd voting) that never counts against the player cap; and Sessions, a whole night of games in one room players join once, plus saved playlists.
 - 🎨 **Theming**, cute, cyber, professional, and playful packs out of the box; per-game accent and title overrides.
