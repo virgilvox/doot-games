@@ -24,8 +24,8 @@ function pick(pid: string, name: string) {
 
 <template>
   <div class="accuse">
-    <p v-if="!clues.length" class="empty" aria-live="polite">Waiting for the clues...</p>
-    <ul v-else class="clue-list" role="group" aria-label="Pick the faker">
+    <p class="empty" role="status">{{ clues.length ? '' : 'Waiting for the clues...' }}</p>
+    <ul v-if="clues.length" class="clue-list" role="group" aria-label="Pick the faker">
       <li v-for="c in clues" :key="c.pid">
         <button
           type="button"
@@ -53,6 +53,11 @@ function pick(pid: string, name: string) {
   color: var(--ink-soft);
   text-align: center;
   padding: 24px 0;
+}
+/* The status region stays mounted with empty text (so it can announce); take no
+   space while blank. */
+.empty:empty {
+  padding: 0;
 }
 .clue-list {
   list-style: none;

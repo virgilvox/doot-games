@@ -222,9 +222,9 @@ async function deleteDeck(d: AdminDeck) {
 }
 
 function fmtDate(v: number | string | null): string {
-  if (!v) return '—'
+  if (!v) return '-'
   const d = typeof v === 'number' ? new Date(v) : new Date(v)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString()
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString()
 }
 function ownerLabel(g: { ownerHandle: string | null; ownerEmail: string | null; ownerName: string | null }): string {
   if (g.ownerHandle) return `@${g.ownerHandle}`
@@ -354,7 +354,7 @@ const overview = computed(() => stats.value)
                 <tr v-for="u in users" :key="u.id" :class="{ banned: u.banned }">
                   <td>
                     <div class="who">
-                      <span class="who-name">{{ u.name || u.handle || '—' }}</span>
+                      <span class="who-name">{{ u.name || u.handle || '-' }}</span>
                       <span class="who-sub">{{ u.email }}<template v-if="u.handle"> · @{{ u.handle }}</template></span>
                     </div>
                   </td>
@@ -465,7 +465,7 @@ const overview = computed(() => stats.value)
                     <NuxtLink :to="`/decks/${d.id}`" class="who-name link">{{ d.name || 'Untitled' }}</NuxtLink>
                     <span class="who-sub">{{ d.kind }}</span>
                   </td>
-                  <td class="dim">{{ d.game || '—' }}</td>
+                  <td class="dim">{{ d.game || '-' }}</td>
                   <td class="dim">{{ ownerLabel({ ownerHandle: d.ownerHandle, ownerEmail: d.ownerEmail, ownerName: null }) }}</td>
                   <td class="num">{{ d.rowCount }}</td>
                   <td>{{ fmtDate(d.createdAt) }}</td>

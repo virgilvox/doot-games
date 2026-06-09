@@ -51,6 +51,20 @@ export function warmUpSpeech(): void {
       voicesWarmed = true
       window.speechSynthesis.addEventListener?.('voiceschanged', () => {
         window.speechSynthesis.getVoices()
+        assignedCache = null // voices changed: re-pick roles on the next line
+      })
+      // A backgrounded/casted tab can suspend the engine mid-queue; when the tab
+      // comes back, resume() unwedges anything still queued so the show picks up
+      // instead of staying silent until the next cancel.
+      document.addEventListener?.('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          try {
+            const synth = window.speechSynthesis
+            if (synth.speaking || synth.pending) synth.resume()
+          } catch {
+            /* ignore */
+          }
+        }
       })
     }
   } catch {
@@ -127,6 +141,31 @@ function stopKeepAlive(): void {
   }
 }
 
+// ── Speech health ─────────────────────────────────────────────────────────────
+// Tracks whether speak() attempts actually produce audio. A browser can accept an
+// utterance and never fire `onstart` (no installed voices, an offline network
+// voice, a wedged engine), which reads as dead silence to the room. After two
+// consecutive attempts that ran long enough to have started but never did, the
+// engine "looks silent" and a caller should switch to its Web Audio voice (which
+// also keeps working when the tab is cast to a TV; speechSynthesis audio is
+// rendered outside the tab and never reaches a cast). Attempts cut short by an
+// explicit cancel/skip are not counted; an `onstart` anywhere resets the streak.
+const SILENT_ATTEMPT_MIN_MS = 1200
+let silentAttempts = 0
+
+/** True when recent speak() attempts produced no audio (see note above). */
+export function speechLooksSilent(): boolean {
+  return silentAttempts >= 2
+}
+
+function noteSpeechStarted(): void {
+  silentAttempts = 0
+}
+
+function noteSpeechEnded(started: boolean, elapsedMs: number): void {
+  if (!started && elapsedMs >= SILENT_ATTEMPT_MIN_MS) silentAttempts++
+}
+
 // ── Voice selection ───────────────────────────────────────────────────────────
 // A female-leaning name set, used ONLY as a tiebreak so the MC tends to sound
 // distinct from the (often male-default) platform voice. Leading word boundary so
@@ -166,12 +205,17 @@ export type VoiceRole = 'mc' | 'robotA' | 'robotB'
  *    back to the robot voice on a one-voice device (a working shared voice beats a
  *    silent "distinct" one).
  * Local-only: network voices (Chrome's "Google …") are the silent-failure risk, so
- * they're used only if the device has NO local voice at all. Recomputed each call
- * so it self-heals once voices finish loading.
+ * they're used only if the device has NO local voice at all. The pick is CACHED
+ * once voices exist (so the MC/robot voices can't swap mid-show as late voices
+ * stream in) and invalidated on `voiceschanged`, which still self-heals a cold
+ * start where the first call ran before any voice had loaded.
  */
-function assignVoices(): { mc?: SpeechSynthesisVoice; robotA?: SpeechSynthesisVoice; robotB?: SpeechSynthesisVoice } {
+type AssignedVoices = { mc?: SpeechSynthesisVoice; robotA?: SpeechSynthesisVoice; robotB?: SpeechSynthesisVoice }
+let assignedCache: AssignedVoices | null = null
+function assignVoices(): AssignedVoices {
+  if (assignedCache) return assignedCache
   const all = usableVoices()
-  if (!all.length) return {}
+  if (!all.length) return {} // nothing loaded yet: retry next call, don't cache
   const local = all.filter((v) => v.localService)
   const pool = local.length ? local : all // network only as a last resort
   const robot = pool.find((v) => v.default) ?? pool[0]
@@ -181,7 +225,8 @@ function assignVoices(): { mc?: SpeechSynthesisVoice; robotA?: SpeechSynthesisVo
     robot
   // Both robots use the same proven voice; pitch/rate (set by the caller) make the
   // two performers sound distinct without risking a silent side.
-  return { mc, robotA: robot, robotB: robot }
+  assignedCache = { mc, robotA: robot, robotB: robot }
+  return assignedCache
 }
 
 function voiceForRole(role: VoiceRole): SpeechSynthesisVoice | undefined {
@@ -254,10 +299,12 @@ function speakQueue(
   let started = false
   let settled = false
   let i = 0
+  const t0 = performance.now()
   const finish = () => {
     if (settled) return
     settled = true
     stopKeepAlive()
+    if (!cancelled) noteSpeechEnded(started, performance.now() - t0)
     cbs.onDone?.()
   }
   const next = () => {
@@ -272,6 +319,7 @@ function speakQueue(
     u.onstart = () => {
       if (!started && !cancelled) {
         started = true
+        noteSpeechStarted()
         cbs.onStart?.()
       }
     }
@@ -423,10 +471,18 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   }
   const voice = voiceForRole(opts.side === 'b' ? 'robotB' : 'robotA')
   let cancelled = false
+  let started = false
+  const t0 = performance.now()
   const u = new window.SpeechSynthesisUtterance(clean)
   u.rate = opts.rate ?? 0.95
   u.pitch = opts.pitch ?? 0.6
   if (voice) u.voice = voice
+  u.onstart = () => {
+    if (!cancelled) {
+      started = true
+      noteSpeechStarted()
+    }
+  }
   u.onboundary = (e) => {
     if (cancelled || (e.name && e.name !== 'word')) return
     let k = 0
@@ -435,11 +491,17 @@ export function speakVerse(text: string, opts: VerseOptions = {}): () => void {
   }
   u.onend = () => {
     stopKeepAlive()
-    if (!cancelled) opts.onDone?.()
+    if (!cancelled) {
+      noteSpeechEnded(started, performance.now() - t0)
+      opts.onDone?.()
+    }
   }
   u.onerror = () => {
     stopKeepAlive()
-    if (!cancelled) opts.onDone?.()
+    if (!cancelled) {
+      noteSpeechEnded(started, performance.now() - t0)
+      opts.onDone?.()
+    }
   }
   startKeepAlive(synth)
   speakSoon(synth, u, () => cancelled, () => {

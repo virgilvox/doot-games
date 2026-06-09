@@ -52,7 +52,7 @@ async function copyLink() {
       <div class="join-actions">
         <span class="url mono">{{ displayUrl }}</span>
         <button type="button" class="copy-btn" @click="copyLink">
-          {{ copied ? 'Copied ✓' : 'Copy link' }}
+          {{ copied ? 'Copied!' : 'Copy link' }}
         </button>
       </div>
     </div>

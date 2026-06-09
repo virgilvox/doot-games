@@ -20,6 +20,7 @@ import {
 } from '@doot-games/sdk'
 import type { DrawValue } from '@doot-games/ui'
 import { BASE_POINTS, pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
+import { scaleReadTimer } from '../timing'
 import DrawVoteHost from './DrawVoteHost.vue'
 import DrawVotePlayer from './DrawVotePlayer.vue'
 import DrawVoteReveal from './DrawVoteReveal.vue'
@@ -92,7 +93,7 @@ export const drawVoteBlock = defineBlock<DrawVoteContent, DrawVoteInput>({
     hideUntilReveal: true,
   }),
   defaultTimer: 30,
-  timerOf: (c) => c.timer,
+  timerOf: (c) => scaleReadTimer(c.timer, { images: c.options.length }),
   emptyInput: () => ({ choice: '' }),
   isComplete: (_c, input) => input.choice !== '',
   PlayerInput: DrawVotePlayer,

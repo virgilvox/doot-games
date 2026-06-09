@@ -49,7 +49,7 @@ const total = computed(() => rows.value.filter((r) => r.scored).length)
     <ul class="myrows">
       <li v-for="(r, i) in rows" :key="i" :class="{ scored: r.scored }">
         <span class="mr-cat">{{ r.label }}</span>
-        <span class="mr-ans">{{ r.text || '—' }}</span>
+        <span class="mr-ans">{{ r.text || 'no answer' }}</span>
         <span class="mr-mark" aria-hidden="true">
           <template v-if="r.scored">&#10003;</template>
           <template v-else-if="r.text && r.valid">dup</template>

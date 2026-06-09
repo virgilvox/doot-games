@@ -40,11 +40,9 @@ function onSelect(i: number) {
 
 <template>
   <div class="vote-player">
-    <p v-if="!visible.length" class="empty" aria-live="polite">
-      {{ content.options.length ? 'No other answers to vote on this round.' : 'Waiting for answers...' }}
-    </p>
+    <p class="empty" role="status">{{ visible.length ? '' : content.options.length ? 'No other answers to vote on this round.' : 'Waiting for answers...' }}</p>
     <OptionGrid
-      v-else
+      v-if="visible.length"
       :options="visible.map((o) => ({ label: o.text }))"
       :selected="selectedIndex"
       :disabled="disabled"
@@ -58,5 +56,10 @@ function onSelect(i: number) {
   color: var(--ink-soft);
   text-align: center;
   padding: 24px 0;
+}
+/* The status region stays mounted with empty text (so it can announce); take no
+   space while blank. */
+.empty:empty {
+  padding: 0;
 }
 </style>

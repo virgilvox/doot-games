@@ -8,7 +8,7 @@
 import type { RelayValue } from "@doot-games/engine";
 import { injectDootRoom } from "@doot-games/engine/vue";
 import type { GameComposition, StandardResults } from "@doot-games/sdk";
-import { announce, cancelSpeech, canSpeak, primeSpeech, warmUpSpeech } from "@doot-games/ui";
+import { announce, cancelSpeech, canSpeak, primeSpeech, speechLooksSilent, warmUpSpeech } from "@doot-games/ui";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { CellarContent } from "../../blocks/cellar/block";
 import { type HorrorAudio, createHorrorAudio } from "./audio";
@@ -178,26 +178,40 @@ export function useQuizShow() {
   }
 
   // ── Narration ─────────────────────────────────────────────────────────────────
+  // How many OS-speech lines in a row never started. After two, stop trying the OS
+  // voice for the rest of the show (each try costs a 480ms mute at the line start).
+  let speechFailures = 0;
   function speak(text: string, ms: number) {
     talking.value = true;
     timers.push(setTimeout(() => (talking.value = false), ms));
     if (muted.value || voiceMode.value === "off") return;
-    if (voiceMode.value === "synth") {
+    // The synth voice is also the cast-safe path: Web Audio travels with a tab
+    // cast / screen share, while OS speech is rendered outside the tab and never
+    // reaches the TV. So it serves whenever OS speech can't be trusted, too.
+    if (voiceMode.value === "synth" || !canSpeak() || speechLooksSilent() || speechFailures >= 2) {
       audio?.voice(text, ms);
       return;
     }
     // Speech mode: real OS speech for the host's deep, wrong voice. If the browser
     // silently drops it (no voice actually starts), fall back to the always-audible
     // synth so the show is never silent (the mockup's exact strategy).
-    if (!canSpeak()) {
-      audio?.voice(text, ms);
-      return;
-    }
     let started = false;
-    announce(text, { rate: 0.84, pitch: 0.42, onStart: () => (started = true) });
+    announce(text, {
+      rate: 0.84,
+      pitch: 0.42,
+      onStart: () => {
+        started = true;
+        speechFailures = 0;
+      },
+    });
     timers.push(
       setTimeout(() => {
-        if (!started) audio?.voice(text, Math.max(700, ms - 480));
+        if (started) return;
+        speechFailures++;
+        // Kill the dead OS queue BEFORE the synth takes over, or a slow voice can
+        // start late and talk over the blips.
+        cancelSpeech();
+        audio?.voice(text, Math.max(700, ms - 480));
       }, 480),
     );
   }

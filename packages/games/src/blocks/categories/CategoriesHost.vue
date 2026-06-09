@@ -48,7 +48,7 @@ const breakdown = computed(() => scoreCategories(props.content, props.inputs).br
               {{ e.text }}
             </li>
           </ul>
-          <p v-if="!b.entries.length" class="empty">—</p>
+          <p v-if="!b.entries.length" class="empty">none yet</p>
         </div>
       </div>
     </template>

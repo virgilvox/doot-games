@@ -7,9 +7,9 @@
 import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
-import { AudioClip, ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek } from '@doot-games/ui'
+import { AudioClip, ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek, type StageSfx, createStageSfx } from '@doot-games/ui'
 import type { StandardResults } from '@doot-games/sdk'
-import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, ref, watch } from 'vue'
+import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, ref, shallowRef, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
 import { type ScoreGameContext, getBlock, scoreGame } from './derive'
@@ -100,9 +100,30 @@ function toggleCrowd(on: boolean) {
   room.host.setCrowdCounts(on)
 }
 
+// ── Stage SFX (big screen only) ─────────────────────────────────────────────
+// Synthesized stage feedback for every composed game: join pop, lock-in click,
+// "everyone's in" chime, countdown ticks, reveal sting, results fanfare. The
+// context unlocks on a lobby tap or Start (browsers gate audio on a gesture);
+// the host can mute from the lobby. Phones never play these.
+const sfx = shallowRef<StageSfx | null>(null)
+const sfxOn = ref(true)
+function armSfx() {
+  if (sfxOn.value) sfx.value?.arm()
+}
+function toggleSfx(on: boolean) {
+  sfxOn.value = on
+  sfx.value?.setMuted(!on)
+  if (on) sfx.value?.arm()
+}
+function startGame() {
+  armSfx()
+  room.host.start()
+}
+
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
+  sfx.value = createStageSfx()
   now.value = Date.now()
   ticker = setInterval(() => {
     now.value = Date.now()
@@ -111,6 +132,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (ticker) clearInterval(ticker)
+  sfx.value?.dispose()
 })
 
 const config = computed<GameComposition | null>(
@@ -285,8 +307,44 @@ function pushStandings() {
 // transient reveal is coalesced away by the watcher, which is fine since it scores
 // nothing. Re-publishing on a no-score round would be harmless anyway.
 watch(state, (s) => {
-  if (s === 'reveal') pushStandings()
+  if (s === 'reveal') {
+    pushStandings()
+    if (!isDisplay.value) sfx.value?.reveal()
+  }
 })
+
+// ── Stage SFX triggers ──────────────────────────────────────────────────────
+// Join pop in the lobby (a relay roster change, so latency is fine for a pop).
+watch(
+  () => room.players.value.length,
+  (n, o) => {
+    if (room.phase.value === 'lobby' && n > (o ?? 0)) sfx.value?.join()
+  },
+)
+// Lock-in click per arriving answer; the "everyone's in" chime when the last
+// one lands (only meaningful with 2+ players).
+watch(
+  () => lockCount.value.locked,
+  (n, o) => {
+    if (state.value !== 'open' || n <= (o ?? 0)) return
+    if (n === lockCount.value.total && lockCount.value.total > 1) sfx.value?.allIn()
+    else sfx.value?.lockIn()
+  },
+)
+// Countdown ticks over the last five seconds, and a "time's up" drop at zero.
+const cdSeconds = computed(() => (countdown.value ? Math.ceil(countdown.value.remaining / 1000) : null))
+watch(cdSeconds, (s, prev) => {
+  if (s == null || prev == null || s >= prev) return
+  if (s > 0 && s <= 5) sfx.value?.tick()
+  else if (s === 0) sfx.value?.timeUp()
+})
+// Results fanfare, once, when the game lands on the final board.
+watch(
+  () => room.phase.value,
+  (p, prev) => {
+    if (p === 'results' && prev === 'active') sfx.value?.fanfare()
+  },
+)
 
 const standings = computed(() => room.standings.value as StandardResults | undefined)
 // Show the running standings on the big screen during the reveal beat of a scored
@@ -395,7 +453,7 @@ watch(
 
 <template>
   <!-- LOBBY -->
-  <div v-if="room.phase.value === 'lobby'" class="lobby">
+  <div v-if="room.phase.value === 'lobby'" class="lobby" @pointerdown="armSfx">
     <section class="panel ticket-card">
       <RoomTicket :code="room.runtime.room" :url="joinUrl" />
     </section>
@@ -504,6 +562,14 @@ watch(
         />
         <span class="kicker">Advance as soon as everyone has answered</span>
       </label>
+      <label class="cap-row timers-row">
+        <input
+          type="checkbox"
+          :checked="sfxOn"
+          @change="toggleSfx(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="kicker">Sound effects on this screen</span>
+      </label>
       <div v-if="hasFreeTextGallery" class="cohost-pick">
         <span class="kicker">Filter answers on the big screen</span>
         <select
@@ -538,7 +604,7 @@ watch(
         </label>
       </div>
       <div class="lobby-actions">
-        <DButton variant="primary" size="lg" :disabled="!config" @click="room.host.start()">
+        <DButton variant="primary" size="lg" :disabled="!config" @click="startGame">
           Start game
         </DButton>
       </div>

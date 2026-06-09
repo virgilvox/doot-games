@@ -18,6 +18,7 @@ import {
   z,
 } from '@doot-games/sdk'
 import { pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
+import { scaleReadTimer } from '../timing'
 import PhotoVoteHost from './PhotoVoteHost.vue'
 import PhotoVotePlayer from './PhotoVotePlayer.vue'
 import PhotoVoteReveal from './PhotoVoteReveal.vue'
@@ -83,7 +84,7 @@ export const photoVoteBlock = defineBlock<PhotoVoteContent, PhotoVoteInput>({
   derivedFields: ['options'],
   defaultContent: () => ({ prompt: 'Which photo wins?', options: [], timer: 30, hideUntilReveal: true }),
   defaultTimer: 30,
-  timerOf: (c) => c.timer,
+  timerOf: (c) => scaleReadTimer(c.timer, { images: c.options.length }),
   emptyInput: () => ({ choice: '' }),
   isComplete: (_c, input) => input.choice !== '',
   PlayerInput: PhotoVotePlayer,

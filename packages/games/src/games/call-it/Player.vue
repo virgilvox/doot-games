@@ -97,6 +97,10 @@ function pick(i: number) {
         <span v-else-if="myPick != null">It was <b>{{ call.options[call.outcome] }}</b>. You called {{ call.options[myPick] }}.</span>
         <span v-else>It was <b>{{ call.options[call.outcome] }}</b>.</span>
       </div>
+      <!-- how the room split (the tally rides the result call) -->
+      <p v-if="phase === 'result' && call.outcome != null && call.tally.some((n) => n > 0)" class="spread">
+        {{ call.options.map((o, i) => `${o} ${call?.tally[i] ?? 0}`).join(' · ') }}
+      </p>
 
       <p v-if="phase !== 'open'" class="hint">{{ phase === 'result' ? 'Next call coming up on the big screen.' : 'Watch the big screen for the outcome.' }}</p>
     </template>
@@ -115,6 +119,7 @@ function pick(i: number) {
 .opt:active { transform: scale(0.97); }
 .opt.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, var(--surface)); }
 .result-card { display: flex; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 18px; border-radius: var(--radius-lg); border: var(--bd) solid var(--line); background: var(--surface-2); font-weight: 700; font-size: clamp(16px, 4.5vw, 20px); }
+.spread { margin: 0; text-align: center; color: var(--ink-soft); font-weight: 700; font-size: 14px; }
 .result-card.win { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); color: var(--primary); }
 .result-card b { color: var(--ink); }
 .result-card.win b { color: var(--primary); }

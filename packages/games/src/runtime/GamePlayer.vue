@@ -135,6 +135,23 @@ function submit() {
   room.submit(value.value as never)
 }
 
+// One PERSISTENT status line for screen readers. The surface below swaps whole
+// subtrees per stage (v-if), which a live region cannot announce (the region
+// itself is unmounted, not mutated); this line always exists and only its TEXT
+// changes, so every stage transition is announced. Visually hidden: the sighted
+// player sees the same information in the swapped views.
+const stageStatus = computed(() => {
+  if (!room.ready.value) return 'Joining the room.'
+  if (room.phase.value === 'lobby') return "You're in. Waiting for the host to start."
+  if (room.phase.value === 'results') return 'Final results are up.'
+  const r = rounds.value.length > 1 ? `Round ${index.value + 1} of ${rounds.value.length}: ` : ''
+  if (state.value === 'ready') return `${r}get ready.`
+  if (state.value === 'open') return submitted.value ? `${r}locked in, waiting for everyone else.` : `${r}answers open.`
+  if (state.value === 'locked') return `${r}answers are locked.`
+  if (state.value === 'reveal') return `${r}results are up.`
+  return `${r}in progress.`
+})
+
 // The config names this round's block, but this client doesn't have it. That
 // almost always means the page was loaded before this game type shipped a new
 // round kind (a stale tab on a phone) - so a reload pulls the current code.
@@ -146,7 +163,10 @@ function reloadPage() {
 </script>
 
 <template>
-  <div class="player" aria-live="polite">
+  <div class="player">
+    <!-- The one persistent live region (see stageStatus): announces every stage
+         change to screen readers while the visual surface below swaps subtrees. -->
+    <p class="sr-status" role="status">{{ stageStatus }}</p>
     <!-- MC controls: the host delegated driving to this player. -->
     <div v-if="driverAction" class="drive-bar">
       <span class="drive-tag"><Icon name="mc" :size="15" /> You're the MC · {{ index + 1 }}/{{ rounds.length }}</span>
@@ -208,12 +228,13 @@ function reloadPage() {
     </div>
 
     <div v-else-if="state === 'ready'" class="big">
+      <div v-if="rounds.length > 1" class="round-progress">Round {{ index + 1 }} of {{ rounds.length }}</div>
       <h2>{{ prompt || block.name }}</h2>
       <p>Get ready, this round opens in a moment.</p>
     </div>
 
     <template v-else-if="state === 'open' && !submitted && value != null">
-      <div class="kicker">{{ block.name }}</div>
+      <div class="kicker">{{ block.name }}<template v-if="rounds.length > 1"> · Round {{ index + 1 }} of {{ rounds.length }}</template></div>
       <h2 class="prompt">{{ prompt }}</h2>
       <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
       <p v-if="hasAudio" class="audio-hint"><Icon name="mic" :size="16" /> Listen to the big screen</p>
@@ -229,6 +250,7 @@ function reloadPage() {
     </template>
 
     <div v-else-if="state === 'open' && submitted" class="big">
+      <span class="lock-check" aria-hidden="true"></span>
       <h2>Locked in</h2>
       <p>Waiting for everyone else…</p>
     </div>
@@ -264,6 +286,61 @@ function reloadPage() {
   flex-direction: column;
   gap: 16px;
   flex: 1;
+}
+/* The persistent screen-reader status line: present in the layout (so the live
+   region is never unmounted) but visually hidden. */
+.sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.round-progress {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+/* The "your answer is in" confirmation: a drawn check (CSS, no emoji) that pops
+   once when the locked state lands; the pop is skipped under reduced motion. */
+.lock-check {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface));
+  border: 3px solid var(--primary);
+  position: relative;
+  animation: lock-pop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.lock-check::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 12px;
+  width: 14px;
+  height: 24px;
+  border-right: 4px solid var(--primary);
+  border-bottom: 4px solid var(--primary);
+  transform: rotate(45deg);
+}
+@keyframes lock-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lock-check {
+    animation: none;
+  }
 }
 .drive-bar {
   display: flex;

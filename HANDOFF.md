@@ -5,16 +5,68 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **IN PROGRESS, NOT YET ON `main`: Bingo + Call It (branch `bingo-call-it`).** Two custom-flow
-> games are BUILT, player-UX-audited, and fully verified, but the work is **uncommitted in the
-> working tree** on branch `bingo-call-it` (no commits made, not pushed, so prod is unaffected).
-> To resume: `git status` shows the new files (`packages/games/src/games/{bingo,call-it}/`,
-> `packages/games/src/blocks/{bingo,callit}/`, `scripts/{bingo,call-it,audit-shots}-smoke.mjs`)
-> plus registration/doc edits. Re-run the gate to confirm it's intact (`pnpm test && pnpm -r
-> typecheck && pnpm --filter @doot-games/web build`), then the two smokes. It is ready to commit +
-> fast-forward-merge to `main` once you decide to ship it. Full dated entry below. Remaining §8
-> work after this: **Quick Draw** (the big streaming game), **survey two-phase**, **custom prompt
-> packs via share code**.
+> **SHIPPED: the deep-audit polish pass is on `main` and deployed (2026-06-09).** A full
+> repo/app/engine audit (TTS reliability + casting, round-stage sound feedback, crowded vote
+> galleries, a11y, copy rules) and its four fix slices, merged from `polish-audit`. Gate at
+> ship: 696 unit tests, all typechecks, web build, and these smokes green: answer, bingo,
+> call-it, cypher, qod, own-answer, crowd-vote, split-crowd, the new vote-read, plus the
+> headed cypher-tts-verify (real voices all spoke). No DB change. One real-device check
+> remains for the owner: cast to a TV and confirm the Synth vox voice mode is audible. Dated
+> entry below ("Deep audit polish pass"). Remaining §8 work: **Quick Draw** (the big
+> streaming game), **survey two-phase**, **custom prompt packs via share code**.
+
+> **SHIPPED: Bingo + Call It is on `main` and DEPLOYED (2026-06-09).** The two custom-flow
+> games were committed (`d025684`), merged to `main`, and pushed; the CI deploy ran green and
+> the post-ship gate (681 unit tests, typechecks, web build, both browser smokes) is green on
+> `main`. The `bingo-call-it` branch points at the same commit. Full dated entry below.
+> Remaining §8 work: **Quick Draw** (the big streaming game), **survey two-phase**, **custom
+> prompt packs via share code**.
+
+> **Deep audit polish pass (2026-06-09, branch `polish-audit`).** A six-agent audit of every
+> block, game, and shell surface (player experience, stage feedback, TTS, layout, rules), then
+> four verified fix slices:
+> - **TTS reliability + casting.** Root cause of "no TTS on the TV": `speechSynthesis` renders
+>   OUTSIDE the tab's audio pipeline, so tab casting / screen share never carries it; only Web
+>   Audio travels with a cast. New cast-safe **robot vox** (`packages/ui/src/audio/vox.ts`):
+>   syllable formant blips paced by the text with word callbacks for karaoke, pure tested
+>   `voxPlan`. Circuit Cypher + Open Mic gain a lobby "voice engine" picker (device speech /
+>   synth vox, with cast guidance) and AUTO-fall back to the vox when device speech proves
+>   silent; Quiz or Die's existing synth fallback now cancels the dead OS queue first (no
+>   overlap), goes sticky after two failures, and labels synth "(casts)". `speech.ts` hardened:
+>   voice assignment cached (no mid-show robot voice swap) and invalidated on `voiceschanged`,
+>   `visibilitychange` resume for suspended tabs, and a `speechLooksSilent()` health signal
+>   (two consecutive never-started utterances). Headed `cypher-tts-verify` still green.
+> - **Vote galleries fit + read time.** Judge rounds (vote/fibvote/drawvote/photovote/split)
+>   now SCALE their timer to the derived gallery via shared pure `blocks/timing.ts
+>   scaleReadTimer` (~15 chars/sec beyond the base budget, 2s per image past 4, capped +45s;
+>   untimed stays untimed). New engine seam `LoadedGame.timerFor(index, runtimeContent)`
+>   (room.ts `openVoting`) + `buildTimerFor` (runtime/derive.ts), wired in HostRoom +
+>   SessionHostRoom, so the deadline, the ring, and the phones agree (engine-tested).
+>   VoteHost/FibHost go two-column "dense" with tighter type at >4 options or long stories,
+>   with a 76vh scroll cap. New `scripts/vote-read-smoke.mjs` (5 players, long mad-libs fills:
+>   countdown opened at 75s, dense 2-col, 0 overflow at 1440px/390px).
+> - **Stage SFX.** New `packages/ui/src/audio/stage.ts` + GameHost wiring: join pop, lock-in
+>   click, "everyone's in" chime, ticks over the last 5s, time's-up drop, reveal sting,
+>   results fanfare. Synthesized Web Audio (casts with the tab), armed on a lobby tap/Start,
+>   "Sound effects on this screen" lobby toggle, host screen only.
+> - **A11y + polish + rules.** GamePlayer's `aria-live` wrapper (which swapped whole subtrees,
+>   announcing nothing) replaced by ONE persistent visually-hidden `role="status"` stage line;
+>   the four v-if'd `aria-live` empty-notes (vote/split/mostlikely/accuse players) are now
+>   always-mounted status regions; a visible lock-in check + "Round X of Y" on the phone; Quiz
+>   or Die reveal pairs color with a CORRECT tag + strikethrough (colorblind-safe); phones now
+>   get the results confetti; Call It result shows the room's pick spread (the tally already
+>   rode the result call); Bingo claim safety timer 4s -> 8s; CC vote tally gained a live
+>   region; em dash/glyph copy cleanup (quiz cellar line, placeholder dashes, RemixWithDeck
+>   title, RoomTicket "Copied!", quiz Skip entity).
+> - **Audit findings rejected as false positives** (so they are not re-chased): spotlight is a
+>   parked block by design; reconnect-by-name is the identity model, not a flaw; Open Mic's
+>   stacked watchdog timers are idempotent; the results carousel already has a page indicator;
+>   Hivemind's counter live region is always mounted.
+> - **Verified:** 696 unit tests (+15: voxPlan, scaleReadTimer, engine timerFor), all
+>   typechecks, web build, and the smoke battery above. No DB change.
+> - **Remaining from the audit (deliberately deferred):** an untimed option for Circuit
+>   Cypher's live-perform mode; per-round timer overrides in the host UI; Truth or Share photo
+>   preview before send; richer per-block reveal announcements on the phone status line.
 
 > **SHIPPED: the expansion-plan work is MERGED to `main` and DEPLOYED (2026-06-09).** The
 > `expansion-p1-answer-caption` work (43 commits) fast-forward-merged to `main` and pushed,
@@ -44,7 +96,7 @@ prod via CI, no staging)._
 > - **Tests:** ~681 unit + ~18 browser smokes (answer, audience, audience-vote, audio,
 >   bingo, call-it, categories, crowd-vote, doodlechain, quickwins, spectrum, split-crowd,
 >   standings, storychain, survey, teams, wavelength, session, playlists, wager).
-> - **Bingo + Call It - DONE (2026-06-09, branch `bingo-call-it`, not yet pushed).** Two
+> - **Bingo + Call It - DONE (2026-06-09, shipped to `main` as `d025684`).** Two
 >   custom-flow party games for a room with a screen up front. Bingo: every player gets a
 >   UNIQUE card dealt by a pure seeded function (`buildCard(room, pid, pool)` - no relay write,
 >   reconnect-safe), the host calls items live off the big screen, players mark, and the first
@@ -64,8 +116,8 @@ prod via CI, no staging)._
 > `NODE_IMAGE` ARG), so a surprise upstream `node:22-alpine` tag change can't silently alter
 > or break a deploy._
 
-> **Bingo + Call It - two custom-flow games for a room with a screen (2026-06-09).** BUILT +
-> verified on branch `bingo-call-it` (not yet pushed). Both follow the proven Truth or Share /
+> **Bingo + Call It - two custom-flow games for a room with a screen (2026-06-09).** SHIPPED
+> to `main` (`d025684`, deployed). Both follow the proven Truth or Share /
 > Circuit Cypher custom-flow pattern: a parked block gives the engine a round to sit on while a
 > custom Host + Player drive the whole show over the relay's `/x/` channels; all win/score math
 > is pure, tested `logic.ts`; both ship `components`, so they're auto-excluded from Sessions +

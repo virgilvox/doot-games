@@ -59,6 +59,15 @@ export interface LoadedGame {
   publishConfig?: RelayValue
   /** Per-round timing, used to compute deadlines on `open`. */
   rounds: RoundTiming[]
+  /**
+   * Optional dynamic timer: seconds for round `index` given its EFFECTIVE content
+   * (the runtime-derived content when the round has one, else undefined; the
+   * implementation falls back to the authored round). Lets a derived judge round
+   * scale its window to the gallery the room actually has to read (6 mad-libs
+   * stories vs 3 quips). When present it wins over `rounds[index].timer`; null
+   * still means untimed. The engine never inspects the content.
+   */
+  timerFor?: (index: number, runtimeContent: RelayValue | undefined) => number | null
   /** Answer key per round index, published only at that round's reveal. */
   answerKeys?: Record<number, RelayValue>
   /**
@@ -1069,7 +1078,12 @@ export class RoomRuntime {
 
   openVoting(): void {
     this.assertHost()
-    const timer = this.game?.rounds[this.state.round.index]?.timer ?? null
+    const i = this.state.round.index
+    // Dynamic timer first (a derived gallery scales its window to its content),
+    // else the static per-round timing computed at load.
+    const timer = this.game?.timerFor
+      ? this.game.timerFor(i, this.runtimeContent.get(i))
+      : (this.game?.rounds[i]?.timer ?? null)
     // `timer != null` (not truthiness) so a 0-second timer auto-locks immediately
     // instead of being mistaken for "no timer".
     const deadline = timer != null ? this.now() + timer * 1000 : null

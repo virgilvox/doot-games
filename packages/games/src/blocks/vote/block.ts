@@ -20,6 +20,7 @@ import {
 } from '@doot-games/sdk'
 import { crowdBloc, crowdChoiceCounts } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
+import { scaleReadTimer } from '../timing'
 import { BASE_POINTS, pityPoints, roundMultiplier, sweepBonus, voteSharePoints } from '../scoring'
 import VoteHost from './VoteHost.vue'
 import VotePlayer from './VotePlayer.vue'
@@ -122,7 +123,9 @@ export const voteBlock = defineBlock<VoteContent, VoteInput>({
     hideUntilReveal: true,
   }),
   defaultTimer: 30,
-  timerOf: (c) => c.timer,
+  // Scale the vote window with the derived gallery (6 mad-libs stories need more
+  // reading time than 3 quips); the engine reads this via LoadedGame.timerFor.
+  timerOf: (c) => scaleReadTimer(c.timer, { texts: c.options.map((o) => o.text) }),
   emptyInput: () => ({ choice: '' }),
   isComplete: (_c, input) => input.choice !== '',
   PlayerInput: VotePlayer,

@@ -91,6 +91,30 @@ export function gameRounds(
   })
 }
 
+/**
+ * The engine's dynamic-timer callback (`LoadedGame.timerFor`): seconds for a
+ * round given its EFFECTIVE content, the runtime-derived content when the engine
+ * has one (a judge gallery built from the room's submissions), else the authored
+ * round. Same per-block logic as `gameRounds`, so a static round's deadline is
+ * unchanged, while a block whose `timerOf` scales with its content (vote-family
+ * read-time scaling) gets a window sized to what the room actually has to read.
+ * Timers-off still works: the host nulls every authored `content.timer`, the
+ * derive carries that null through, and `timerOf` keeps null as untimed.
+ */
+export function buildTimerFor(
+  plugin: GamePlugin,
+  config: GameComposition,
+): (index: number, runtimeContent: unknown) => number | null {
+  return (index, runtimeContent) => {
+    const inst = config.rounds[index]
+    if (!inst) return null
+    const block = getBlock(plugin, inst.block)
+    const content = runtimeContent ?? inst.content
+    const timer = block?.timerOf ? block.timerOf(content) : (block?.defaultTimer ?? null)
+    return timer ?? null
+  }
+}
+
 /** The publish-safe composition: each round's content run through its block's redactor. */
 export function redactGameConfig(plugin: GamePlugin, config: GameComposition): GameComposition {
   return {

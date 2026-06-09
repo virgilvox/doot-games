@@ -65,12 +65,14 @@ const currentLabel = computed(() => currentSlide.value?.label ?? '')
 const onPodium = computed(() => currentKind.value === 'teams' || currentKind.value === 'leaderboard')
 
 // Burst the confetti ONCE, the first time a podium (team board / leaderboard) is
-// shown on the host screen. Latched so paging away and back does not replay it.
+// shown. Latched so paging away and back does not replay it. Phones celebrate
+// too (compact stacks every section, so the podium is "shown" on arrival when
+// the game scored); ConfettiBurst honors prefers-reduced-motion itself.
 const showConfetti = ref(false)
 watch(
-  onPodium,
+  () => onPodium.value || (props.compact && (hasTeams.value || hasLeaderboard.value)),
   (v) => {
-    if (v && !props.compact) showConfetti.value = true
+    if (v) showConfetti.value = true
   },
   { immediate: true },
 )

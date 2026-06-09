@@ -85,10 +85,12 @@ function claim() {
   room.publishExtra(`claim/${myId.value}`, { line: winningLine.value })
   // Safety net: if the host never confirms (a lost claim message), revert so the button
   // returns and the player can shout again rather than hang on "Checking..." forever.
+  // Generous (8s) so a slow relay round-trip doesn't flap the button back mid-verify;
+  // re-claims are keyed by pid on the host, so a repeat can never double-win.
   if (claimTimer) clearTimeout(claimTimer)
   claimTimer = setTimeout(() => {
     if (!amWinner.value) claimed.value = false
-  }, 4000)
+  }, 8000)
 }
 
 watch(amWinner, (w) => {

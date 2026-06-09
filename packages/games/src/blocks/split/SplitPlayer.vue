@@ -43,9 +43,7 @@ function vote(id: string, v: 'yes' | 'no') {
 
 <template>
   <div class="split">
-    <p v-if="!visible.length" class="empty" aria-live="polite">
-      {{ content.scenarios.length ? 'Your dilemma is up on the big screen, sit this vote out.' : "Waiting for the room's dilemmas..." }}
-    </p>
+    <p class="empty" role="status">{{ visible.length ? '' : content.scenarios.length ? 'Your dilemma is up on the big screen, sit this vote out.' : "Waiting for the room's dilemmas..." }}</p>
     <div v-for="s in visible" :key="s.id" class="srow">
       <p class="stext">{{ s.text }}</p>
       <div class="syn" role="group" :aria-label="s.text">
@@ -84,6 +82,11 @@ function vote(id: string, v: 'yes' | 'no') {
   color: var(--ink-soft);
   text-align: center;
   padding: 24px 0;
+}
+/* The status region stays mounted with empty text (so it can announce); take no
+   space while blank. */
+.empty:empty {
+  padding: 0;
 }
 .srow {
   background: var(--surface-2);

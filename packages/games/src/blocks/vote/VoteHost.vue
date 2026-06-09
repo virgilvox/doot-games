@@ -78,6 +78,11 @@ const rows = computed<Row[]>(() => {
 })
 const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
 
+// A big room of long answers (6+ mad-libs stories) is a wall of text in one
+// column: go two-up with tighter type so the whole gallery fits the big screen,
+// and cap the height (scroll is the last resort, not the plan).
+const dense = computed(() => rows.value.length > 4 || rows.value.some((r) => r.text.length > 90))
+
 // "Perform the bars": robots read each answer aloud (the rap-battle moment).
 // Opt-in via `content.perform`; client-only TTS that no-ops where unavailable,
 // so the vote flow never depends on it. Highlight the verse being performed.
@@ -140,7 +145,7 @@ onUnmounted(() => cancelSpeech())
           {{ showLive ? 'Hide votes' : 'Peek at votes' }}
         </button>
       </div>
-      <ul class="rows">
+      <ul class="rows" :class="{ dense }">
         <li v-for="r in rows" :key="r.id" class="row" :class="{ winner: r.winner, performing: r.id === currentId }">
           <span v-if="showDistribution" class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
           <span class="text">
@@ -193,6 +198,27 @@ onUnmounted(() => cancelSpeech())
   list-style: none;
   display: grid;
   gap: 10px;
+  max-height: 76vh;
+  overflow-y: auto;
+}
+/* A crowded gallery (many options or long stories): two columns of tighter rows
+   so the room can see every option at once on the big screen. */
+.rows.dense {
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+}
+.rows.dense .row {
+  align-items: flex-start;
+  padding: 11px 13px;
+}
+.rows.dense .text {
+  font-size: clamp(14px, 1.6vw, 19px);
+  line-height: 1.35;
+}
+@media (max-width: 760px) {
+  .rows.dense {
+    grid-template-columns: 1fr;
+  }
 }
 .row {
   position: relative;

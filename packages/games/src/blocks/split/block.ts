@@ -18,6 +18,7 @@ import {
 import { crowdBloc } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
 import { closenessToHalf, roundMultiplier, splitPoints } from '../scoring'
+import { scaleReadTimer } from '../timing'
 import SplitHost from './SplitHost.vue'
 import SplitPlayer from './SplitPlayer.vue'
 import SplitReveal from './SplitReveal.vue'
@@ -91,7 +92,7 @@ export const splitBlock = defineBlock<SplitContent, SplitInput>({
   derivedFields: ['scenarios'],
   defaultContent: () => ({ prompt: 'Would you? Vote yes or no on each', scenarios: [], timer: 40 }),
   defaultTimer: 40,
-  timerOf: (c) => c.timer,
+  timerOf: (c) => scaleReadTimer(c.timer, { texts: c.scenarios.map((s) => s.text) }),
   emptyInput: () => ({ votes: {} }),
   // Ready once every scenario has a yes/no (the player answers all, including
   // their own; the author's own answer is dropped from scoring).

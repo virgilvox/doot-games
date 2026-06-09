@@ -34,6 +34,8 @@ import {
   createArenaAudio,
   primeSpeech,
   speakLines,
+  speakVox,
+  speechLooksSilent,
   warmUpSpeech,
 } from '@doot-games/ui'
 import { type Ref, computed, inject, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
@@ -117,18 +119,43 @@ function setCap(raw: string) {
 const audio = shallowRef<ArenaAudio | null>(null)
 const muted = ref(false)
 const calm = ref(false)
+/** Voice engine for the MC + the comics. 'natural' = this device's speech;
+ *  'synth' = the Web Audio robot vox, which travels with a tab cast (device
+ *  speech never does) and works on voiceless machines. Auto-falls back to the
+ *  vox when device speech proves silent. Mirrors CircuitCypherHost. */
+const voiceMode = ref<'natural' | 'synth'>('natural')
+function useNaturalVoice(): boolean {
+  return voiceMode.value === 'natural' && canSpeak() && !speechLooksSilent()
+}
+/** Cancel handle for an in-flight vox line (cancelSpeech only stops the OS TTS). */
+let voxStop: (() => void) | null = null
+function stopVoice() {
+  cancelSpeech()
+  const stop = voxStop
+  voxStop = null
+  stop?.()
+}
 function setMuted(m: boolean) {
   muted.value = m
   audio.value?.setMuted(m)
-  if (m) cancelSpeech()
+  if (m) stopVoice()
   else {
     primeSpeech()
     void audio.value?.start()
   }
 }
 function mcSay(text: string, onDone?: () => void, onStart?: () => void) {
-  if (!muted.value && canSpeak()) announce(text, { onDone, onStart })
-  else onDone?.()
+  if (muted.value) {
+    onDone?.()
+    return
+  }
+  if (useNaturalVoice()) {
+    announce(text, { onDone, onStart })
+    return
+  }
+  voxStop?.()
+  onStart?.()
+  voxStop = speakVox(text, { pitch: 175, wordsPerSec: 3, onDone })
 }
 
 // ── Show sequencer (the set) ────────────────────────────────────────────────
@@ -187,7 +214,7 @@ function runIntro() {
 function skipIntro() {
   introPlayed = true
   clearTimers()
-  cancelSpeech()
+  stopVoice()
   pending.value = null
   intro.value = null
 }
@@ -232,7 +259,7 @@ function sayThenAdvance(text: string, next: () => void, minHold: number) {
 
 function enterStep(s: Step) {
   clearTimers()
-  cancelSpeech()
+  stopVoice()
   pending.value = null
   step.value = s
   if (s === 'lineup') {
@@ -273,7 +300,7 @@ function performBit() {
       if (finished) return
       finished = true
       performing.value = false
-      cancelSpeech()
+      stopVoice()
       // The punchline lands: laughter, an occasional rimshot, a brief "kill".
       audio.value?.laugh(bitIndex.value % 2 === 0)
       if (bitIndex.value % 3 === 1) audio.value?.rimshot()
@@ -291,8 +318,13 @@ function performBit() {
     pending.value = done
     // Deadpan robot delivery of the bit. A one-liner is short, so a single
     // utterance is safe (well under the chunk-stall threshold).
-    if (!muted.value && canSpeak()) {
+    if (!muted.value && useNaturalVoice()) {
       speakLines([bit.text], { role: 'robotA', rate: 0.96, pitch: 0.55, onDone: done })
+    } else if (!muted.value) {
+      // The synth vox comic: all Web Audio, so the bit is audible on any machine
+      // and travels with a tab cast (device speech does not).
+      voxStop?.()
+      voxStop = speakVox(bit.text, { pitch: 120, wordsPerSec: 2.6, onDone: done })
     }
     // Time-based fallback guarantees completion even with no boundary events / muted.
     schedule(done, speechCapMs(bit.text, 2600))
@@ -302,7 +334,7 @@ function performBit() {
 /** All bits performed: open the vote so phones can pick the funniest. */
 function openTheVote() {
   clearTimers()
-  cancelSpeech()
+  stopVoice()
   performing.value = false
   mood.value = 'idle'
   enterStep('voting')
@@ -315,7 +347,7 @@ function skip() {
   if (!fn) return
   pending.value = null
   clearTimers()
-  cancelSpeech()
+  stopVoice()
   fn()
 }
 
@@ -460,7 +492,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (ticker) clearInterval(ticker)
   clearTimers()
-  cancelSpeech()
+  stopVoice()
   audio.value?.stop()
 })
 </script>
@@ -516,6 +548,35 @@ onUnmounted(() => {
         <input type="checkbox" :checked="!muted" @change="setMuted(!($event.target as HTMLInputElement).checked)" />
         <span class="kicker">Sound and robot voices</span>
       </label>
+
+      <div class="voice-pick">
+        <span class="kicker">Comic voice engine</span>
+        <div class="seg" role="group" aria-label="Comic voice engine">
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: voiceMode === 'natural' }"
+            :aria-pressed="voiceMode === 'natural'"
+            @click="voiceMode = 'natural'"
+          >
+            <Icon name="volume" :size="18" /> This device's speech
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: voiceMode === 'synth' }"
+            :aria-pressed="voiceMode === 'synth'"
+            @click="voiceMode = 'synth'"
+          >
+            <Icon name="cpu" :size="18" /> Synth vox
+          </button>
+        </div>
+        <p class="voice-note">
+          Casting or screen sharing to a TV? Pick Synth vox. Device speech plays only on this
+          machine and never travels with a cast; the vox does. The show switches to the vox by
+          itself if device speech stays silent.
+        </p>
+      </div>
 
       <div class="cohost-pick">
         <span class="kicker">Who drives the game</span>
@@ -703,7 +764,35 @@ onUnmounted(() => {
   accent-color: var(--primary);
   cursor: pointer;
 }
-.cap-row .kicker, .cohost-pick > .kicker, .round-pick > .kicker { font-size: 15px; }
+.cap-row .kicker, .cohost-pick > .kicker, .round-pick > .kicker, .voice-pick > .kicker { font-size: 15px; }
+.voice-pick { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.seg { display: flex; gap: 10px; flex-wrap: wrap; }
+.seg-btn {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.seg-btn.on { background: var(--primary); color: var(--primary-ink); border-color: var(--line); }
+.voice-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim, var(--ink));
+  opacity: 0.85;
+  max-width: 560px;
+}
 .cap-input {
   display: block;
   margin-top: 8px;

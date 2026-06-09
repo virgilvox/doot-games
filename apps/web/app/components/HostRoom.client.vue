@@ -12,6 +12,7 @@ import {
   buildAssignContent,
   buildDeriveContent,
   buildRevealSummary,
+  buildTimerFor,
   type FilterTier,
   gameAnswerKeys,
   gameRounds,
@@ -151,6 +152,9 @@ function load() {
     config: config as unknown as RelayValue,
     publishConfig: redactGameConfig(game, config) as unknown as RelayValue,
     rounds: gameRounds(game, config),
+    // Dynamic deadlines: a derived judge round scales its window to the gallery
+    // the room actually has to read (read-time scaling in the vote-family blocks).
+    timerFor: buildTimerFor(game, config) as never,
     answerKeys: gameAnswerKeys(game, config) as unknown as Record<number, RelayValue>,
     // Two-phase wiring: derive a round's content from earlier inputs at runtime,
     // and publish a public reveal summary so phones can show personal feedback.

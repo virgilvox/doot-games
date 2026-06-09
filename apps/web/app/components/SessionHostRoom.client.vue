@@ -17,6 +17,7 @@ import {
   buildAssignContent,
   buildDeriveContent,
   buildRevealSummary,
+  buildTimerFor,
   gameAnswerKeys,
   gameRounds,
   getPlugin,
@@ -78,6 +79,8 @@ function buildLoaded(plugin: GamePlugin) {
     config: config as unknown as RelayValue,
     publishConfig: redactGameConfig(plugin, config) as unknown as RelayValue,
     rounds: gameRounds(plugin, config),
+    // Read-time scaling for derived judge galleries (mirrors HostRoom).
+    timerFor: buildTimerFor(plugin, config) as never,
     answerKeys: gameAnswerKeys(plugin, config) as unknown as Record<number, RelayValue>,
     deriveContent: buildDeriveContent(plugin, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,
     assignContent: buildAssignContent(plugin, config, roomCode, getPlayers, (i) => room.answerKeyFor(i)) as never,

@@ -176,7 +176,7 @@ function pickDriver(pid: string) {
             <div class="dicerow">
               <div v-for="(n, i) in show.cellar.house ?? []" :key="i" class="die" v-html="dieFace(n)" />
             </div>
-            <div class="big-blood cat sm">Total {{ show.cellar.target }} &mdash; roll {{ show.cellar.higher ? 'HIGHER' : 'LOWER' }} to live</div>
+            <div class="big-blood cat sm">Total {{ show.cellar.target }}. Roll {{ show.cellar.higher ? 'HIGHER' : 'LOWER' }} to live</div>
           </template>
           <!-- money -->
           <template v-else>
@@ -251,9 +251,16 @@ function pickDriver(pid: string) {
 
     <!-- host controls, below the stage -->
     <div class="qod-controls">
-      <button type="button" class="ctl" @click="skip">Skip &#9658;</button>
+      <button type="button" class="ctl" @click="skip">Skip</button>
       <button type="button" class="ctl" :class="{ off: muted }" @click="toggleMute">{{ muted ? 'Muted' : 'Sound' }}</button>
-      <button type="button" class="ctl" @click="cycleVoice">Voice: {{ voiceMode }}</button>
+      <button
+        type="button"
+        class="ctl"
+        title="Synth travels with a tab cast or screen share; device speech plays only on this machine"
+        @click="cycleVoice"
+      >
+        Voice: {{ voiceMode === 'speech' ? 'device speech' : voiceMode === 'synth' ? 'synth (casts)' : 'off' }}
+      </button>
     </div>
   </div>
 </template>

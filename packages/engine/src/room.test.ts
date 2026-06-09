@@ -168,6 +168,29 @@ describe('RoomRuntime host actions', () => {
     host.tick(t)
     expect(hub.store.get(addr.roundState('ABCD'))).toBe('locked')
   })
+
+  it('sizes the deadline from timerFor with the runtime-derived content (read-time scaling)', async () => {
+    const hub = new FakeHub()
+    const t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    host.loadGame({
+      ...GAME,
+      // Round 0 derives its content at runtime (a judge gallery built from the
+      // room's submissions); the dynamic timer must read THAT content, not the
+      // static per-round timing (which says 20s).
+      deriveContent: (index: number) =>
+        index === 0 ? { publish: { options: ['a', 'b', 'c'] } as RelayValue } : undefined,
+      timerFor: (index: number, content: RelayValue | undefined) => {
+        if (index !== 0) return null
+        const n = (content as { options?: string[] } | undefined)?.options?.length ?? 0
+        return 20 + n * 10 // 3 derived options -> a 50s window
+      },
+    })
+    host.start() // landing on round 0 publishes its derived content
+    host.openVoting()
+    expect(hub.store.get(addr.roundDeadline('ABCD'))).toBe(1_000 + 50 * 1000)
+  })
 })
 
 describe('RoomRuntime join presence (A3)', () => {

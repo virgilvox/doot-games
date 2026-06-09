@@ -163,7 +163,7 @@ async function pick(deck: DeckSummary) {
       method: 'POST',
       body: {
         pluginId: props.pluginId,
-        config: { title: `${props.gameName} — ${deck.name}`, rounds: plugin.defaultConfig.rounds, decks: { pool: { ref: deck.id } } },
+        config: { title: `${props.gameName}: ${deck.name}`, rounds: plugin.defaultConfig.rounds, decks: { pool: { ref: deck.id } } },
       },
     })
     await navigateTo(`/g/${res.id}`)

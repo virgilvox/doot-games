@@ -23,9 +23,9 @@ function onSelect(i: number) {
 
 <template>
   <div class="ml-player">
-    <p v-if="!roster.length" class="empty" aria-live="polite">Waiting for players to join…</p>
+    <p class="empty" role="status">{{ roster.length ? '' : 'Waiting for players to join…' }}</p>
     <OptionGrid
-      v-else
+      v-if="roster.length"
       :options="roster.map((p) => ({ label: p.name }))"
       :selected="roster.findIndex((p) => p.id === modelValue.choice)"
       :disabled="disabled"
@@ -39,5 +39,10 @@ function onSelect(i: number) {
   color: var(--ink-soft);
   text-align: center;
   padding: 24px 0;
+}
+/* The status region stays mounted with empty text (so it can announce); take no
+   space while blank. */
+.empty:empty {
+  padding: 0;
 }
 </style>

@@ -50,7 +50,7 @@ const winners = computed(() => {
     </template>
     <template v-else>
       <p class="kicker">The answer</p>
-      <h3 class="reveal-answer">{{ theAnswer || '—' }}</h3>
+      <h3 class="reveal-answer">{{ theAnswer || 'No answer set' }}</h3>
       <p class="tally">{{ winners.length }} of {{ count }} got it</p>
       <ul v-if="winners.length" class="winners">
         <li v-for="(w, i) in winners.slice(0, 8)" :key="i" class="win mono">{{ w }}</li>

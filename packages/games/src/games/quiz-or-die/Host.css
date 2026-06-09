@@ -137,8 +137,16 @@
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55), 0 1px 0 #fff6 inset;
 }
 .ans::before { content: attr(data-n); display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 1.5em; height: 1.5em; font-family: var(--font-horror-digi); font-size: 1.1em; color: #fff; background: var(--key, #444); box-shadow: 0 2px 5px #0008; transform: rotate(-4deg); }
+/* Reveal marks pair color with a label/strike so colorblind players read the
+   outcome too (green/red alone is invisible to deuteranopes). */
 .ans.correct { background: linear-gradient(180deg, #bfe6a8, #8fc873); box-shadow: 0 0 30px #6fd17f, 0 8px 18px #0006; }
-.ans.wrong { background: linear-gradient(180deg, #e6a8a8, #c87373); filter: brightness(0.92); }
+.ans.correct::after {
+  content: 'CORRECT'; position: absolute; top: -11px; right: 8px; z-index: 5;
+  font-family: var(--font-horror-type); font-size: clamp(9px, 1vw, 12px); letter-spacing: 0.16em;
+  color: #eaffe2; background: #1d4420; padding: 2px 8px; transform: rotate(2deg);
+  box-shadow: 0 2px 6px #0009;
+}
+.ans.wrong { background: linear-gradient(180deg, #e6a8a8, #c87373); filter: brightness(0.92); text-decoration: line-through; text-decoration-thickness: 2px; }
 .picks { position: absolute; top: -14px; right: -4px; display: flex; z-index: 6; }
 .pchip { width: clamp(20px, 2.7vw, 28px); height: clamp(20px, 2.7vw, 28px); margin-left: -7px; border-radius: 50%; border: 2px solid #0a0a0e; box-shadow: 0 2px 6px #0009; display: flex; align-items: center; justify-content: center; font-family: var(--font-horror-type); font-size: clamp(8px, 1.1vw, 12px); color: #fff; text-shadow: 0 1px 2px #000; }
 

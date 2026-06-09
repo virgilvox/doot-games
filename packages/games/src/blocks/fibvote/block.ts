@@ -22,6 +22,7 @@ import {
 import { type ResultsFragment } from '@doot-games/sdk'
 import { crowdBloc, crowdChoiceCounts } from '../../runtime/crowd'
 import { safetyEntries } from '../safety'
+import { scaleReadTimer } from '../timing'
 import { liarPoints, roundMultiplier, truthFinderPoints } from '../scoring'
 import { voteOptionSchema } from '../vote/block'
 import FibHost from './FibHost.vue'
@@ -128,7 +129,7 @@ export const fibBlock = defineBlock<FibContent, FibInput>({
     hideUntilReveal: true,
   }),
   defaultTimer: 30,
-  timerOf: (c) => c.timer,
+  timerOf: (c) => scaleReadTimer(c.timer, { texts: c.options.map((o) => o.text) }),
   emptyInput: () => ({ choice: '' }),
   isComplete: (_c, input) => input.choice !== '',
   PlayerInput: FibPlayer,

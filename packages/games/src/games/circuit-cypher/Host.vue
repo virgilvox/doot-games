@@ -39,6 +39,8 @@ import {
   createArenaAudio,
   primeSpeech,
   speakVerse,
+  speakVox,
+  speechLooksSilent,
   warmUpSpeech,
 } from '@doot-games/ui'
 import { type Ref, computed, inject, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
@@ -217,11 +219,28 @@ const muted = ref(false)
 const calm = ref(false)
 /** Robots perform via TTS (default), or the players perform live (beat + timer). */
 const performMode = ref<'robots' | 'live'>('robots')
+/** The robots' voice engine. 'natural' = this device's speechSynthesis voices;
+ *  'synth' = the Web Audio robot vox. The vox is the cast-safe choice: device
+ *  speech is rendered OUTSIDE the tab, so it never reaches a tab cast / screen
+ *  share and silently fails on voiceless machines. The show also auto-falls back
+ *  to the vox mid-game when device speech proves silent (speechLooksSilent). */
+const voiceMode = ref<'natural' | 'synth'>('natural')
+function useNaturalVoice(): boolean {
+  return voiceMode.value === 'natural' && canSpeak() && !speechLooksSilent()
+}
+/** Cancel handle for an in-flight vox line (cancelSpeech only stops the OS TTS). */
+let voxStop: (() => void) | null = null
+function stopVoice() {
+  cancelSpeech()
+  const stop = voxStop
+  voxStop = null
+  stop?.()
+}
 function setMuted(m: boolean) {
   muted.value = m
   audio.value?.setMuted(m)
   if (m) {
-    cancelSpeech()
+    stopVoice()
   } else {
     // Unmuting is a gesture: re-activate speech, and make sure the beat is running.
     primeSpeech()
@@ -229,8 +248,18 @@ function setMuted(m: boolean) {
   }
 }
 function mcSay(text: string, onDone?: () => void, onStart?: () => void) {
-  if (!muted.value && canSpeak()) announce(text, { onDone, onStart })
-  else onDone?.()
+  if (muted.value) {
+    onDone?.()
+    return
+  }
+  if (useNaturalVoice()) {
+    announce(text, { onDone, onStart })
+    return
+  }
+  // Synth vox MC: always audible, and the only voice a tab cast carries.
+  voxStop?.()
+  onStart?.()
+  voxStop = speakVox(text, { pitch: 175, wordsPerSec: 3, onDone })
 }
 
 // ── Real rap beats (optional) ──────────────────────────────────────────────
@@ -553,7 +582,7 @@ function performSide(left: boolean) {
     performDeadline.value = null
     setActive(count) // the whole verse lands "done"
     audio.value?.duck(false)
-    cancelSpeech()
+    stopVoice()
     schedule(() => enter(left ? 'completeA' : 'completeB'), PACE.postPerform)
   }
   pending.value = finish
@@ -582,17 +611,26 @@ function performSide(left: boolean) {
     karRAF = requestAnimationFrame(tickKar)
   }
   tickKar()
-  if (!muted.value && canSpeak()) {
+  if (!muted.value && useNaturalVoice()) {
     // Both robots share one reliable voice (see speech.ts); they're told apart by
     // pitch + rate. Left = deeper/slower, right = brighter/quicker. Both clearly
     // robotic, and neither depends on a second platform voice existing.
     speakVerse(perf.verse, {
-      // Both robots share one reliable voice (distinct from the MC); the deep/slow
-      // left vs bright/quick right pitch+rate tell the two performers apart without
-      // risking a silent side on a voice the device can't actually play.
       side: left ? 'a' : 'b',
       pitch: left ? 0.5 : 1.0,
       rate: left ? PERFORM_RATE : PERFORM_RATE + 0.1,
+      onWord: (k) => {
+        if (!finished) setActive(k)
+      },
+      onDone: finish,
+    })
+  } else if (!muted.value) {
+    // The synth vox verse: same karaoke pacing, all Web Audio, so it plays on any
+    // machine and travels with a tab cast (device speech does not).
+    voxStop?.()
+    voxStop = speakVox(perf.verse, {
+      pitch: left ? 95 : 140,
+      wordsPerSec: 2.2 * PERFORM_RATE,
       onWord: (k) => {
         if (!finished) setActive(k)
       },
@@ -605,7 +643,7 @@ function performSide(left: boolean) {
 function enter(step: Fine) {
   clearTimers()
   stopKaraoke()
-  cancelSpeech()
+  stopVoice()
   pending.value = null
   if (step !== 'performA' && step !== 'performB') performDeadline.value = null
   fine.value = step
@@ -756,7 +794,7 @@ function skip() {
   pending.value = null
   clearTimers()
   stopKaraoke()
-  cancelSpeech()
+  stopVoice()
   fn()
 }
 
@@ -830,7 +868,7 @@ function beginBattle() {
 function finishTournament() {
   clearTimers()
   stopKaraoke()
-  cancelSpeech()
+  stopVoice()
   audio.value?.stop()
   const names = new Map([...verses].map(([pid, v]) => [pid, v.name] as const))
   const board = tournamentLeaderboard(awards.value, names)
@@ -973,7 +1011,7 @@ onUnmounted(() => {
   if (ticker) clearInterval(ticker)
   clearTimers()
   stopKaraoke()
-  cancelSpeech()
+  stopVoice()
   audio.value?.stop()
 })
 </script>
@@ -1016,6 +1054,35 @@ onUnmounted(() => {
         <input type="checkbox" :checked="!muted" @change="setMuted(!($event.target as HTMLInputElement).checked)" />
         <span class="kicker">Music and robot voices</span>
       </label>
+
+      <div class="perform-pick">
+        <span class="kicker">Robot voice engine</span>
+        <div class="seg" role="group" aria-label="Robot voice engine">
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: voiceMode === 'natural' }"
+            :aria-pressed="voiceMode === 'natural'"
+            @click="voiceMode = 'natural'"
+          >
+            <Icon name="volume" :size="18" /> This device's speech
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: voiceMode === 'synth' }"
+            :aria-pressed="voiceMode === 'synth'"
+            @click="voiceMode = 'synth'"
+          >
+            <Icon name="cpu" :size="18" /> Synth vox
+          </button>
+        </div>
+        <p class="voice-note">
+          Casting or screen sharing to a TV? Pick Synth vox. Device speech plays only on this
+          machine and never travels with a cast; the vox does. The show switches to the vox by
+          itself if device speech stays silent.
+        </p>
+      </div>
 
       <label class="mute-row">
         <input type="checkbox" :checked="themeArena" @change="themeArena = ($event.target as HTMLInputElement).checked" />
@@ -1167,6 +1234,11 @@ onUnmounted(() => {
           </div>
         </div>
         <p class="hint">Phones are voting. Reveal when the crowd has spoken.</p>
+        <!-- Persistent live region: the tally bars above are visual-only, so a
+             screen reader on the big screen hears the count move too. -->
+        <p class="sr-tally" role="status">
+          {{ liveTally.votesA + liveTally.votesB }} votes in: {{ curLeft.name }} {{ liveTally.votesA }}, {{ curRight.name }} {{ liveTally.votesB }}
+        </p>
       </div>
 
       <!-- driving note (a delegated MC drives from their phone) -->
@@ -1310,6 +1382,23 @@ onUnmounted(() => {
   background: var(--primary);
   color: var(--primary-ink);
   border-color: var(--line);
+}
+.voice-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim, var(--ink));
+  opacity: 0.85;
+  max-width: 560px;
+}
+.sr-tally {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .cohost-select {
   width: 100%;

@@ -67,6 +67,10 @@ const rows = computed<Row[]>(() => {
   return showDistribution.value ? base.sort((a, b) => b.votes - a.votes) : base
 })
 const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
+
+// A big room means many lies: go two-up with tighter type so the whole gallery
+// fits the big screen (mirrors VoteHost), with a height cap as the last resort.
+const dense = computed(() => rows.value.length > 4 || rows.value.some((r) => r.text.length > 90))
 </script>
 
 <template>
@@ -79,7 +83,7 @@ const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
         <span class="votes-in">{{ votesIn }} vote{{ votesIn === 1 ? '' : 's' }} in</span>
         <span class="lead">Spot the truth</span>
       </div>
-      <ul class="rows">
+      <ul class="rows" :class="{ dense }">
         <li v-for="r in rows" :key="r.id" class="row" :class="{ truth: revealed && r.isTruth }">
           <span v-if="showDistribution" class="fill" :style="{ width: `${(r.votes / total) * 100}%` }" aria-hidden="true" />
           <span class="text">
@@ -117,6 +121,25 @@ const total = computed(() => rows.value.reduce((n, r) => n + r.votes, 0) || 1)
   list-style: none;
   display: grid;
   gap: 10px;
+  max-height: 76vh;
+  overflow-y: auto;
+}
+.rows.dense {
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+}
+.rows.dense .row {
+  align-items: flex-start;
+  padding: 11px 13px;
+}
+.rows.dense .text {
+  font-size: clamp(14px, 1.6vw, 19px);
+  line-height: 1.35;
+}
+@media (max-width: 760px) {
+  .rows.dense {
+    grid-template-columns: 1fr;
+  }
 }
 .row {
   position: relative;
