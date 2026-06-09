@@ -14,7 +14,9 @@ Put a game on the TV or projector. Everyone joins from their phone with a code o
 
 ---
 
-> **Live at [doot.games](https://doot.games).** The full loop works: pick a ready-to-play game or compose one in the three-pane schema-driven editor (single rounds or one-click two-phase recipes, or import from markdown), host it on a big screen, players join from their phones over the CLASP relay, play, and see animated results. **650+ tests pass** (plus 2 opt-in live relay tests), every package typechecks, and the app deploys on a single droplet via git push. Built-in: the **engine** (room runtime + state machine + the two-phase make→judge primitive + secret per-player content + the per-player **chain** foundation), the **block SDK** (~32 blocks), a five-pack **theme system**, the theme-aware **UI library**, **~34 games** built from composable blocks, the flagship **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher (a robot rap battle), "What, You Didn't Know That?" (a trivia gameshow with buzz-ins), Fib Finder, Sketch & Spot, Backronym, Open Mic, Hivemind (read the room), Most Likely To, Ballpark (closest-guess trivia), Faker (social deduction), Truth or Share (spotlight dares), Quiz or Die (a Trivia-Murder-Party-style horror show), Type the Answer, Would You Rather, Tier List, Over/Under, Categories, Survey, Spectrum, Wager (high-stakes trivia), Story Chain (a writing telephone), Doodle Chain (the draw-and-describe telephone), and Wavelength (a clue-giver dial)) plus Guess, Rate, Poll, Rank, Draw, VoteBox, and Custom, cross-cutting **Teams**, a watch-along **audience** tier (with opt-in crowd voting), **Sessions** (a night of games in one room) + saved **playlists**, optional **better-auth** accounts with saved/shareable games, presigned image **uploads**, an account-linked **Connect with Claude** (MCP) integration, and the **Nuxt shell**. Still ahead: the external-plugin sandbox. See [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
+> **[Live at doot.games](https://doot.games).** Pick a ready-to-play game or compose your own in the schema-driven editor, host it on a big screen, and the room joins from their phones over the CLASP relay, no installs, no accounts, no artificial player caps. Reconnect by name if a phone drops; nothing about a live room ever touches the database. Doot ships a couple dozen composable game **blocks** and 30-plus ready-to-play **"Games From Doot"** (Quip Clash, Fib Finder, Quiz or Die, Wavelength, the draw-and-describe Doodle Chain, and more), with cross-cutting **Teams**, a watch-along **audience** tier, and **Sessions** (a whole night of games in one room). New game types are small declarative plugins, not platform forks.
+>
+> See the [feature tour](#features) below, [`docs/`](./docs) for guides, or [`Doot-PRD.md`](./Doot-PRD.md) for the full spec.
 
 ## Why Doot
 
@@ -52,8 +54,9 @@ Two kinds of state, kept strictly apart: **ephemeral** live state lives on the r
 
 ## Features
 
-- 🎮 **Twenty-two built-in games**, fifteen flagship **"Games From Doot"** that are ready to play and replayable (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?", Quiz or Die, Fib Finder, and more), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks); more on the roadmap.
+- 🎮 **30-plus built-in games**, the ready-to-play **"Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?", Quiz or Die, Fib Finder, Faker, Survey, Wager, the writing/drawing telephones Story Chain & Doodle Chain, the clue-giver Wavelength, and more), plus Guess, Rate, Poll, Rank, Draw, the VoteBox composite, and Custom (mix any blocks). The authoritative list is the in-app catalog.
 - 🧩 **Blocks + compositions**, a *block* is a round kind (content schema + Player/Host views + aggregate + answer-withholding); a *game* composes blocks. Most games are ~20 lines and need no components. Import a whole game from a [markdown spec](./docs/markdown-games.md).
+- 👥 **Teams, audience, and sessions**, group play with a rolled-up team board; a watch-along spectator tier (with opt-in crowd voting) that never counts against the player cap; and Sessions, a whole night of games in one room players join once, plus saved playlists.
 - 🎨 **Theming**, cute, cyber, professional, and playful packs out of the box; per-game accent and title overrides.
 - ♻️ **Reconnect by name**, no login, no local-storage dependency.
 - 🕓 **Host pacing**, open, lock, reveal, advance; optional per-round timers with auto-lock.
@@ -101,7 +104,7 @@ pnpm install
 pnpm dev                    # http://localhost:3000
 
 # 3. Verify the workspace
-pnpm test                   # 404 tests (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
+pnpm test                   # the unit suite (engine, blocks, scoring, derive, themes, markdown, schema-form); +2 opt-in live relay tests
 pnpm -r typecheck
 
 #, or, bring up the full local stack (app + Postgres + MinIO)
@@ -167,7 +170,7 @@ doot-games/
     sdk/                     # @doot-games/sdk   , block + composition contract, schemas, round primitives
     ui/                      # @doot-games/ui    , shared theme-aware Vue components
     themes/                  # @doot-games/themes, token packs + registry
-    games/                   # @doot-games/games , blocks + 10 games (incl. Quip Clash/Mad Libs/Split the Room flagships)
+    games/                   # @doot-games/games , the round blocks + the games as compositions (Quip Clash, Quiz or Die, Wavelength, the chain games, …)
   docker/                    # Dockerfile + compose (local & prod) + Caddyfile
   docs/                      # architecture · authoring-a-game · clasp-primer · deploy
   Doot-PRD.md                # the build spec (source of truth)
@@ -213,7 +216,8 @@ All configuration is environment-driven; the same image runs anywhere. Copy `.en
 - **Phase 1 (MVP, shipped):** engine + room runtime, the block contract, the first-party games, the schema-driven editor + markdown import, optional auth + saved games, five theme packs, animated results, presigned uploads, and git-push deploy to a single droplet.
 - **Phase 1.5 (shipped):** the two-phase make→judge engine primitive and three flagship "Games From Doot" (Quip Clash, Mad Libs, Split the Room) with content pools, plus the Explore / Create / Your Games catalog.
 - **Phase 1.6 (shipped):** the Circuit Cypher flagship (robot rap battle): fill rap verses → robots perform them aloud (speechSynthesis) → vote.
-- **Phase 2:** external plugins (sandboxed iframe + bridge + publishing), Circuit Cypher's head-to-head vote mode + Tone.js generated beat, richer results, OAuth.
+- **Phase 1.7 (shipped):** a large content + structure expansion, ~20 more flagships (Type the Answer, Categories, Survey, Spectrum, Wager, the writing/drawing telephones Story Chain & Doodle Chain, the clue-giver Wavelength, …), the per-player **chain** engine foundation, **Teams**, a watch-along **audience** tier with opt-in crowd voting, **Sessions** + saved **playlists**, content decks, and audio/photo rounds.
+- **Phase 2:** external plugins (sandboxed iframe + bridge + publishing), Quick Draw real-time stroke streaming, richer results, OAuth.
 - **Phase 3:** managed Postgres + multiple instances, optional self-hosted relay, accessibility & phone polish.
 
 See [PRD §23](./Doot-PRD.md) for detail.
@@ -238,4 +242,4 @@ New game? Compose blocks (see [authoring a game](#authoring-a-game-blocks--compo
 
 ## Acknowledgements
 
-Built on the [CLASP](https://github.com/lumencanvas/clasp) real-time relay. Pixi rendering via [`vue3-pixi`](https://github.com/hairyf/vue3-pixi) and [Pixi.js](https://pixijs.com). Inspired by the party-game lineage, Jackbox, Kahoot, Gartic Phone, and the open-source clones that proved the demand.
+Built on the [CLASP](https://github.com/lumencanvas/clasp) real-time relay. Canvas rendering via [Pixi.js](https://pixijs.com), mounted directly through a thin client-only composable. Inspired by the party-game lineage, Jackbox, Kahoot, Gartic Phone, and the open-source clones that proved the demand.
