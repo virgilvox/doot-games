@@ -15,6 +15,19 @@ describe('crowdBloc (capped, discounted crowd)', () => {
     expect(add.get('b')).toBe(1)
   })
 
+  it('the additions NEVER sum above the cap (largest-remainder, not per-option rounding)', () => {
+    // A 2-player room: cap 1. A 50/50 crowd must add 1 total (to one side), not 1+1=2,
+    // or the crowd would MATCH the room and decide a close round instead of nudging it.
+    const tiny = crowdBloc(2, new Map([['a', 5], ['b', 5]]))
+    expect([...tiny.values()].reduce((s, v) => s + v, 0)).toBe(1)
+    // Stress: any split sums to exactly the cap, never more.
+    for (const players of [2, 3, 4, 7, 12]) {
+      const cap = Math.max(1, Math.round(players * 0.5))
+      const add = crowdBloc(players, new Map([['a', 3], ['b', 3], ['c', 2], ['d', 1]]))
+      expect([...add.values()].reduce((s, v) => s + v, 0)).toBeLessThanOrEqual(cap)
+    }
+  })
+
   it('floors the cap at 1 so a tiny room still feels the crowd', () => {
     expect(crowdBloc(0, new Map([['a', 9]])).get('a')).toBe(1)
     expect(crowdBloc(1, new Map([['a', 9]])).get('a')).toBe(1) // round(0.5)=1 -> floor still 1

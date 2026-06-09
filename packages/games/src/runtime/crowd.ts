@@ -25,9 +25,22 @@ export function crowdBloc(playerTotal: number, crowdCounts: Map<string, number>)
   const crowdTotal = [...crowdCounts.values()].reduce((a, b) => a + b, 0)
   if (crowdTotal <= 0) return add
   const cap = Math.max(1, Math.round(playerTotal * AUDIENCE_BLOC_FRACTION))
-  for (const [key, c] of crowdCounts) {
-    const a = Math.round((cap * c) / crowdTotal)
-    if (a > 0) add.set(key, a)
+  // Apportion the cap across options by crowd share with the largest-remainder method,
+  // so the additions sum to EXACTLY `cap` and never overshoot it (independent per-option
+  // rounding could exceed the cap, e.g. a 50/50 crowd both rounding up - then the bloc
+  // could decide a close round instead of only nudging it).
+  const parts = [...crowdCounts].map(([key, c]) => {
+    const exact = (cap * c) / crowdTotal
+    const floor = Math.floor(exact)
+    return { key, floor, frac: exact - floor }
+  })
+  let remaining = cap - parts.reduce((s, p) => s + p.floor, 0)
+  // Hand the leftover units to the largest fractional remainders (ties: by count desc).
+  parts.sort((a, b) => b.frac - a.frac || (crowdCounts.get(b.key) ?? 0) - (crowdCounts.get(a.key) ?? 0))
+  for (const p of parts) {
+    const v = p.floor + (remaining > 0 ? 1 : 0)
+    if (remaining > 0) remaining--
+    if (v > 0) add.set(p.key, v)
   }
   return add
 }

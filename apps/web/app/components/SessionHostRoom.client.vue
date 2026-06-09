@@ -87,6 +87,9 @@ function buildLoaded(plugin: GamePlugin) {
       getPlayers,
       (i) => room.runtimeContentFor(i),
       (i) => room.answerKeyFor(i),
+      // P4B: fold the crowd into the published reveal tally when the toggle is on, so the
+      // big screen + phones match the scored result in a session too (mirrors HostRoom).
+      (i) => (room.meta.value?.crowdCounts ? (room.audienceVotesFor(i) as Map<string, unknown>) : new Map()),
     ) as never,
   }
 }
