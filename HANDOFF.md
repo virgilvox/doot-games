@@ -5,19 +5,24 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **SHIPPED: cover art for the LAST 12 flagships (2026-06-09, deployed).**
-> Every Game From Doot now has real art: `scripts/gen-covers.mjs` gained 12 more bespoke
-> worlds (quip-clash fight bill, mad-libs ransom note, split-room modernist poster,
-> fib-finder tabloid, sketch-spot gallery wall, what-you-didnt-know CRT television,
-> backronym stenciled crate, hivemind honeycomb, most-likely yearbook, ballpark night
-> stadium, faker masquerade, truth-or-share polaroid wall), registered in the shared
-> `FLAGSHIP_COVERS` (packages/ui/src/covers.ts). All 28 flagship covers verified on
-> /explore: 0 broken, 0 errors, 0 overflow; gate green (703 tests, typechecks, build).
-> NOTE: re-running the generator re-encodes JPEGs with slight byte differences; the 13
-> previously shipped covers were restored from git so the diff is only the 12 new files.
-> Covers are STATIC JPEGs (committed, served from /covers; generated offline by the
-> script, never rendered at runtime) and feed og:image via gameOgImage, so shares
-> unfurl with the art. Verified live on prod post-deploy.
+> **SHIPPED: cover art for the LAST 12 flagships (2026-06-09, `6064219`, deployed green
+> in 3m27s).** Every Game From Doot now has real art: `scripts/gen-covers.mjs` gained 12
+> more bespoke worlds (quip-clash fight bill, mad-libs ransom note, split-room modernist
+> poster, fib-finder tabloid, sketch-spot gallery wall, what-you-didnt-know CRT
+> television, backronym stenciled crate, hivemind honeycomb, most-likely yearbook,
+> ballpark night stadium, faker masquerade, truth-or-share polaroid wall), registered in
+> the shared `FLAGSHIP_COVERS` (packages/ui/src/covers.ts). Verified at every layer:
+> all 28 flagship covers on /explore (0 broken, 0 errors, 0 overflow), gate green (703
+> tests, typechecks, build), and POST-DEPLOY ON PROD: the 12 JPEGs serve 200 from
+> doot.games/covers/ and game pages SSR an absolute `og:image` pointing at them
+> (checked on /game/faker, /game/mad-libs, /game/ballpark), so shared links unfurl with
+> the art. HOW COVERS WORK: static JPEGs committed under apps/web/public/covers,
+> rendered OFFLINE by the script (never at page load); creator games instead upload via
+> the MCP base64 `upload_image` + the FORMAT_GUIDE's COVER ART rules. GOTCHA: re-running
+> the generator re-encodes JPEGs with byte-level differences, so after art changes only
+> commit the ids you actually changed (restore the rest from git).
+> **Next (per plan §8):** Quick Draw (the streaming game; transport spike first),
+> survey two-phase, custom prompt packs via share code.
 
 > **SHIPPED: MCP art + design guides, base64 upload, and 13 game covers (2026-06-09,
 > merged to `main` from `polish-audit` and deployed).** Three pieces, audited (a 7-angle
