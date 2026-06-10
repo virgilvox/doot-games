@@ -33,7 +33,7 @@ const DEFAULT_IMAGE = '/og.png'
 /**
  * Resolve a game's preview image the same way GameCover does: an explicit cover
  * wins, then a flagship's shipped screenshot, then the branded default. Keep the
- * flagship map in sync with packages/ui/src/components/GameCover.vue.
+ * flagship map lives in packages/ui/src/covers.ts (shared with GameCover).
  */
 export function gameOgImage(image: string | null | undefined, type: string | null | undefined): string {
   return image || (type ? FLAGSHIP_COVERS[type] : undefined) || DEFAULT_IMAGE

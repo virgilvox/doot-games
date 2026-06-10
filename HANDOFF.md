@@ -5,6 +5,20 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **SHIPPED: cover art for the LAST 12 flagships (2026-06-09, deployed).**
+> Every Game From Doot now has real art: `scripts/gen-covers.mjs` gained 12 more bespoke
+> worlds (quip-clash fight bill, mad-libs ransom note, split-room modernist poster,
+> fib-finder tabloid, sketch-spot gallery wall, what-you-didnt-know CRT television,
+> backronym stenciled crate, hivemind honeycomb, most-likely yearbook, ballpark night
+> stadium, faker masquerade, truth-or-share polaroid wall), registered in the shared
+> `FLAGSHIP_COVERS` (packages/ui/src/covers.ts). All 28 flagship covers verified on
+> /explore: 0 broken, 0 errors, 0 overflow; gate green (703 tests, typechecks, build).
+> NOTE: re-running the generator re-encodes JPEGs with slight byte differences; the 13
+> previously shipped covers were restored from git so the diff is only the 12 new files.
+> Covers are STATIC JPEGs (committed, served from /covers; generated offline by the
+> script, never rendered at runtime) and feed og:image via gameOgImage, so shares
+> unfurl with the art. Verified live on prod post-deploy.
+
 > **SHIPPED: MCP art + design guides, base64 upload, and 13 game covers (2026-06-09,
 > merged to `main` from `polish-audit` and deployed).** Three pieces, audited (a 7-angle
 > code review; fixes applied: upload_image schema `minProperties`, restored min-width
