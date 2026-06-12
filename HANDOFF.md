@@ -5,6 +5,78 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-12. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUDIT PASS + 3 NEW CHARACTERS + QUIZ-OR-DIE TTS FIX (2026-06-12, follows the Pit Party
+> build below; full gate still green, not yet committed).**
+> - **Pit Party audit fixes:** the Vue<->relay glue bugs are fixed - a phone's driver/kart
+>   pick can no longer be dropped by the join-poll race (syncDrivers runs before subscribe +
+>   the pick handler creates the driver if missing + seats are always published); the phone no
+>   longer has its live selection overwritten by a seat echo (only adopts char/cart when
+>   `locked`); a phone that drops mid-race hands its kart to a CPU and reclaims it on reconnect
+>   (`handToCpu`/`seatHuman` via `lastSeen`, previously dead code); the spectator stream now
+>   carries the host's music+SFX (`PitAudio.getAudioStream`); item-fire is rising-edge (no
+>   retained-replay phantom); the big screen flashes GO; the `viewerCount` emoji is gone; dead
+>   code removed (vec helpers, Race debug methods, the unused coin economy); description
+>   shortened. 5 new sim tests (drift mini-turbo tiers + payout, collision mass asymmetry, item
+>   volt/triple/boost). NO em-dashes or emojis anywhere in the game (swept).
+> - **3 new characters (now 9):** KELZO (green-haired harlequin jester), JAIRA (red spotted
+>   toadstool), PEACHO (pink-haired peach sprite) - punny names off the owner's references; 3D
+>   driver builders + 2D portraits added; CPU pools auto-include them via `CHARACTER_IDS`.
+> - **Quiz or Die TTS:** root cause of "still not speaking words in Chrome" was a PERMANENT
+>   latch - a cold start (voices not loaded for the first line) dropped the whole session to the
+>   synth blip-voice forever. Now recoverable + cold-start-safe (new `hasVoices()` gate; OS
+>   speech retried every 4th line; misses only count once voices exist). See memory
+>   `doot-tts-cast-architecture`. No new dependency (sam-js/meSpeak are license-unsafe for prod).
+
+> **BUILT + FULL GATE GREEN (not yet committed/deployed): PIT PARTY, a split-screen kart
+> Grand Prix flagship (2026-06-12).** A new full-custom flagship game adapted from the owner's
+> `kerf`/`tiller` Three.js prototype. One big screen runs a 3D kart race; phones are the
+> controllers (Doot's second-screen thesis); up to 4 humans drive split-screen, CPUs fill the
+> grid to 8; remote folks watch via the WebRTC spectator stream. Lives entirely in
+> `packages/games/src/games/pit-party/` (37 files, ~7.4k LOC), built in isolation. Gate:
+> `pnpm test` (766, incl. 12 new pit-party sim tests), `pnpm -r typecheck` (0 errors, incl. the
+> strict apps/web `noUncheckedIndexedAccess` pass), and `pnpm --filter @doot-games/web build`
+> all green. The high-value facts:
+> - **ARCHITECTURE = pure sim + Three renderer + Vue/CLASP shell, cleanly split.** `sim/`
+>   (vec, track baker, physics, items, ai, race orchestrator, standings) is Three-free,
+>   deterministic, fixed-step, and unit-tested via `logic.ts` — so it could later run headless
+>   for authoritative netcode. `engine/` lazy-imports `three` client-only (mirrors
+>   `RapBattleStage`; `three` was already a ui dep, now also a games dep) and mirrors sim state
+>   into meshes, rendering 1-4 split-screen scissor panes. `Host.vue` owns the sim + rAF loop +
+>   CLASP host + lobby/select/race/GP-results UI; `Player.vue` is the phone controller;
+>   `Audience.vue` is the spectator viewer. Data is modular: `maps/` (5 courses as pure data),
+>   `carts/` + `characters/` (Mario-Kart driver+vehicle stat model, `roster.ts` blends them).
+> - **RESEARCH-BACKED gameplay.** Centripetal Catmull-Rom track bake -> arc-length-even samples;
+>   ordered-checkpoint + monotonic-progress lap counting that can't be cheated by reversing
+>   (tested); clamp-to-segment wall slide + circle obstacle collision (so the cactus you SEE is
+>   the one you HIT — the prototype's cacti had no collision); 3-tier drift mini-turbo;
+>   distance-from-leader item weighting (leaders get defensive, trailers get catch-up — tested);
+>   pure-pursuit + patented rubber-band AI; MK8 points table + cumulative cup standings w/
+>   tiebreaks. 5 courses (kiln/sprue/prism ported + fleshed out, NEON OVERPASS + EMBER WORKS new).
+> - **CONTROLS = 3 schemes the player picks** (touch racing has no single standard): Auto-drive
+>   (auto-accelerate, just steer+drift+item — the casual mobile-kart default), Joystick (left
+>   stick steers + push-up accelerates, frees the other thumb — the owner's idea), Wheel+pedals
+>   (TILLER classic). New REUSABLE `SteeringWheel.vue` added to the `@doot-games/ui` controller
+>   kit (kit style, emits the logical-input `axis` event). Optional watch-stream overlay behind
+>   the controls.
+> - **AUDIO.** New reusable `Sampler` (`packages/ui/src/audio/sampler.ts`, cast-safe Web Audio
+>   buffer + music player) any game can use. Pit Party keeps the prototype's synth engine drone +
+>   SFX (dynamic, tied to sim state) and adds LICENSED music (menu/race/podium loops) + marquee
+>   one-shots (GO / win / crash) transcoded small (~2.8MB total) into `apps/web/public/pit-party/
+>   audio/`. **The owner confirmed they have rights to the RacingMusicPack + FREE CAR SFX pack;
+>   re-confirm before any redistribution.**
+> - **COVER ART:** bespoke night pit-lane cover generated (`scripts/gen-covers.mjs pit-party` ->
+>   `public/covers/pit-party.jpg`, registered in `FLAGSHIP_COVERS`).
+> - **WHAT REMAINS:** (1) **commit + deploy** (working tree only so far). (2) **Run-on-phone /
+>   handheld mode** — the deferred netcode (host broadcasts ~20Hz authoritative world-state
+>   snapshots, phones render their own kart with interpolation + client prediction; the research
+>   brief + the headless-capable pure sim are the foundation). (3) **TURN for pit-party's stream**
+>   — its `stream.ts` is a self-contained copy of retro-arcade's, so it's STUN-only until the app
+>   `rtc.client.ts` plugin also calls pit-party's `setRtcConfig` (one line; consider extracting
+>   the shared stream module to avoid the duplication). (4) **Real-device + multi-phone playtest**
+>   (build verified, not yet driven on hardware). (5) deck-feedable course/character packs;
+>   host-plugged gamepad drivers (kit `createGamepadBridge` makes this easy); per-race course
+>   pick for the cup (today it auto-advances the course list).
+
 > **SHIPPED + DEPLOYED + HEAVILY POLISHED: Retro Arcade (the emulator flagship), the
 > controller kit, the Bubblegum theme, and CLASP-signaled WebRTC spectator streaming
 > (2026-06-11 -> 06-12, on `main`, last commit `b1229d5`).** Doot now hosts ANY ROM on the

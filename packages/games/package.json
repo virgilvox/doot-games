@@ -19,9 +19,13 @@
     "@doot-games/sdk": "workspace:*",
     "@doot-games/themes": "workspace:*",
     "@doot-games/ui": "workspace:*",
-    "obscenity": "^0.4.6"
+    "obscenity": "^0.4.6",
+    "three": "0.184.0"
   },
   "peerDependencies": {
     "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.184.1"
   }
 }

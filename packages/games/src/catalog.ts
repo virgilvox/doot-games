@@ -62,6 +62,7 @@ export const gameCatalog: GameCatalogEntry[] = [
   { id: 'bingo', name: 'Bingo', version: '0.1.0', flagship: true, description: 'Everyone gets a unique card. The host calls it; mark yours and race to a line. First bingo wins.' },
   { id: 'call-it', name: 'Call It', version: '0.1.0', flagship: true, description: 'Live predictions for a room with a screen on. The host calls it, you pick, and calling it right scores.' },
   { id: 'retro-arcade', name: 'Retro Arcade', version: '0.1.0', flagship: true, description: 'Any ROM, played together. Phones and gamepads are the controllers, in the room or remote.' },
+  { id: 'pit-party', name: 'Pit Party', version: '0.1.0', flagship: true, description: 'A split-screen kart Grand Prix. Drive from your phone, drift for boosts, race for the cup.' },
   { id: 'custom', name: 'Custom', version: '0.1.0', flagship: false, description: 'Mix any blocks, or paste a markdown spec to build a whole game at once.' },
 ]
 

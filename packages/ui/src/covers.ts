@@ -35,4 +35,5 @@ export const FLAGSHIP_COVERS: Record<string, string> = {
   bingo: '/covers/bingo.jpg',
   'call-it': '/covers/call-it.jpg',
   'retro-arcade': '/covers/retro-arcade.jpg',
+  'pit-party': '/covers/pit-party.jpg',
 }

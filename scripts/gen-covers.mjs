@@ -996,6 +996,58 @@ const COVERS = [
       </div>
       <div class="tag">ANY ROM &middot; INSERT PHONE</div>`,
   },
+  {
+    // A night pit-lane: a chunky mascot kart on dark tarmac, hazard rails, a
+    // checkered finish band, and a hi-vis caution-yellow title lockup.
+    id: 'pit-party',
+    fonts: ['Bungee', 'Chakra Petch:wght@700'],
+    css: `
+      body { background: linear-gradient(180deg, #241a44 0%, #5b3458 34%, #2a1430 58%, #15131a 78%); font-family: 'Bungee', sans-serif; }
+      .dusk { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); width: 520px; height: 520px; border-radius: 50%; background: #ffb14e; filter: blur(110px); opacity: .34; }
+      .stars i { position: absolute; width: 3px; height: 3px; background: #f3eee2; border-radius: 50%; opacity: .7; }
+      .road { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 1280px; height: 360px; background: linear-gradient(180deg, #211c2a, #15131a); clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%); }
+      .road::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; transform: translateX(-50%); width: 8px; background: repeating-linear-gradient(180deg, #ffd23f 0 26px, transparent 26px 60px); opacity: .8; }
+      .checker { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); width: 720px; height: 46px; background-image: conic-gradient(#f3eee2 90deg, #14121a 90deg 180deg, #f3eee2 180deg 270deg, #14121a 270deg); background-size: 46px 46px; clip-path: polygon(20% 0, 80% 0, 96% 100%, 4% 100%); opacity: .9; }
+      .rail { position: absolute; bottom: 70px; width: 240px; height: 30px; background: repeating-linear-gradient(-45deg, #ffd23f 0 14px, #14121a 14px 28px); border: 3px solid #0b0a0f; }
+      .rail.l { left: 70px; transform: skewY(11deg); } .rail.r { right: 70px; transform: skewY(-11deg); }
+      .kart { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); width: 360px; height: 300px; filter: drop-shadow(0 24px 30px rgba(0,0,0,.5)); }
+      .title { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
+      .title h1 { font-size: 128px; line-height: .86; color: #ffd23f; text-shadow: 8px 8px 0 #0b0a0f; letter-spacing: .01em; }
+      .topbar { position: absolute; top: 0; left: 0; right: 0; height: 22px; background: repeating-linear-gradient(-45deg, #ffd23f 0 18px, #0b0a0f 18px 36px); }
+      .tag { position: absolute; bottom: 26px; left: 0; right: 0; text-align: center; font-family: 'Chakra Petch', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: .28em; color: #f3eee2; text-transform: uppercase; }
+    `,
+    html: `
+      <div class="dusk"></div>
+      <div class="stars">${Array.from({ length: 40 }, () => `<i style="left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 36).toFixed(1)}%"></i>`).join('')}</div>
+      <div class="road"></div>
+      <div class="rail l"></div><div class="rail r"></div>
+      <div class="checker"></div>
+      <div class="topbar"></div>
+      <svg class="kart" viewBox="0 0 360 300">
+        <!-- wheels -->
+        <ellipse cx="70" cy="244" rx="56" ry="40" fill="#171420" stroke="#0b0a0f" stroke-width="7"/>
+        <ellipse cx="290" cy="244" rx="56" ry="40" fill="#171420" stroke="#0b0a0f" stroke-width="7"/>
+        <ellipse cx="70" cy="244" rx="22" ry="16" fill="#d8d2c4"/>
+        <ellipse cx="290" cy="244" rx="22" ry="16" fill="#d8d2c4"/>
+        <!-- body -->
+        <path d="M58 200 q-6 -78 122 -78 q128 0 122 78 q4 34 -34 44 H92 q-38 -10 -34 -44 Z" fill="#ffd23f" stroke="#0b0a0f" stroke-width="8"/>
+        <!-- spoiler -->
+        <rect x="150" y="92" width="60" height="14" rx="3" fill="#ff5d8f" stroke="#0b0a0f" stroke-width="6"/>
+        <!-- cockpit -->
+        <ellipse cx="180" cy="150" rx="64" ry="40" fill="#1c1924" stroke="#0b0a0f" stroke-width="7"/>
+        <!-- driver helmet -->
+        <circle cx="180" cy="146" r="34" fill="#4caf6d" stroke="#0b0a0f" stroke-width="7"/>
+        <rect x="156" y="138" width="48" height="16" rx="8" fill="#14121a"/>
+        <rect x="160" y="142" width="40" height="7" rx="3" fill="#ffd23f"/>
+        <!-- number plate -->
+        <rect x="150" y="206" width="60" height="34" rx="5" fill="#f3eee2" stroke="#0b0a0f" stroke-width="6"/>
+        <text x="180" y="232" text-anchor="middle" font-family="Bungee" font-size="26" fill="#0b0a0f">1</text>
+        <!-- headlight eyes -->
+        <circle cx="120" cy="186" r="11" fill="#0b0a0f"/><circle cx="240" cy="186" r="11" fill="#0b0a0f"/>
+      </svg>
+      <div class="title"><h1>PIT PARTY</h1></div>
+      <div class="tag">Grab a wheel &middot; Win the cup</div>`,
+  },
 ]
 
 const only = process.argv.slice(2)

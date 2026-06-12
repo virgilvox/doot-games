@@ -49,6 +49,7 @@ export {
   type AnnounceOptions,
   type VerseOptions,
   canSpeak,
+  hasVoices,
   cancelSpeech,
   warmUpSpeech,
   primeSpeech,
@@ -66,6 +67,8 @@ export { FLAGSHIP_COVERS } from './covers'
 export { type StageSfx, createStageSfx } from './audio/stage'
 // The procedural arena audio engine (beat + analyser + SFX; raw Web Audio, SSR-safe).
 export { type ArenaAudio, type ArenaLevels, canPlayArenaAudio, createArenaAudio } from './audio/arena'
+// A reusable sample + music player (decode-once, one-shots + looping; cast-safe).
+export { type Sampler, createSampler } from './audio/sampler'
 export { default as RobotRapper } from './components/RobotRapper.vue'
 // The 3D rap-battle arena (lazy Three.js, client-only, SSR-safe).
 export { default as RapBattleStage } from './components/RapBattleStage.vue'
@@ -99,6 +102,7 @@ export { default as ConfettiBurst } from './components/ConfettiBurst.vue'
 export { default as PadButton } from './components/controls/PadButton.vue'
 export { default as DPad } from './components/controls/DPad.vue'
 export { default as Thumbstick } from './components/controls/Thumbstick.vue'
+export { default as SteeringWheel } from './components/controls/SteeringWheel.vue'
 export { default as ActionCluster } from './components/controls/ActionCluster.vue'
 export { default as Buzzer } from './components/controls/Buzzer.vue'
 export { default as Bumper } from './components/controls/Bumper.vue'

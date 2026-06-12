@@ -20,6 +20,7 @@ import { hivemind } from './games/hivemind'
 import { madLibs } from './games/mad-libs'
 import { mostLikely } from './games/most-likely'
 import { openMic } from './games/open-mic'
+import { pitParty } from './games/pit-party'
 import { poll } from './games/poll'
 import { quipClash } from './games/quip-clash'
 import { quizOrDie } from './games/quiz-or-die'
@@ -78,6 +79,7 @@ export const builtinPlugins: GamePlugin[] = [
   bingo,
   callIt,
   retroArcade,
+  pitParty,
   custom,
 ]
 

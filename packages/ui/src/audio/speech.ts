@@ -35,6 +35,20 @@ export function canSpeak(): boolean {
 }
 
 /**
+ * Whether the engine actually has voices loaded right now. Chrome loads them
+ * lazily, so this is FALSE for the first frames after page load. Callers use it to
+ * tell a genuine "no voice / broken engine" from a cold start that's merely still
+ * loading, so an early line isn't mistaken for a permanent failure.
+ */
+export function hasVoices(): boolean {
+  try {
+    return canSpeak() && window.speechSynthesis.getVoices().length > 0
+  } catch {
+    return false
+  }
+}
+
+/**
  * Prime the speech engine so the FIRST line actually speaks. Chrome loads voices
  * lazily and asynchronously: `getVoices()` is often empty on a fresh page until a
  * `voiceschanged` event fires, and a `speak()` issued before then can be silently
@@ -163,7 +177,10 @@ function noteSpeechStarted(): void {
 }
 
 function noteSpeechEnded(started: boolean, elapsedMs: number): void {
-  if (!started && elapsedMs >= SILENT_ATTEMPT_MIN_MS) silentAttempts++
+  // Only count a no-start as "silent" when the engine actually HAD voices: a
+  // voiceless cold start (voices still loading) is not a broken engine, and counting
+  // it would wrongly latch the show onto its fallback for the whole session.
+  if (!started && elapsedMs >= SILENT_ATTEMPT_MIN_MS && hasVoices()) silentAttempts++
 }
 
 // ── Voice selection ───────────────────────────────────────────────────────────

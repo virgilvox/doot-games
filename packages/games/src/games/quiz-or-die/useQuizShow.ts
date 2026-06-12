@@ -8,7 +8,7 @@
 import type { RelayValue } from "@doot-games/engine";
 import { injectDootRoom } from "@doot-games/engine/vue";
 import type { GameComposition, StandardResults } from "@doot-games/sdk";
-import { announce, cancelSpeech, canSpeak, primeSpeech, speechLooksSilent, warmUpSpeech } from "@doot-games/ui";
+import { announce, cancelSpeech, canSpeak, hasVoices, primeSpeech, warmUpSpeech } from "@doot-games/ui";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { CellarContent } from "../../blocks/cellar/block";
 import { type HorrorAudio, createHorrorAudio } from "./audio";
@@ -178,36 +178,49 @@ export function useQuizShow() {
   }
 
   // ── Narration ─────────────────────────────────────────────────────────────────
-  // How many OS-speech lines in a row never started. After two, stop trying the OS
-  // voice for the rest of the show (each try costs a 480ms mute at the line start).
-  let speechFailures = 0;
+  // OS-speech reliability. The hard bug this avoids: a COLD START (the first line or
+  // two fire before Chrome has loaded its voices) used to trip a permanent latch and
+  // drop the WHOLE show to the synth voice, so the villain only ever blipped, never
+  // spoke. Now we NEVER latch: every line tries OS speech; a line that silently
+  // fails to start uses the cast-safe synth voice just for that line; and even after
+  // a couple of real misses we keep retrying OS speech (every 4th line), so the
+  // moment voices load, real speech takes back over. Misses only count once voices
+  // actually exist (a voiceless cold start is not a failure).
+  let speechMisses = 0;
+  let lineNo = 0;
   function speak(text: string, ms: number) {
     talking.value = true;
     timers.push(setTimeout(() => (talking.value = false), ms));
     if (muted.value || voiceMode.value === "off") return;
-    // The synth voice is also the cast-safe path: Web Audio travels with a tab
-    // cast / screen share, while OS speech is rendered outside the tab and never
-    // reaches the TV. So it serves whenever OS speech can't be trusted, too.
-    if (voiceMode.value === "synth" || !canSpeak() || speechLooksSilent() || speechFailures >= 2) {
+    // The synth voice is also the cast-safe path: Web Audio travels with a tab cast
+    // / screen share, while OS speech is rendered outside the tab and never reaches
+    // the TV. It serves on an explicit 'synth' choice or with no speech API at all.
+    if (voiceMode.value === "synth" || !canSpeak()) {
       audio?.voice(text, ms);
       return;
     }
-    // Speech mode: real OS speech for the host's deep, wrong voice. If the browser
-    // silently drops it (no voice actually starts), fall back to the always-audible
-    // synth so the show is never silent (the mockup's exact strategy).
+    // Speech mode: try real OS speech, but recover automatically. After a couple of
+    // misses we lead with the synth voice yet still probe OS speech periodically.
+    const tryOs = speechMisses < 2 || ++lineNo % 4 === 0;
+    if (!tryOs) {
+      audio?.voice(text, ms);
+      return;
+    }
     let started = false;
     announce(text, {
       rate: 0.84,
       pitch: 0.42,
       onStart: () => {
         started = true;
-        speechFailures = 0;
+        speechMisses = 0;
       },
     });
     timers.push(
       setTimeout(() => {
         if (started) return;
-        speechFailures++;
+        // A no-start only counts as a real miss once voices exist; a voiceless cold
+        // start is just "still loading", not broken.
+        if (hasVoices()) speechMisses++;
         // Kill the dead OS queue BEFORE the synth takes over, or a slow voice can
         // start late and talk over the blips.
         cancelSpeech();
