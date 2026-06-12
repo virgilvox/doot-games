@@ -53,20 +53,29 @@ prod via CI, no staging)._
 >   black stream after rotating mid-watch (nextTick re-attach), double-tap viewer leak, and
 >   relay `onExtra` not unsubscribed on unmount.
 > - **INFRA NOTE:** the site sets COOP but NOT COEP (not cross-origin isolated), so EmulatorJS
->   uses NON-THREADED cores (N64/PSX still run, no SharedArrayBuffer). WebRTC is STUN-only
->   (no TURN), host-fanout mesh ~5-15 viewers, VIDEO ONLY (EmulatorJS audio is WebAudio).
+>   uses NON-THREADED cores (N64/PSX still run, no SharedArrayBuffer). WebRTC is host-fanout
+>   mesh ~5-15 viewers; ICE defaults to Google's full public STUN set (TURN optional, off).
 >   The CSP/permissions denials are only on `plugins.doot.games`, not `doot.games`.
 > - **GATE at ship:** 752 unit tests (incl. `simValueFor` + `logic.test` mapping), all
 >   typechecks, web build, and `scripts/retro-arcade-smoke.mjs` (input wiring + C-up full-scale
 >   + size-XL-grows-and-fits + square-aspect-no-squish + hot-swap + no-clip) +
 >   `scripts/retro-arcade-stream-smoke.mjs` (WebRTC signaling + ICE + track over the relay).
-> - **STREAM AUDIO: DONE (`2f19fc0`).** EmulatorJS plays through Web Audio, so `emulator.ts`
->   patches `AudioNode.connect` (like the WebGL `preserveDrawingBuffer` patch) to fork
->   everything routed to the context destination into a `MediaStreamAudioDestinationNode`
->   (`getAudioStream`); the host folds that audio track in alongside the canvas video. Viewers
->   start muted (autoplay rules) and unmute from a tap (the viewer's `setMuted`; Sound toggle
->   on `/watch` + the join-page Audience view). The stream smoke asserts a live audio track +
->   the unmute. The real device pass confirmed the controller path works on phones.
+> - **STREAM AUDIO: DONE (`2f19fc0`), then AUDIT-HARDENED (`7f080f6`).** EmulatorJS plays
+>   through Web Audio, so `emulator.ts` patches `AudioNode.connect` (like the WebGL
+>   `preserveDrawingBuffer` patch) to fork everything routed to the context destination into a
+>   `MediaStreamAudioDestinationNode` (`getAudioStream`); the host folds that audio track in
+>   alongside the canvas video. Viewers start muted (autoplay rules) and unmute from a tap
+>   (`setMuted`; Sound toggle on `/watch`, the Audience view, AND the in-game watch overlay for
+>   remote play). **Audit (an adversarial review) caught two High bugs the smoke missed and they
+>   are FIXED:** (1) a viewer who joined BEFORE the game made sound never got audio (the track
+>   was added to the shared stream but not to the already-negotiated peer, no renegotiation) -
+>   now every peer gets an audio m-line up front (track or an empty `sendonly` transceiver) and
+>   a 1.5s `syncPeers` loop fills it via `replaceTrack`; (2) a ROM hot-swap froze the stream
+>   (the cached captureStream track stays 'live' on the detached old canvas) - `ensureStream`
+>   now recaptures when the canvas object changes and `replaceTrack`s the fresh video+audio onto
+>   all peers. The stream smoke now routes audio AFTER the viewer joins and asserts audio packets
+>   actually flow (getStats), not just that a track exists. The real device pass confirmed the
+>   controller path works on phones.
 > - **TURN: WIRED, needs a server (`2f19fc0`).** CLASP is signaling-only (not a TURN server),
 >   so the ICE config is now configurable: `setRtcConfig` appends a TURN relay to the STUN
 >   default, set once from runtime env by `apps/web/app/plugins/rtc.client.ts`
