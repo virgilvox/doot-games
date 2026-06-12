@@ -57,6 +57,14 @@ export default defineNuxtConfig({
       // convention; a plain build-time GOATCOUNTER_URL is the fallback default).
       // See plugins/analytics.client.ts and docs/deploy.md.
       goatcounterUrl: process.env.GOATCOUNTER_URL || '',
+      // Optional TURN relay for the Retro Arcade spectator stream (WebRTC), for
+      // viewers behind NATs that STUN can't traverse. CLASP is signaling-only, so
+      // TURN is a SEPARATE server (e.g. coturn). Empty = STUN-only (the default).
+      // Set at RUNTIME via NUXT_PUBLIC_TURN_URL / _TURN_USERNAME / _TURN_CREDENTIAL
+      // (url may be a comma-separated list). See plugins/rtc.client.ts + docs/deploy.md.
+      turnUrl: process.env.TURN_URL || '',
+      turnUsername: process.env.TURN_USERNAME || '',
+      turnCredential: process.env.TURN_CREDENTIAL || '',
     },
   },
 })

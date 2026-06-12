@@ -26,7 +26,12 @@ const errors = []
 const PC_HOOK = `(() => { const O = window.RTCPeerConnection; if (!O || O.__h) return; window.RTCPeerConnection = class extends O { constructor(...a){ super(...a); window.__pc = this; } }; window.RTCPeerConnection.__h = true; })()`
 
 async function run() {
-  const browser = await chromium.launch({ args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] })
+  const browser = await chromium.launch({
+    args: [
+      '--disable-features=WebRtcHideLocalIpsWithMdns',
+      '--autoplay-policy=no-user-gesture-required',
+    ],
+  })
   try {
     step('Host boots (the broadcast arms itself, no manual toggle)')
     const host = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
@@ -56,6 +61,23 @@ async function run() {
         requestAnimationFrame(draw)
       }
       draw()
+      // A near-silent Web Audio graph routed to the context destination, so the
+      // emulator AUDIO TAP (patchAudioForCapture, installed during boot) has
+      // something to capture and fold into the broadcast.
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext
+        const ac = new AC()
+        ac.resume?.()
+        const osc = ac.createOscillator()
+        const g = ac.createGain()
+        g.gain.value = 0.0001
+        osc.connect(g)
+        g.connect(ac.destination)
+        osc.start()
+        window.__ac = ac
+      } catch {
+        /* no Web Audio in this runtime */
+      }
     })
     ok(`host live for room ${code} (stream serves on first viewer)`)
 
@@ -78,6 +100,25 @@ async function run() {
     })
     if (track.hasSrc && track.kind === 'video' && track.ready === 'live') ok('viewer received the live video track')
     else errors.push(`viewer did not receive a live track: ${JSON.stringify(track)}`)
+
+    // The emulator audio (WebAudio tap) should ride alongside the video.
+    const audio = await viewer.evaluate(() => {
+      const v = document.querySelector('video.vid')
+      const t = v?.srcObject?.getAudioTracks?.()[0]
+      return { kind: t?.kind, ready: t?.readyState }
+    })
+    if (audio.kind === 'audio' && audio.ready === 'live') ok('viewer received the live AUDIO track')
+    else errors.push(`viewer did not receive a live audio track: ${JSON.stringify(audio)}`)
+
+    // The Sound toggle unmutes (the video starts muted for autoplay).
+    const sndBtn = viewer.locator('button:has-text("Sound")').first()
+    if (await sndBtn.count()) {
+      const wasMuted = await viewer.evaluate(() => document.querySelector('video.vid')?.muted)
+      await sndBtn.click()
+      const nowMuted = await viewer.evaluate(() => document.querySelector('video.vid')?.muted)
+      if (wasMuted && !nowMuted) ok('Sound toggle unmutes the stream')
+      else errors.push(`Sound toggle did not unmute (was ${wasMuted}, now ${nowMuted})`)
+    } else errors.push('no Sound toggle on the watch page')
 
     if (await viewer.locator('button:has-text("Fullscreen")').count()) ok('fullscreen control present on the watch page')
     else errors.push('no fullscreen control on the watch page')

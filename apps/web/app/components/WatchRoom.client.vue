@@ -35,11 +35,16 @@ room.onExtra('meta', (v) => {
 
 const video = ref<HTMLVideoElement | null>(null)
 const state = ref<ViewerState>('connecting')
+const soundOn = ref(false)
 let viewer: ReturnType<typeof createViewer> | null = null
 
 function start() {
   if (!supported || !video.value) return
   viewer = createViewer(room, video.value, (s) => (state.value = s))
+}
+function toggleSound() {
+  soundOn.value = !soundOn.value
+  viewer?.setMuted(!soundOn.value)
 }
 function fullscreen() {
   const el = video.value
@@ -71,6 +76,7 @@ const label = () => {
     <div class="bar">
       <span class="code mono">Room {{ code }}</span>
       <span class="state mono" :class="{ live: state === 'connected' }">{{ state === 'connected' ? 'live' : state }}</span>
+      <button class="snd" :class="{ on: soundOn }" :aria-pressed="soundOn" @click="toggleSound">{{ soundOn ? 'Sound on' : 'Sound off' }}</button>
       <button class="fs" @click="fullscreen">Fullscreen</button>
     </div>
   </main>
@@ -135,8 +141,24 @@ const label = () => {
 .state.live {
   color: var(--c5);
 }
-.fs {
+.snd {
   margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.snd.on {
+  background: var(--c5);
+  color: var(--ink);
+  border-color: var(--c5);
+}
+.fs {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 13px;

@@ -72,6 +72,45 @@ function patchWebGLForCapture(): void {
   } as typeof proto.getContext
 }
 
+/**
+ * EmulatorJS plays sound through the Web Audio API (an AudioContext), not a media
+ * element, so `canvas.captureStream()` carries no audio. To capture it for the
+ * spectator stream, patch `AudioNode.connect` so that anything routed to a context's
+ * final `destination` is ALSO forked into a `MediaStreamAudioDestinationNode`. The
+ * fork is additive (the host still hears the game), and the tap's stream becomes the
+ * audio source for the broadcast. Patched once, before the emulator boots.
+ */
+let audioPatched = false
+let audioTap: MediaStream | null = null
+interface TapContext extends BaseAudioContext {
+  __dootTap?: MediaStreamAudioDestinationNode
+  createMediaStreamDestination?: () => MediaStreamAudioDestinationNode
+}
+function patchAudioForCapture(): void {
+  if (audioPatched || typeof window === 'undefined' || typeof AudioNode === 'undefined') return
+  audioPatched = true
+  const proto = AudioNode.prototype
+  const orig = proto.connect
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  proto.connect = function (this: AudioNode, dest: any, ...rest: any[]) {
+    try {
+      const ctx = this.context as TapContext
+      const make = ctx?.createMediaStreamDestination
+      // Only fork the final hop to the speakers (not AudioParam modulation hops).
+      if (ctx && dest === ctx.destination && typeof make === 'function') {
+        const tap = ctx.__dootTap ?? (ctx.__dootTap = make.call(ctx))
+        audioTap = tap.stream
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(orig as any).call(this, tap)
+      }
+    } catch {
+      /* never let the tap break real audio routing */
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (orig as any).call(this, dest, ...rest)
+  } as typeof proto.connect
+}
+
 export interface EmulatorController {
   boot(opts: BootOptions): void
   reboot(opts: BootOptions): void
@@ -79,6 +118,9 @@ export interface EmulatorController {
   simulate(player: number, index: number, value: number): void
   /** The running game canvas, for capture/streaming. Null until booted. */
   getCanvas(): HTMLCanvasElement | null
+  /** A MediaStream carrying the emulator's audio (Web Audio tap), or null if the
+   *  game hasn't routed sound yet. Pair its track with the canvas video track. */
+  getAudioStream(): MediaStream | null
   ready(): boolean
   dispose(): void
 }
@@ -126,6 +168,7 @@ export function createEmulator(mountSelector: string): EmulatorController {
     // frames. Force preserveDrawingBuffer on WebGL contexts created from here on,
     // so the canvas is capture-ready. Patched once, before the loader runs.
     patchWebGLForCapture()
+    patchAudioForCapture()
     const w = win()
     w.EJS_player = mountSelector
     w.EJS_core = opts.core
@@ -191,6 +234,9 @@ export function createEmulator(mountSelector: string): EmulatorController {
         if (!best || c.width * c.height > best.width * best.height) best = c
       })
       return best
+    },
+    getAudioStream() {
+      return audioTap
     },
     ready() {
       return isReady

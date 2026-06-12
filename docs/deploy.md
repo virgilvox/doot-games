@@ -79,6 +79,37 @@ so the next deploy starts it. To switch it on:
 The GoatCounter SQLite file lives under `./data/goatcounter`; back it up the
 same way as the app DB below.
 
+## Spectator stream TURN (Retro Arcade, optional)
+
+The Retro Arcade "watch by room code" stream is WebRTC: the host sends the emulator
+video+audio straight to each viewer, and CLASP carries only the signaling (offer /
+answer / ICE). By default the app uses public STUN servers, which is enough when at
+least one side can accept a direct connection. Behind a symmetric/CGNAT network on
+both ends, STUN fails and the viewer sees "Could not connect ... needs a TURN
+server". **CLASP is signaling-only (pub/sub); it is not a TURN server.** TURN is a
+separate media relay you run.
+
+To enable it:
+
+1. **Stand up a TURN server** (e.g. [coturn](https://github.com/coturn/coturn)) on a
+   host with a public IP, open UDP/TCP 3478 (and 5349 for `turns:`), and create a
+   long-term credential (`user:pass`). A static secret is fine for one deployment;
+   for many users prefer coturn's time-limited REST credentials.
+2. **Point the app at it** in `/opt/doot/.env` (the `NUXT_PUBLIC_` prefix is
+   required so Nuxt overrides `runtimeConfig.public` at runtime), then recreate the
+   app (`docker compose up -d --force-recreate app`):
+   ```
+   NUXT_PUBLIC_TURN_URL=turn:turn.doot.games:3478,turns:turn.doot.games:5349
+   NUXT_PUBLIC_TURN_USERNAME=doot
+   NUXT_PUBLIC_TURN_CREDENTIAL=<the-secret>
+   ```
+   The url may be a comma-separated list. STUN stays in the list as the cheaper
+   first option; TURN is the fallback. Empty (the default) keeps STUN-only. Wiring:
+   `apps/web/app/plugins/rtc.client.ts` calls `setRtcConfig` once at app start.
+
+This stays a small, additive layer: gameplay and controller input never touch WebRTC
+(they ride CLASP), so a missing TURN server only affects spectators on hard NATs.
+
 ## Backups
 
 The durable state is the SQLite file at `/opt/doot/data/doot.sqlite`. Back it up

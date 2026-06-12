@@ -7,7 +7,12 @@ export * from './runtime'
 export { type ParsedGame, parseMarkdownGame } from './markdown'
 
 // Retro Arcade spectator stream (CLASP-signaled WebRTC), for the watch-by-code page.
-export { type ViewerState, createViewer, webrtcSupported } from './games/retro-arcade/stream'
+export {
+  type ViewerState,
+  createViewer,
+  webrtcSupported,
+  setRtcConfig,
+} from './games/retro-arcade/stream'
 
 // Blocks (the reusable round kinds)
 export { answerBlock } from './blocks/answer/block'

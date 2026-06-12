@@ -17,6 +17,7 @@ const supported = webrtcSupported()
 
 const video = ref<HTMLVideoElement | null>(null)
 const state = ref<ViewerState>('connecting')
+const soundOn = ref(false)
 let viewer: ReturnType<typeof createViewer> | null = null
 
 const status = computed(() => {
@@ -29,6 +30,10 @@ const status = computed(() => {
 function fullscreen() {
   const el = video.value?.parentElement ?? video.value
   el?.requestFullscreen?.().catch(() => {})
+}
+function toggleSound() {
+  soundOn.value = !soundOn.value
+  viewer?.setMuted(!soundOn.value)
 }
 
 onMounted(() => {
@@ -45,6 +50,14 @@ onUnmounted(() => viewer?.close())
       <span class="mid mono">Room {{ code ?? room.runtime.room }}</span>
       <span class="right">
         <span class="state mono" :class="{ on: state === 'connected' }">{{ state === 'connected' ? 'live' : '...' }}</span>
+        <button class="fs" :class="{ on: soundOn }" :aria-pressed="soundOn" aria-label="Sound" @click="toggleSound">
+          <svg v-if="soundOn" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4zM16 9a4 4 0 0 1 0 6M19 7a8 8 0 0 1 0 10" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6 9H3v6h3l5 4zM22 9l-6 6M16 9l6 6" />
+          </svg>
+        </button>
         <button class="fs" aria-label="Fullscreen" @click="fullscreen">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
@@ -116,6 +129,11 @@ onUnmounted(() => viewer?.close())
   display: grid;
   place-items: center;
   cursor: pointer;
+}
+.fs.on {
+  background: var(--c5);
+  border-color: var(--c5);
+  color: var(--ink);
 }
 .stage {
   position: relative;

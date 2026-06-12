@@ -14,14 +14,47 @@
  * RTCSessionDescription / RTCIceCandidate expose their fields via prototype
  * getters, so they must be copied to plain objects before publishing.
  *
- * Video only for now: EmulatorJS plays through WebAudio, not a media element, so
- * the canvas captureStream carries no audio (a documented follow-up).
+ * Audio: EmulatorJS plays through WebAudio (not a media element), so the host taps
+ * it into a MediaStream (see emulator.ts `getAudioStream`) and folds that track in
+ * alongside the canvas video. The viewer starts muted (autoplay rules) and unmutes
+ * from a user gesture via the viewer's `setMuted`.
  */
 
 import type { RelayValue } from '@doot-games/engine'
 
-const ICE_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }],
+const DEFAULT_ICE: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+]
+// Module-level so a host-fanout mesh that STUN can't punch through can be given a
+// TURN relay. CLASP is signaling-only (pub/sub), so TURN is a SEPARATE server (e.g.
+// coturn); the app sets it once from runtime env via setRtcConfig (see the rtc
+// plugin + docs/deploy.md). Default is STUN-only.
+let rtcConfig: RTCConfiguration = { iceServers: DEFAULT_ICE }
+
+/**
+ * Configure the ICE servers used by every new peer connection. Pass a TURN server
+ * (url may be a comma-separated list, e.g. "turn:host:3478,turns:host:5349") with
+ * its credentials to relay media for viewers behind symmetric NATs. STUN stays in
+ * the list. Called once at app start; no-op TURN keeps the STUN-only default.
+ */
+export function setRtcConfig(turn?: {
+  url?: string | null
+  username?: string | null
+  credential?: string | null
+}): void {
+  const servers: RTCIceServer[] = [...DEFAULT_ICE]
+  const urls = (turn?.url ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (urls.length) {
+    const entry: RTCIceServer = { urls }
+    if (turn?.username) entry.username = turn.username
+    if (turn?.credential) entry.credential = turn.credential
+    servers.push(entry)
+  }
+  rtcConfig = { iceServers: servers }
 }
 
 /** The minimal slice of the room handle the stream needs (publish/subscribe). */
@@ -52,7 +85,11 @@ export function webrtcSupported(): boolean {
  * Host side: serve the canvas (via `getCanvas`) to any viewer that announces
  * itself. Returns a controller with a live viewer count and `stop()`.
  */
-export function serveStream(room: StreamRoom, getCanvas: () => HTMLCanvasElement | null) {
+export function serveStream(
+  room: StreamRoom,
+  getCanvas: () => HTMLCanvasElement | null,
+  getAudio?: () => MediaStream | null,
+) {
   const unsubs: Array<() => void> = []
   const peers = new Map<string, { pc: RTCPeerConnection; cands: ReturnType<typeof plainCand>[]; remoteSet: boolean; queue: RTCIceCandidateInit[]; viewed: number }>()
   let cached: MediaStream | null = null
@@ -62,9 +99,24 @@ export function serveStream(room: StreamRoom, getCanvas: () => HTMLCanvasElement
     for (const cb of listeners) cb(peers.size)
   }
 
+  // Fold the emulator's audio track (if it has become available) into the stream,
+  // so a viewer that connects after the game starts making sound gets it too.
+  const withAudio = (s: MediaStream): MediaStream => {
+    if (s.getAudioTracks().length === 0) {
+      const a = getAudio?.()?.getAudioTracks()[0]
+      if (a) {
+        try {
+          s.addTrack(a)
+        } catch {
+          /* already added / cross-context */
+        }
+      }
+    }
+    return s
+  }
   const stream = (): MediaStream | null => {
     const live = cached?.getVideoTracks()[0]?.readyState === 'live'
-    if (cached && live) return cached
+    if (cached && live) return withAudio(cached)
     const c = getCanvas()
     if (!c?.captureStream) return null
     try {
@@ -72,7 +124,7 @@ export function serveStream(room: StreamRoom, getCanvas: () => HTMLCanvasElement
     } catch {
       return null
     }
-    return cached
+    return withAudio(cached)
   }
 
   // key suffix is `rtc/<viewerId>/<kind>`, so the id is segment [1].
@@ -96,7 +148,7 @@ export function serveStream(room: StreamRoom, getCanvas: () => HTMLCanvasElement
       }
       const s = stream()
       if (!s) return
-      const pc = new RTCPeerConnection(ICE_CONFIG)
+      const pc = new RTCPeerConnection(rtcConfig)
       const rec = { pc, cands: [] as ReturnType<typeof plainCand>[], remoteSet: false, queue: [] as RTCIceCandidateInit[], viewed: 0 }
       peers.set(id, rec)
       announce()
@@ -183,7 +235,7 @@ export function createViewer(
   onState?: (s: ViewerState) => void,
 ) {
   const id = `v${Math.random().toString(36).slice(2, 10)}`
-  const pc = new RTCPeerConnection(ICE_CONFIG)
+  const pc = new RTCPeerConnection(rtcConfig)
   const unsubs: Array<() => void> = []
   const cands: ReturnType<typeof plainCand>[] = []
   let remoteSet = false
@@ -195,10 +247,13 @@ export function createViewer(
   // centre column to a portrait top region), so keep the last stream and re-point.
   let el: HTMLVideoElement = videoEl
   let lastStream: MediaStream | null = null
+  // Start muted so the video autoplays (browsers block sound without a gesture);
+  // the consumer flips this from a tap via setMuted. Sticky across re-attach.
+  let muted = true
   const paint = () => {
     if (!lastStream) return
     el.srcObject = lastStream
-    el.muted = true
+    el.muted = muted
     el.play?.().catch(() => {})
   }
 
@@ -271,6 +326,16 @@ export function createViewer(
     attach(next: HTMLVideoElement) {
       el = next
       paint()
+    },
+    /** Mute/unmute the audio (call from a user gesture to unmute, autoplay rules). */
+    setMuted(m: boolean) {
+      muted = m
+      el.muted = m
+      if (!m) el.play?.().catch(() => {})
+    },
+    /** Whether the received stream carries an audio track. */
+    hasAudio() {
+      return !!lastStream && lastStream.getAudioTracks().length > 0
     },
     close() {
       if (helloTimer) clearInterval(helloTimer)

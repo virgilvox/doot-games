@@ -402,7 +402,11 @@ let streamServer: ReturnType<typeof serveStream> | null = null
 let offViewers: (() => void) | null = null
 function startStream() {
   if (!canBroadcast || streamServer) return
-  streamServer = serveStream(room, () => emu?.getCanvas() ?? null)
+  streamServer = serveStream(
+    room,
+    () => emu?.getCanvas() ?? null,
+    () => emu?.getAudioStream() ?? null,
+  )
   offViewers = streamServer.onViewerCount((n) => {
     viewerCount.value = n
   })
