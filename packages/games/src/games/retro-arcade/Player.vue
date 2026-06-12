@@ -28,7 +28,7 @@ import {
   ToggleSwitch,
   createGamepadBridge,
 } from '@doot-games/ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { layoutFor } from './layouts'
 import { consoleSpec } from './logic'
 import { type ViewerState, createViewer, webrtcSupported } from './stream'
@@ -82,12 +82,21 @@ let fitRaf = 0
 function measureFit(iter: number) {
   const body = rootEl.value?.querySelector('.body') as HTMLElement | null
   if (!body) return
-  const oh = body.scrollHeight - body.clientHeight
-  const ow = body.scrollWidth - body.clientWidth
-  if ((oh > 2 || ow > 2) && iter < 6 && appliedScale.value > 0.5) {
-    const rh = oh > 2 ? body.clientHeight / body.scrollHeight : 1
-    const rw = ow > 2 ? body.clientWidth / body.scrollWidth : 1
-    appliedScale.value = Math.max(0.5, appliedScale.value * Math.min(rh, rw) * 0.99)
+  // Measure the body's control rects against the body box. getBoundingClientRect is
+  // transform-aware, so this catches a control nudged past an edge by a CSS transform
+  // (the Sega arc, the d-pad inboard shift) that scrollHeight would miss; using the
+  // body box (which already excludes the shoulder row's height) keeps a tall column
+  // from overrunning into the shoulders.
+  const box = body.getBoundingClientRect()
+  let over = 0
+  for (const el of body.querySelectorAll('.pad-btn, .dpad, .stick')) {
+    const r = el.getBoundingClientRect()
+    over = Math.max(over, box.top - r.top, r.bottom - box.bottom, box.left - r.left, r.right - box.right)
+  }
+  if (over > 2 && iter < 8 && appliedScale.value > 0.5) {
+    const basis = Math.min(box.width, box.height) || 1
+    // Shrink proportionally to the worst overhang (cap one step at -40%) and re-check.
+    appliedScale.value = Math.max(0.5, appliedScale.value * Math.max(0.6, 1 - (over * 1.15) / basis))
     fitRaf = requestAnimationFrame(() => measureFit(iter + 1))
   }
 }
@@ -117,7 +126,9 @@ let mq: MediaQueryList | null = null
 function onOrient(e: { matches: boolean }) {
   isPortrait.value = e.matches
   requestAnimationFrame(recomputeFit)
-  if (watching.value) requestAnimationFrame(reattachStream)
+  // nextTick so the orientation's <video> (mounted by v-if) exists before we re-point
+  // the stream at it; a bare rAF can race Vue's DOM flush and silently miss it.
+  if (watching.value) nextTick(reattachStream)
 }
 
 // ── Physical gamepad on the phone ────────────────────────────────────────────
@@ -161,6 +172,23 @@ function onRemap(m: GamepadMapping) {
     /* ignore */
   }
 }
+function loadRemap(key: string) {
+  let m: Partial<GamepadMapping> = {}
+  try {
+    const saved = localStorage.getItem(`doot_arcade_pad_${key}`)
+    if (saved) m = JSON.parse(saved)
+  } catch {
+    /* ignore */
+  }
+  remap.value = m
+  bridge?.setMapping(m)
+}
+// A host hot-swap changes the console: load that console's saved remap and apply it
+// to the running bridge (it was only loaded once at mount otherwise).
+watch(consoleKey, (key) => loadRemap(key))
+
+// Relay subscriptions to release on unmount (the engine hands back an unsubscribe).
+const offExtras: Array<() => void> = []
 
 onMounted(() => {
   try {
@@ -174,18 +202,17 @@ onMounted(() => {
     isPortrait.value = mq.matches
     mq.addEventListener('change', onOrient)
   }
-  room.onExtra('meta', (v) => {
-    meta.value = (v as Meta | null) ?? null
-  })
-  room.onExtra(`assign/${myId.value}`, (v) => {
-    assign.value = (v as Assign | null) ?? null
-  })
-  try {
-    const saved = localStorage.getItem(`doot_arcade_pad_${consoleKey.value}`)
-    if (saved) remap.value = JSON.parse(saved)
-  } catch {
-    /* ignore */
-  }
+  offExtras.push(
+    room.onExtra('meta', (v) => {
+      meta.value = (v as Meta | null) ?? null
+    }),
+  )
+  offExtras.push(
+    room.onExtra(`assign/${myId.value}`, (v) => {
+      assign.value = (v as Assign | null) ?? null
+    }),
+  )
+  loadRemap(consoleKey.value)
   startBridge()
   // Re-fit the controls whenever the play area changes size (rotation, browser
   // chrome, split screen). Caps the chosen button size to what actually fits.
@@ -201,6 +228,7 @@ onUnmounted(() => {
   viewer?.close()
   mq?.removeEventListener('change', onOrient)
   ro?.disconnect()
+  for (const off of offExtras) off()
   if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(fitRaf)
 })
 
@@ -227,9 +255,11 @@ function toggleWatch() {
   }
   watching.value = true
   showSettings.value = false
-  requestAnimationFrame(() => {
+  nextTick(() => {
     const v = activeVideo()
-    if (v) viewer = createViewer(room, v, (s) => (watchState.value = s))
+    if (!v) return
+    viewer?.close() // guard against a double-tap leaving an orphan peer connection
+    viewer = createViewer(room, v, (s) => (watchState.value = s))
   })
 }
 function fullscreenStream() {
