@@ -22,9 +22,19 @@
 
 import type { RelayValue } from '@doot-games/engine'
 
+// Google's public STUN servers (the CLASP-recommended default). STUN tells each
+// peer its public IP, which is enough for most home/office NATs; the full set gives
+// redundancy if one is slow or down. A symmetric NAT needs TURN (see setRtcConfig).
 const DEFAULT_ICE: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
+  {
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302',
+    ],
+  },
 ]
 // Module-level so a host-fanout mesh that STUN can't punch through can be given a
 // TURN relay. CLASP is signaling-only (pub/sub), so TURN is a SEPARATE server (e.g.
