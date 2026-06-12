@@ -237,6 +237,7 @@ onUnmounted(() => {
 // in portrait; only one is mounted at a time, and the viewer re-points on a flip.
 const canWatch = webrtcSupported()
 const watching = ref(false)
+const watchSound = ref(false)
 const watchState = ref<ViewerState>('connecting')
 const landscapeVideo = ref<HTMLVideoElement | null>(null)
 const portraitVideo = ref<HTMLVideoElement | null>(null)
@@ -251,6 +252,7 @@ function toggleWatch() {
     viewer?.close()
     viewer = null
     watching.value = false
+    watchSound.value = false
     return
   }
   watching.value = true
@@ -261,6 +263,12 @@ function toggleWatch() {
     viewer?.close() // guard against a double-tap leaving an orphan peer connection
     viewer = createViewer(room, v, (s) => (watchState.value = s))
   })
+}
+// Sound is opt-in (and off by default) since a player in the room hears the big
+// screen; a REMOTE player taps it on. Audio autoplay needs this gesture.
+function toggleWatchSound() {
+  watchSound.value = !watchSound.value
+  viewer?.setMuted(!watchSound.value)
 }
 function fullscreenStream() {
   activeVideo()?.requestFullscreen?.().catch(() => {})
@@ -326,6 +334,7 @@ function popoutStream() {
         <div class="watch-bar">
           <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
           <span class="watch-acts">
+            <button class="link-btn" :class="{ snd: watchSound }" @click="toggleWatchSound">{{ watchSound ? 'Sound on' : 'Sound' }}</button>
             <button class="link-btn" @click="popoutStream">Pop out</button>
             <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
           </span>
@@ -341,6 +350,7 @@ function popoutStream() {
             <div class="watch-bar">
               <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
               <span class="watch-acts">
+                <button class="link-btn" :class="{ snd: watchSound }" @click="toggleWatchSound">{{ watchSound ? 'Sound on' : 'Sound' }}</button>
                 <button class="link-btn" @click="popoutStream">Pop out</button>
                 <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
               </span>
@@ -605,6 +615,9 @@ function popoutStream() {
   cursor: pointer;
   font-size: 13px;
   text-decoration: underline;
+}
+.link-btn.snd {
+  color: var(--c5);
 }
 .gp-hint {
   position: absolute;

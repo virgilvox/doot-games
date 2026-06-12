@@ -61,24 +61,27 @@ async function run() {
         requestAnimationFrame(draw)
       }
       draw()
-      // A near-silent Web Audio graph routed to the context destination, so the
-      // emulator AUDIO TAP (patchAudioForCapture, installed during boot) has
-      // something to capture and fold into the broadcast.
-      try {
-        const AC = window.AudioContext || window.webkitAudioContext
-        const ac = new AC()
-        ac.resume?.()
-        const osc = ac.createOscillator()
-        const g = ac.createGain()
-        g.gain.value = 0.0001
-        osc.connect(g)
-        g.connect(ac.destination)
-        osc.start()
-        window.__ac = ac
-      } catch {
-        /* no Web Audio in this runtime */
-      }
     })
+    // Deliberately do NOT route audio yet: a real viewer usually opens /watch BEFORE
+    // the game makes any sound, so the audio m-line must be set up empty and filled
+    // later (the #3 fix). The audio graph is injected AFTER the viewer connects.
+    const routeAudio = () =>
+      host.evaluate(() => {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext
+          const ac = new AC()
+          ac.resume?.()
+          const osc = ac.createOscillator()
+          const g = ac.createGain()
+          g.gain.value = 0.05
+          osc.connect(g)
+          g.connect(ac.destination)
+          osc.start()
+          window.__ac = ac
+        } catch {
+          /* no Web Audio in this runtime */
+        }
+      })
     ok(`host live for room ${code} (stream serves on first viewer)`)
 
     step('A viewer opens /watch/<code> and the peer connects')
@@ -101,14 +104,32 @@ async function run() {
     if (track.hasSrc && track.kind === 'video' && track.ready === 'live') ok('viewer received the live video track')
     else errors.push(`viewer did not receive a live track: ${JSON.stringify(track)}`)
 
-    // The emulator audio (WebAudio tap) should ride alongside the video.
-    const audio = await viewer.evaluate(() => {
-      const v = document.querySelector('video.vid')
-      const t = v?.srcObject?.getAudioTracks?.()[0]
-      return { kind: t?.kind, ready: t?.readyState }
-    })
-    if (audio.kind === 'audio' && audio.ready === 'live') ok('viewer received the live AUDIO track')
-    else errors.push(`viewer did not receive a live audio track: ${JSON.stringify(audio)}`)
+    // The audio m-line is negotiated up front (empty), so the viewer has an audio
+    // track even though no sound exists yet (this is what makes late audio work).
+    const preAudio = await viewer.evaluate(
+      () => document.querySelector('video.vid')?.srcObject?.getAudioTracks?.().length || 0,
+    )
+    if (preAudio > 0) ok('viewer has an audio m-line before any sound (late-audio ready)')
+    else errors.push('viewer got NO audio m-line up front (late audio would be impossible)')
+
+    // Now the host's game starts making sound: the sync loop fills the audio track
+    // via replaceTrack (no renegotiation), and packets must actually flow to the viewer.
+    step('Audio routed AFTER the viewer joined still reaches it (the #3 case)')
+    await routeAudio()
+    let pkts = 0
+    for (let i = 0; i < 16 && pkts === 0; i++) {
+      await viewer.waitForTimeout(1000)
+      pkts = await viewer.evaluate(async () => {
+        const stats = await window.__pc.getStats()
+        let p = 0
+        stats.forEach((r) => {
+          if (r.type === 'inbound-rtp' && r.kind === 'audio') p = r.packetsReceived || 0
+        })
+        return p
+      })
+    }
+    if (pkts > 0) ok(`viewer is receiving audio packets after late routing (${pkts})`)
+    else errors.push('viewer received NO audio packets after the host started sound (#3 not fixed)')
 
     // The Sound toggle unmutes (the video starts muted for autoplay).
     const sndBtn = viewer.locator('button:has-text("Sound")').first()

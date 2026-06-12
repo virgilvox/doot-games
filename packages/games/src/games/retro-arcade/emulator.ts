@@ -159,6 +159,9 @@ export function createEmulator(mountSelector: string): EmulatorController {
     loaderScript?.remove()
     loaderScript = null
     w.EJS_emulator = undefined
+    // Drop the old context's audio tap; the next boot's AudioContext re-taps. (The
+    // old MediaStreamAudioDestinationNode is left to GC with its dead context.)
+    audioTap = null
   }
 
   const start = (opts: BootOptions) => {

@@ -101,41 +101,68 @@ export function serveStream(
   getAudio?: () => MediaStream | null,
 ) {
   const unsubs: Array<() => void> = []
-  const peers = new Map<string, { pc: RTCPeerConnection; cands: ReturnType<typeof plainCand>[]; remoteSet: boolean; queue: RTCIceCandidateInit[]; viewed: number }>()
+  type Peer = {
+    pc: RTCPeerConnection
+    cands: ReturnType<typeof plainCand>[]
+    remoteSet: boolean
+    queue: RTCIceCandidateInit[]
+    viewed: number
+    videoSender?: RTCRtpSender
+    audioSender?: RTCRtpSender
+  }
+  const peers = new Map<string, Peer>()
   let cached: MediaStream | null = null
+  let lastCanvas: HTMLCanvasElement | null = null
   let stopped = false
   const listeners = new Set<(n: number) => void>()
   const announce = () => {
     for (const cb of listeners) cb(peers.size)
   }
 
-  // Fold the emulator's audio track (if it has become available) into the stream,
-  // so a viewer that connects after the game starts making sound gets it too.
-  const withAudio = (s: MediaStream): MediaStream => {
-    if (s.getAudioTracks().length === 0) {
+  // Keep `cached` in sync with the live canvas + audio: recapture when the canvas
+  // CHANGES (a ROM hot-swap makes a NEW canvas, whose old captureStream track stays
+  // "live" but frozen), and fold in the emulator audio track once the game routes
+  // sound (which often starts AFTER viewers connect). Returns the current stream.
+  const ensureStream = (): MediaStream | null => {
+    const c = getCanvas()
+    if (c?.captureStream && c !== lastCanvas) {
+      try {
+        cached = c.captureStream(30)
+        lastCanvas = c
+      } catch {
+        /* keep the previous capture */
+      }
+    }
+    if (cached && cached.getAudioTracks().length === 0) {
       const a = getAudio?.()?.getAudioTracks()[0]
       if (a) {
         try {
-          s.addTrack(a)
+          cached.addTrack(a)
         } catch {
           /* already added / cross-context */
         }
       }
     }
-    return s
+    return cached
   }
-  const stream = (): MediaStream | null => {
-    const live = cached?.getVideoTracks()[0]?.readyState === 'live'
-    if (cached && live) return withAudio(cached)
-    const c = getCanvas()
-    if (!c?.captureStream) return null
-    try {
-      cached = c.captureStream(30)
-    } catch {
-      return null
+
+  // Push the current video + audio tracks onto every connected peer with replaceTrack
+  // (no renegotiation), so a hot-swap or late-arriving audio reaches viewers already
+  // connected. This is also what makes a viewer who joined before the game made any
+  // sound eventually hear it (their audio m-line was set up empty up front).
+  const syncPeers = () => {
+    const s = ensureStream()
+    if (!s) return
+    const v = s.getVideoTracks()[0] ?? null
+    const a = s.getAudioTracks()[0] ?? null
+    for (const rec of peers.values()) {
+      if (v && rec.videoSender && rec.videoSender.track !== v) rec.videoSender.replaceTrack(v).catch(() => {})
+      if (a && rec.audioSender && rec.audioSender.track !== a) rec.audioSender.replaceTrack(a).catch(() => {})
     }
-    return withAudio(cached)
   }
+  const syncTimer = setInterval(() => {
+    if (!stopped && peers.size) syncPeers()
+  }, 1500)
 
   // key suffix is `rtc/<viewerId>/<kind>`, so the id is segment [1].
   const viewerOf = (key: string) => key.split('/')[1] ?? ''
@@ -156,13 +183,24 @@ export function serveStream(
         }
         peers.delete(id)
       }
-      const s = stream()
+      const s = ensureStream()
       if (!s) return
       const pc = new RTCPeerConnection(rtcConfig)
-      const rec = { pc, cands: [] as ReturnType<typeof plainCand>[], remoteSet: false, queue: [] as RTCIceCandidateInit[], viewed: 0 }
+      const rec: Peer = { pc, cands: [], remoteSet: false, queue: [], viewed: 0 }
       peers.set(id, rec)
       announce()
-      for (const tr of s.getTracks()) pc.addTrack(tr, s)
+      const v = s.getVideoTracks()[0]
+      if (v) rec.videoSender = pc.addTrack(v, s)
+      // Always set up an audio m-line: with the track if present, else an empty
+      // sendonly transceiver the sync loop fills via replaceTrack. So a viewer who
+      // connects BEFORE the game makes sound still gets audio later, with no
+      // renegotiation (replaceTrack within the negotiated transceiver).
+      if (getAudio) {
+        const a = s.getAudioTracks()[0]
+        rec.audioSender = a
+          ? pc.addTrack(a, s)
+          : pc.addTransceiver('audio', { direction: 'sendonly', streams: [s] }).sender
+      }
       pc.onicecandidate = (e) => {
         if (!e.candidate) return
         rec.cands.push(plainCand(e.candidate))
@@ -220,6 +258,7 @@ export function serveStream(
     },
     stop() {
       stopped = true
+      clearInterval(syncTimer)
       for (const u of unsubs) u()
       for (const { pc } of peers.values()) {
         try {
