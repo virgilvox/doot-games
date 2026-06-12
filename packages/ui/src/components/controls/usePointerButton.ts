@@ -12,18 +12,21 @@
  * ways a naive momentary button gets stuck "down".
  *
  * Returns a reactive `pressed` flag and a set of event handlers to spread onto a
- * native `<button>`. SSR-safe (haptics are feature-detected).
+ * native `<button>` with `v-on="handlers"`. The keys are BARE event names (not the
+ * `onX` form): Vue's `v-on="obj"` adds the `on` prefix itself via `toHandlers`, so
+ * an `onPointerdown` key would bind a never-fired `onpointerdown` event.
+ * SSR-safe (haptics are feature-detected).
  */
 import { type Ref, ref, watch } from 'vue'
 
 export interface PointerButtonHandlers {
-  onPointerdown: (e: PointerEvent) => void
-  onPointerup: () => void
-  onPointercancel: () => void
-  onLostpointercapture: () => void
-  onContextmenu: (e: Event) => void
-  onKeydown: (e: KeyboardEvent) => void
-  onKeyup: (e: KeyboardEvent) => void
+  pointerdown: (e: PointerEvent) => void
+  pointerup: () => void
+  pointercancel: () => void
+  lostpointercapture: () => void
+  contextmenu: (e: Event) => void
+  keydown: (e: KeyboardEvent) => void
+  keyup: (e: KeyboardEvent) => void
 }
 
 export function usePointerButton(
@@ -69,7 +72,7 @@ export function usePointerButton(
   }
 
   const handlers: PointerButtonHandlers = {
-    onPointerdown(e) {
+    pointerdown(e) {
       if (opts.disabled?.()) return
       e.preventDefault()
       if (pid !== null) return
@@ -82,14 +85,14 @@ export function usePointerButton(
       pointerDown = true
       sync()
     },
-    onPointerup: releasePointer,
-    onPointercancel: releasePointer,
-    onLostpointercapture: releasePointer,
-    onContextmenu(e) {
+    pointerup: releasePointer,
+    pointercancel: releasePointer,
+    lostpointercapture: releasePointer,
+    contextmenu(e) {
       // A long-press context menu would otherwise eat the hold.
       e.preventDefault()
     },
-    onKeydown(e) {
+    keydown(e) {
       if (opts.disabled?.()) return
       if (e.key === ' ' || e.key === 'Enter') {
         if (e.repeat) return
@@ -98,7 +101,7 @@ export function usePointerButton(
         sync()
       }
     },
-    onKeyup(e) {
+    keyup(e) {
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
         keyDown = false

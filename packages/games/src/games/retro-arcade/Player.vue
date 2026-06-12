@@ -51,6 +51,10 @@ const consoleKey = computed(() => meta.value?.console ?? assign.value?.console ?
 const spec = computed(() => consoleSpec(consoleKey.value))
 const layout = computed(() => layoutFor(spec.value.layoutKey))
 const hasSeat = computed(() => seat.value >= 0)
+// No assignment yet vs an explicit "no seat" (-1). The first is a normal wait
+// after joining; only the second is a genuinely full room. Conflating them made
+// a joining player flash "Room full" before the host got around to seating them.
+const awaitingSeat = computed(() => meta.value != null && assign.value == null)
 
 // ── Send input (only when seated) ────────────────────────────────────────────
 function onInput(e: DigitalInputEvent) {
@@ -190,6 +194,10 @@ function popoutStream() {
       <h2>You're in</h2>
       <p>Waiting for the host to load a game. Your controller appears here the moment it boots.</p>
     </div>
+    <div v-else-if="awaitingSeat" class="msg">
+      <h2>Getting your controller...</h2>
+      <p>You're in. The host is handing you a player slot.</p>
+    </div>
     <div v-else-if="!hasSeat" class="msg">
       <h2>Room full</h2>
       <p>All {{ spec.max }} controller slots are taken. You'll get one if a slot opens up.</p>
@@ -273,7 +281,25 @@ function popoutStream() {
 .watch-vid { width: 100%; max-height: 30vh; aspect-ratio: 4 / 3; object-fit: contain; background: #000; border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 4px); }
 .watch-bar { display: flex; align-items: center; justify-content: space-between; }
 .watch-state { font-size: 11px; color: var(--mute); }
-.pad-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
+/* Break the controller out of the narrow phone column so it can use the FULL
+   viewport width (the d-pad and buttons anchor to the screen edges for thumb
+   reach), in portrait and especially landscape. Honors notch safe-areas. */
+.pad-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 4px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+}
+/* In landscape the controls sink toward the bottom corners where the thumbs rest. */
+@media (orientation: landscape) {
+  .pad-wrap :deep(.body) {
+    align-items: flex-end;
+  }
+}
 .pad-wrap > * { flex: 1; min-width: 0; }
 .modal { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ink) 42%, transparent); padding: 16px; }
 </style>

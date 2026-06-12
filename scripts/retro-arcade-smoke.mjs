@@ -30,7 +30,8 @@ function watch(page, who) {
     errors.push(`[${who} console] ${t}`)
   })
   page.on('pageerror', (e) => {
-    if (/emulatorjs|EJS|wasm/i.test(e.message)) return
+    // EmulatorJS-internal errors against the dummy ROM (no real game/gameManager).
+    if (/emulatorjs|EJS|wasm|gameManager|setVariable|getContext/i.test(e.message)) return
     errors.push(`[${who} pageerror] ${e.message}`)
   })
 }
@@ -98,6 +99,28 @@ async function run() {
     await host.click('button:has-text("Boot & open room")')
     await host.waitForSelector('#arcade-screen', { timeout: 60000 })
     await host.waitForSelector('.seats .seat', { timeout: 60000 })
+    // Spy on the emulator input so we can prove a phone press actually reaches it
+    // (a dummy ROM has no real gameManager; the readiness poll picks up this spy).
+    await host.evaluate(() => {
+      window.__sim = []
+      // Augment (don't replace) the gameManager so EmulatorJS's other methods
+      // survive; record every simulateInput.
+      const install = () => {
+        window.EJS_emulator = window.EJS_emulator || {}
+        const gm = window.EJS_emulator.gameManager || {}
+        if (!gm.__spied) {
+          const orig = gm.simulateInput
+          gm.simulateInput = (p, i, v) => {
+            window.__sim.push([p, i, v])
+            orig?.call?.(gm, p, i, v)
+          }
+          gm.__spied = true
+        }
+        window.EJS_emulator.gameManager = gm
+      }
+      install()
+      setInterval(install, 200)
+    })
     ok('host switched to the live emulator view with a seat panel')
 
     step('Phone receives the NES controller')
@@ -105,6 +128,16 @@ async function run() {
     const padBtns = await p1.locator('.pad-btn').count()
     if (padBtns >= 2) ok(`phone rendered the NES pad (${padBtns} face buttons + d-pad)`)
     else errors.push(`controller did not render (pad-btn count ${padBtns})`)
+
+    step('A button press reaches the emulator (input wiring)')
+    await p1.waitForTimeout(400)
+    await p1.locator('.pad-btn[aria-label="A"]').first().click({ force: true })
+    await p1.waitForTimeout(500)
+    const sims = await host.evaluate(() => window.__sim || [])
+    // NES A is simulateInput index 8; expect a press (1) and release (0).
+    const pressedA = sims.some((s) => s[1] === 8 && s[2] === 1) && sims.some((s) => s[1] === 8 && s[2] === 0)
+    if (pressedA) ok(`pressing A drove simulateInput (${sims.length} calls)`)
+    else errors.push(`pressing A did NOT reach the emulator (sims: ${JSON.stringify(sims)})`)
 
     step('Phone resizes its buttons (the size control scales the pad)')
     const before = await p1.locator('.dpad').boundingBox()

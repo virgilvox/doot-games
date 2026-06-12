@@ -51,6 +51,27 @@ interface EjsWindow {
 
 const win = (): EjsWindow => window as unknown as EjsWindow
 
+/**
+ * Force `preserveDrawingBuffer: true` on every WebGL context created after this
+ * runs, so the emulator's canvas can be captured for the spectator stream
+ * (`captureStream()` of a WebGL canvas without it yields black frames). Patched
+ * once; a tiny per-frame cost only matters while broadcasting.
+ */
+let webglPatched = false
+function patchWebGLForCapture(): void {
+  if (webglPatched || typeof HTMLCanvasElement === 'undefined') return
+  webglPatched = true
+  const proto = HTMLCanvasElement.prototype
+  const orig = proto.getContext
+  proto.getContext = function (this: HTMLCanvasElement, type: string, attrs?: unknown) {
+    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+      attrs = { ...(attrs as object), preserveDrawingBuffer: true }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (orig as any).call(this, type, attrs)
+  } as typeof proto.getContext
+}
+
 export interface EmulatorController {
   boot(opts: BootOptions): void
   reboot(opts: BootOptions): void
@@ -100,6 +121,11 @@ export function createEmulator(mountSelector: string): EmulatorController {
 
   const start = (opts: BootOptions) => {
     if (disposed) return
+    // EmulatorJS renders to a WebGL canvas WITHOUT preserveDrawingBuffer, so
+    // canvas.captureStream() (the spectator broadcast) would capture black
+    // frames. Force preserveDrawingBuffer on WebGL contexts created from here on,
+    // so the canvas is capture-ready. Patched once, before the loader runs.
+    patchWebGLForCapture()
     const w = win()
     w.EJS_player = mountSelector
     w.EJS_core = opts.core

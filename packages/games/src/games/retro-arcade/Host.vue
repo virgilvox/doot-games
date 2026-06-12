@@ -189,6 +189,9 @@ function publishAssign(pid: string, seat: number) {
  * a console swap (so phones get the new console + rebuild their pad).
  */
 function reconcileSeats() {
+  // Re-assert the meta every time the roster changes, so a phone that joined a
+  // beat too early (or missed the retained value) still learns the console.
+  publishMeta()
   // Hot-swap to a fewer-controller console (e.g. N64 max 4 -> Game Boy max 1):
   // drop every seat past the new max, releasing host gamepads that lose a slot.
   // A displaced phone falls through to a -1 assignment below ("room full").
@@ -384,6 +387,44 @@ function toggleBroadcast() {
   })
   broadcasting.value = true
 }
+
+// ── Resizable screen (drag the corner; persisted per device) ─────────────────
+const screenW = ref<number | null>(null)
+const SCREEN_KEY = 'doot_arcade_screenw'
+onMounted(() => {
+  try {
+    const s = localStorage.getItem(SCREEN_KEY)
+    if (s) screenW.value = Number(s)
+  } catch {
+    /* storage blocked */
+  }
+})
+let resizing = false
+function startResize(e: PointerEvent) {
+  e.preventDefault()
+  resizing = true
+  try {
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  } catch {
+    /* best effort */
+  }
+}
+function onResize(e: PointerEvent) {
+  if (!resizing || typeof document === 'undefined') return
+  const wrap = document.querySelector('.screen-wrap') as HTMLElement | null
+  if (!wrap) return
+  const left = wrap.getBoundingClientRect().left
+  screenW.value = Math.max(320, Math.round(e.clientX - left))
+}
+function endResize() {
+  if (!resizing) return
+  resizing = false
+  try {
+    if (screenW.value) localStorage.setItem(SCREEN_KEY, String(Math.round(screenW.value)))
+  } catch {
+    /* ignore */
+  }
+}
 </script>
 
 <template>
@@ -437,11 +478,22 @@ function toggleBroadcast() {
   <!-- LIVE: the emulator + controllers -->
   <div v-else class="live">
     <div class="stage">
-      <div id="arcade-screen" class="screen" />
+      <div class="screen-wrap" :style="{ '--screen-w': screenW ? `${screenW}px` : undefined }">
+        <div id="arcade-screen" class="screen" />
+        <div
+          class="resize-h"
+          title="Drag to resize the screen"
+          @pointerdown="startResize"
+          @pointermove="onResize"
+          @pointerup="endResize"
+          @pointercancel="endResize"
+        />
+      </div>
     </div>
-    <aside class="side">
-      <div class="panel card">
-        <RoomTicket :code="room.runtime.room" :url="joinUrl" :show-qr="false" />
+
+    <div class="controls">
+      <div class="panel card join-card">
+        <RoomTicket :code="room.runtime.room" :url="joinUrl" />
       </div>
 
       <div class="panel card">
@@ -490,7 +542,7 @@ function toggleBroadcast() {
         </DButton>
         <p class="swap-note">Lets players watch the game on their phone, or anyone open the room and spectate. Best for a handful of viewers; the picture goes straight from this machine.</p>
       </div>
-    </aside>
+    </div>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
   </div>
@@ -516,10 +568,17 @@ input[type='text'], select { font-family: var(--font-mono); font-size: 13px; col
 .detected { margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
 .lobby-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
 
-.live { flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
-.stage { min-width: 0; }
+.live { flex: 1; display: flex; flex-direction: column; gap: 18px; }
+.stage { width: 100%; min-width: 0; }
+/* The screen sits big on top; drag the corner handle to resize. Left-anchored so
+   the drag math is stable; aspect-ratio keeps it 4:3. */
+.screen-wrap { position: relative; width: var(--screen-w, min(1100px, 100%)); max-width: 100%; }
 .screen { width: 100%; aspect-ratio: 4 / 3; background: #000; border: var(--bd) solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-.side { display: flex; flex-direction: column; gap: 14px; }
+.resize-h { position: absolute; right: -6px; bottom: -6px; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; border-radius: 0 0 8px 0; border-right: 4px solid var(--primary); border-bottom: 4px solid var(--primary); opacity: 0.7; }
+.resize-h:hover { opacity: 1; }
+/* Controls flow UNDER the screen in a responsive grid. */
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
+.join-card { display: flex; justify-content: center; }
 .card { padding: 16px; }
 .card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .card h3 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); margin: 0 0 10px; }
@@ -539,5 +598,5 @@ input[type='text'], select { font-family: var(--font-mono); font-size: 13px; col
 .swap-sys { flex: 0 0 120px; font-size: 12px; }
 .swap-actions { display: flex; gap: 8px; margin-top: 10px; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--primary); color: var(--primary-ink); border-radius: 999px; padding: 9px 18px; font-weight: 800; font-size: 13px; box-shadow: var(--shadow-sm); }
-@media (max-width: 900px) { .lobby, .live { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .lobby { grid-template-columns: 1fr; } }
 </style>

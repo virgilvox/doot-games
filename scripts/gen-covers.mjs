@@ -955,60 +955,47 @@ const COVERS = [
       <div class="tag">SPILL IT OR SHOW IT</div>`,
   },
   {
-    // A late-night living room: a wood-grain CRT glowing with a pixel world, a
-    // chunky gamepad in front, neon arcade glow. Its own world, no template.
+    // A small upright arcade cabinet, lightly angled, with the Doot logo glowing
+    // on its screen: a pink marquee, a coral-eyed wordmark, a joystick + buttons.
     id: 'retro-arcade',
-    fonts: ['Bungee', 'Press Start 2P'],
+    fonts: ['Bungee', 'Baloo 2:wght@800'],
     css: `
-      body { background: radial-gradient(120% 100% at 50% 14%, #341d4f, #1b1030 58%, #0c0718); font-family: 'Bungee', sans-serif; }
-      .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
-      .b1 { width: 520px; height: 520px; left: 60px; top: 120px; background: #ff3ea0; }
-      .b2 { width: 520px; height: 520px; right: 60px; top: 150px; background: #2fe0d6; }
-      .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px); pointer-events: none; }
-      .title { position: absolute; top: 60px; left: 0; right: 0; text-align: center; color: #fff; font-size: 76px; letter-spacing: .02em;
-        text-shadow: 0 0 4px #fff, 0 0 18px #ff3ea0, 5px 5px 0 #7a1147, 0 0 40px #ff3ea088; }
-      .tv { position: absolute; left: 50%; top: 196px; transform: translateX(-50%); width: 600px; height: 372px; border-radius: 30px;
-        background: linear-gradient(180deg, #6b4a2e, #3e2a18); box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.12); padding: 26px 26px 44px; }
-      .screen { position: relative; width: 100%; height: 100%; border-radius: 18px; overflow: hidden; background: #061018;
-        box-shadow: inset 0 0 60px rgba(0,0,0,.9), 0 0 30px #2fe0d655; image-rendering: pixelated; }
-      .sky { position: absolute; inset: 0; background: linear-gradient(180deg, #1a2a55 0%, #5a3a86 55%, #b85a8a 70%, #2a6b4a 70%); }
-      .sun { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); width: 130px; height: 130px; border-radius: 50%;
-        background: linear-gradient(180deg, #ffe14d, #ff7a3d); box-shadow: 0 0 40px #ff9a4d88; }
-      .ground { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: repeating-linear-gradient(90deg, #2a6b4a 0 24px, #246043 24px 48px); }
-      .blk { position: absolute; image-rendering: pixelated; }
-      .brick { width: 44px; height: 44px; background: #c46b2e; border: 4px solid #7a3d14; }
-      .sprite { width: 40px; height: 48px; bottom: 30%; left: 120px; background: #ff3ea0; border: 4px solid #2a0a1c; border-radius: 6px 6px 0 0;
-        box-shadow: inset 0 -10px 0 #c61f72; }
-      .crtline { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 3px, transparent 3px 6px); }
-      .pad { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); width: 320px; height: 118px; border-radius: 60px;
-        background: linear-gradient(180deg, #fff3e6, #e9d4bd); border: 5px solid #241910; box-shadow: 0 16px 30px rgba(0,0,0,.5); z-index: 5; }
-      .dpad { position: absolute; left: 44px; top: 34px; width: 64px; height: 64px; }
-      .dpad::before, .dpad::after { content: ''; position: absolute; background: #241910; border-radius: 4px; }
-      .dpad::before { left: 22px; top: 0; width: 20px; height: 64px; }
-      .dpad::after { left: 0; top: 22px; width: 64px; height: 20px; }
-      .ab { position: absolute; right: 50px; top: 38px; display: flex; gap: 16px; }
-      .ab i { width: 50px; height: 50px; border-radius: 50%; border: 4px solid #241910; box-shadow: inset 0 -6px 0 rgba(0,0,0,.2); }
-      .ab .a { background: #ff5a33; } .ab .b { background: #ffc53d; }
-      .coin { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); z-index: 6; font-family: 'Press Start 2P', monospace;
-        font-size: 18px; color: #2fe0d6; text-shadow: 0 0 14px #2fe0d6; }
-      .tag { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; font-family: 'Press Start 2P', monospace;
-        font-size: 15px; letter-spacing: .12em; color: #ffd24d; text-shadow: 0 0 12px #ffd24d88; }
+      body { background: radial-gradient(120% 100% at 50% 14%, #3a2150, #1d1233 56%, #0d0818); font-family: 'Bungee', sans-serif; }
+      .glow { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); width: 560px; height: 560px; border-radius: 50%; background: #ff3ea0; filter: blur(95px); opacity: .38; }
+      .glow2 { position: absolute; left: 50%; top: 230px; transform: translateX(-50%); width: 420px; height: 420px; border-radius: 50%; background: #2fe0d6; filter: blur(95px); opacity: .28; }
+      .floor { position: absolute; left: 0; right: 0; bottom: 0; height: 130px; background: linear-gradient(180deg, #2a1d3e, #160f26); }
+      .floor::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 76px, rgba(255,142,194,.09) 76px 80px); }
+      /* a sliver of the cabinet's right side for depth */
+      .side { position: absolute; left: 50%; top: 120px; transform: translateX(118px) skewY(15deg); width: 50px; height: 470px; background: linear-gradient(180deg, #14697f, #0e4252); border: 5px solid #0a212b; border-radius: 0 14px 14px 0; }
+      .cab { position: absolute; left: 50%; top: 96px; transform: translateX(-54%); width: 366px; height: 516px; background: linear-gradient(180deg, #25a6c8, #1a7c98); border: 5px solid #0a212b; border-radius: 30px 30px 12px 12px; box-shadow: 0 34px 64px rgba(0,0,0,.55); }
+      .marquee { position: absolute; top: 18px; left: 20px; right: 20px; height: 72px; border-radius: 14px; background: linear-gradient(180deg, #ff9fcb, #ff3ea0); border: 4px solid #0a212b; display: grid; place-items: center; box-shadow: 0 0 28px #ff3ea0aa, inset 0 -6px 0 rgba(0,0,0,.16); }
+      .marquee span { font-size: 29px; color: #3a0f2a; letter-spacing: .03em; }
+      .screen { position: absolute; top: 108px; left: 30px; right: 30px; height: 188px; background: #07131b; border: 5px solid #0a212b; border-radius: 12px; box-shadow: inset 0 0 44px #2fe0d633, 0 0 22px #2fe0d622; display: grid; place-items: center; overflow: hidden; }
+      .screen::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 3px, transparent 3px 6px); }
+      .doot { display: flex; align-items: center; gap: 4px; font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 62px; color: #fff; text-shadow: 0 0 18px #2fe0d6; }
+      .doot .o { width: .66em; height: .66em; border-radius: 50%; background: #ff5a33; border: .07em solid #fff; display: inline-flex; align-items: center; justify-content: center; }
+      .doot .o::after { content: ''; width: .24em; height: .24em; border-radius: 50%; background: #fff; }
+      .panel { position: absolute; top: 322px; left: 26px; right: 26px; height: 82px; background: linear-gradient(180deg, #ffd863, #ffb52e); border: 4px solid #0a212b; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 30px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.14); }
+      .stick { width: 34px; height: 56px; position: relative; }
+      .stick::before { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 14px; height: 42px; background: #0a212b; border-radius: 7px; }
+      .stick::after { content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%); width: 32px; height: 32px; border-radius: 50%; background: #ff3ea0; border: 3px solid #0a212b; }
+      .btns { display: flex; gap: 13px; }
+      .btns i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #0a212b; box-shadow: inset 0 -4px 0 rgba(0,0,0,.22); }
+      .btns .r { background: #ff5a33; } .btns .g { background: #62cf3f; } .btns .b { background: #5b79ff; }
+      .coin { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); width: 122px; height: 46px; background: #0a212b; border-radius: 8px; display: grid; place-items: center; }
+      .coin::after { content: ''; width: 36px; height: 6px; background: #ffd24d; border-radius: 3px; }
+      .tag { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; font-family: 'Bungee', sans-serif; font-size: 19px; letter-spacing: .1em; color: #ffd24d; text-shadow: 0 0 14px #ffd24d99; }
     `,
     html: `
-      <div class="blob b1"></div><div class="blob b2"></div>
-      <div class="title">RETRO ARCADE</div>
-      <div class="coin">PLAYER 1</div>
-      <div class="tv"><div class="screen">
-        <div class="sky"></div><div class="sun"></div>
-        <div class="blk brick" style="bottom:30%; left:360px"></div>
-        <div class="blk brick" style="bottom:30%; left:404px"></div>
-        <div class="blk brick" style="bottom:46%; left:404px"></div>
-        <div class="blk sprite"></div>
-        <div class="ground"></div>
-        <div class="crtline"></div>
-      </div></div>
-      <div class="pad"><div class="dpad"></div><div class="ab"><i class="b"></i><i class="a"></i></div></div>
-      <div class="tag">ANY ROM &middot; PHONES ARE THE PADS</div>`,
+      <div class="glow"></div><div class="glow2"></div><div class="floor"></div>
+      <div class="side"></div>
+      <div class="cab">
+        <div class="marquee"><span>RETRO ARCADE</span></div>
+        <div class="screen"><div class="doot">d<i class="o"></i><i class="o"></i>t</div></div>
+        <div class="panel"><div class="stick"></div><div class="btns"><i class="r"></i><i class="g"></i><i class="b"></i></div></div>
+        <div class="coin"></div>
+      </div>
+      <div class="tag">ANY ROM &middot; INSERT PHONE</div>`,
   },
 ]
 
