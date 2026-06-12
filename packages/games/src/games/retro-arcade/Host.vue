@@ -57,6 +57,8 @@ const romSrc = ref<string | null>(null)
 const romName = ref('game')
 /** A remote ROM URL (vs a local blob), the only kind that can be shared by link. */
 const romUrl = ref<string | null>(null)
+/** The text shown in the "ROM URL" field (so a deep link / paste is reflected). */
+const romUrlField = ref('')
 const consoleKey = ref('nes')
 const spec = computed<ConsoleSpec>(() => consoleSpec(consoleKey.value))
 const dragHot = ref(false)
@@ -74,25 +76,33 @@ function setToast(m: string) {
 function revokeBlob() {
   if (romSrc.value?.startsWith('blob:')) URL.revokeObjectURL(romSrc.value)
 }
+/** The loaded ROM's file name with extension (for the "loaded" indicator). */
+const romFileName = ref<string | null>(null)
 function takeFile(file: File | null | undefined) {
   if (!file) return
   revokeBlob()
   romSrc.value = URL.createObjectURL(file)
   romUrl.value = null
+  romUrlField.value = '' // a local file isn't a URL
   romName.value = gameNameOf(file.name)
+  romFileName.value = file.name
   const d = detectConsole(file.name)
   if (d) consoleKey.value = d
 }
 function takeUrl(raw: string) {
+  romUrlField.value = raw
   const v = raw.trim()
   if (!v) {
-    if (!romUrl.value) romSrc.value = null
+    romUrl.value = null
+    romSrc.value = null
+    romFileName.value = null
     return
   }
   revokeBlob()
   romSrc.value = v
   romUrl.value = v
   romName.value = gameNameOf(v)
+  romFileName.value = v.split('/').pop() ?? v
   const d = detectConsole(v)
   if (d) consoleKey.value = d
 }
@@ -453,21 +463,28 @@ function endResize() {
       <p class="hint">It stays in your browser. Nothing uploads anywhere.</p>
       <label
         class="drop"
-        :class="{ hot: dragHot }"
+        :class="{ hot: dragHot, loaded: !!romSrc }"
         @dragenter.prevent="dragHot = true"
         @dragover.prevent="dragHot = true"
         @dragleave.prevent="dragHot = false"
         @drop="onDrop"
       >
         <input type="file" hidden @change="takeFile(($event.target as HTMLInputElement).files?.[0])" />
-        <strong>Drop a ROM</strong> or tap to pick a file
-        <small>.nes .sfc .smc .n64 .z64 .gb .gbc .gba .md .pce .iso .cue ...</small>
+        <template v-if="romSrc">
+          <span class="drop-badge">{{ spec.label }} ready</span>
+          <strong class="rom-name">{{ romFileName ?? romName }}</strong>
+          <small>Drop another ROM or tap to replace</small>
+        </template>
+        <template v-else>
+          <strong>Drop a ROM</strong> or tap to pick a file
+          <small>.nes .sfc .smc .n64 .z64 .gb .gbc .gba .md .pce .iso .cue ...</small>
+        </template>
       </label>
 
       <div class="row">
         <label class="field">
           <span class="flbl">or paste a ROM URL</span>
-          <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" @input="takeUrl(($event.target as HTMLInputElement).value)" />
+          <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" :value="romUrlField" @input="takeUrl(($event.target as HTMLInputElement).value)" />
         </label>
         <label class="field sysf">
           <span class="flbl">Console</span>
@@ -477,7 +494,7 @@ function endResize() {
         </label>
       </div>
 
-      <p v-if="romSrc" class="detected">Ready &middot; <b>{{ romName }}</b> &middot; {{ spec.label }}</p>
+      <p v-if="romSrc" class="detected">Ready to boot &middot; <b>{{ romName }}</b> &middot; {{ spec.label }}</p>
       <div class="lobby-actions">
         <DButton variant="primary" size="lg" :disabled="!romSrc" @click="boot">Boot &amp; open room</DButton>
         <DButton v-if="shareUrl" variant="ghost" @click="copyShare">Copy share link</DButton>
@@ -556,7 +573,7 @@ function endResize() {
         <div class="row">
           <label class="field">
             <span class="flbl">or paste a ROM URL</span>
-            <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" @input="takeUrl(($event.target as HTMLInputElement).value)" />
+            <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" :value="romUrlField" @input="takeUrl(($event.target as HTMLInputElement).value)" />
           </label>
           <label class="field sysf">
             <span class="flbl">Console</span>
@@ -586,8 +603,12 @@ function endResize() {
 .hint { color: var(--mute); font-size: 13px; margin: 2px 0 18px; }
 .drop { display: block; border: var(--bd) dashed var(--line); border-radius: var(--radius); padding: 30px 16px; text-align: center; color: var(--ink-soft); cursor: pointer; transition: border-color 0.16s, background 0.16s; }
 .drop.hot { border-color: var(--primary); background: var(--surface-2); color: var(--ink); }
+/* A ROM is loaded: solid border + tint so the loaded state reads at a glance. */
+.drop.loaded { border-style: solid; border-color: var(--c4); background: var(--surface-2); }
 .drop strong { color: var(--ink); font-weight: 800; }
 .drop small { display: block; margin-top: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--mute); }
+.drop-badge { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--primary-ink); background: var(--c4); border-radius: 999px; padding: 3px 10px; margin-bottom: 8px; }
+.rom-name { display: block; font-size: 17px; word-break: break-all; }
 .row { display: flex; gap: 10px; margin-top: 16px; }
 .row.tight { margin-top: 8px; }
 .field { flex: 1; display: flex; flex-direction: column; gap: 6px; }
