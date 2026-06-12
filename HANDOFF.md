@@ -2,8 +2,73 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-09. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-12. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **SHIPPED + DEPLOYED + HEAVILY POLISHED: Retro Arcade (the emulator flagship), the
+> controller kit, the Bubblegum theme, and CLASP-signaled WebRTC spectator streaming
+> (2026-06-11 -> 06-12, on `main`, last commit `b1229d5`).** Doot now hosts ANY ROM on the
+> big screen via EmulatorJS while phones (and gamepads plugged into the host) act as the
+> controllers over the relay's `/x/` channels; spectators can watch by room code. It is the
+> **featured game on /explore and the first flagship on the homepage** (`explore.vue`
+> `FEATURED_ID='retro-arcade'`; `index.vue` `FLAGSHIP_LEAD` leads with it). The deep detail
+> lives in the memory notes `doot-controller-kit-arcade` and `doot-clasp-webrtc-streaming`;
+> the high-value facts:
+> - **THREE PACKAGES.** (1) `@doot-games/ui` controller kit: `DPad`, `Thumbstick`,
+>   `ActionCluster`, `PadButton`, `Bumper`, `Buzzer`, `ControllerPad`, `GamepadMapper`,
+>   plus a pure-TS lib in `packages/ui/src/controllers/` (a LOGICAL-input contract unifying
+>   touch + gamepad, a target-agnostic `ControllerLayout` schema + presets, `createGamepadBridge`).
+>   (2) the **Bubblegum** theme (6th pack). (3) the `retro-arcade` custom-flow flagship in
+>   `packages/games/src/games/retro-arcade/` (`Host.vue` big-screen emulator + `Player.vue`
+>   phone controller + `Audience.vue` spectator stream + `logic.ts` the pure tested console
+>   mapping + `emulator.ts` EmulatorJS loader + `stream.ts` WebRTC + `layouts.ts`).
+> - **THE CONTROLLER DESIGN SYSTEM is `~/Downloads/doot-controller-kit.html`** (the owner's
+>   canonical reference, NOT the emulator prototype). Its language: thick dark border + a
+>   HARD offset shadow (`var(--shadow)`) + press-down; the thumbstick is a dished well with a
+>   dashed range-ring and an accent glossy nub; face buttons are bold colored circles. The
+>   kit was brought to this spec this session (it had drifted to faint borders / small shadows).
+> - **THE C-BUTTON BUG (was DEAD on prod, now fixed, `4a4a09d`):** N64 C-buttons map to
+>   EmulatorJS indices 20-23, which are the RIGHT ANALOG STICK axes, not digital buttons.
+>   `applyDigital` sent value `1` (a ~0.003% stick nudge the core ignored). Fix: `simValueFor`
+>   sends the full-scale `0x7fff` for any analog-axis index. Lesson recorded: a passing
+>   input-plumbing smoke (press reaches `simulateInput`) does NOT prove the VALUE is right.
+> - **This session's polish (commits `17c02b0`->`b1229d5`):** the controller is a `100dvh`
+>   flex-fill pad (no transform auto-fit) faithful to the prototype `#pad`; N64 right hand
+>   corrected (C-diamond over A/B); the analog stick leads with the d-pad tucked inboard;
+>   the **squish bug** fixed (controls were `flex-shrink:1` and squashed out of square; now
+>   `flex:0 0 auto` so they keep aspect and the fit-cap scales them); a **button-size control**
+>   that caps to what fits (measured with transform-aware `getBoundingClientRect` vs the body
+>   box, so the Sega arc / d-pad shift can't clip undetected); a real **portrait layout**
+>   (controls bottom, stream floats on top); the **Sega 6-button** reworked into two arced
+>   vibrant rows; the **host** decluttered (resizable screen that SHRINKS to keep the QR
+>   beside it, a compact P1-P4 seat strip, a lean join card with Copy-link, a Swap-ROM
+>   modal, a clear loaded-ROM state + a populated URL field for `?rom=&core=` deep links);
+>   auto-broadcast (the stream arms at boot, captures on first viewer, no manual toggle); a
+>   dedicated **Watch** toggle in the controller top bar; the join-page "Just watch" shows
+>   the live stream (`GameComponents.Audience` seam).
+> - **AUDIT (this session, `b1229d5`):** two deep code reviews + an empirical clip sweep.
+>   Input/mapping: CLEAN (every console's layout ids resolve; gamepad right-stick drives C-
+>   buttons; PSX dual-stick bases 16/20 with no collision). Fixed 5 lifecycle/CSS issues:
+>   transform-blind fit-cap (now rect-based), gamepad remap not reloaded on console hot-swap,
+>   black stream after rotating mid-watch (nextTick re-attach), double-tap viewer leak, and
+>   relay `onExtra` not unsubscribed on unmount.
+> - **INFRA NOTE:** the site sets COOP but NOT COEP (not cross-origin isolated), so EmulatorJS
+>   uses NON-THREADED cores (N64/PSX still run, no SharedArrayBuffer). WebRTC is STUN-only
+>   (no TURN), host-fanout mesh ~5-15 viewers, VIDEO ONLY (EmulatorJS audio is WebAudio).
+>   The CSP/permissions denials are only on `plugins.doot.games`, not `doot.games`.
+> - **GATE at ship:** 752 unit tests (incl. `simValueFor` + `logic.test` mapping), all
+>   typechecks, web build, and `scripts/retro-arcade-smoke.mjs` (input wiring + C-up full-scale
+>   + size-XL-grows-and-fits + square-aspect-no-squish + hot-swap + no-clip) +
+>   `scripts/retro-arcade-stream-smoke.mjs` (WebRTC signaling + ICE + track over the relay).
+> - **WHAT REMAINS (Retro Arcade):** (1) **real-device pass** - the controller on actual
+>   phones (auto-fit vs mobile browser chrome, gamepad remap, rotate-mid-watch, multi-touch);
+>   (2) **stream AUDIO** (tap EmulatorJS WebAudio via `MediaStreamAudioDestinationNode`); (3)
+>   a **TURN server** for NATs that STUN can't traverse; (4) **cross-theme controller borders**
+>   (light themes bubblegum/cutesie render soft borders vs the design system's always-dark -
+>   decide whether the controller forces a bold border regardless of theme); (5) per-route
+>   **COEP** to unlock threaded cores; (6) test hardening: assert layout-id->touchIndex coverage
+>   in `logic.test.ts` (today verified by hand). FUTURE (not scheduled): a custom-controller
+>   builder (author `ControllerLayout` JSON) and a personal ROM library + publish-your-ROM.
 
 > **SHIPPED: cover art for the LAST 12 flagships (2026-06-09, `6064219`, deployed green
 > in 3m27s).** Every Game From Doot now has real art: `scripts/gen-covers.mjs` gained 12
