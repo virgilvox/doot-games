@@ -107,7 +107,7 @@ function onKeyup(e: KeyboardEvent) {
 <template>
   <div
     class="stick"
-    :class="{ disabled }"
+    :class="{ disabled, primary: side === 'left' }"
     :style="sizeStyle"
     role="application"
     :aria-label="`Analog stick, use the arrow keys`"
@@ -137,12 +137,30 @@ function onKeyup(e: KeyboardEvent) {
   width: calc(var(--stick-size, clamp(100px, 27vmin, 152px)) * var(--control-scale, 1));
   height: calc(var(--stick-size, clamp(100px, 27vmin, 152px)) * var(--control-scale, 1));
   border-radius: 50%;
-  background: var(--surface-2);
+}
+/* The left (primary) stick is the main movement control, so it's noticeably larger
+   than a secondary right stick - matching pads like the N64 where the stick leads. */
+.stick.primary {
+  width: calc(var(--stick-size, clamp(120px, 32vmin, 184px)) * var(--control-scale, 1));
+  height: calc(var(--stick-size, clamp(120px, 32vmin, 184px)) * var(--control-scale, 1));
+}
+.stick {
+  /* A dished well: radial base, a dashed range-ring inside, and an inset shadow
+     for depth - the design-system thumbstick. */
+  background: radial-gradient(circle at 50% 42%, var(--surface) 0%, var(--surface-2) 74%);
   border: var(--bd) solid var(--line);
-  box-shadow: var(--shadow-sm), inset 0 0 0 6px color-mix(in srgb, var(--ink) 4%, transparent);
+  box-shadow: var(--shadow), inset 0 2px 12px rgba(0, 0, 0, 0.09);
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+.stick::before {
+  content: '';
+  position: absolute;
+  inset: 16%;
+  border: 1.5px dashed var(--line);
+  border-radius: 50%;
+  pointer-events: none;
 }
 .stick:focus-visible {
   outline: 3px solid var(--primary);
@@ -155,10 +173,13 @@ function onKeyup(e: KeyboardEvent) {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 48%;
-  height: 48%;
+  width: 44%;
+  height: 44%;
   border-radius: 50%;
-  background: radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--c2) 50%, var(--surface)), var(--c2));
+  /* Accent-coloured nub with a glossy top-left highlight, thick dark rim, hard
+     shadow - the design-system look. */
+  background-color: var(--primary);
+  background-image: radial-gradient(circle at 38% 32%, rgba(255, 255, 255, 0.55), transparent 56%);
   border: var(--bd) solid var(--line);
   box-shadow: var(--shadow-sm);
   transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);

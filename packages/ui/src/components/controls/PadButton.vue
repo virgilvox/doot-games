@@ -75,7 +75,7 @@ const sizeStyle = computed(() =>
   background: var(--surface);
   color: var(--ink);
   border: var(--bd) solid var(--line);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(15px, 4.2vmin, 21px);
@@ -121,7 +121,8 @@ const sizeStyle = computed(() =>
 }
 .hued:not(.hue-primary) {
   color: #241910;
-  border-color: color-mix(in srgb, #000 16%, transparent);
+  /* A bold dark rim on the colour, like the design-system face buttons. */
+  border-color: color-mix(in srgb, var(--ink) 62%, transparent);
 }
 /* Pressed: sink in. A neutral button lights up to the primary accent; a hued
    one just darkens so its identity colour stays readable. */

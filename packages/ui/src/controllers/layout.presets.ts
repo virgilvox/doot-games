@@ -162,14 +162,17 @@ export const genesisLayout = defineLayout({
     dpad,
     {
       kind: 'face',
+      // Two arced rows: X/Y/Z on top, A/B/C below. The original pad was all black;
+      // we give it a cool-top / warm-bottom palette so the six buttons are easy to
+      // tell apart at a glance, left-to-right through the theme's accents.
       layout: 'six',
       buttons: [
-        { id: 'x', label: 'X' },
-        { id: 'y', label: 'Y' },
-        { id: 'z', label: 'Z' },
-        { id: 'a', label: 'A' },
-        { id: 'b', label: 'B' },
-        { id: 'c', label: 'C' },
+        { id: 'x', label: 'X', hue: 'c4' },
+        { id: 'y', label: 'Y', hue: 'c3' },
+        { id: 'z', label: 'Z', hue: 'c2' },
+        { id: 'a', label: 'A', hue: 'c5' },
+        { id: 'b', label: 'B', hue: 'primary' },
+        { id: 'c', label: 'C', hue: 'c1' },
       ],
     },
     {

@@ -207,6 +207,25 @@ async function run() {
     await noOverflow(p1, 'N64 landscape 844x390')
     await noOverflow(host, 'host 1440px')
 
+    step('Controls keep their square aspect (not squished to fit)')
+    const aspect = await p1.evaluate(() => {
+      const ratio = (sel) => {
+        const el = document.querySelector(sel)
+        if (!el) return 0
+        const b = el.getBoundingClientRect()
+        return b.width && b.height ? b.width / b.height : 0
+      }
+      return { dpad: ratio('.dpad'), stick: ratio('.stick') }
+    })
+    const sqDpad = aspect.dpad > 0 && Math.abs(aspect.dpad - 1) < 0.08
+    const sqStick = aspect.stick > 0 && Math.abs(aspect.stick - 1) < 0.08
+    if (sqDpad && sqStick)
+      ok(`d-pad ${aspect.dpad.toFixed(2)} and stick ${aspect.stick.toFixed(2)} stay square`)
+    else
+      errors.push(
+        `controls squished out of square (d-pad ${aspect.dpad.toFixed(2)}, stick ${aspect.stick.toFixed(2)})`,
+      )
+
     step('N64 C-buttons reach the emulator (mapping)')
     await host.evaluate(() => {
       window.__sim = []

@@ -51,7 +51,7 @@ const { pressed, handlers } = usePointerButton(
   background: var(--surface);
   color: var(--ink);
   border: var(--bd) solid var(--line);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(11px, 2.6vmin, 14px);

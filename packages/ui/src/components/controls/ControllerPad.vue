@@ -183,13 +183,26 @@ const dirIds = computed(() => {
      size so the whole column grows uniformly (keeps the fit math linear). */
   gap: calc(clamp(20px, 5.5vmin, 40px) * var(--control-scale, 1));
 }
+/* Controls keep their own (square) size: they must NOT flex-shrink, or a tall
+   column would squash them out of aspect instead of overflowing - and the player's
+   fit pass only catches an overflow, not a squash. So they overflow, the fit pass
+   sees it, and scales the whole pad down uniformly. */
+.zone > * {
+  flex: 0 0 auto;
+}
 .zone.mid {
   gap: 10px;
   max-width: min(52vw, 440px);
 }
-/* The d-pad tucked below the analog stick, nudged toward the outer edge. */
+/* The d-pad tucked below the analog stick. In landscape it sits inboard (a little
+   right of the stick) so the larger stick owns the outer thumb position. */
 .dpad-under {
-  transform: translateX(-12%);
+  transform: translateX(0);
+}
+@media (orientation: landscape) {
+  .dpad-under {
+    transform: translateX(20%);
+  }
 }
 .system {
   display: flex;

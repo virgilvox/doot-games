@@ -165,18 +165,34 @@ const relay = (e: DigitalInputEvent) => emit('input', e)
   grid-area: 2 / 3;
 }
 
-/* six */
+/* six (Sega 6-button): two arced rows of round buttons fanning up to the right,
+   the top row (X/Y/Z) staggered half a button right and above the bottom (A/B/C),
+   echoing the real Mega Drive / Genesis 6-button pad. */
 .six {
+  --six-btn: calc(clamp(48px, 13.5vmin, 74px) * var(--control-scale, 1));
   flex-direction: column;
-  gap: clamp(7px, 2vmin, 12px);
+  align-items: flex-start;
+  gap: calc(var(--six-btn) * 0.06);
 }
 .row6 {
   display: flex;
-  gap: clamp(8px, 2.2vmin, 14px);
+  align-items: center;
+  gap: calc(var(--six-btn) * 0.26);
+}
+/* the X/Y/Z row sits up and to the right of A/B/C */
+.six > .row6:first-child {
+  margin-left: calc(var(--six-btn) * 0.62);
+}
+/* arc: the left button of each row drops, the right one rises */
+.row6 > :first-child {
+  transform: translateY(16%);
+}
+.row6 > :last-child {
+  transform: translateY(-16%);
 }
 .six :deep(.pad-btn) {
-  width: calc(clamp(46px, 13vmin, 72px) * var(--control-scale, 1));
-  height: calc(clamp(46px, 13vmin, 72px) * var(--control-scale, 1));
+  width: var(--six-btn);
+  height: var(--six-btn);
 }
 
 /* abdiag: button size is a fraction OF the container, so the diagonal offset

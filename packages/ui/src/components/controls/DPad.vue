@@ -162,7 +162,7 @@ function onKeyup(e: KeyboardEvent) {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(18px, 5vmin, 26px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow);
   transition: transform 0.06s, box-shadow 0.06s, background 0.16s, color 0.16s;
 }
 .up {
@@ -193,7 +193,6 @@ function onKeyup(e: KeyboardEvent) {
   place-items: center;
   background: var(--surface);
   border: var(--bd) solid var(--line);
-  box-shadow: var(--shadow-sm);
 }
 .hub::after {
   content: '';

@@ -267,6 +267,18 @@ function popoutStream() {
           <span class="mtag mono">P{{ seat + 1 }} &middot; {{ spec.label }}</span>
         </span>
         <span class="acts">
+          <button
+            v-if="canWatch"
+            class="watch-toggle"
+            :class="{ on: watching }"
+            :aria-pressed="watching"
+            @click="toggleWatch"
+          >
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2.5" y="4.5" width="19" height="13" rx="2" /><path d="M8 21h8M12 17.5V21" />
+            </svg>
+            <span class="wt-label">{{ watching ? 'Watching' : 'Watch' }}</span>
+          </button>
           <span class="live mono" :class="{ on: room.connected.value }">{{ room.connected.value ? 'live' : '...' }}</span>
           <button class="cog" aria-label="Controller settings" @click="showSettings = !showSettings">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -283,7 +295,10 @@ function popoutStream() {
         <video ref="portraitVideo" class="pstream-vid" playsinline autoplay muted />
         <div class="watch-bar">
           <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
-          <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+          <span class="watch-acts">
+            <button class="link-btn" @click="popoutStream">Pop out</button>
+            <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+          </span>
         </div>
       </div>
 
@@ -295,7 +310,10 @@ function popoutStream() {
             <video ref="landscapeVideo" class="watch-vid" playsinline autoplay muted />
             <div class="watch-bar">
               <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
-              <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+              <span class="watch-acts">
+                <button class="link-btn" @click="popoutStream">Pop out</button>
+                <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+              </span>
             </div>
           </div>
         </template>
@@ -318,13 +336,6 @@ function popoutStream() {
             <div class="gp-ctrls">
               <ToggleSwitch v-model="useGamepad" label="Use it" />
               <button class="link-btn" @click="remapOpen = true">Remap</button>
-            </div>
-          </div>
-          <div v-if="canWatch" class="srow">
-            <span class="slbl">Watch the game</span>
-            <div class="gp-ctrls">
-              <ToggleSwitch :model-value="watching" label="On screen" @update:model-value="toggleWatch" />
-              <button class="link-btn" @click="popoutStream">Pop out</button>
             </div>
           </div>
           <div class="srow end">
@@ -408,6 +419,32 @@ function popoutStream() {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+.watch-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.watch-toggle.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+.watch-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
 }
 .live {
   font-size: 11px;
