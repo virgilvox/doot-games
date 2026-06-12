@@ -54,7 +54,12 @@ const community = computed(() =>
     .filter((g) => textMatch(g.title, g.pluginId)),
 )
 
-const featured = computed(() => flagshipGames[0] ?? null)
+// Spotlight Retro Arcade in the top feature slot (fall back to the first flagship
+// if it is ever removed).
+const FEATURED_ID = 'retro-arcade'
+const featured = computed(
+  () => flagshipGames.find((g) => g.id === FEATURED_ID) ?? flagshipGames[0] ?? null,
+)
 </script>
 
 <template>

@@ -44,7 +44,7 @@ const blockTypes = gameCatalog.filter((c) => !c.flagship)
 const vibes = [...blockTypes].sort((a, b) => (a.id === 'custom' ? -1 : b.id === 'custom' ? 1 : 0))
 // Games From Doot: lead with the marquee flagships in a hand-picked order, then the
 // rest alphabetically for a predictable, scannable rail.
-const FLAGSHIP_LEAD = ['circuit-cypher', 'quiz-or-die', 'quip-clash', 'open-mic']
+const FLAGSHIP_LEAD = ['retro-arcade', 'circuit-cypher', 'quiz-or-die', 'quip-clash', 'open-mic']
 const flagshipsSorted = [...flagshipGames].sort((a, b) => {
   const ai = FLAGSHIP_LEAD.indexOf(a.id)
   const bi = FLAGSHIP_LEAD.indexOf(b.id)
