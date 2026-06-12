@@ -9,6 +9,7 @@ import { createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
 import { GameAudience, getPlugin } from '@doot-games/games'
 import { DootLogo, PhoneShell } from '@doot-games/ui'
+import type { Component } from 'vue'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 
 const props = defineProps<{ room: string }>()
@@ -33,6 +34,10 @@ const plugin = computed(() => {
   return id ? getPlugin(id) : undefined
 })
 const hostGone = computed(() => room.ready.value && !room.hostPresent.value)
+// A custom-flow game (Retro Arcade) can provide its own spectator view, e.g. a
+// live stream; otherwise the generic audience board is used.
+const AudienceView = computed<Component>(() => plugin.value?.components?.Audience ?? GameAudience)
+const customAudience = computed(() => !!plugin.value?.components?.Audience)
 
 const notFound = ref(false)
 const timer = setTimeout(() => {
@@ -51,7 +56,11 @@ onScopeDispose(() => clearTimeout(timer))
 </script>
 
 <template>
-  <PhoneShell>
+  <!-- Custom spectator view (e.g. Retro Arcade's live stream) takes the whole
+       surface; the standard audience board renders inside the phone shell. -->
+  <component :is="AudienceView" v-if="plugin && customAudience" :plugin="plugin" :code="code" />
+
+  <PhoneShell v-else>
     <template #banner>
       <div v-if="room.reconnecting.value" class="banner recon">Reconnecting…</div>
       <div v-else-if="hostGone" class="banner recon">

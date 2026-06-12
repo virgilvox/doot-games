@@ -28,6 +28,10 @@ export interface GameComponents {
   Editor?: Component
   /** Optional lobby customization. */
   Lobby?: Component
+  /** Optional spectator view for someone who opens the room to watch (not play).
+   *  When omitted, the generic audience board is shown; a custom-flow game like
+   *  Retro Arcade overrides this to show its live stream instead. */
+  Audience?: Component
 }
 
 /** A registry entry pairs a loaded plugin with its source. */

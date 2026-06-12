@@ -12,6 +12,7 @@
  */
 import { defineGame } from '@doot-games/sdk'
 import { arcadeBlock } from '../../blocks/arcade/block'
+import RetroArcadeAudience from './Audience.vue'
 import RetroArcadeHost from './Host.vue'
 import RetroArcadePlayer from './Player.vue'
 
@@ -31,7 +32,11 @@ export const retroArcade = defineGame({
     flagship: true,
   },
   blocks: [arcadeBlock],
-  components: { Host: RetroArcadeHost, Player: RetroArcadePlayer },
+  components: {
+    Host: RetroArcadeHost,
+    Player: RetroArcadePlayer,
+    Audience: RetroArcadeAudience,
+  },
   defaultConfig: config,
   // No deck pool: the ROM is loaded live by the host. buildConfig keeps the
   // flagship contract and hands the same static config through.

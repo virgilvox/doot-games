@@ -89,26 +89,28 @@ const dirIds = computed(() => {
     </div>
 
     <div class="body">
-      <div class="col">
+      <div class="zone left">
         <DPad v-if="dpad" :ids="dirIds" :disabled="disabled" @input="onInput" />
         <Thumbstick v-if="layout.hasStick" side="left" :disabled="disabled" @axis="onAxis" />
       </div>
 
-      <div class="col mid">
+      <div class="zone mid">
         <slot name="stream" />
-        <PadButton
-          v-for="b in system"
-          :key="b.id"
-          :id="b.id"
-          :label="b.label"
-          :hue="b.hue"
-          shape="pill"
-          :disabled="disabled"
-          @input="onInput"
-        />
+        <div v-if="system.length" class="system">
+          <PadButton
+            v-for="b in system"
+            :key="b.id"
+            :id="b.id"
+            :label="b.label"
+            :hue="b.hue"
+            shape="pill"
+            :disabled="disabled"
+            @input="onInput"
+          />
+        </div>
       </div>
 
-      <div class="col">
+      <div class="zone right">
         <ActionCluster
           v-for="(f, i) in faces"
           :key="i"
@@ -124,12 +126,14 @@ const dirIds = computed(() => {
 </template>
 
 <style scoped>
+/* A real gamepad shape: shoulders along the top, then movement bottom-left, face
+   buttons bottom-right, system buttons bottom-center. Everything anchors to the
+   bottom (the thumb zone). The consumer scales the whole pad to fit its area, so
+   sizes here are the natural proportions, not viewport units. */
 .pad {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  height: 100%;
-  min-height: 0;
+  gap: 14px;
   user-select: none;
   touch-action: none;
 }
@@ -137,30 +141,37 @@ const dirIds = computed(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  flex: 0 0 auto;
+  gap: 18px;
 }
 .sh-grp {
   display: flex;
-  gap: clamp(8px, 2.4vmin, 16px);
+  gap: 14px;
 }
 .body {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 0;
-  padding: 4px 2px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 28px;
 }
-.col {
+.zone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 4.4vmin, 28px);
+  gap: 20px;
 }
-.col.mid {
+.zone.left {
+  justify-self: start;
+}
+.zone.right {
+  justify-self: end;
+}
+.zone.mid {
+  align-self: end;
+  gap: 12px;
+}
+.system {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 </style>

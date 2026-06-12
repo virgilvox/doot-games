@@ -28,7 +28,7 @@ const PC_HOOK = `(() => { const O = window.RTCPeerConnection; if (!O || O.__h) r
 async function run() {
   const browser = await chromium.launch({ args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] })
   try {
-    step('Host boots and broadcasts')
+    step('Host boots (the broadcast arms itself, no manual toggle)')
     const host = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage()
     host.on('pageerror', (e) => {
       if (!/emulatorjs|EJS|wasm/i.test(e.message)) errors.push(`[host] ${e.message}`)
@@ -57,8 +57,7 @@ async function run() {
       }
       draw()
     })
-    await host.click('button:has-text("Broadcast the screen")')
-    ok(`broadcasting room ${code}`)
+    ok(`host live for room ${code} (stream serves on first viewer)`)
 
     step('A viewer opens /watch/<code> and the peer connects')
     const viewer = await (await browser.newContext({ viewport: { width: 720, height: 560 } })).newPage()
