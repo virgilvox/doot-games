@@ -60,15 +60,27 @@ prod via CI, no staging)._
 >   typechecks, web build, and `scripts/retro-arcade-smoke.mjs` (input wiring + C-up full-scale
 >   + size-XL-grows-and-fits + square-aspect-no-squish + hot-swap + no-clip) +
 >   `scripts/retro-arcade-stream-smoke.mjs` (WebRTC signaling + ICE + track over the relay).
-> - **WHAT REMAINS (Retro Arcade):** (1) **real-device pass** - the controller on actual
->   phones (auto-fit vs mobile browser chrome, gamepad remap, rotate-mid-watch, multi-touch);
->   (2) **stream AUDIO** (tap EmulatorJS WebAudio via `MediaStreamAudioDestinationNode`); (3)
->   a **TURN server** for NATs that STUN can't traverse; (4) **cross-theme controller borders**
->   (light themes bubblegum/cutesie render soft borders vs the design system's always-dark -
->   decide whether the controller forces a bold border regardless of theme); (5) per-route
->   **COEP** to unlock threaded cores; (6) test hardening: assert layout-id->touchIndex coverage
->   in `logic.test.ts` (today verified by hand). FUTURE (not scheduled): a custom-controller
->   builder (author `ControllerLayout` JSON) and a personal ROM library + publish-your-ROM.
+> - **STREAM AUDIO: DONE (`2f19fc0`).** EmulatorJS plays through Web Audio, so `emulator.ts`
+>   patches `AudioNode.connect` (like the WebGL `preserveDrawingBuffer` patch) to fork
+>   everything routed to the context destination into a `MediaStreamAudioDestinationNode`
+>   (`getAudioStream`); the host folds that audio track in alongside the canvas video. Viewers
+>   start muted (autoplay rules) and unmute from a tap (the viewer's `setMuted`; Sound toggle
+>   on `/watch` + the join-page Audience view). The stream smoke asserts a live audio track +
+>   the unmute. The real device pass confirmed the controller path works on phones.
+> - **TURN: WIRED, needs a server (`2f19fc0`).** CLASP is signaling-only (not a TURN server),
+>   so the ICE config is now configurable: `setRtcConfig` appends a TURN relay to the STUN
+>   default, set once from runtime env by `apps/web/app/plugins/rtc.client.ts`
+>   (`NUXT_PUBLIC_TURN_URL` (comma-separated ok) / `_TURN_USERNAME` / `_TURN_CREDENTIAL`),
+>   default STUN-only. To turn it on: provision a coturn server, set the env on the droplet,
+>   recreate the app. Documented in `docs/deploy.md` + `.env.example`. No code redeploy needed.
+> - **WHAT REMAINS (Retro Arcade):** (1) **deploy a coturn server** + set the TURN env (the
+>   plumbing is done; only the server + credentials remain, when hard-NAT viewers show up);
+>   (2) **cross-theme controller borders** (light themes bubblegum/cutesie render soft borders
+>   vs the design system's always-dark - decide whether the controller forces a bold border
+>   regardless of theme); (3) per-route **COEP** to unlock threaded N64/PSX cores; (4) test
+>   hardening: assert layout-id->touchIndex coverage in `logic.test.ts` (today verified by
+>   hand). FUTURE (not scheduled): a custom-controller builder (author `ControllerLayout` JSON)
+>   and a personal ROM library + publish-your-ROM.
 
 > **SHIPPED: cover art for the LAST 12 flagships (2026-06-09, `6064219`, deployed green
 > in 3m27s).** Every Game From Doot now has real art: `scripts/gen-covers.mjs` gained 12
