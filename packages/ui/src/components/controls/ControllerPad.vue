@@ -90,8 +90,16 @@ const dirIds = computed(() => {
 
     <div class="body">
       <div class="zone left">
-        <DPad v-if="dpad" :ids="dirIds" :disabled="disabled" @input="onInput" />
+        <!-- When there's an analog stick it leads (where the thumb rests), with the
+             d-pad tucked below and nudged outward, like a modern pad. -->
         <Thumbstick v-if="layout.hasStick" side="left" :disabled="disabled" @axis="onAxis" />
+        <DPad
+          v-if="dpad"
+          :ids="dirIds"
+          :class="{ 'dpad-under': layout.hasStick }"
+          :disabled="disabled"
+          @input="onInput"
+        />
       </div>
 
       <div class="zone mid">
@@ -171,12 +179,17 @@ const dirIds = computed(() => {
   align-items: center;
   justify-content: center;
   /* Generous separation between stacked controls (e.g. the d-pad and the analog
-     stick) so a thumb never strays from one onto the other. */
-  gap: clamp(22px, 6vmin, 44px);
+     stick) so a thumb never strays from one onto the other. Scales with the control
+     size so the whole column grows uniformly (keeps the fit math linear). */
+  gap: calc(clamp(20px, 5.5vmin, 40px) * var(--control-scale, 1));
 }
 .zone.mid {
   gap: 10px;
   max-width: min(52vw, 440px);
+}
+/* The d-pad tucked below the analog stick, nudged toward the outer edge. */
+.dpad-under {
+  transform: translateX(-12%);
 }
 .system {
   display: flex;

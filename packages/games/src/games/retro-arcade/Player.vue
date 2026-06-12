@@ -72,7 +72,31 @@ function onAxis(e: AnalogInputEvent) {
 // ── Button size (scales every control via --control-scale) ───────────────────
 const SCALE: Record<string, number> = { S: 0.85, M: 1, L: 1.18, XL: 1.35 }
 const sizeKey = ref('M')
-const controlScale = computed(() => SCALE[sizeKey.value] ?? 1)
+const desiredScale = computed(() => SCALE[sizeKey.value] ?? 1)
+// The size the user asked for, capped so the pad always fits: we apply the desired
+// scale, then if the body overflows we shrink it back until it fits. So a bigger
+// size grows the controls up to the edge of the screen and no further.
+const appliedScale = ref(1)
+const rootEl = ref<HTMLElement | null>(null)
+let fitRaf = 0
+function measureFit(iter: number) {
+  const body = rootEl.value?.querySelector('.body') as HTMLElement | null
+  if (!body) return
+  const oh = body.scrollHeight - body.clientHeight
+  const ow = body.scrollWidth - body.clientWidth
+  if ((oh > 2 || ow > 2) && iter < 6 && appliedScale.value > 0.5) {
+    const rh = oh > 2 ? body.clientHeight / body.scrollHeight : 1
+    const rw = ow > 2 ? body.clientWidth / body.scrollWidth : 1
+    appliedScale.value = Math.max(0.5, appliedScale.value * Math.min(rh, rw) * 0.99)
+    fitRaf = requestAnimationFrame(() => measureFit(iter + 1))
+  }
+}
+function recomputeFit() {
+  if (typeof requestAnimationFrame === 'undefined') return
+  cancelAnimationFrame(fitRaf)
+  appliedScale.value = desiredScale.value
+  fitRaf = requestAnimationFrame(() => measureFit(0))
+}
 const SIZE_KEY = 'doot_arcade_size'
 watch(sizeKey, (v) => {
   try {
@@ -81,6 +105,9 @@ watch(sizeKey, (v) => {
     /* ignore */
   }
 })
+// Re-fit on size choice, console swap, and seating (orientation is handled in its
+// own change handler, which is declared after isPortrait below).
+watch([sizeKey, layout, hasSeat], () => requestAnimationFrame(recomputeFit))
 
 const showSettings = ref(false)
 
@@ -89,6 +116,7 @@ const isPortrait = ref(false)
 let mq: MediaQueryList | null = null
 function onOrient(e: { matches: boolean }) {
   isPortrait.value = e.matches
+  requestAnimationFrame(recomputeFit)
   if (watching.value) requestAnimationFrame(reattachStream)
 }
 
@@ -159,11 +187,21 @@ onMounted(() => {
     /* ignore */
   }
   startBridge()
+  // Re-fit the controls whenever the play area changes size (rotation, browser
+  // chrome, split screen). Caps the chosen button size to what actually fits.
+  if (typeof ResizeObserver !== 'undefined' && rootEl.value) {
+    ro = new ResizeObserver(() => requestAnimationFrame(recomputeFit))
+    ro.observe(rootEl.value)
+  }
+  requestAnimationFrame(recomputeFit)
 })
+let ro: ResizeObserver | null = null
 onUnmounted(() => {
   bridge?.stop()
   viewer?.close()
   mq?.removeEventListener('change', onOrient)
+  ro?.disconnect()
+  if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(fitRaf)
 })
 
 // ── Watch the game while you play (opt-in spectator stream) ───────────────────
@@ -204,7 +242,7 @@ function popoutStream() {
 </script>
 
 <template>
-  <div class="arcade-player" :style="{ '--control-scale': controlScale }">
+  <div ref="rootEl" class="arcade-player" :style="{ '--control-scale': appliedScale }">
     <!-- Waiting / status states -->
     <div v-if="!room.ready.value" class="msg"><h2>Joining...</h2></div>
     <div v-else-if="!meta" class="msg">

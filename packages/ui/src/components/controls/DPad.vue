@@ -131,10 +131,11 @@ function onKeyup(e: KeyboardEvent) {
 
 <style scoped>
 .dpad {
+  --dr: calc(var(--radius) - 3px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 5px;
+  gap: 4px;
   width: calc(var(--dpad-size, clamp(104px, 28vmin, 158px)) * var(--control-scale, 1));
   height: calc(var(--dpad-size, clamp(104px, 28vmin, 158px)) * var(--control-scale, 1));
   touch-action: none;
@@ -149,12 +150,14 @@ function onKeyup(e: KeyboardEvent) {
 .dpad.disabled {
   opacity: 0.45;
 }
+/* A connected cross (the design-system d-pad): each arm rounds only its OUTER
+   corners, the inner edges stay square and face the centre hub, so the four arms
+   read as one plus-shaped pad rather than four separate buttons. */
 .cell {
   display: grid;
   place-items: center;
   background: var(--surface);
   border: var(--bd) solid var(--line);
-  border-radius: calc(var(--radius) - 4px);
   color: var(--ink);
   font-family: var(--font-display);
   font-weight: 800;
@@ -164,15 +167,19 @@ function onKeyup(e: KeyboardEvent) {
 }
 .up {
   grid-area: 1 / 2;
+  border-radius: var(--dr) var(--dr) 0 0;
 }
 .left {
   grid-area: 2 / 1;
+  border-radius: var(--dr) 0 0 var(--dr);
 }
 .right {
   grid-area: 2 / 3;
+  border-radius: 0 var(--dr) var(--dr) 0;
 }
 .down {
   grid-area: 3 / 2;
+  border-radius: 0 0 var(--dr) var(--dr);
 }
 .cell.on {
   background: var(--primary);
@@ -184,14 +191,17 @@ function onKeyup(e: KeyboardEvent) {
   grid-area: 2 / 2;
   display: grid;
   place-items: center;
+  background: var(--surface);
+  border: var(--bd) solid var(--line);
+  box-shadow: var(--shadow-sm);
 }
 .hub::after {
   content: '';
-  width: 34%;
-  height: 34%;
+  width: 30%;
+  height: 30%;
   border-radius: 50%;
-  background: var(--line);
-  opacity: 0.5;
+  background: var(--mute);
+  opacity: 0.6;
 }
 @media (prefers-reduced-motion: reduce) {
   .cell {

@@ -207,6 +207,30 @@ async function run() {
     await noOverflow(p1, 'N64 landscape 844x390')
     await noOverflow(host, 'host 1440px')
 
+    step('N64 C-buttons reach the emulator (mapping)')
+    await host.evaluate(() => {
+      window.__sim = []
+    })
+    // C-up is the top yellow C-button; on N64 it is simulateInput index 23.
+    await p1.locator('.cbuttons .pad-btn[aria-label="C↑"]').first().click({ force: true })
+    await p1.waitForTimeout(500)
+    const csims = await host.evaluate(() => window.__sim || [])
+    const cUp = csims.some((s) => s[1] === 23 && s[2] === 1) && csims.some((s) => s[1] === 23 && s[2] === 0)
+    if (cUp) ok(`pressing C-up drove simulateInput index 23 (${csims.length} calls)`)
+    else errors.push(`C-up did NOT reach the emulator (sims: ${JSON.stringify(csims)})`)
+
+    step('Button size XL grows the controls but still fits (no clipping)')
+    const dM = await p1.locator('.dpad').boundingBox()
+    await p1.click('.cog')
+    await p1.click('.sheet .segmented button:has-text("XL")')
+    await p1.waitForTimeout(450)
+    const dXL = await p1.locator('.dpad').boundingBox()
+    await p1.evaluate(() => document.querySelector('.sheet')?.remove())
+    if (dXL && dM && dXL.width >= dM.width - 1) ok(`XL did not shrink the pad (${Math.round(dM.width)} -> ${Math.round(dXL.width)})`)
+    else errors.push(`XL unexpectedly shrank the pad (${dM?.width} -> ${dXL?.width})`)
+    await padFits(p1, 'N64 landscape, size XL')
+    await noOverflow(p1, 'N64 landscape, size XL')
+
     await p1.screenshot({ path: '/tmp/arcade-player.png' })
     await host.screenshot({ path: '/tmp/arcade-host.png' })
 
