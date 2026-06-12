@@ -972,9 +972,8 @@ const COVERS = [
       .marquee span { font-size: 29px; color: #3a0f2a; letter-spacing: .03em; }
       .screen { position: absolute; top: 108px; left: 30px; right: 30px; height: 188px; background: #07131b; border: 5px solid #0a212b; border-radius: 12px; box-shadow: inset 0 0 44px #2fe0d633, 0 0 22px #2fe0d622; display: grid; place-items: center; overflow: hidden; }
       .screen::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 3px, transparent 3px 6px); }
-      .doot { display: flex; align-items: center; gap: 4px; font-family: 'Baloo 2', cursive; font-weight: 800; font-size: 62px; color: #fff; text-shadow: 0 0 18px #2fe0d6; }
-      .doot .o { width: .66em; height: .66em; border-radius: 50%; background: #ff5a33; border: .07em solid #fff; display: inline-flex; align-items: center; justify-content: center; }
-      .doot .o::after { content: ''; width: .24em; height: .24em; border-radius: 50%; background: #fff; }
+      .mark { width: 142px; height: 142px; border-radius: 32px; background: #ff5a33; border: 5px solid #0a212b; transform: rotate(-6deg); display: grid; place-items: center; box-shadow: 0 0 34px #ff5a3399, 0 10px 0 rgba(0,0,0,.18); }
+      .mark svg { width: 64%; height: 64%; }
       .panel { position: absolute; top: 322px; left: 26px; right: 26px; height: 82px; background: linear-gradient(180deg, #ffd863, #ffb52e); border: 4px solid #0a212b; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 30px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.14); }
       .stick { width: 34px; height: 56px; position: relative; }
       .stick::before { content: ''; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 14px; height: 42px; background: #0a212b; border-radius: 7px; }
@@ -991,7 +990,7 @@ const COVERS = [
       <div class="side"></div>
       <div class="cab">
         <div class="marquee"><span>RETRO ARCADE</span></div>
-        <div class="screen"><div class="doot">d<i class="o"></i><i class="o"></i>t</div></div>
+        <div class="screen"><div class="mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="8" cy="10" r="3.1" fill="#fff"/><circle cx="16" cy="10" r="3.1" fill="#fff"/><circle cx="8" cy="10" r="1.2" fill="#241910"/><circle cx="16" cy="10" r="1.2" fill="#241910"/><path d="M7 16c1.6 1.6 8.4 1.6 10 0" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></div></div>
         <div class="panel"><div class="stick"></div><div class="btns"><i class="r"></i><i class="g"></i><i class="b"></i></div></div>
         <div class="coin"></div>
       </div>
