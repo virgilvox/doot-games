@@ -26,6 +26,7 @@ import {
 } from '@doot-games/ui'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { type EmulatorController, createEmulator } from './emulator'
+import { serveStream, webrtcSupported } from './stream'
 import {
   CBTN_BY_DIR,
   CONSOLE_LIST,
@@ -350,6 +351,8 @@ onMounted(() => {
 onUnmounted(() => {
   for (const b of bridges.values()) b.stop()
   bridges.clear()
+  offViewers?.()
+  streamServer?.stop()
   emu?.dispose()
   revokeBlob()
   if (typeof window !== 'undefined') {
@@ -359,6 +362,28 @@ onUnmounted(() => {
 })
 
 const filledSeats = computed(() => seats.filter(Boolean).length)
+
+// ── Spectator broadcast (CLASP-signaled WebRTC, opt-in) ──────────────────────
+const canBroadcast = webrtcSupported()
+const broadcasting = ref(false)
+const viewerCount = ref(0)
+let streamServer: ReturnType<typeof serveStream> | null = null
+let offViewers: (() => void) | null = null
+function toggleBroadcast() {
+  if (broadcasting.value) {
+    offViewers?.()
+    streamServer?.stop()
+    streamServer = null
+    broadcasting.value = false
+    viewerCount.value = 0
+    return
+  }
+  streamServer = serveStream(room, () => emu?.getCanvas() ?? null)
+  offViewers = streamServer.onViewerCount((n) => {
+    viewerCount.value = n
+  })
+  broadcasting.value = true
+}
 </script>
 
 <template>
@@ -454,6 +479,17 @@ const filledSeats = computed(() => seats.filter(Boolean).length)
         </div>
         <p class="swap-note">Swapping reloads the game for everyone; phones re-skin to the new console's controller automatically.</p>
       </div>
+
+      <div v-if="canBroadcast" class="panel card">
+        <div class="card-h">
+          <h3>Broadcast</h3>
+          <span v-if="broadcasting" class="watching mono">{{ viewerCount }} watching</span>
+        </div>
+        <DButton :variant="broadcasting ? 'default' : 'primary'" size="sm" block @click="toggleBroadcast">
+          {{ broadcasting ? 'Stop broadcast' : 'Broadcast the screen' }}
+        </DButton>
+        <p class="swap-note">Lets players watch the game on their phone, or anyone open the room and spectate. Best for a handful of viewers; the picture goes straight from this machine.</p>
+      </div>
     </aside>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
@@ -495,6 +531,7 @@ input[type='text'], select { font-family: var(--font-mono); font-size: 13px; col
 .who { font-family: var(--font-mono); font-size: 12px; flex: 1; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
 .pad-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--primary-ink); background: var(--c4); border-radius: 4px; padding: 1px 5px; }
 .seat-note, .swap-note { margin-top: 10px; font-size: 12px; color: var(--mute); line-height: 1.45; }
+.watching { font-size: 11px; color: var(--c5); font-weight: 700; }
 .np { font-weight: 800; margin: 0 0 12px; }
 .swap-drop { display: block; border: var(--bd) dashed var(--line); border-radius: calc(var(--radius) - 4px); padding: 14px; text-align: center; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
 .swap-drop.hot { border-color: var(--primary); background: var(--surface-2); }

@@ -27,6 +27,7 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { layoutFor } from './layouts'
 import { consoleSpec } from './logic'
+import { type ViewerState, createViewer, webrtcSupported } from './stream'
 
 defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -148,7 +149,37 @@ onMounted(() => {
   }
   startBridge()
 })
-onUnmounted(() => bridge?.stop())
+onUnmounted(() => {
+  bridge?.stop()
+  viewer?.close()
+})
+
+// ── Watch the game while you play (opt-in spectator stream) ───────────────────
+const canWatch = webrtcSupported()
+const watching = ref(false)
+const watchState = ref<ViewerState>('connecting')
+const streamVideo = ref<HTMLVideoElement | null>(null)
+let viewer: ReturnType<typeof createViewer> | null = null
+function toggleWatch() {
+  if (watching.value) {
+    viewer?.close()
+    viewer = null
+    watching.value = false
+    return
+  }
+  watching.value = true
+  // Wait for the <video> to mount, then connect.
+  requestAnimationFrame(() => {
+    if (streamVideo.value) viewer = createViewer(room, streamVideo.value, (s) => (watchState.value = s))
+  })
+}
+function fullscreenStream() {
+  streamVideo.value?.requestFullscreen?.().catch(() => {})
+}
+function popoutStream() {
+  if (typeof window === 'undefined') return
+  window.open(`/watch/${room.runtime.room}`, 'doot_watch', 'width=720,height=560')
+}
 </script>
 
 <template>
@@ -188,7 +219,23 @@ onUnmounted(() => bridge?.stop())
             <button class="link-btn" @click="remapOpen = true">Remap</button>
           </div>
         </div>
+        <div v-if="canWatch" class="srow">
+          <span class="slbl">Watch the game</span>
+          <div class="gp-ctrls">
+            <ToggleSwitch :model-value="watching" label="On screen" @update:model-value="toggleWatch" />
+            <button class="link-btn" @click="popoutStream">Pop out</button>
+          </div>
+        </div>
         <ConnChip :status="room.connected.value ? 'connected' : 'connecting'" />
+      </div>
+
+      <!-- Watch-while-you-play: the live screen above the controls -->
+      <div v-if="watching" class="watch">
+        <video ref="streamVideo" class="watch-vid" playsinline autoplay muted />
+        <div class="watch-bar">
+          <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal (needs the host broadcasting)' : 'connecting' }}</span>
+          <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+        </div>
       </div>
 
       <!-- A quiet, dismissible hint when a gamepad is detected but settings are closed -->
@@ -222,6 +269,10 @@ onUnmounted(() => bridge?.stop())
 .gp-hint { align-self: center; border: var(--bd) solid var(--line); background: var(--surface-2); color: var(--ink-soft); border-radius: 999px; padding: 7px 14px; font-size: 12px; font-family: var(--font-mono); cursor: pointer; }
 /* Contain the pad: an oversized button-size (XL on a small portrait screen)
    clips within the play area rather than scrolling the whole document. */
+.watch { display: flex; flex-direction: column; gap: 4px; }
+.watch-vid { width: 100%; max-height: 30vh; aspect-ratio: 4 / 3; object-fit: contain; background: #000; border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 4px); }
+.watch-bar { display: flex; align-items: center; justify-content: space-between; }
+.watch-state { font-size: 11px; color: var(--mute); }
 .pad-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
 .pad-wrap > * { flex: 1; min-width: 0; }
 .modal { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ink) 42%, transparent); padding: 16px; }
