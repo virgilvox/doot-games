@@ -11,6 +11,7 @@ import {
   gameNameOf,
   nextFreeSeat,
   shareLink,
+  simValueFor,
 } from './logic'
 
 describe('detectConsole', () => {
@@ -124,5 +125,21 @@ describe('console table integrity', () => {
         expect(spec.touchIndex[dir], `${spec.key} missing ${dir}`).toBeTypeOf('number')
       }
     }
+  })
+})
+
+describe('simValueFor', () => {
+  it('sends full-scale for an analog-axis index (the N64 C-buttons on the right stick)', () => {
+    const n64 = CONSOLES.n64!
+    // cUp resolves to index 23 (right-stick up), an analog axis.
+    expect(emuIndexFor(n64, 'cUp')).toBe(23)
+    expect(simValueFor(23, true)).toBe(ANALOG_FULL)
+    expect(simValueFor(20, true)).toBe(ANALOG_FULL) // cRight, also right stick
+    expect(simValueFor(23, false)).toBe(0)
+  })
+  it('sends a plain digital 1 for a real button index', () => {
+    expect(simValueFor(0, true)).toBe(1) // B/A/etc.
+    expect(simValueFor(8, true)).toBe(1)
+    expect(simValueFor(8, false)).toBe(0)
   })
 })

@@ -17,6 +17,25 @@
 /** Analog full-scale, the value EmulatorJS expects for a fully deflected axis. */
 export const ANALOG_FULL = 0x7fff
 
+/**
+ * EmulatorJS `simulateInput` indices that are ANALOG axes (the two sticks):
+ * 16-19 left stick, 20-23 right stick. A digital control bound to one of these
+ * (most importantly the N64 C-buttons, which sit on the right stick at 20-23) must
+ * send the full-scale magnitude on press, NOT 1 - a value of 1 is a ~0.003% stick
+ * deflection the core ignores. This is the bug that made C-buttons do nothing.
+ */
+export const ANALOG_INDICES = new Set([16, 17, 18, 19, 20, 21, 22, 23])
+
+/**
+ * The `simulateInput` value for a digital press of an EmulatorJS index: full-scale
+ * for an analog-axis index (e.g. an N64 C-button), 1 for a real digital button, and
+ * 0 on release. Pure so it is unit-tested.
+ */
+export function simValueFor(index: number, pressed: boolean): number {
+  if (!pressed) return 0
+  return ANALOG_INDICES.has(index) ? ANALOG_FULL : 1
+}
+
 export type LeftStickRole = 'analog' | 'dpad'
 export type RightStickRole = 'analog2' | 'cbtns' | null
 

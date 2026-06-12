@@ -40,6 +40,7 @@ import {
   emuIndexFor,
   gameNameOf,
   nextFreeSeat,
+  simValueFor,
 } from './logic'
 
 defineProps<{ plugin: GamePlugin }>()
@@ -246,7 +247,9 @@ function applyDigital(seat: number, id: string, pressed: boolean, isGamepad: boo
   if (!touchId) return
   const index = emuIndexFor(s, touchId)
   if (index == null) return
-  emu.simulate(seat, index, pressed ? 1 : 0)
+  // Full-scale for analog-axis indices (N64 C-buttons live on the right stick),
+  // else a plain digital 1; 0 on release.
+  emu.simulate(seat, index, simValueFor(index, pressed))
 }
 
 function applyAxis(seat: number, side: 'left' | 'right', x: number, y: number) {

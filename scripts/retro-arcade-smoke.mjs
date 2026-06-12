@@ -211,13 +211,18 @@ async function run() {
     await host.evaluate(() => {
       window.__sim = []
     })
-    // C-up is the top yellow C-button; on N64 it is simulateInput index 23.
+    // C-up is the top yellow C-button. On N64 the C-buttons sit on the RIGHT
+    // ANALOG STICK (index 23 = right-stick up), so a press must send the full-scale
+    // analog magnitude 0x7fff (32767), NOT 1 - that was the bug that made them dead.
     await p1.locator('.cbuttons .pad-btn[aria-label="C↑"]').first().click({ force: true })
     await p1.waitForTimeout(500)
     const csims = await host.evaluate(() => window.__sim || [])
-    const cUp = csims.some((s) => s[1] === 23 && s[2] === 1) && csims.some((s) => s[1] === 23 && s[2] === 0)
-    if (cUp) ok(`pressing C-up drove simulateInput index 23 (${csims.length} calls)`)
-    else errors.push(`C-up did NOT reach the emulator (sims: ${JSON.stringify(csims)})`)
+    const cUp = csims.some((s) => s[1] === 23 && s[2] === 32767) && csims.some((s) => s[1] === 23 && s[2] === 0)
+    if (cUp) ok(`C-up drove simulateInput(23, 32767) full-scale (${csims.length} calls)`)
+    else
+      errors.push(
+        `C-up did NOT send a full-scale right-stick press (need [23,32767]; sims: ${JSON.stringify(csims)})`,
+      )
 
     step('Button size XL grows the controls but still fits (no clipping)')
     const dM = await p1.locator('.dpad').boundingBox()
