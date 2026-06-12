@@ -137,6 +137,39 @@ export const professional: Theme = {
   },
 }
 
+/** Bubblegum: sweet bubblegum-pink pastels, soft drop shadows, candy-shop sugar. */
+export const bubblegum: Theme = {
+  id: 'bubblegum',
+  name: 'Bubblegum',
+  description: 'Sweet bubblegum pink and candy pastels with soft drop shadows. A sugar-rush party look.',
+  dark: false,
+  tokens: {
+    bg: '#FDEEF6',
+    bg2: '#FFF6FB',
+    surface: '#FFFFFF',
+    surface2: '#FFF1F8',
+    ink: '#5B4B6B',
+    inkSoft: '#7A6A88',
+    mute: '#B39EC4',
+    line: '#F3CBE2',
+    lineSoft: '#F7DCEC',
+    primary: '#FF8FC2',
+    primaryInk: '#5B2B48',
+    c1: '#FFC6E0',
+    c2: '#B39DDB',
+    c3: '#8ED3F0',
+    c4: '#A8E6CF',
+    c5: '#FFE3A3',
+    radius: '18px',
+    radiusLg: '26px',
+    bd: '2.5px',
+    shadow: '0 5px 0 #F3CBE2',
+    shadowSm: '0 4px 0 #F7DCEC',
+    grain: '.03',
+    glow: 'none',
+  },
+}
+
 /** Playful: bright primaries, chunky shapes, bouncy motion, hard offset shadows. */
 export const playful: Theme = {
   id: 'playful',

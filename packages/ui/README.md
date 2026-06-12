@@ -15,6 +15,13 @@ fonts, and radii from the active theme's CSS custom properties.
 - Editor: `SchemaForm` (auto-generates a form from a block's Zod `contentSchema`),
   `ImageField` (URL + upload), the `IMAGE_UPLOAD` provide/inject capability, and
   `describeSchema`/`blankValue` introspection.
+- Controller kit (for controller-style games): `DPad`, `Thumbstick`,
+  `ActionCluster`, `Buzzer`, `Bumper`, `PadButton`, `ControlSlider`, `Segmented`,
+  `ToggleSwitch`, `ConnChip`, `PlayerHeader`, `ControllerPad`, `GamepadMapper`,
+  plus the framework-free `controllers/` libraries (the logical-input contract,
+  the `ControllerLayout` schema + `defineLayout`, and `createGamepadBridge`). The
+  controls emit the logical-input contract so touch and a physical gamepad are
+  interchangeable. See [`docs/controller-kit.md`](../../docs/controller-kit.md).
 - `@doot-games/ui/styles.css` - the design-system stylesheet.
 
 CSS-first animation; Pixi (via `vue3-pixi`/imperative fallback) only for canvas work.

@@ -93,3 +93,70 @@ export {
 export { default as Leaderboard } from './components/Leaderboard.vue'
 export { default as StatStrip } from './components/StatStrip.vue'
 export { default as ConfettiBurst } from './components/ConfettiBurst.vue'
+
+// Controller kit, theme-aware touch controls. The momentary/analog controls emit
+// the logical-input contract (`@input` / `@axis`); the settings widgets use v-model.
+export { default as PadButton } from './components/controls/PadButton.vue'
+export { default as DPad } from './components/controls/DPad.vue'
+export { default as Thumbstick } from './components/controls/Thumbstick.vue'
+export { default as ActionCluster } from './components/controls/ActionCluster.vue'
+export { default as Buzzer } from './components/controls/Buzzer.vue'
+export { default as Bumper } from './components/controls/Bumper.vue'
+export { default as ControlSlider } from './components/controls/ControlSlider.vue'
+export { default as Segmented } from './components/controls/Segmented.vue'
+export { default as ToggleSwitch } from './components/controls/ToggleSwitch.vue'
+export { default as ConnChip } from './components/controls/ConnChip.vue'
+export { default as PlayerHeader } from './components/controls/PlayerHeader.vue'
+export { default as ControllerPad } from './components/controls/ControllerPad.vue'
+export { default as GamepadMapper } from './components/controls/GamepadMapper.vue'
+export { usePointerButton } from './components/controls/usePointerButton'
+
+// Controller libraries (framework-free): the logical-input contract, the
+// target-agnostic controller-layout schema, the gamepad bridge, and pure math.
+export type {
+  LogicalButtonId,
+  AxisSide,
+  InputSource,
+  DigitalInputEvent,
+  AnalogInputEvent,
+} from './controllers/logical-input'
+export {
+  type ControllerLayout,
+  type LayoutCluster,
+  type LayoutButton,
+  type ClusterHue,
+  type ClusterLayout,
+  defineLayout,
+  registerLayout,
+  getLayout,
+  listLayouts,
+  HUE_BY_NAME,
+} from './controllers/layout'
+export {
+  nesLayout,
+  snesLayout,
+  n64Layout,
+  gameboyLayout,
+  genesisLayout,
+  psxLayout,
+  BUILTIN_LAYOUTS,
+} from './controllers/layout.presets'
+export {
+  type GamepadMapping,
+  type GamepadBridge,
+  type GamepadBridgeOptions,
+  type GamepadEnv,
+  createGamepadBridge,
+  STANDARD_GAMEPAD_MAPPING,
+} from './controllers/gamepad'
+export {
+  type DpadDirections,
+  type GamepadSnapshot,
+  dpadDirections,
+  clampStick,
+  deadzone,
+  stickSample,
+  sliderPct,
+  sliderValueFromPointer,
+  foldGamepad,
+} from './controllers/math'

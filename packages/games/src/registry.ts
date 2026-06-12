@@ -25,6 +25,7 @@ import { quipClash } from './games/quip-clash'
 import { quizOrDie } from './games/quiz-or-die'
 import { rank } from './games/rank'
 import { rate } from './games/rate'
+import { retroArcade } from './games/retro-arcade'
 import { overUnder } from './games/over-under'
 import { sketchSpot } from './games/sketch-spot'
 import { spectrum } from './games/spectrum'
@@ -76,6 +77,7 @@ export const builtinPlugins: GamePlugin[] = [
   wavelength,
   bingo,
   callIt,
+  retroArcade,
   custom,
 ]
 

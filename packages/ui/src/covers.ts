@@ -34,4 +34,5 @@ export const FLAGSHIP_COVERS: Record<string, string> = {
   wavelength: '/covers/wavelength.jpg',
   bingo: '/covers/bingo.jpg',
   'call-it': '/covers/call-it.jpg',
+  'retro-arcade': '/covers/retro-arcade.jpg',
 }

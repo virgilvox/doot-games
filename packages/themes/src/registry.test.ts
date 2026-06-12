@@ -6,8 +6,8 @@ import { TOKEN_TO_CSS_VAR, type ThemeTokens } from './tokens'
 const TOKEN_KEYS = Object.keys(TOKEN_TO_CSS_VAR) as Array<keyof ThemeTokens>
 
 describe('theme packs', () => {
-  it('expose five themes with the brand default first', () => {
-    expect(themeList).toHaveLength(5)
+  it('expose six themes with the brand default first', () => {
+    expect(themeList).toHaveLength(6)
     expect(themeList[0]?.id).toBe(DEFAULT_THEME_ID)
     expect(DEFAULT_THEME_ID).toBe('doot')
   })

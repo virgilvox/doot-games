@@ -954,6 +954,62 @@ const COVERS = [
       <div class="pol p3"><div class="clip"></div><div class="back"></div><div class="cap">not yet...</div></div>
       <div class="tag">SPILL IT OR SHOW IT</div>`,
   },
+  {
+    // A late-night living room: a wood-grain CRT glowing with a pixel world, a
+    // chunky gamepad in front, neon arcade glow. Its own world, no template.
+    id: 'retro-arcade',
+    fonts: ['Bungee', 'Press Start 2P'],
+    css: `
+      body { background: radial-gradient(120% 100% at 50% 14%, #341d4f, #1b1030 58%, #0c0718); font-family: 'Bungee', sans-serif; }
+      .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+      .b1 { width: 520px; height: 520px; left: 60px; top: 120px; background: #ff3ea0; }
+      .b2 { width: 520px; height: 520px; right: 60px; top: 150px; background: #2fe0d6; }
+      .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px); pointer-events: none; }
+      .title { position: absolute; top: 60px; left: 0; right: 0; text-align: center; color: #fff; font-size: 76px; letter-spacing: .02em;
+        text-shadow: 0 0 4px #fff, 0 0 18px #ff3ea0, 5px 5px 0 #7a1147, 0 0 40px #ff3ea088; }
+      .tv { position: absolute; left: 50%; top: 196px; transform: translateX(-50%); width: 600px; height: 372px; border-radius: 30px;
+        background: linear-gradient(180deg, #6b4a2e, #3e2a18); box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.12); padding: 26px 26px 44px; }
+      .screen { position: relative; width: 100%; height: 100%; border-radius: 18px; overflow: hidden; background: #061018;
+        box-shadow: inset 0 0 60px rgba(0,0,0,.9), 0 0 30px #2fe0d655; image-rendering: pixelated; }
+      .sky { position: absolute; inset: 0; background: linear-gradient(180deg, #1a2a55 0%, #5a3a86 55%, #b85a8a 70%, #2a6b4a 70%); }
+      .sun { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); width: 130px; height: 130px; border-radius: 50%;
+        background: linear-gradient(180deg, #ffe14d, #ff7a3d); box-shadow: 0 0 40px #ff9a4d88; }
+      .ground { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: repeating-linear-gradient(90deg, #2a6b4a 0 24px, #246043 24px 48px); }
+      .blk { position: absolute; image-rendering: pixelated; }
+      .brick { width: 44px; height: 44px; background: #c46b2e; border: 4px solid #7a3d14; }
+      .sprite { width: 40px; height: 48px; bottom: 30%; left: 120px; background: #ff3ea0; border: 4px solid #2a0a1c; border-radius: 6px 6px 0 0;
+        box-shadow: inset 0 -10px 0 #c61f72; }
+      .crtline { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 3px, transparent 3px 6px); }
+      .pad { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); width: 320px; height: 118px; border-radius: 60px;
+        background: linear-gradient(180deg, #fff3e6, #e9d4bd); border: 5px solid #241910; box-shadow: 0 16px 30px rgba(0,0,0,.5); z-index: 5; }
+      .dpad { position: absolute; left: 44px; top: 34px; width: 64px; height: 64px; }
+      .dpad::before, .dpad::after { content: ''; position: absolute; background: #241910; border-radius: 4px; }
+      .dpad::before { left: 22px; top: 0; width: 20px; height: 64px; }
+      .dpad::after { left: 0; top: 22px; width: 64px; height: 20px; }
+      .ab { position: absolute; right: 50px; top: 38px; display: flex; gap: 16px; }
+      .ab i { width: 50px; height: 50px; border-radius: 50%; border: 4px solid #241910; box-shadow: inset 0 -6px 0 rgba(0,0,0,.2); }
+      .ab .a { background: #ff5a33; } .ab .b { background: #ffc53d; }
+      .coin { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); z-index: 6; font-family: 'Press Start 2P', monospace;
+        font-size: 18px; color: #2fe0d6; text-shadow: 0 0 14px #2fe0d6; }
+      .tag { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; font-family: 'Press Start 2P', monospace;
+        font-size: 15px; letter-spacing: .12em; color: #ffd24d; text-shadow: 0 0 12px #ffd24d88; }
+    `,
+    html: `
+      <div class="blob b1"></div><div class="blob b2"></div>
+      <div class="title">RETRO ARCADE</div>
+      <div class="coin">PLAYER 1</div>
+      <div class="tv"><div class="screen">
+        <div class="sky"></div><div class="sun"></div>
+        <div class="blk brick" style="bottom:30%; left:360px"></div>
+        <div class="blk brick" style="bottom:30%; left:404px"></div>
+        <div class="blk brick" style="bottom:46%; left:404px"></div>
+        <div class="blk sprite"></div>
+        <div class="ground"></div>
+        <div class="crtline"></div>
+      </div></div>
+      <div class="pad"><div class="dpad"></div><div class="ab"><i class="b"></i><i class="a"></i></div></div>
+      <div class="tag">ANY ROM &middot; PHONES ARE THE PADS</div>`,
+  },
 ]
 
 const only = process.argv.slice(2)

@@ -1,0 +1,506 @@
+<script setup lang="ts">
+/**
+ * Retro Arcade host, the big-screen emulator. A custom-flow Host that parks the
+ * engine on the single `arcade` round and drives everything over the relay's
+ * custom channels:
+ *   - `/x/meta`        (host -> all, retained): the live console + game name, so a
+ *                       phone knows which controller layout to render (and rebuilds
+ *                       it when the host hot-swaps to a different console).
+ *   - `/x/assign/<pid>`(host -> phone, retained): the seat (player slot) a phone got,
+ *                       or -1 if the room is full.
+ *   - `/x/in/<pid>`    (phone -> host): a logical button transition `{id, v, src}`.
+ *   - `/x/axis/<pid>`  (phone -> host): an analog stick sample `{side, x, y}`.
+ * Seats are one shared pool: a gamepad plugged into the host machine takes a slot,
+ * a phone joining takes the next, so one pad + one phone are P1 and P2. The host
+ * maps every input (touch id, the phone's own gamepad, or a host gamepad) through
+ * the pure, tested console table in `logic.ts` to an EmulatorJS input.
+ */
+import { injectDootRoom } from '@doot-games/engine/vue'
+import type { GamePlugin } from '@doot-games/sdk'
+import {
+  ConnChip,
+  DButton,
+  type GamepadBridge,
+  RoomTicket,
+  createGamepadBridge,
+} from '@doot-games/ui'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { type EmulatorController, createEmulator } from './emulator'
+import {
+  CBTN_BY_DIR,
+  CONSOLE_LIST,
+  type ConsoleSpec,
+  aliasToTouch,
+  analogToEmu,
+  axisToDirections,
+  consoleSpec,
+  detectConsole,
+  emuIndexFor,
+  gameNameOf,
+  nextFreeSeat,
+} from './logic'
+
+defineProps<{ plugin: GamePlugin }>()
+const room = injectDootRoom()
+
+const MOUNT = '#arcade-screen'
+const joinUrl = computed(() => {
+  const code = room.runtime.room
+  return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
+})
+
+// ── ROM selection (lobby + hot-swap) ─────────────────────────────────────────
+const romSrc = ref<string | null>(null)
+const romName = ref('game')
+/** A remote ROM URL (vs a local blob), the only kind that can be shared by link. */
+const romUrl = ref<string | null>(null)
+const consoleKey = ref('nes')
+const spec = computed<ConsoleSpec>(() => consoleSpec(consoleKey.value))
+const dragHot = ref(false)
+const booted = ref(false)
+const toast = ref('')
+
+function setToast(m: string) {
+  toast.value = m
+  if (typeof window !== 'undefined') setTimeout(() => (toast.value = ''), 1600)
+}
+
+/** Free a prior local-ROM blob URL so repeated loads/swaps don't leak the ROM. */
+function revokeBlob() {
+  if (romSrc.value?.startsWith('blob:')) URL.revokeObjectURL(romSrc.value)
+}
+function takeFile(file: File | null | undefined) {
+  if (!file) return
+  revokeBlob()
+  romSrc.value = URL.createObjectURL(file)
+  romUrl.value = null
+  romName.value = gameNameOf(file.name)
+  const d = detectConsole(file.name)
+  if (d) consoleKey.value = d
+}
+function takeUrl(raw: string) {
+  const v = raw.trim()
+  if (!v) {
+    if (!romUrl.value) romSrc.value = null
+    return
+  }
+  revokeBlob()
+  romSrc.value = v
+  romUrl.value = v
+  romName.value = gameNameOf(v)
+  const d = detectConsole(v)
+  if (d) consoleKey.value = d
+}
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  dragHot.value = false
+  takeFile(e.dataTransfer?.files?.[0])
+}
+
+// A shareable deep link (only for a remote ROM url, since a local file can't travel).
+const shareUrl = computed(() => {
+  if (!romUrl.value || typeof window === 'undefined') return null
+  const u = new URL('/host/retro-arcade', window.location.origin)
+  u.searchParams.set('rom', romUrl.value)
+  u.searchParams.set('core', consoleKey.value)
+  return u.toString()
+})
+function copyShare() {
+  const link = shareUrl.value
+  if (!link) return
+  navigator.clipboard
+    ?.writeText(link)
+    .then(() => setToast('Share link copied'))
+    .catch(() => setToast('Copy failed'))
+}
+
+// ── Emulator ─────────────────────────────────────────────────────────────────
+let emu: EmulatorController | null = null
+const themeColor = () => {
+  if (typeof window === 'undefined') return '#ff5a33'
+  return (
+    getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#ff5a33'
+  )
+}
+
+function boot() {
+  if (!romSrc.value || !emu) return
+  booted.value = true
+  room.host.start()
+  emu.boot({
+    src: romSrc.value,
+    core: spec.value.core,
+    name: romName.value,
+    color: themeColor(),
+    threaded: spec.value.threaded,
+    onError: setToast,
+  })
+  publishMeta()
+  reconcileSeats()
+  scanHostGamepads()
+}
+
+/** Hot-swap a new ROM (and maybe console) into the running session. */
+function swap() {
+  if (!romSrc.value || !emu) return
+  emu.reboot({
+    src: romSrc.value,
+    core: spec.value.core,
+    name: romName.value,
+    color: themeColor(),
+    threaded: spec.value.threaded,
+    onError: setToast,
+  })
+  for (const k of Object.keys(axisPrev)) delete axisPrev[Number(k)]
+  publishMeta()
+  reconcileSeats() // republish so phones rebuild their pad for the new console
+  setToast(`Loaded ${romName.value}`)
+}
+
+function publishMeta() {
+  room.publishExtra('meta', {
+    console: consoleKey.value,
+    game: romName.value,
+    max: spec.value.max,
+  })
+}
+
+// ── Seats: one pool shared by host gamepads and phones ───────────────────────
+type Seat =
+  | { kind: 'phone'; pid: string; name: string }
+  | { kind: 'gamepad'; padIndex: number; name: string }
+const seats = reactive<Array<Seat | null>>([])
+const seatOf = (pid: string) => seats.findIndex((s) => s?.kind === 'phone' && s.pid === pid)
+const padSeat = (padIndex: number) =>
+  seats.findIndex((s) => s?.kind === 'gamepad' && s.padIndex === padIndex)
+
+function ensureLen() {
+  while (seats.length < spec.value.max) seats.push(null)
+}
+function publishAssign(pid: string, seat: number) {
+  room.publishExtra(`assign/${pid}`, { seat, console: consoleKey.value })
+}
+
+/**
+ * Bring the seat pool in line with the live roster: lay out the empty slots, free
+ * a seat whose phone left, seat any new phone in the next opening, and (re)publish
+ * every phone's assignment. Called on boot, whenever the roster changes, and after
+ * a console swap (so phones get the new console + rebuild their pad).
+ */
+function reconcileSeats() {
+  // Hot-swap to a fewer-controller console (e.g. N64 max 4 -> Game Boy max 1):
+  // drop every seat past the new max, releasing host gamepads that lose a slot.
+  // A displaced phone falls through to a -1 assignment below ("room full").
+  while (seats.length > spec.value.max) {
+    const s = seats.pop()
+    if (s?.kind === 'gamepad') releaseGamepad(s.padIndex)
+  }
+  ensureLen()
+  const present = new Set(room.players.value.map((p) => p.id))
+  seats.forEach((s, i) => {
+    if (s?.kind === 'phone' && !present.has(s.pid)) seats[i] = null
+  })
+  for (const p of room.players.value) {
+    if (seatOf(p.id) < 0) {
+      const free = nextFreeSeat(seats, spec.value.max)
+      if (free >= 0) seats[free] = { kind: 'phone', pid: p.id, name: p.name }
+    }
+    publishAssign(p.id, seatOf(p.id))
+  }
+}
+
+watch(
+  () => room.players.value.map((p) => p.id).join(','),
+  () => {
+    if (booted.value) reconcileSeats()
+  },
+)
+
+// ── Input routing ────────────────────────────────────────────────────────────
+// Per-seat previous d-pad/C-button state, so an analog stick driving digital
+// directions only fires on a real change.
+const axisPrev = reactive<
+  Record<number, { left?: Record<string, boolean>; right?: Record<string, boolean> }>
+>({})
+
+function applyDigital(seat: number, id: string, pressed: boolean, isGamepad: boolean) {
+  if (seat < 0 || !emu) return
+  const s = spec.value
+  const touchId = isGamepad ? aliasToTouch(s, id) : id
+  if (!touchId) return
+  const index = emuIndexFor(s, touchId)
+  if (index == null) return
+  emu.simulate(seat, index, pressed ? 1 : 0)
+}
+
+function applyAxis(seat: number, side: 'left' | 'right', x: number, y: number) {
+  if (seat < 0 || !emu) return
+  const s = spec.value
+  if (side === 'left') {
+    if (s.leftStick === 'analog') {
+      for (const [idx, val] of analogToEmu(x, y, 16)) emu.simulate(seat, idx, val)
+    } else {
+      diffDirections(seat, 'left', axisToDirections(x, y), {
+        up: 'up',
+        down: 'down',
+        left: 'left',
+        right: 'right',
+      })
+    }
+  } else {
+    if (s.rightStick === 'analog2') {
+      for (const [idx, val] of analogToEmu(x, y, 20)) emu.simulate(seat, idx, val)
+    } else if (s.rightStick === 'cbtns') {
+      diffDirections(seat, 'right', axisToDirections(x, y), CBTN_BY_DIR)
+    }
+  }
+}
+
+function diffDirections(
+  seat: number,
+  side: 'left' | 'right',
+  dirs: Record<string, boolean>,
+  ids: Record<string, string>,
+) {
+  const prev = (axisPrev[seat] ??= {})
+  const was = (prev[side] ??= { up: false, down: false, left: false, right: false })
+  for (const dir of ['up', 'down', 'left', 'right'] as const) {
+    if (was[dir] === dirs[dir]) continue
+    was[dir] = dirs[dir]!
+    applyDigital(seat, ids[dir]!, dirs[dir]!, false)
+  }
+}
+
+// ── Host-connected gamepads ──────────────────────────────────────────────────
+const hostPads = reactive<Array<{ index: number; id: string; seat: number }>>([])
+const bridges = new Map<number, GamepadBridge>()
+
+function claimGamepad(index: number, id: string) {
+  if (padSeat(index) >= 0) return
+  ensureLen()
+  const free = nextFreeSeat(seats, spec.value.max)
+  if (free < 0) return // room full
+  const short = (id.split('(')[0] || 'Gamepad').trim().slice(0, 18) || 'Gamepad'
+  seats[free] = { kind: 'gamepad', padIndex: index, name: short }
+  hostPads.push({ index, id: short, seat: free })
+  // Resolve the seat live (not the captured `free`), so a seat trim/compaction
+  // can never leave a host pad driving a slot it no longer owns.
+  const bridge = createGamepadBridge({
+    padIndex: index,
+    onInput: (e) => applyDigital(padSeat(index), e.id, e.pressed, true),
+    onAxis: (e) => applyAxis(padSeat(index), e.side, e.x, e.y),
+  })
+  bridge.start()
+  bridges.set(index, bridge)
+}
+function releaseGamepad(index: number) {
+  const seat = padSeat(index)
+  if (seat >= 0) seats[seat] = null
+  const hp = hostPads.findIndex((p) => p.index === index)
+  if (hp >= 0) hostPads.splice(hp, 1)
+  bridges.get(index)?.stop()
+  bridges.delete(index)
+}
+function scanHostGamepads() {
+  if (typeof navigator === 'undefined' || !navigator.getGamepads) return
+  for (const gp of navigator.getGamepads()) if (gp?.connected) claimGamepad(gp.index, gp.id)
+}
+function onGamepadConnected(e: Event) {
+  if (!booted.value) return
+  const gp = (e as GamepadEvent).gamepad
+  claimGamepad(gp.index, gp.id)
+}
+function onGamepadDisconnected(e: Event) {
+  releaseGamepad((e as GamepadEvent).gamepad.index)
+}
+
+// ── Wire up ──────────────────────────────────────────────────────────────────
+onMounted(() => {
+  emu = createEmulator(MOUNT)
+
+  // Deep-link: ?rom=...&core=... boots straight into a ROM.
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const qRom = params?.get('rom')
+  const qCore = params?.get('core')
+  if (qRom) {
+    takeUrl(qRom)
+    if (qCore && consoleSpec(qCore).key === qCore) consoleKey.value = qCore
+  }
+
+  room.onExtra('in/*', (v, key) => {
+    const pid = key.split('/')[1]
+    const seat = pid ? seatOf(pid) : -1
+    const msg = v as { id?: string; v?: number; src?: string } | null
+    if (seat < 0 || !msg?.id) return
+    applyDigital(seat, msg.id, !!msg.v, msg.src === 'gamepad')
+  })
+  room.onExtra('axis/*', (v, key) => {
+    const pid = key.split('/')[1]
+    const seat = pid ? seatOf(pid) : -1
+    const msg = v as { side?: 'left' | 'right'; x?: number; y?: number } | null
+    if (seat < 0 || !msg?.side) return
+    applyAxis(seat, msg.side, msg.x ?? 0, msg.y ?? 0)
+  })
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('gamepadconnected', onGamepadConnected)
+    window.addEventListener('gamepaddisconnected', onGamepadDisconnected)
+  }
+})
+onUnmounted(() => {
+  for (const b of bridges.values()) b.stop()
+  bridges.clear()
+  emu?.dispose()
+  revokeBlob()
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('gamepadconnected', onGamepadConnected)
+    window.removeEventListener('gamepaddisconnected', onGamepadDisconnected)
+  }
+})
+
+const filledSeats = computed(() => seats.filter(Boolean).length)
+</script>
+
+<template>
+  <!-- LOBBY: load a ROM -->
+  <div v-if="!booted" class="lobby">
+    <section class="panel ticket-card">
+      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <p class="ticket-note">
+        Players join from their phone, or
+        <b>plug a USB / Bluetooth gamepad into this machine</b> and it takes a slot too.
+      </p>
+    </section>
+
+    <section class="panel load-card">
+      <h2>Load a ROM</h2>
+      <p class="hint">It stays in your browser. Nothing uploads anywhere.</p>
+      <label
+        class="drop"
+        :class="{ hot: dragHot }"
+        @dragenter.prevent="dragHot = true"
+        @dragover.prevent="dragHot = true"
+        @dragleave.prevent="dragHot = false"
+        @drop="onDrop"
+      >
+        <input type="file" hidden @change="takeFile(($event.target as HTMLInputElement).files?.[0])" />
+        <strong>Drop a ROM</strong> or tap to pick a file
+        <small>.nes .sfc .smc .n64 .z64 .gb .gbc .gba .md .pce .iso .cue ...</small>
+      </label>
+
+      <div class="row">
+        <label class="field">
+          <span class="flbl">or paste a ROM URL</span>
+          <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" @input="takeUrl(($event.target as HTMLInputElement).value)" />
+        </label>
+        <label class="field sysf">
+          <span class="flbl">Console</span>
+          <select v-model="consoleKey">
+            <option v-for="c in CONSOLE_LIST" :key="c.key" :value="c.key">{{ c.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <p v-if="romSrc" class="detected">Ready &middot; <b>{{ romName }}</b> &middot; {{ spec.label }}</p>
+      <div class="lobby-actions">
+        <DButton variant="primary" size="lg" :disabled="!romSrc" @click="boot">Boot &amp; open room</DButton>
+        <DButton v-if="shareUrl" variant="ghost" @click="copyShare">Copy share link</DButton>
+      </div>
+    </section>
+  </div>
+
+  <!-- LIVE: the emulator + controllers -->
+  <div v-else class="live">
+    <div class="stage">
+      <div id="arcade-screen" class="screen" />
+    </div>
+    <aside class="side">
+      <div class="panel card">
+        <RoomTicket :code="room.runtime.room" :url="joinUrl" :show-qr="false" />
+      </div>
+
+      <div class="panel card">
+        <div class="card-h">
+          <h3>Players ({{ filledSeats }}/{{ spec.max }})</h3>
+          <ConnChip :status="room.connected.value ? 'connected' : 'connecting'" />
+        </div>
+        <ul class="seats">
+          <li v-for="(s, i) in seats" :key="i" class="seat" :class="{ on: !!s }">
+            <span class="pnum">P{{ i + 1 }}</span>
+            <span class="who">
+              <template v-if="s?.kind === 'gamepad'"><span class="pad-tag">PAD</span> {{ s.name }}</template>
+              <template v-else-if="s?.kind === 'phone'">{{ s.name }}</template>
+              <template v-else>open</template>
+            </span>
+          </li>
+        </ul>
+        <p class="seat-note">A gamepad on this machine and a phone share these slots, first in takes P1.</p>
+      </div>
+
+      <div class="panel card">
+        <h3>Now playing</h3>
+        <p class="np">{{ romName }} &middot; {{ spec.label }}</p>
+        <label class="swap-drop" :class="{ hot: dragHot }" @dragenter.prevent="dragHot = true" @dragover.prevent="dragHot = true" @dragleave.prevent="dragHot = false" @drop="onDrop">
+          <input type="file" hidden @change="takeFile(($event.target as HTMLInputElement).files?.[0])" />
+          Drop another ROM to swap
+        </label>
+        <div class="row tight">
+          <input type="text" class="swap-url" placeholder="or paste a ROM URL" @input="takeUrl(($event.target as HTMLInputElement).value)" />
+          <select v-model="consoleKey" class="swap-sys"><option v-for="c in CONSOLE_LIST" :key="c.key" :value="c.key">{{ c.label }}</option></select>
+        </div>
+        <div class="swap-actions">
+          <DButton variant="primary" size="sm" :disabled="!romSrc" @click="swap">Swap ROM</DButton>
+          <DButton v-if="shareUrl" variant="ghost" size="sm" @click="copyShare">Share link</DButton>
+        </div>
+        <p class="swap-note">Swapping reloads the game for everyone; phones re-skin to the new console's controller automatically.</p>
+      </div>
+    </aside>
+
+    <div v-if="toast" class="toast" role="status">{{ toast }}</div>
+  </div>
+</template>
+
+<style scoped>
+.lobby { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+.ticket-card { padding: 28px; }
+.ticket-note { margin-top: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.load-card { padding: 24px; }
+.load-card h2 { font-family: var(--font-display); font-weight: 800; font-size: 20px; }
+.hint { color: var(--mute); font-size: 13px; margin: 2px 0 18px; }
+.drop { display: block; border: var(--bd) dashed var(--line); border-radius: var(--radius); padding: 30px 16px; text-align: center; color: var(--ink-soft); cursor: pointer; transition: border-color 0.16s, background 0.16s; }
+.drop.hot { border-color: var(--primary); background: var(--surface-2); color: var(--ink); }
+.drop strong { color: var(--ink); font-weight: 800; }
+.drop small { display: block; margin-top: 8px; font-size: 11px; font-family: var(--font-mono); color: var(--mute); }
+.row { display: flex; gap: 10px; margin-top: 16px; }
+.row.tight { margin-top: 8px; }
+.field { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.field.sysf { flex: 0 0 180px; }
+.flbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
+input[type='text'], select { font-family: var(--font-mono); font-size: 13px; color: var(--ink); background: var(--surface); border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 4px); padding: 11px 12px; width: 100%; }
+.detected { margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
+.lobby-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+
+.live { flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+.stage { min-width: 0; }
+.screen { width: 100%; aspect-ratio: 4 / 3; background: #000; border: var(--bd) solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.side { display: flex; flex-direction: column; gap: 14px; }
+.card { padding: 16px; }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.card h3 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); margin: 0 0 10px; }
+.seats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.seat { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 4px); background: var(--surface); }
+.seat.on { background: var(--surface-2); }
+.pnum { font-family: var(--font-display); font-weight: 800; color: var(--mute); font-size: 13px; width: 30px; }
+.seat.on .pnum { color: var(--primary); }
+.who { font-family: var(--font-mono); font-size: 12px; flex: 1; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.pad-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--primary-ink); background: var(--c4); border-radius: 4px; padding: 1px 5px; }
+.seat-note, .swap-note { margin-top: 10px; font-size: 12px; color: var(--mute); line-height: 1.45; }
+.np { font-weight: 800; margin: 0 0 12px; }
+.swap-drop { display: block; border: var(--bd) dashed var(--line); border-radius: calc(var(--radius) - 4px); padding: 14px; text-align: center; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
+.swap-drop.hot { border-color: var(--primary); background: var(--surface-2); }
+.swap-url { font-size: 12px; }
+.swap-sys { flex: 0 0 120px; font-size: 12px; }
+.swap-actions { display: flex; gap: 8px; margin-top: 10px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--primary); color: var(--primary-ink); border-radius: 999px; padding: 9px 18px; font-weight: 800; font-size: 13px; box-shadow: var(--shadow-sm); }
+@media (max-width: 900px) { .lobby, .live { grid-template-columns: 1fr; } }
+</style>

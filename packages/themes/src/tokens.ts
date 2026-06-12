@@ -8,7 +8,7 @@
  * source is `doot-mockup.html`.
  */
 
-export type ThemeId = 'doot' | 'cutesie' | 'cyber' | 'professional' | 'playful'
+export type ThemeId = 'doot' | 'cutesie' | 'cyber' | 'professional' | 'playful' | 'bubblegum'
 
 /** Every token a theme must define. Values are raw CSS (colors, lengths, shadows). */
 export interface ThemeTokens {
