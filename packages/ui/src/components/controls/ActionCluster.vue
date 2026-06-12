@@ -185,6 +185,10 @@ const relay = (e: DigitalInputEvent) => emit('input', e)
   position: relative;
   width: calc(clamp(128px, 33vmin, 184px) * var(--control-scale, 1));
   height: calc(clamp(102px, 26vmin, 148px) * var(--control-scale, 1));
+  /* Sit slightly left of whatever is above it (the N64 C-diamond), matching the
+     real pad where A/B are below-and-left of the C cluster. */
+  align-self: flex-start;
+  margin-left: -6%;
 }
 .abdiag :deep(.pad-btn) {
   position: absolute;

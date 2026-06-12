@@ -600,7 +600,10 @@ input[type='text'], select { font-family: var(--font-mono); font-size: 13px; col
    carries its own resizable width; the card is a fixed compact column. They wrap
    (card drops below) only once the screen is grown past the room beside it. */
 .top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.screen-col { flex: 0 0 auto; width: var(--screen-w, min(720px, 100%)); max-width: 100%; display: flex; flex-direction: column; gap: 10px; }
+/* The screen grows to fill the row up to the dragged size, but SHRINKS to keep the
+   join card beside it (the screen scales down proportionally via its aspect ratio),
+   wrapping the card below only once the screen would be smaller than its min. */
+.screen-col { flex: 1 1 320px; min-width: 320px; max-width: var(--screen-w, 720px); display: flex; flex-direction: column; gap: 10px; }
 .screen-wrap { position: relative; width: 100%; }
 .screen { width: 100%; aspect-ratio: 4 / 3; background: #000; border: var(--bd) solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .resize-h { position: absolute; right: -6px; bottom: -6px; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; border-radius: 0 0 8px 0; border-right: 4px solid var(--primary); border-bottom: 4px solid var(--primary); opacity: 0.7; }

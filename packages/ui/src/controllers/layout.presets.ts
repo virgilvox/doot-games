@@ -99,14 +99,9 @@ export const n64Layout = defineLayout({
       ],
     },
     dpad,
-    {
-      kind: 'face',
-      layout: 'abdiag',
-      buttons: [
-        { id: 'b', label: 'B', hue: 'c5' },
-        { id: 'a', label: 'A', hue: 'c4' },
-      ],
-    },
+    // Real N64 right hand: the yellow C-button diamond sits up-and-right, with the
+    // A/B pair below-and-left of it. Render the C-buttons first (top of the right
+    // column) then the A/B diagonal below, matching the hardware and the prototype.
     {
       kind: 'face',
       layout: 'cbuttons',
@@ -115,6 +110,14 @@ export const n64Layout = defineLayout({
         { id: 'cDown', label: 'C↓', hue: 'c1', pos: 's' },
         { id: 'cLeft', label: 'C←', hue: 'c1', pos: 'w' },
         { id: 'cRight', label: 'C→', hue: 'c1', pos: 'e' },
+      ],
+    },
+    {
+      kind: 'face',
+      layout: 'abdiag',
+      buttons: [
+        { id: 'b', label: 'B', hue: 'c5' },
+        { id: 'a', label: 'A', hue: 'c4' },
       ],
     },
     { kind: 'system', buttons: [{ id: 'start', label: 'Start', hue: 'primary' }] },

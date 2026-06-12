@@ -170,7 +170,9 @@ const dirIds = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(16px, 4.4vmin, 28px);
+  /* Generous separation between stacked controls (e.g. the d-pad and the analog
+     stick) so a thumb never strays from one onto the other. */
+  gap: clamp(22px, 6vmin, 44px);
 }
 .zone.mid {
   gap: 10px;
@@ -181,5 +183,15 @@ const dirIds = computed(() => {
   flex-direction: column;
   gap: 10px;
   align-items: center;
+}
+
+/* Portrait: a landscape pad is wide, so anchor the thumb clusters to the BOTTOM
+   (where the hands rest holding a phone upright) and leave the upper area for the
+   live screen, which the player renders above. The shoulders stay pinned at top. */
+@media (orientation: portrait) {
+  .body {
+    align-items: flex-end;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
 }
 </style>

@@ -191,6 +191,16 @@ export function createViewer(
   const queue: RTCIceCandidateInit[] = []
   let helloTimer: ReturnType<typeof setInterval> | null = null
   let tries = 0
+  // The video element can move (e.g. orientation flip relocates it from the pad's
+  // centre column to a portrait top region), so keep the last stream and re-point.
+  let el: HTMLVideoElement = videoEl
+  let lastStream: MediaStream | null = null
+  const paint = () => {
+    if (!lastStream) return
+    el.srcObject = lastStream
+    el.muted = true
+    el.play?.().catch(() => {})
+  }
 
   const report = () => {
     const st = pc.connectionState
@@ -201,9 +211,8 @@ export function createViewer(
   }
   pc.ontrack = (e) => {
     if (e.streams[0]) {
-      videoEl.srcObject = e.streams[0]
-      videoEl.muted = true
-      videoEl.play?.().catch(() => {})
+      lastStream = e.streams[0]
+      paint()
     }
   }
   pc.onicecandidate = (e) => {
@@ -258,6 +267,11 @@ export function createViewer(
   }, 2000)
 
   return {
+    /** Re-point the stream at a different <video> (it moved in the DOM). */
+    attach(next: HTMLVideoElement) {
+      el = next
+      paint()
+    },
     close() {
       if (helloTimer) clearInterval(helloTimer)
       for (const u of unsubs) u()
