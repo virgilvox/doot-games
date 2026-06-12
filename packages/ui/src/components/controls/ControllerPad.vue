@@ -126,52 +126,60 @@ const dirIds = computed(() => {
 </template>
 
 <style scoped>
-/* A real gamepad shape: shoulders along the top, then movement bottom-left, face
-   buttons bottom-right, system buttons bottom-center. Everything anchors to the
-   bottom (the thumb zone). The consumer scales the whole pad to fit its area, so
-   sizes here are the natural proportions, not viewport units. */
+/* A real gamepad shape that FILLS its container (no transform tricks): shoulders
+   pinned across the top, then a body that grows to fill the height with movement
+   hugging the left, faces hugging the right, and the system column centered. The
+   body is vertically centered so a short layout (NES) sits mid-screen instead of
+   clinging to an edge. Controls self-size with `vmin` clamps, so the whole pad
+   adapts to any phone without measuring anything. Mirrors the Doot emulator
+   prototype's `#pad`. */
 .pad {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  height: 100%;
+  gap: 6px;
   user-select: none;
   touch-action: none;
+  overflow: hidden;
 }
 .shoulders {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
+  gap: 10px;
 }
 .sh-grp {
   display: flex;
-  gap: 14px;
+  gap: clamp(8px, 2.4vmin, 16px);
 }
 .body {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  gap: 28px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  /* Edge margin scales with width: keeps the thumb clusters off the very edge
+     (natural for a held pad) and absorbs any cluster that overhangs its box, so
+     a wide layout (N64 C-buttons) never clips against the screen edge. */
+  padding: 4px clamp(10px, 2.6vw, 30px);
 }
 .zone {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-}
-.zone.left {
-  justify-self: start;
-}
-.zone.right {
-  justify-self: end;
+  justify-content: center;
+  gap: clamp(16px, 4.4vmin, 28px);
 }
 .zone.mid {
-  align-self: end;
-  gap: 12px;
+  gap: 10px;
+  max-width: min(52vw, 440px);
 }
 .system {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-items: center;
 }
 </style>

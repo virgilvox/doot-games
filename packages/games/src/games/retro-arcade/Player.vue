@@ -1,12 +1,15 @@
 <script setup lang="ts">
 /**
- * Retro Arcade phone controller. A full-screen landscape gamepad: a thin status
- * strip on top, then the kit's ControllerPad for the live console, auto-scaled to
- * fill the screen so it never overflows or leaves a giant gap. Reads the console
- * from `/x/meta` and this phone's seat from `/x/assign/<pid>`, and forwards every
- * input to the host over `/x/in/<pid>` (a logical button) and `/x/axis/<pid>` (a
- * stick); touch and a plugged-in gamepad emit the same events. When the host
- * hot-swaps a console, `meta` changes and the pad re-skins and re-fits.
+ * Retro Arcade phone controller. A full-screen landscape gamepad built the way the
+ * Doot emulator prototype does it: the controller is a `100dvh` flex column with a
+ * thin status strip on top and the kit's ControllerPad filling the rest, the
+ * controls self-sizing with `vmin` clamps so they fit any phone with no measuring
+ * or transforms. It reads the console from `/x/meta` and this phone's seat from
+ * `/x/assign/<pid>`, and forwards every input to the host over `/x/in/<pid>` (a
+ * logical button) and `/x/axis/<pid>` (a stick); touch and a plugged-in gamepad
+ * emit the same events. When the host hot-swaps a console, `meta` changes and the
+ * pad re-skins. Watching the game is opt-in and renders INSIDE the pad's centre
+ * column (never over a button).
  */
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GamePlugin } from '@doot-games/sdk'
@@ -19,11 +22,10 @@ import {
   type GamepadBridge,
   GamepadMapper,
   type GamepadMapping,
-  Segmented,
   ToggleSwitch,
   createGamepadBridge,
 } from '@doot-games/ui'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { layoutFor } from './layouts'
 import { consoleSpec } from './logic'
 import { type ViewerState, createViewer, webrtcSupported } from './stream'
@@ -64,36 +66,6 @@ function onAxis(e: AnalogInputEvent) {
   room.publishExtra(`axis/${myId.value}`, { side: e.side, x: e.x, y: e.y })
 }
 
-// ── Auto-fit the gamepad to the available area, with a user size preference ───
-// The gamepad renders at its natural size; a transform scales it to fill the
-// space (measured via offsetWidth/Height, which ignore the transform). The size
-// setting is how much of that fit to use, so bigger never overflows.
-const FILL: Record<string, number> = { S: 0.64, M: 0.76, L: 0.88, XL: 1.0 }
-const sizeKey = ref('L')
-const fitArea = ref<HTMLElement | null>(null)
-const gamepad = ref<HTMLElement | null>(null)
-const rawFit = ref(1)
-const fitScale = computed(() => Math.max(0.3, rawFit.value * (FILL[sizeKey.value] ?? 0.88)))
-function fit() {
-  const a = fitArea.value
-  const g = gamepad.value
-  if (!a || !g) return
-  const w = g.offsetWidth
-  const h = g.offsetHeight
-  if (!w || !h) return
-  rawFit.value = Math.min(a.clientWidth / w, a.clientHeight / h)
-}
-let ro: ResizeObserver | null = null
-const SIZE_KEY = 'doot_arcade_size'
-watch(sizeKey, (v) => {
-  try {
-    localStorage.setItem(SIZE_KEY, v)
-  } catch {
-    /* ignore */
-  }
-})
-// Re-fit when the console (and thus the pad's natural size) changes.
-watch(layout, () => nextTick(fit))
 const showSettings = ref(false)
 
 // ── Physical gamepad on the phone ────────────────────────────────────────────
@@ -139,12 +111,6 @@ function onRemap(m: GamepadMapping) {
 }
 
 onMounted(() => {
-  try {
-    const saved = localStorage.getItem(SIZE_KEY)
-    if (saved && saved in FILL) sizeKey.value = saved
-  } catch {
-    /* storage blocked */
-  }
   room.onExtra('meta', (v) => {
     meta.value = (v as Meta | null) ?? null
   })
@@ -158,24 +124,10 @@ onMounted(() => {
     /* ignore */
   }
   startBridge()
-  if (typeof ResizeObserver !== 'undefined') {
-    ro = new ResizeObserver(() => fit())
-  }
-  watch(
-    [fitArea, gamepad],
-    () => {
-      ro?.disconnect()
-      if (fitArea.value) ro?.observe(fitArea.value)
-      if (gamepad.value) ro?.observe(gamepad.value)
-      nextTick(fit)
-    },
-    { immediate: true },
-  )
 })
 onUnmounted(() => {
   bridge?.stop()
   viewer?.close()
-  ro?.disconnect()
 })
 
 // ── Watch the game while you play (opt-in spectator stream) ───────────────────
@@ -192,6 +144,7 @@ function toggleWatch() {
     return
   }
   watching.value = true
+  showSettings.value = false
   requestAnimationFrame(() => {
     if (streamVideo.value) viewer = createViewer(room, streamVideo.value, (s) => (watchState.value = s))
   })
@@ -241,39 +194,37 @@ function popoutStream() {
         </span>
       </header>
 
-      <div ref="fitArea" class="fit-area">
-        <!-- Only shown in portrait: a landscape pad is cramped held upright. -->
-        <div class="rotate-hint">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="7" width="18" height="10" rx="2" />
-            <path d="M7 3.5a4 4 0 0 1 4 0M7 20.5a4 4 0 0 0 4 0" />
-          </svg>
-          Rotate your phone to landscape for the full controller
-        </div>
-
-        <!-- Watch-while-you-play: the live screen floats above the controls. -->
-        <div v-if="watching" class="watch">
-          <video ref="streamVideo" class="watch-vid" playsinline autoplay muted />
-          <div class="watch-bar">
-            <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
-            <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+      <ControllerPad class="pad-fill" :layout="layout" @input="onInput" @axis="onAxis">
+        <!-- The live screen sits in the centre column, above the system buttons,
+             so it never overlaps the d-pad or face buttons. -->
+        <template v-if="watching" #stream>
+          <div class="watch">
+            <video ref="streamVideo" class="watch-vid" playsinline autoplay muted />
+            <div class="watch-bar">
+              <span class="watch-state mono">{{ watchState === 'connected' ? 'live' : watchState === 'failed' ? 'no signal' : 'connecting' }}</span>
+              <button class="link-btn" @click="fullscreenStream">Fullscreen</button>
+            </div>
           </div>
-        </div>
+        </template>
+      </ControllerPad>
 
-        <div class="holder">
-          <div ref="gamepad" class="gamepad" :style="{ transform: `scale(${fitScale})` }">
-            <ControllerPad :layout="layout" @input="onInput" @axis="onAxis" />
-          </div>
-        </div>
+      <!-- Only shown in portrait: a landscape pad is cramped held upright. -->
+      <div class="rotate-hint">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="7" width="18" height="10" rx="2" />
+          <path d="M7 3.5a4 4 0 0 1 4 0M7 20.5a4 4 0 0 0 4 0" />
+        </svg>
+        Rotate to landscape for the full controller
       </div>
+
+      <!-- Quiet gamepad hint -->
+      <button v-if="gamepadName && !showSettings" class="gp-hint" @click="showSettings = true">
+        Controller detected, tap to use {{ gamepadName }}
+      </button>
 
       <!-- Settings sheet -->
       <div v-if="showSettings" class="sheet" @click.self="showSettings = false">
         <div class="sheet-card">
-          <div class="srow">
-            <span class="slbl">Button size</span>
-            <Segmented v-model="sizeKey" :options="[{ value: 'S', label: 'S' }, { value: 'M', label: 'M' }, { value: 'L', label: 'L' }, { value: 'XL', label: 'XL' }]" />
-          </div>
           <div v-if="gamepadName" class="srow">
             <span class="slbl">{{ gamepadName }}</span>
             <div class="gp-ctrls">
@@ -295,11 +246,6 @@ function popoutStream() {
         </div>
       </div>
 
-      <!-- Quiet gamepad hint -->
-      <button v-if="gamepadName && !showSettings" class="gp-hint" @click="showSettings = true">
-        Controller detected, tap to use {{ gamepadName }}
-      </button>
-
       <div v-if="remapOpen" class="modal" @click.self="remapOpen = false">
         <GamepadMapper :layout="layout" :model-value="remap" @update:model-value="onRemap" @done="remapOpen = false" />
       </div>
@@ -308,11 +254,13 @@ function popoutStream() {
 </template>
 
 <style scoped>
-/* Full-screen: escape the narrow phone column so the controller owns the device. */
+/* Full-screen: escape the narrow phone column so the controller owns the device,
+   and fill the viewport height like the prototype's `#pad`. */
 .arcade-player {
   position: fixed;
   inset: 0;
   z-index: 30;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -395,66 +343,24 @@ function popoutStream() {
   cursor: pointer;
 }
 
-/* The fit area holds the auto-scaled gamepad, anchored to the bottom. */
-.fit-area {
-  position: relative;
+/* The pad fills the rest of the screen. Tight side padding (like the prototype's
+   #pad) so the widest layout (N64) never clips; the bottom keeps the safe area. */
+.pad-fill {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-}
-.holder {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: max(6px, env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: center;
-  padding: 0 max(8px, env(safe-area-inset-left));
-}
-.rotate-hint {
-  display: none;
-}
-@media (orientation: portrait) {
-  .rotate-hint {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 4;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    width: max-content;
-    max-width: calc(100% - 24px);
-    padding: 9px 14px;
-    border: var(--bd) solid var(--line);
-    border-radius: 999px;
-    background: var(--surface-2);
-    color: var(--ink-soft);
-    font-size: 12px;
-    font-weight: 600;
-    text-align: left;
-    line-height: 1.3;
-  }
-}
-.gamepad {
-  transform-origin: bottom center;
+  padding: 2px 6px max(6px, env(safe-area-inset-bottom));
 }
 
-/* Stream overlay (watch-while-play) */
+/* Stream embedded in the pad's centre column (watch-while-play). */
 .watch {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  width: min(52vw, 320px);
+  width: 100%;
 }
 .watch-vid {
   width: 100%;
+  max-height: 46vh;
   aspect-ratio: 4 / 3;
   object-fit: contain;
   background: #000;
@@ -472,7 +378,7 @@ function popoutStream() {
   color: var(--mute);
 }
 
-/* Settings sheet (overlay, doesn't reflow the controller) */
+/* Settings sheet (overlay) */
 .sheet {
   position: absolute;
   inset: 0;
@@ -500,9 +406,6 @@ function popoutStream() {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-}
-.srow.end {
-  justify-content: space-between;
 }
 .slbl {
   font-family: var(--font-mono);
@@ -539,6 +442,31 @@ function popoutStream() {
   font-size: 11px;
   font-family: var(--font-mono);
   cursor: pointer;
+}
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) {
+  .rotate-hint {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: max-content;
+    max-width: calc(100% - 24px);
+    padding: 9px 14px;
+    border: var(--bd) solid var(--line);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
 }
 .modal {
   position: fixed;

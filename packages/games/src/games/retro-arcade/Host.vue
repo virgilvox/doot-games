@@ -61,6 +61,8 @@ const spec = computed<ConsoleSpec>(() => consoleSpec(consoleKey.value))
 const dragHot = ref(false)
 const booted = ref(false)
 const toast = ref('')
+/** The "Swap ROM" modal (keeps the live view uncluttered). */
+const swapOpen = ref(false)
 
 function setToast(m: string) {
   toast.value = m
@@ -115,6 +117,13 @@ function copyShare() {
     .then(() => setToast('Share link copied'))
     .catch(() => setToast('Copy failed'))
 }
+/** Copy the player join link (what the QR encodes), the common "send it to people" action. */
+function copyJoin() {
+  navigator.clipboard
+    ?.writeText(joinUrl.value)
+    .then(() => setToast('Join link copied'))
+    .catch(() => setToast('Copy failed'))
+}
 
 // ── Emulator ─────────────────────────────────────────────────────────────────
 let emu: EmulatorController | null = null
@@ -157,6 +166,7 @@ function swap() {
   for (const k of Object.keys(axisPrev)) delete axisPrev[Number(k)]
   publishMeta()
   reconcileSeats() // republish so phones rebuild their pad for the new console
+  swapOpen.value = false
   setToast(`Loaded ${romName.value}`)
 }
 
@@ -472,19 +482,32 @@ function endResize() {
     </section>
   </div>
 
-  <!-- LIVE: the emulator on the big screen, join QR beside it, controls below -->
+  <!-- LIVE: the emulator on the big screen, a compact seat strip under it, and a
+       lean join card beside it (QR + copy link + swap). Swap details live in a modal. -->
   <div v-else class="live">
     <div class="top">
-      <div class="screen-wrap" :style="{ '--screen-w': screenW ? `${screenW}px` : undefined }">
-        <div id="arcade-screen" class="screen" />
-        <div
-          class="resize-h"
-          title="Drag to resize the screen"
-          @pointerdown="startResize"
-          @pointermove="onResize"
-          @pointerup="endResize"
-          @pointercancel="endResize"
-        />
+      <div class="screen-col" :style="{ '--screen-w': screenW ? `${screenW}px` : undefined }">
+        <div class="screen-wrap">
+          <div id="arcade-screen" class="screen" />
+          <div
+            class="resize-h"
+            title="Drag to resize the screen"
+            @pointerdown="startResize"
+            @pointermove="onResize"
+            @pointerup="endResize"
+            @pointercancel="endResize"
+          />
+        </div>
+        <ul class="seatbar" :aria-label="`Controllers, ${filledSeats} of ${spec.max} taken`">
+          <li v-for="(s, i) in seats" :key="i" class="chip" :class="{ on: !!s }">
+            <span class="cp">P{{ i + 1 }}</span>
+            <span class="cn">
+              <template v-if="s?.kind === 'gamepad'"><span class="pad-tag">PAD</span> {{ s.name }}</template>
+              <template v-else-if="s?.kind === 'phone'">{{ s.name }}</template>
+              <template v-else>open</template>
+            </span>
+          </li>
+        </ul>
       </div>
 
       <aside class="join">
@@ -493,44 +516,58 @@ function endResize() {
           <ConnChip :status="room.connected.value ? 'connected' : 'connecting'" />
         </div>
         <QrCode :value="joinUrl" :size="150" />
-        <div class="code-line">
-          <span class="big-code">{{ room.runtime.room }}</span>
-        </div>
+        <span class="big-code">{{ room.runtime.room }}</span>
         <p class="join-url mono">{{ joinUrl.replace(/^https?:\/\//, '') }}</p>
         <p class="join-count">
           <b>{{ filledSeats }}</b> / {{ spec.max }} controllers
           <span v-if="viewerCount" class="watching">&middot; {{ viewerCount }} watching</span>
         </p>
-        <ul class="seats">
-          <li v-for="(s, i) in seats" :key="i" class="seat" :class="{ on: !!s }">
-            <span class="pnum">P{{ i + 1 }}</span>
-            <span class="who">
-              <template v-if="s?.kind === 'gamepad'"><span class="pad-tag">PAD</span> {{ s.name }}</template>
-              <template v-else-if="s?.kind === 'phone'">{{ s.name }}</template>
-              <template v-else>open</template>
-            </span>
-          </li>
-        </ul>
-        <p class="seat-note">A gamepad on this machine and a phone share these slots, first in takes P1.</p>
+        <div class="join-btns">
+          <DButton size="sm" block @click="copyJoin">Copy link</DButton>
+          <DButton variant="ghost" size="sm" block @click="swapOpen = true">Swap ROM</DButton>
+        </div>
+        <p class="watch-note mono">Watch live at /watch/{{ room.runtime.room }}</p>
       </aside>
     </div>
 
-    <div class="panel card swap-card">
-      <div class="swap-now">
-        <span class="card-k">Now playing</span>
-        <span class="np">{{ romName }} &middot; {{ spec.label }}</span>
-      </div>
-      <div class="swap-controls">
-        <label class="swap-drop" :class="{ hot: dragHot }" @dragenter.prevent="dragHot = true" @dragover.prevent="dragHot = true" @dragleave.prevent="dragHot = false" @drop="onDrop">
+    <!-- Swap ROM modal -->
+    <div v-if="swapOpen" class="modal" @click.self="swapOpen = false">
+      <div class="modal-card">
+        <div class="modal-h">
+          <h3>Swap ROM</h3>
+          <button class="x" aria-label="Close" @click="swapOpen = false">&times;</button>
+        </div>
+        <p class="modal-now">Now playing <b>{{ romName }}</b> &middot; {{ spec.label }}</p>
+        <label
+          class="drop"
+          :class="{ hot: dragHot }"
+          @dragenter.prevent="dragHot = true"
+          @dragover.prevent="dragHot = true"
+          @dragleave.prevent="dragHot = false"
+          @drop="onDrop"
+        >
           <input type="file" hidden @change="takeFile(($event.target as HTMLInputElement).files?.[0])" />
-          Drop a ROM to swap
+          <strong>Drop a ROM</strong> or tap to pick a file
+          <small>.nes .sfc .smc .n64 .z64 .gb .gbc .gba .md .pce .iso .cue ...</small>
         </label>
-        <input type="text" class="swap-url" placeholder="or paste a ROM URL" @input="takeUrl(($event.target as HTMLInputElement).value)" />
-        <select v-model="consoleKey" class="swap-sys"><option v-for="c in CONSOLE_LIST" :key="c.key" :value="c.key">{{ c.label }}</option></select>
-        <DButton variant="primary" size="sm" :disabled="!romSrc" @click="swap">Swap ROM</DButton>
-        <DButton v-if="shareUrl" variant="ghost" size="sm" @click="copyShare">Share link</DButton>
+        <div class="row">
+          <label class="field">
+            <span class="flbl">or paste a ROM URL</span>
+            <input type="text" placeholder="https://example.com/game.nes" autocomplete="off" spellcheck="false" @input="takeUrl(($event.target as HTMLInputElement).value)" />
+          </label>
+          <label class="field sysf">
+            <span class="flbl">Console</span>
+            <select v-model="consoleKey" class="swap-sys"><option v-for="c in CONSOLE_LIST" :key="c.key" :value="c.key">{{ c.label }}</option></select>
+          </label>
+        </div>
+        <p v-if="romSrc" class="detected">Ready &middot; <b>{{ romName }}</b> &middot; {{ spec.label }}</p>
+        <div class="modal-actions">
+          <DButton variant="primary" :disabled="!romSrc" @click="swap">Swap ROM</DButton>
+          <DButton v-if="shareUrl" variant="ghost" @click="copyShare">Copy share link</DButton>
+          <DButton variant="ghost" @click="swapOpen = false">Cancel</DButton>
+        </div>
+        <p class="modal-note">Swapping reloads the game for everyone; phones re-skin to the new console's controller automatically.</p>
       </div>
-      <p class="swap-note">Swapping reloads the game for everyone; phones re-skin to the new console automatically. Anyone can watch live at <b>/watch/{{ room.runtime.room }}</b>.</p>
     </div>
 
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
@@ -559,46 +596,48 @@ input[type='text'], select { font-family: var(--font-mono); font-size: 13px; col
 
 .live { flex: 1; display: flex; flex-direction: column; gap: 16px; }
 
-/* Screen + join card sit side by side. The screen carries its own width (drag to
-   resize); the join card is a fixed, compact column. They wrap (card drops below)
-   only when the screen is grown large enough that there's no room beside it. */
+/* Screen (with a seat strip under it) sits beside a lean join card. The screen
+   carries its own resizable width; the card is a fixed compact column. They wrap
+   (card drops below) only once the screen is grown past the room beside it. */
 .top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.screen-wrap { position: relative; flex: 0 0 auto; width: var(--screen-w, min(720px, 100%)); max-width: 100%; }
+.screen-col { flex: 0 0 auto; width: var(--screen-w, min(720px, 100%)); max-width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.screen-wrap { position: relative; width: 100%; }
 .screen { width: 100%; aspect-ratio: 4 / 3; background: #000; border: var(--bd) solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .resize-h { position: absolute; right: -6px; bottom: -6px; width: 26px; height: 26px; cursor: nwse-resize; touch-action: none; border-radius: 0 0 8px 0; border-right: 4px solid var(--primary); border-bottom: 4px solid var(--primary); opacity: 0.7; }
 .resize-h:hover { opacity: 1; }
 
-/* Compact join aside */
+/* Compact controller-seat strip directly under the screen. */
+.seatbar { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.chip { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 7px 10px; border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 6px); background: var(--surface); }
+.chip.on { background: var(--surface-2); border-color: var(--primary); }
+.cp { font-family: var(--font-display); font-weight: 800; color: var(--mute); font-size: 12px; flex: none; }
+.chip.on .cp { color: var(--primary); }
+.cn { font-family: var(--font-mono); font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pad-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--primary-ink); background: var(--c4); border-radius: 4px; padding: 1px 5px; flex: none; }
+
+/* Lean join card */
 .join { flex: 0 0 260px; min-width: 220px; max-width: 300px; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px; border: var(--bd) solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
 .join-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .join-lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
-.code-line { display: flex; justify-content: center; }
 .big-code { font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 4vw, 46px); letter-spacing: 0.14em; color: var(--ink); line-height: 1; }
 .join-url { font-size: 11px; color: var(--mute); word-break: break-all; text-align: center; }
 .join-count { font-size: 13px; color: var(--ink-soft); }
 .join-count b { color: var(--primary); font-weight: 800; }
 .watching { color: var(--c5); font-weight: 700; }
-.seats { list-style: none; margin: 2px 0 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
-.seat { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: var(--bd) solid var(--line); border-radius: calc(var(--radius) - 6px); background: var(--surface); }
-.seat.on { background: var(--surface-2); }
-.pnum { font-family: var(--font-display); font-weight: 800; color: var(--mute); font-size: 12px; width: 28px; }
-.seat.on .pnum { color: var(--primary); }
-.who { font-family: var(--font-mono); font-size: 12px; flex: 1; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
-.pad-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--primary-ink); background: var(--c4); border-radius: 4px; padding: 1px 5px; }
-.seat-note { margin-top: 4px; font-size: 11px; color: var(--mute); line-height: 1.4; text-align: center; }
+.join-btns { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.watch-note { font-size: 10px; color: var(--mute); text-align: center; }
 
-/* Swap controls live in one compact bar below the emulator. */
-.swap-card { padding: 16px; }
-.swap-now { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.card-k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); }
-.np { font-weight: 800; font-size: 15px; }
-.swap-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.swap-drop { flex: 1 1 200px; border: var(--bd) dashed var(--line); border-radius: calc(var(--radius) - 4px); padding: 11px 14px; text-align: center; font-size: 12px; color: var(--ink-soft); cursor: pointer; }
-.swap-drop.hot { border-color: var(--primary); background: var(--surface-2); }
-.swap-url { flex: 1 1 200px; font-size: 12px; }
-.swap-sys { flex: 0 0 120px; font-size: 12px; }
-.swap-note { margin-top: 12px; font-size: 12px; color: var(--mute); line-height: 1.45; }
-.swap-note b { font-family: var(--font-mono); color: var(--ink-soft); }
-.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--primary); color: var(--primary-ink); border-radius: 999px; padding: 9px 18px; font-weight: 800; font-size: 13px; box-shadow: var(--shadow-sm); }
+/* Swap modal (keeps the live view uncluttered) */
+/* Above the EmulatorJS menu bar, which mounts its own high-z chrome. */
+.modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; background: color-mix(in srgb, var(--ink) 36%, transparent); }
+.modal-card { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 22px; border: var(--bd) solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+.modal-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.modal-h h3 { font-family: var(--font-display); font-weight: 800; font-size: 18px; }
+.x { width: 34px; height: 34px; border-radius: 50%; border: var(--bd) solid var(--line); background: var(--surface); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
+.modal-now { font-size: 13px; color: var(--ink-soft); margin-bottom: 16px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.modal-note { margin-top: 12px; font-size: 12px; color: var(--mute); line-height: 1.45; }
+.swap-sys { font-size: 13px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--primary); color: var(--primary-ink); border-radius: 999px; padding: 9px 18px; font-weight: 800; font-size: 13px; box-shadow: var(--shadow-sm); z-index: 10000; }
 @media (max-width: 900px) { .lobby { grid-template-columns: 1fr; } }
 </style>

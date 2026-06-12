@@ -57,6 +57,23 @@ async function noOverflow(page, label) {
   else ok(`${label}: no horizontal overflow`)
 }
 
+// The controller's body has `overflow:hidden`, so a layout that doesn't fit gets
+// clipped (the original N64 bug). Compare scroll vs client size to catch it.
+async function padFits(page, label) {
+  const c = await page.evaluate(() => {
+    const b = document.querySelector('.body')
+    if (!b) return null
+    return {
+      vover: Math.round(b.scrollHeight - b.clientHeight),
+      hover: Math.round(b.scrollWidth - b.clientWidth),
+    }
+  })
+  if (!c) errors.push(`${label}: controller body not found`)
+  else if (c.vover > 2) errors.push(`${label}: controller clipped vertically by ${c.vover}px`)
+  else if (c.hover > 2) errors.push(`${label}: controller clipped horizontally by ${c.hover}px`)
+  else ok(`${label}: controller fits, no clipping`)
+}
+
 async function run() {
   const browser = await chromium.launch()
   try {
@@ -98,7 +115,7 @@ async function run() {
     step('Host boots & opens the room')
     await host.click('button:has-text("Boot & open room")')
     await host.waitForSelector('#arcade-screen', { timeout: 60000 })
-    await host.waitForSelector('.seats .seat', { timeout: 60000 })
+    await host.waitForSelector('.seatbar .chip', { timeout: 60000 })
     // Spy on the emulator input so we can prove a phone press actually reaches it
     // (a dummy ROM has no real gameManager; the readiness poll picks up this spy).
     await host.evaluate(() => {
@@ -139,20 +156,11 @@ async function run() {
     if (pressedA) ok(`pressing A drove simulateInput (${sims.length} calls)`)
     else errors.push(`pressing A did NOT reach the emulator (sims: ${JSON.stringify(sims)})`)
 
-    step('Phone resizes its buttons (the size control scales the pad)')
-    const before = await p1.locator('.dpad').boundingBox()
-    await p1.click('.cog')
-    await p1.click('.sheet .segmented button:has-text("XL")')
-    await p1.waitForTimeout(200)
-    const after = await p1.locator('.dpad').boundingBox()
-    if (after && before && after.width > before.width + 4)
-      ok(
-        `button-size XL scaled the d-pad ${Math.round(before.width)}px -> ${Math.round(after.width)}px`,
-      )
-    else
-      errors.push(
-        `size control did not scale the pad (before ${before?.width} after ${after?.width})`,
-      )
+    step('Controller fills the screen in landscape with no clipping')
+    await p1.setViewportSize({ width: 844, height: 390 })
+    await p1.waitForTimeout(400)
+    await padFits(p1, 'NES landscape 844x390')
+    await noOverflow(p1, 'NES landscape 844x390')
 
     step('Second phone takes seat P2')
     const p2 = await (await browser.newContext({ viewport: { width: 390, height: 780 } })).newPage()
@@ -161,13 +169,15 @@ async function run() {
     await joinForm(p2, 'Boo')
     await p2.waitForSelector('.dpad', { timeout: 60000 })
     await host.waitForTimeout(400)
-    const filled = await host.locator('.seat.on').count()
-    if (filled >= 2) ok(`seat panel shows ${filled} filled slots (phones share the pool)`)
+    const filled = await host.locator('.chip.on').count()
+    if (filled >= 2) ok(`seat strip shows ${filled} filled slots (phones share the pool)`)
     else errors.push(`expected 2 filled seats, got ${filled}`)
 
     step('Hot-swap to a 1-controller console (Game Boy): P2 loses its seat')
-    await host.selectOption('.swap-sys', 'gb')
-    await host.click('button:has-text("Swap ROM")')
+    // Swap controls live in a modal opened from the join card's "Swap ROM" button.
+    await host.click('.join-btns button:has-text("Swap ROM")')
+    await host.selectOption('.modal .swap-sys', 'gb')
+    await host.click('.modal-actions button:has-text("Swap ROM")')
     // P1 keeps its seat (re-skins to the GB pad); P2 is evicted past the new max.
     let p2Full = false
     for (let i = 0; i < 30; i++) {
@@ -187,13 +197,14 @@ async function run() {
     await p1.waitForSelector('.dpad', { timeout: 60000 })
     ok('P1 kept its controller across the swap')
 
-    step('Overflow checks (default size, and XL contained)')
-    await p1.click('.sheet .segmented button:has-text("M")')
-    await p1.waitForTimeout(150)
-    await noOverflow(p1, 'phone 390px (size M)')
-    await p1.click('.sheet .segmented button:has-text("XL")')
-    await p1.waitForTimeout(150)
-    await noOverflow(p1, 'phone 390px (size XL contained)')
+    step('Tall layout (N64) also fits the screen in landscape, no clipping')
+    await host.click('.join-btns button:has-text("Swap ROM")')
+    await host.selectOption('.modal .swap-sys', 'n64')
+    await host.click('.modal-actions button:has-text("Swap ROM")')
+    await p1.waitForSelector('.dpad', { timeout: 60000 })
+    await p1.waitForTimeout(500)
+    await padFits(p1, 'N64 landscape 844x390')
+    await noOverflow(p1, 'N64 landscape 844x390')
     await noOverflow(host, 'host 1440px')
 
     await p1.screenshot({ path: '/tmp/arcade-player.png' })
