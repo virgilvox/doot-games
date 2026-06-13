@@ -5,8 +5,8 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-13. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **PIT PARTY AUDIT PASS 2: built + gate green on branch `pit-party-polish-2` (commit
-> `0b53f4c`), NOT pushed/deployed (owner deploys on their call).** The headline find: the
+> **PIT PARTY AUDIT PASS 2: MERGED to `main` + DEPLOYED (2026-06-12, commit `0b53f4c`,
+> fast-forwarded from `pit-party-polish-2`; gate green at ship).** The headline find: the
 > centripetal Catmull-Rom in `sim/track.ts` had WRONG Barry-Goldman weights (b1/b2 divided
 > by single knot intervals instead of t2-t0 / t3-t1), so the spline was not C1 and the road
 > kinked at every control point - the actual root cause of the "janky road paths" and the
