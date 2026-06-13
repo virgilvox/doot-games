@@ -5,6 +5,41 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-13. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **PIT PARTY AUDIT PASS 2: built + gate green on branch `pit-party-polish-2` (commit
+> `0b53f4c`), NOT pushed/deployed (owner deploys on their call).** The headline find: the
+> centripetal Catmull-Rom in `sim/track.ts` had WRONG Barry-Goldman weights (b1/b2 divided
+> by single knot intervals instead of t2-t0 / t3-t1), so the spline was not C1 and the road
+> kinked at every control point - the actual root cause of the "janky road paths" and the
+> Sprue wall-judder symptom patched earlier. Fixed, and all 5 courses were re-authored on
+> the correct spline (neon is now a true CITY STREET circuit: avenues + cross streets +
+> collidable tower-block canyons + street lamps + sign gantries; ember's old layout
+> self-overlapped; prism is all wide sweepers since a void course should never demand a
+> hairpin). Sim fixes found by a new all-CPU race probe: prism races NEVER ended (CPUs fell
+> at the same bend forever while fall-respawn loops inflated `progress`, which also broke
+> ranking); now respawn charges the lost distance back, stuck CPUs get rescued to their
+> last gate after 18s, and the AI reads the bend ahead to slow IN ADVANCE (leader pace went
+> from 5-8 u/s wall-grinding to 20-33 u/s). logic.test.ts (26 tests) now pins: C1
+> continuity + min turn radius per map, props fully off-road with SCALED collision radii,
+> all-CPU races finishing on every course at pace, fall progress charge-back, and the
+> stuck-CPU rescue. `track-viz.test.ts` is a map-authoring dev tool (SVG + curvature dump
+> to /tmp). Polish: shared colour-coded item icons (`items-art.ts`) on host + phone, '?'
+> item boxes, leader item roll skews defensive, faster wrench; select grid greys out
+> TAKEN drivers (roster byPid + host first-come-first-served); standings ladder on 1-2 pane
+> races; minimap finish tick; mid-race joiners see "race in progress" and get seated during
+> the finish screen (cups no longer strand them); speed-aware chase cam; engine-drone
+> crowd ducking + race music lowered; portraits redrawn with vignettes/shading/signature
+> details; small driver-model accents; results chip no longer covers the name. The smoke
+> (`scripts/pit-party-smoke.mjs`) now drives a FULL race to the results screen via a
+> dev-only `window.__pitRace` handle (steering assist on the kb kart), screenshots
+> lobby/select/count/HUD/drive/results to /tmp, asserts 8 placed finishers, and verifies a
+> 3-race cup advances course (PP_QUICK=1 for the short run). Gate at commit: 776 unit
+> tests, `pnpm -r typecheck` clean, web build green, smoke PASS. NOTE for headless smoke
+> work: a backgrounded tab throttles rAF (the sim clock), and SwiftShader dilates sim time
+> vs wall time on big viewports - keep the host tab foregrounded and the viewport modest.
+> STILL OUTSTANDING: real-phone controller feel pass, audio balance check on real
+> speakers, run-on-phone netcode (deferred), TURN for the stream copy, deck-feedable
+> course/character packs.
+
 > **PIT PARTY: SHIPPED + DEPLOYED to prod (2026-06-12/13).** The kart racer below was
 > committed (`1a41bcc`) and deployed, then a playtest-driven polish pass (`bfeeb30`) shipped
 > on top. Both deploys green. Live at doot.games/host/pit-party, featured-eligible (flagship +
