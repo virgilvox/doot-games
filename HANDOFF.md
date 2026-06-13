@@ -2,11 +2,37 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-12. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-13. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **AUDIT PASS + 3 NEW CHARACTERS + QUIZ-OR-DIE TTS FIX (2026-06-12, follows the Pit Party
-> build below; full gate still green, not yet committed).**
+> **PIT PARTY: SHIPPED + DEPLOYED to prod (2026-06-12/13).** The kart racer below was
+> committed (`1a41bcc`) and deployed, then a playtest-driven polish pass (`bfeeb30`) shipped
+> on top. Both deploys green. Live at doot.games/host/pit-party, featured-eligible (flagship +
+> buildConfig). Full gate stays green (771 tests incl. 17 pit-party sim tests, `pnpm -r
+> typecheck` 0 errors, web build). **A real-browser smoke now exists: `scripts/pit-party-smoke.mjs`
+> (run `pnpm dev`, then `node scripts/pit-party-smoke.mjs`) drives host+phone through a full
+> race and screenshots the controller/select to /tmp.** Polish pass (`bfeeb30`) fixed, all from
+> live playtest:
+> - **Controller rebuilt** with the `@doot-games/ui` kit (dished Thumbstick + rounded-rect
+>   PadButtons themed to the KERF palette via CSS-var overrides on the pad root). Default scheme
+>   is now **joystick** (push up to accelerate); STICK/WHEEL/AUTO toggle. The old one was ugly.
+> - **Inverted steering fixed:** the chase cam looks down +z, mirroring world +x to screen-LEFT,
+>   so `Host.vue` negates the human steer input (`k.input.steer = -d.input.s`); AI is untouched.
+> - **GO overlay no longer sticks** on phones (host was sending countdown `c=0` for the whole
+>   race; now gated to the `goFlash` window + phone auto-hide).
+> - **Results screen** redesigned compact (two columns race+cup, small square chips, fits screen).
+> - **Cart previews** (side-view silhouettes, `carts/preview.ts`) in the phone picker; **keyboard
+>   driver** can pick driver/kart with arrows + a control legend; **copy-join-link** button on the
+>   host lobby; **selecting a course in the lobby rebuilds the 3D preview**; **Sprue/walled-course
+>   jank fixed** (the rail response stopped per-frame heading judder); **cover art redesigned**.
+> - **REMAINING / next polish targets:** run-on-phone netcode (still deferred); TURN for the
+>   stream copy; a deck-feedable course/character pack; per-race course pick in a cup (today it
+>   auto-advances `MAPS`); the parked block is local to the folder (deliberate isolation, not in
+>   `blocks/`); tune kart feel + AI difficulty on real hardware; verify the controller on real
+>   phones (only headless-smoke-verified).
+
+> **AUDIT PASS + 3 NEW CHARACTERS + QUIZ-OR-DIE TTS FIX (2026-06-12, folded into the deploy
+> above; superseded by the SHIPPED note).**
 > - **Pit Party audit fixes:** the Vue<->relay glue bugs are fixed - a phone's driver/kart
 >   pick can no longer be dropped by the join-poll race (syncDrivers runs before subscribe +
 >   the pick handler creates the driver if missing + seats are always published); the phone no
