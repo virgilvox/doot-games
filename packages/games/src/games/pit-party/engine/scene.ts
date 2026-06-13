@@ -381,9 +381,14 @@ export class PitEngine {
     }
     const fx = Math.sin(k.heading)
     const fz = Math.cos(k.heading)
-    const tx = k.x - fx * 6.5
-    const ty = k.y + 3.2
-    const tz = k.z - fz * 6.5
+    // speed-aware rig: pull back + rise a touch at speed (sense of pace), and bias
+    // the look target into the turn (positive steer rotates toward the right
+    // vector, so the offset leads the corner)
+    const spN = Math.min(1.3, Math.abs(k.speed) / 34)
+    const dist = 5.9 + spN * 1.7
+    const tx = k.x - fx * dist
+    const ty = k.y + 3.0 + spN * 0.5
+    const tz = k.z - fz * dist
     if (!rig.init) {
       rig.pos.set(tx, ty, tz)
       rig.init = true
@@ -391,7 +396,10 @@ export class PitEngine {
     const t = 1 - Math.exp(-dt * 5.5)
     rig.pos.lerp(new T.Vector3(tx, ty, tz), t)
     rig.cam.position.copy(rig.pos)
-    rig.cam.lookAt(k.x + fx * 6, k.y + 1.3, k.z + fz * 6)
+    const rx = fz
+    const rz = -fx
+    const lead = k.steerVis * 1.6 * spN
+    rig.cam.lookAt(k.x + fx * 6 + rx * lead, k.y + 1.3, k.z + fz * 6 + rz * lead)
     const wantFov = k.boostT > 0 ? 71 : 62
     if (Math.abs(rig.fov - wantFov) > 0.3) {
       rig.fov += (wantFov - rig.fov) * Math.min(1, dt * 6)
@@ -435,6 +443,14 @@ export class PitEngine {
       i ? g.lineTo(X(p.x), Z(p.z)) : g.moveTo(X(p.x), Z(p.z))
     }
     g.closePath()
+    g.stroke()
+    // finish line tick
+    const fs = baked.samples[baked.finishIndex]!
+    g.strokeStyle = '#f7f3e8'
+    g.lineWidth = 3
+    g.beginPath()
+    g.moveTo(X(fs.x - fs.rx * (baked.roadW / 2)), Z(fs.z - fs.rz * (baked.roadW / 2)))
+    g.lineTo(X(fs.x + fs.rx * (baked.roadW / 2)), Z(fs.z + fs.rz * (baked.roadW / 2)))
     g.stroke()
     for (let i = 0; i < race.boxes.length; i++) {
       const bx = race.boxes[i]!

@@ -286,7 +286,9 @@ export class PitAudio {
     if (!e || !this.ctx) return
     const sp = Math.abs(k.speed)
     const t = this.ctx.currentTime
-    const target = running && !k.falling ? 0.024 + (sp / BASE_TOP) * 0.05 : 0
+    // duck each drone as more karts run so 4-way split-screen doesn't drown the music
+    const crowd = Math.max(0.55, 1 - (this.engines.size - 1) * 0.13)
+    const target = running && !k.falling ? (0.026 + (sp / BASE_TOP) * 0.055) * crowd : 0
     e.g.gain.setTargetAtTime(target, t, 0.08)
     const f0 = 44 + sp * 4 + (k.boostT > 0 ? 64 : 0)
     e.o1.frequency.setTargetAtTime(f0, t, 0.05)

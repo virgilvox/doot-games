@@ -7,7 +7,7 @@
  */
 import { aiThink, aiUseItem, makeAi } from './ai'
 import { type ItemWorld, type Projectile, type Slick, rollItem, updateItems, useItem } from './items'
-import { stepKart } from './physics'
+import { respawnAtCheckpoint, stepKart } from './physics'
 import type { BakedTrack, Kart, KartStats, RaceEvent } from './types'
 import { emptyInput } from './types'
 import { clamp, headingOf, lerp, makeRng } from './vec'
@@ -190,6 +190,22 @@ export class Race {
       const prevLap = k.lap
       stepKart(this.track, k, d, racing, this.events)
       if (racing && k.lap !== prevLap && !k.finished) this.onLap(k)
+      // Stuck rescue: a CPU that hasn't reached its next gate for ages (pinned on
+      // a prop, wedged in a corner, falling in a loop) gets fished back to its
+      // last checkpoint so the race always finishes.
+      const a = k.ai
+      if (racing && a && !k.finished && !k.falling) {
+        if (k.nextCp !== a.lastCpSeen) {
+          a.lastCpSeen = k.nextCp
+          a.stuckT = 0
+        } else {
+          a.stuckT += d
+          if (a.stuckT > 18) {
+            respawnAtCheckpoint(this.track, k, this.events)
+            a.stuckT = 0
+          }
+        }
+      }
     }
 
     if (racing) {

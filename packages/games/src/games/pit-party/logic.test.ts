@@ -39,17 +39,49 @@ describe('track baking', () => {
     }
   })
 
-  it('places every collidable prop off the road (the cactus you see is the one you hit, never on the track)', () => {
-    const t = bakeMap('kiln', seed)
-    expect(t.obstacles.length).toBeGreaterThan(20)
-    for (const o of t.obstacles) {
-      // distance from obstacle centre to nearest centerline sample
-      let best = Infinity
-      for (let i = 0; i < t.n; i += 3) {
-        const d = Math.hypot(o.x - t.samples[i].x, o.z - t.samples[i].z)
-        if (d < best) best = d
+  it('places every collidable prop fully off the road on every map (incl. the neon city blocks)', () => {
+    for (const map of MAPS) {
+      const t = bakeMap(map.id, seed)
+      for (const o of t.obstacles) {
+        // distance from obstacle centre to nearest centerline sample must clear the
+        // road by the prop's own (scaled) collision radius
+        let best = Infinity
+        for (let i = 0; i < t.n; i += 3) {
+          const d = Math.hypot(o.x - t.samples[i].x, o.z - t.samples[i].z)
+          if (d < best) best = d
+        }
+        expect(best).toBeGreaterThan(t.roadW / 2 + o.r - 0.3)
       }
-      expect(best).toBeGreaterThan(t.roadW / 2)
+    }
+    expect(bakeMap('kiln', seed).obstacles.length).toBeGreaterThan(20)
+    // the neon city actually has buildings lining the streets
+    expect(bakeMap('neon', seed).obstacles.filter((o) => o.kind === 'building').length).toBeGreaterThan(15)
+  })
+
+  it('bakes smooth roads: C1-continuous heading and no corner tighter than the road is wide', () => {
+    for (const map of MAPS) {
+      const t = bakeMap(map.id, seed)
+      const step = t.length / t.n
+      let minRadius = Infinity
+      for (let i = 0; i < t.n; i++) {
+        const a = t.samples[i]
+        const b = t.samples[(i + 1) % t.n]
+        let dh = Math.atan2(b.dx, b.dz) - Math.atan2(a.dx, a.dz)
+        while (dh > Math.PI) dh -= Math.PI * 2
+        while (dh < -Math.PI) dh += Math.PI * 2
+        // the spline regression this guards against snapped heading ~0.4-0.95 rad
+        // between adjacent samples; legit hairpins stay under ~0.2
+        expect(Math.abs(dh)).toBeLessThan(0.3)
+        // turn radius over a 4-sample window (smooths sampling noise)
+        const c = t.samples[(i + 4) % t.n]
+        let dh4 = Math.atan2(c.dx, c.dz) - Math.atan2(a.dx, a.dz)
+        while (dh4 > Math.PI) dh4 -= Math.PI * 2
+        while (dh4 < -Math.PI) dh4 += Math.PI * 2
+        const r = Math.abs(dh4) > 1e-6 ? (step * 4) / Math.abs(dh4) : Infinity
+        if (r < minRadius) minRadius = r
+      }
+      // no pinch: the tightest corner stays drivable relative to the road width
+      expect(minRadius).toBeGreaterThan(t.roadW * 0.7)
     }
   })
 
@@ -91,6 +123,85 @@ describe('full race simulation', () => {
   it('karts make real forward progress (no one is stuck on the grid)', () => {
     const race = runRace(2)
     for (const k of race.karts) expect(k.progress).toBeGreaterThan(race.track.length)
+  })
+
+  it('a full CPU grid finishes a lap race on EVERY course at racing pace', () => {
+    // prism used to never finish (CPUs fell at the same bend forever) and neon took
+    // ~80s/lap of wall-grinding; this pins both the fix and the pace
+    for (const map of MAPS) {
+      const track = bakeMap(map.id, seed)
+      const race = new Race(track, { laps: 1, totalRacers: 8, seed })
+      for (let i = 0; i < 8; i++) {
+        const r = resolveKart('socket', 'standard')
+        race.addKart(
+          { id: `cpu${i}`, charId: 'socket', cartId: 'standard', name: `CPU${i}`, human: false, stats: r.stats, paint: r.paint },
+          i,
+        )
+      }
+      race.startCountdown()
+      let simT = 0
+      for (let step = 0; step < 60 * 120 && race.state !== 'finish'; step++) {
+        race.step(1 / 60)
+        race.drainEvents()
+        simT += 1 / 60
+      }
+      expect(race.state, `${map.id} race never finished`).toBe('finish')
+      // a single lap should take well under 2 sim-minutes incl. the ghost timeout
+      expect(simT, `${map.id} too slow (${simT.toFixed(0)}s)`).toBeLessThan(110)
+    }
+  })
+})
+
+describe('respawn + rescue', () => {
+  it('falling off charges the lost distance back to progress (no fall-loop ranking exploit)', () => {
+    const track = bakeMap('prism', seed)
+    const race = new Race(track, { laps: 3, totalRacers: 1, seed })
+    const r = resolveKart('socket', 'standard')
+    const k = race.addKart(
+      { id: 'fall', charId: 'socket', cartId: 'standard', name: 'FALL', human: true, stats: r.stats, paint: r.paint },
+      0,
+    )
+    race.startCountdown()
+    for (let i = 0; i < 200 && race.state !== 'race'; i++) race.step(1 / 60)
+    // teleport the kart well past its last checkpoint, then make it fall
+    const ahead = track.checkpoints[3]!
+    k.idx = ahead.index
+    k.x = track.samples[ahead.index]!.x
+    k.z = track.samples[ahead.index]!.z
+    k.lastCp = 1
+    const before = k.progress
+    k.falling = true
+    k.fallT = 2 // past the respawn threshold
+    race.step(1 / 60)
+    expect(k.falling).toBe(false)
+    // respawned at cp1, so the distance from cp1 to cp3 was charged back
+    expect(k.progress).toBeLessThan(before - 50)
+  })
+
+  it('rescues a wedged CPU back to its checkpoint so the race always ends', () => {
+    const track = bakeMap('kiln', seed)
+    const race = new Race(track, { laps: 3, totalRacers: 1, seed })
+    const r = resolveKart('socket', 'standard')
+    const k = race.addKart(
+      { id: 'cpu0', charId: 'socket', cartId: 'standard', name: 'CPU0', human: false, stats: r.stats, paint: r.paint },
+      0,
+    )
+    race.startCountdown()
+    for (let i = 0; i < 200 && race.state !== 'race'; i++) race.step(1 / 60)
+    // wedge it: force the kart back to a fixed off-track pose every frame
+    const px = k.x
+    const pz = k.z
+    let rescued = false
+    for (let i = 0; i < 60 * 20 && !rescued; i++) {
+      race.step(1 / 60)
+      for (const e of race.drainEvents()) if (e.kind === 'respawn') rescued = true
+      if (!rescued) {
+        k.x = px
+        k.z = pz
+        k.speed = 0
+      }
+    }
+    expect(rescued).toBe(true)
   })
 })
 

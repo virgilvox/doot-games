@@ -20,6 +20,12 @@ const socket: Builder = (T, c) => {
   meshAt(T, new T.CylinderGeometry(0.025, 0.025, 0.34, 6), toon(T, 0x14121a), 0, 1.32, 0, g)
   meshAt(T, new T.SphereGeometry(0.07, 8, 6), flat(T, 0xffd23f), 0, 1.5, 0, g)
   meshAt(T, new T.BoxGeometry(0.74, 0.1, 0.46), toon(T, 0xffd23f), 0, 0.62, 0, g)
+  // ear bolts
+  const boltGeo = new T.CylinderGeometry(0.07, 0.07, 0.1, 6)
+  for (const sx of [-0.36, 0.36]) {
+    const b = meshAt(T, boltGeo, flat(T, 0xffd23f), sx, 0.95, 0, g)
+    b.rotation.z = Math.PI / 2
+  }
   return g
 }
 
@@ -33,6 +39,9 @@ const fern: Builder = (T, c) => {
   const e2 = meshAt(T, new T.SphereGeometry(0.13, 10, 8), toon(T, 0xeae6cf), 0.17, 1.12, 0.1, g)
   meshAt(T, new T.SphereGeometry(0.06, 8, 6), flat(T, 0x14121a), 0, 0.02, 0.09, e1)
   meshAt(T, new T.SphereGeometry(0.06, 8, 6), flat(T, 0x14121a), 0, 0.02, 0.09, e2)
+  // nostrils
+  meshAt(T, new T.SphereGeometry(0.025, 6, 5), flat(T, 0x14121a), -0.07, 0.88, 0.34, g)
+  meshAt(T, new T.SphereGeometry(0.025, 6, 5), flat(T, 0x14121a), 0.07, 0.88, 0.34, g)
   return g
 }
 
@@ -46,6 +55,8 @@ const rex: Builder = (T, c) => {
   meshAt(T, new T.ConeGeometry(0.1, 0.22, 4), toon(T, c.alt), 0, 1.22, 0, g)
   const tail = meshAt(T, new T.ConeGeometry(0.14, 0.5, 6), toon(T, c.skin), 0, 0.34, -0.4, g)
   tail.rotation.x = Math.PI / 2.4
+  // a row of teeth under the snout
+  meshAt(T, new T.BoxGeometry(0.3, 0.05, 0.26), flat(T, 0xf7f1dd), 0, 0.72, 0.42, g)
   return g
 }
 
@@ -72,6 +83,9 @@ const moth: Builder = (T, c) => {
   a1.rotation.z = 0.35
   const a2 = meshAt(T, new T.CylinderGeometry(0.015, 0.015, 0.3, 5), toon(T, 0x14121a), 0.1, 1.26, 0.06, g)
   a2.rotation.z = -0.35
+  // glowing antenna tips (it IS a lamp moth)
+  meshAt(T, new T.SphereGeometry(0.04, 6, 5), flat(T, 0xffd23f), -0.2, 1.4, 0.06, g)
+  meshAt(T, new T.SphereGeometry(0.04, 6, 5), flat(T, 0xffd23f), 0.2, 1.4, 0.06, g)
   return g
 }
 
@@ -92,6 +106,10 @@ const bean: Builder = (T, c) => {
   meshAt(T, new T.ConeGeometry(0.06, 0.14, 4), toon(T, c.alt), 0.17, 1.16, 0.03, g)
   eyePair(T, g, 0.12, 0.94, 0.25, 0.06, 0xffd23f)
   meshAt(T, new T.BoxGeometry(0.4, 0.1, 0.12), toon(T, c.alt), 0, 0.6, 0.2, g)
+  // void-cat tail, curled up behind
+  const tail = meshAt(T, new T.CylinderGeometry(0.045, 0.07, 0.6, 6), toon(T, c.skin), 0, 0.5, -0.34, g)
+  tail.rotation.x = -0.7
+  meshAt(T, new T.SphereGeometry(0.07, 6, 5), toon(T, c.alt), 0, 0.78, -0.52, g)
   return g
 }
 

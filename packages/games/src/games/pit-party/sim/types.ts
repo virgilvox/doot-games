@@ -138,6 +138,10 @@ export interface AiState {
   targetPlace: number
   /** Cached rubber-band top-speed multiplier (recomputed each tick). */
   topMul: number
+  /** Seconds since this CPU last advanced a checkpoint (stuck rescue). */
+  stuckT: number
+  /** The nextCp value last seen by the stuck tracker. */
+  lastCpSeen: number
 }
 
 /** A racing kart: pose, progress, drift/boost, status effects, item, results. */

@@ -18,8 +18,9 @@ import { CARTS } from './carts'
 import { CHARACTERS } from './characters'
 import { drawCart } from './carts/preview'
 import { drawPortrait } from './characters/portraits'
+import { itemName, itemSvg } from './items-art'
 import { ord } from './logic'
-import { CH, type Phase, type SeatMsg, type TeleMsg } from './protocol'
+import { CH, type Phase, type RosterMsg, type SeatMsg, type TeleMsg } from './protocol'
 import { resolveKart, statBars } from './roster'
 import { createViewer, webrtcSupported } from './stream'
 
@@ -32,6 +33,9 @@ const myId = computed(() => room.me.value.id)
 // shared state from the host
 const phase = ref<Phase>('lobby')
 const seat = ref(-1)
+/** True once the host has sent ANY seat message (distinguishes "grid full" from
+ *  "joined mid-race, not seated yet"). */
+const gotSeat = ref(false)
 const tele = ref<TeleMsg | null>(null)
 const charId = ref('socket')
 const cartId = ref('standard')
@@ -120,7 +124,17 @@ function vibrate(p: number | number[]): void {
 const resolved = computed(() => resolveKart(charId.value, cartId.value))
 const bars = computed(() => statBars(resolved.value.stats))
 
+// drivers already claimed by ANOTHER seat are greyed out (first come, first served)
+const rosterByPid = ref<Record<string, string>>({})
+function takenByOther(id: string): boolean {
+  for (const [pid, ch] of Object.entries(rosterByPid.value)) {
+    if (ch === id && pid !== myId.value) return true
+  }
+  return false
+}
+
 function pickChar(id: string): void {
+  if (takenByOther(id)) return
   charId.value = id
   publishPick()
 }
@@ -171,15 +185,8 @@ watch(tele, (v) => {
   prevEv = { hit: v.hit, pick: v.pick, boost: v.boost }
 })
 
-const itemSvg = computed(() => ITEM_SVG[tele.value?.i ?? ''] ?? '')
-const ITEM_SVG: Record<string, string> = {
-  boost: '<svg viewBox="0 0 24 24"><path d="M4 5l7 7-7 7V5zm9 0l7 7-7 7V5z"/></svg>',
-  triple: '<svg viewBox="0 0 24 24"><path d="M2 6l5 6-5 6V6zm7 0l5 6-5 6V6zm7 0l5 6-5 6V6z"/></svg>',
-  wrench:
-    '<svg viewBox="0 0 24 24"><path d="M21.2 6.4a5.4 5.4 0 0 1-7 6.9L7 20.5a2.1 2.1 0 0 1-3-3l7.2-7.2a5.4 5.4 0 0 1 6.9-7l-2.9 2.9 2.3 2.3 2.7-2.6z"/></svg>',
-  slick: '<svg viewBox="0 0 24 24"><path d="M12 2.6c3.1 4.6 6.2 7.8 6.2 11.3A6.2 6.2 0 0 1 12 20.1a6.2 6.2 0 0 1-6.2-6.2c0-3.5 3.1-6.7 6.2-11.3z"/></svg>',
-  volt: '<svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
-}
+const heldSvg = computed(() => itemSvg(tele.value?.i ?? ''))
+const heldName = computed(() => itemName(tele.value?.i ?? ''))
 
 // watch stream
 const canWatch = webrtcSupported()
@@ -211,6 +218,7 @@ onMounted(() => {
     room.onExtra(CH.seat(myId.value), (v) => {
       const m = v as Partial<SeatMsg> | null
       if (!m) return
+      gotSeat.value = true
       seat.value = m.seat ?? -1
       // The phone owns its selection during lobby/select; only adopt the host's
       // char/cart once they're LOCKED (in race), so a seat echo can't revert a
@@ -224,6 +232,21 @@ onMounted(() => {
   unsubs.push(
     room.onExtra(CH.tele(myId.value), (v) => {
       tele.value = v as TeleMsg | null
+    }),
+  )
+  unsubs.push(
+    room.onExtra(CH.roster, (v) => {
+      const m = v as Partial<RosterMsg> | null
+      if (!m?.byPid) return
+      rosterByPid.value = m.byPid
+      // someone else already holds my (e.g. restored) pick: bump to a free driver
+      if ((phase.value === 'lobby' || phase.value === 'select') && takenByOther(charId.value)) {
+        const free = CHARACTERS.find((c) => !takenByOther(c.id))
+        if (free) {
+          charId.value = free.id
+          publishPick()
+        }
+      }
     }),
   )
   // restore a saved pick + announce it
@@ -286,11 +309,12 @@ watch(charId, () => {
             v-for="c in CHARACTERS"
             :key="c.id"
             class="ctile"
-            :class="{ sel: charId === c.id }"
+            :class="{ sel: charId === c.id, taken: takenByOther(c.id) }"
             @click="pickChar(c.id)"
           >
             <canvas :ref="(el) => portraitRef(el as Element, c.id)" width="56" height="56" />
             <span class="cn" :style="{ color: '#' + c.paint.toString(16).padStart(6, '0') }">{{ c.name }}</span>
+            <span v-if="takenByOther(c.id)" class="tk">TAKEN</span>
           </button>
         </div>
       </div>
@@ -322,7 +346,7 @@ watch(charId, () => {
           <span class="lap">{{ tele?.p ? 'FINISHED ' + ord(tele.p) : 'LAP ' + (tele?.l ?? 1) + ' / ' + (tele?.L ?? 3) }}</span>
           <span class="spd">{{ tele?.s ?? 0 }}<i>KPH</i></span>
         </div>
-        <span class="itm" :class="{ has: !!tele?.i }" v-html="itemSvg" />
+        <span class="itm" :class="{ has: !!tele?.i }" :title="heldName" v-html="heldSvg" />
         <div class="seg">
           <button :class="{ on: scheme === 'joystick' }" @click="scheme = 'joystick'">STICK</button>
           <button :class="{ on: scheme === 'wheel' }" @click="scheme = 'wheel'">WHEEL</button>
@@ -354,8 +378,8 @@ watch(charId, () => {
     <section v-else-if="screen === 'spectate'" class="spectate">
       <video v-if="watching" ref="videoEl" class="streamFull" autoplay playsinline muted />
       <div v-else class="spectatemsg">
-        <div class="big-t">GRID IS FULL</div>
-        <p>Four drivers are racing this round. You're up next race.</p>
+        <div class="big-t">{{ gotSeat ? 'GRID IS FULL' : 'RACE IN PROGRESS' }}</div>
+        <p>{{ gotSeat ? "Four drivers are racing this round. You're up next race." : "You're in. You'll get a seat when this race wraps up." }}</p>
         <button v-if="canWatch" class="big" @click="toggleWatch">WATCH THE RACE</button>
       </div>
     </section>
@@ -490,6 +514,22 @@ watch(charId, () => {
 .ctile.sel {
   border-color: var(--hivis);
   box-shadow: var(--shadow);
+}
+.ctile.taken {
+  opacity: 0.45;
+  cursor: default;
+  position: relative;
+}
+.ctile .tk {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  background: var(--flag-red);
+  color: var(--ink);
+  padding: 1px 4px;
 }
 .kgrid {
   display: grid;
@@ -637,7 +677,6 @@ watch(charId, () => {
 .strip .itm :deep(svg) {
   width: 26px;
   height: 26px;
-  fill: var(--hivis);
 }
 .seg {
   display: flex;

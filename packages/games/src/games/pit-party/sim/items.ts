@@ -51,9 +51,11 @@ export function rollItem(k: Kart, karts: Kart[], trackLength: number, rng: () =>
   // 0 = leading, 1 = roughly a half-lap or more behind.
   const t = clamp(gap / (trackLength * 0.55), 0, 1)
   const w: Record<ItemKind, number> = {
-    slick: lerp(0.4, 0.05, t),
-    wrench: lerp(0.34, 0.18, t),
-    boost: lerp(0.2, 0.34, t),
+    // a leader mostly pulls the defensive drop (slick); a forward-homing wrench is
+    // near-useless in 1st, so it skews to the chasing mid-pack instead
+    slick: lerp(0.46, 0.05, t),
+    wrench: lerp(0.2, 0.2, t),
+    boost: lerp(0.28, 0.32, t),
     triple: lerp(0.05, 0.25, t),
     volt: lerp(0.01, 0.18, t),
   }
@@ -154,8 +156,9 @@ export function updateItems(world: ItemWorld, dt: number, events: RaceEvent[]): 
       while (dd < -Math.PI) dd += Math.PI * 2
       s.heading += clamp(dd, -2.4 * dt, 2.4 * dt)
     }
-    s.x += Math.sin(s.heading) * 40 * dt
-    s.z += Math.cos(s.heading) * 40 * dt
+    // faster than a boosting kart (34 * 1.3), or it never catches anyone
+    s.x += Math.sin(s.heading) * 47 * dt
+    s.z += Math.cos(s.heading) * 47 * dt
     const ns = nearestSample(track, s.x, s.z, s.idx)
     s.idx = ns.idx
     s.y = track.samples[s.idx]!.y + 1

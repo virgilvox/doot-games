@@ -24,9 +24,12 @@ export interface StateMsg {
   count: number
 }
 
-/** Host -> all (retained): which characters/carts are taken, for the select grid. */
+/** Host -> all (retained): which characters are taken (and by whom), so the select
+ *  grid can grey out other players' drivers. */
 export interface RosterMsg {
   takenChars: string[]
+  /** pid -> charId for every seated driver (kb driver under 'kb'). */
+  byPid: Record<string, string>
 }
 
 /** Phone -> host: this driver's selection during the 'select' phase. */

@@ -1,8 +1,9 @@
 import type { MapDef } from './types'
 
 /**
- * SPRUE FOUNDRY - a walled circuit over the melt. Continuous edge rails (with
- * periodic gaps) keep you on the plate; stray barrels are solid.
+ * SPRUE FOUNDRY - a walled stadium circuit over the melt: two long straights, a
+ * crisp chicane on the right and one wide hairpin at the top-left. Continuous edge
+ * rails (with periodic gaps) keep you on the plate; stray barrels are solid.
  */
 export const sprue: MapDef = {
   id: 'sprue',
@@ -10,22 +11,28 @@ export const sprue: MapDef = {
   blurb: 'walled circuit over the melt',
   track: {
     control: [
-      [-160, 0, -120],
-      [-40, 0, -150],
-      [90, 0, -140],
-      [170, 0, -80],
-      [130, 0, -10],
-      [190, 0, 50],
-      [150, 0, 130],
-      [40, 0, 110],
-      [-20, 0, 160],
-      [-120, 0, 150],
-      [-100, 0, 70],
-      [-180, 0, 40],
-      [-140, 0, -30],
-      [-200, 0, -70],
+      // pit straight, eastbound
+      [-160, 0, -135],
+      [-40, 0, -145],
+      [85, 0, -145],
+      // right side up with a chicane
+      [165, 0, -115],
+      [185, 0, -45],
+      [140, 0, 5],
+      [185, 0, 60],
+      [160, 0, 120],
+      // back straight, westbound
+      [60, 0, 145],
+      [-50, 0, 145],
+      // wide hairpin around the slag pot
+      [-115, 0, 175],
+      [-180, 0, 140],
+      [-150, 0, 75],
+      // home through a fast left kink
+      [-200, 0, 0],
+      [-185, 0, -80],
     ],
-    roadW: 12,
+    roadW: 12.5,
     voidFall: false,
     barrier: 'rails',
     scatter: [

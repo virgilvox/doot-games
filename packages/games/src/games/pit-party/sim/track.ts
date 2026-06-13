@@ -69,8 +69,11 @@ function catmull(
     const a1 = mix(p0, p1, (t1 - t) / (t1 - t0), (t - t0) / (t1 - t0))
     const a2 = mix(p1, p2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1))
     const a3 = mix(p2, p3, (t3 - t) / (t3 - t2), (t - t2) / (t3 - t2))
-    const b1 = mix(a1, a2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1))
-    const b2 = mix(a2, a3, (t3 - t) / (t3 - t2), (t - t2) / (t3 - t2))
+    // Barry-Goldman pyramid: the B blends span TWO knot intervals. Using the wrong
+    // denominators here broke C1 continuity and kinked the road at every control
+    // point (the source of the wiggly/pinched track jank).
+    const b1 = mix(a1, a2, (t2 - t) / (t2 - t0), (t - t0) / (t2 - t0))
+    const b2 = mix(a2, a3, (t3 - t) / (t3 - t1), (t - t1) / (t3 - t1))
     out.push(mix(b1, b2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1)))
   }
 }
@@ -204,16 +207,20 @@ function scatterObstacles(
       const off = roadW / 2 + spec.gapMin + rng() * (spec.bandMax - spec.gapMin)
       const x = sm.x + sm.rx * side * off
       const z = sm.z + sm.rz * side * off
-      // Reject anything that crept onto the road or onto another prop.
-      if (distToTrack(samples, x, z) < roadW / 2 + spec.gapMin * 0.6) continue
-      if (out.some((o) => dist2d(o.x, o.z, x, z) < o.r + spec.collideR + 1.5)) continue
+      // The collision circle scales WITH the visual (a big cactus hits big).
+      const scale = spec.scaleMin + rng() * (spec.scaleMax - spec.scaleMin)
+      const r = spec.collideR * scale
+      // Reject anything whose collision circle would reach the road ANYWHERE on the
+      // loop (the band is measured from one segment; another street may pass close).
+      if (distToTrack(samples, x, z) < roadW / 2 + r + 0.8) continue
+      if (out.some((o) => dist2d(o.x, o.z, x, z) < o.r + r + 1.5)) continue
       out.push({
         x,
         z,
         y: sm.y,
-        r: spec.collideR,
+        r,
         kind: spec.kind,
-        scale: spec.scaleMin + rng() * (spec.scaleMax - spec.scaleMin),
+        scale,
         rot: rng() * Math.PI * 2,
       })
       placed++

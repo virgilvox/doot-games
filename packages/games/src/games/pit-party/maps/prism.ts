@@ -1,8 +1,9 @@
 import type { MapDef } from './types'
 
 /**
- * PRISM RUN - an orbital ribbon with no rails. Drive off the edge and Lakitu
- * fishes you out (void-fall respawn at the last gate). Elevation changes too.
+ * PRISM RUN - an orbital ribbon with no rails. Drive off the edge and you respawn
+ * at the last gate. Wide flowing sweepers ONLY (a void course punishes falls, so
+ * the geometry never demands a hairpin) with smooth rolling elevation.
  */
 export const prism: MapDef = {
   id: 'prism',
@@ -10,20 +11,18 @@ export const prism: MapDef = {
   blurb: 'orbital ribbon, mind the edge',
   track: {
     control: [
-      [-190, 2, -110],
-      [-70, 8, -165],
-      [70, 16, -170],
-      [180, 22, -110],
-      [225, 14, 0],
-      [180, 4, 105],
-      [90, 10, 170],
-      [-30, 22, 185],
-      [-130, 28, 130],
-      [-95, 18, 40],
-      [-150, 8, -10],
-      [-215, 4, -55],
+      [-180, 2, -110],
+      [-60, 8, -160],
+      [80, 14, -160],
+      [180, 20, -100],
+      [225, 16, 10],
+      [170, 10, 110],
+      [50, 16, 165],
+      [-70, 22, 160],
+      [-150, 24, 80],
+      [-160, 14, -20],
     ],
-    roadW: 14,
+    roadW: 15,
     voidFall: true,
     barrier: 'none',
   },

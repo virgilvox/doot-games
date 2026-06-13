@@ -1,41 +1,59 @@
 import type { MapDef } from './types'
 
 /**
- * NEON OVERPASS - a rain-slick city flyover at night. Edge rails keep you on the
- * deck; traffic cones are solid. Cyan-and-magenta city glow.
+ * NEON OVERPASS - rain-slick city streets at night. Three long avenues joined by
+ * rounded 90-degree corners and two cross-streets, so it reads as a real street
+ * circuit: collidable tower blocks wall the verges into glowing canyons, street
+ * lamps line the kerbs, edge rails break at the "intersections". Cyan-and-magenta
+ * city glow.
  */
 export const neon: MapDef = {
   id: 'neon',
   name: 'NEON OVERPASS',
-  blurb: 'rain-slick night flyover',
+  blurb: 'night city street circuit',
   track: {
     control: [
-      [-180, 0, -90],
-      [-40, 0, -150],
-      [110, 0, -150],
-      [200, 0, -70],
-      [150, 0, 10],
-      [210, 0, 80],
-      [120, 0, 150],
-      [10, 0, 120],
-      [-30, 0, 180],
-      [-150, 0, 160],
-      [-110, 0, 70],
-      [-200, 0, 30],
-      [-160, 0, -40],
+      // bottom avenue, eastbound (the start/finish straight)
+      [-190, 0, -150],
+      [-60, 0, -150],
+      [80, 0, -150],
+      [180, 0, -150],
+      // NE corner up the right vertical street
+      [215, 0, -110],
+      [215, 0, -65],
+      [215, 0, -20],
+      // westbound cross-street
+      [175, 0, 15],
+      [90, 0, 15],
+      // north up the mid-town block
+      [58, 0, 48],
+      [58, 0, 130],
+      // top avenue, westbound
+      [20, 0, 168],
+      [-80, 0, 168],
+      [-170, 0, 168],
+      // SW corner down the long left straight (boost zone)
+      [-205, 0, 130],
+      [-205, 0, 10],
+      [-205, 0, -110],
     ],
-    roadW: 13,
+    roadW: 14,
     voidFall: false,
     barrier: 'rails',
     scatter: [
-      { kind: 'cone', count: 22, collideR: 0.9, scaleMin: 0.9, scaleMax: 1.2, gapMin: 3.2, bandMax: 26 },
+      // the city itself: collidable tower blocks walling the streets
+      { kind: 'building', count: 44, collideR: 7, scaleMin: 0.85, scaleMax: 1.5, gapMin: 11, bandMax: 30 },
+      // street lamps right on the kerb line
+      { kind: 'lamp', count: 26, collideR: 0.45, scaleMin: 0.95, scaleMax: 1.15, gapMin: 1.6, bandMax: 4.5 },
+      // a few stray traffic cones
+      { kind: 'cone', count: 10, collideR: 0.9, scaleMin: 0.9, scaleMax: 1.2, gapMin: 2.6, bandMax: 7 },
     ],
   },
   theme: {
     sky: { stops: [[0, '#05030f'], [0.5, '#13093a'], [0.82, '#3a1170'], [1, '#7b1f9c']] },
-    fog: { color: 0x140a2e, near: 120, far: 500 },
-    hemi: [0x9be8ff, 0x2a1040, 0.7],
-    sun: [0xff5d8f, 0.8, [160, 160, -120]],
+    fog: { color: 0x140a2e, near: 130, far: 520 },
+    hemi: [0x9be8ff, 0x2a1040, 0.78],
+    sun: [0xff5d8f, 0.85, [160, 160, -120]],
     road: 'neon',
     roadLit: false,
     ambient: 'neon',

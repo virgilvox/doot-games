@@ -15,6 +15,7 @@ import { CHARACTER_IDS, getCharacter } from './characters'
 import { drawPortrait } from './characters/portraits'
 import { PitAudio } from './engine/audio'
 import { PitEngine, type PaneView } from './engine/scene'
+import { itemSvg } from './items-art'
 import { fmtTime, kph, ord } from './logic'
 import { MAPS, bakeMap, getMap } from './maps'
 import { CH, type InputMsg, type PickMsg, type Phase, pidOf } from './protocol'
@@ -195,7 +196,9 @@ function publishState(): void {
   })
 }
 function publishRoster(): void {
-  room.publishExtra(CH.roster, { takenChars: drivers.map((d) => d.charId) })
+  const byPid: Record<string, string> = {}
+  for (const d of drivers) byPid[d.id] = d.charId
+  room.publishExtra(CH.roster, { takenChars: drivers.map((d) => d.charId), byPid })
 }
 function publishSeat(d: Driver): void {
   if (!d.pid) return
@@ -274,7 +277,9 @@ function wireRelay(): void {
       }
       if (!d) return
       const m = v as Partial<PickMsg>
-      if (m.charId && getCharacter(m.charId).id === m.charId) d.charId = m.charId
+      // first-come-first-served on drivers: ignore a pick already held by another seat
+      const takenByOther = m.charId && drivers.some((x) => x !== d && x.charId === m.charId)
+      if (m.charId && !takenByOther && getCharacter(m.charId).id === m.charId) d.charId = m.charId
       if (m.cartId && getCart(m.cartId).id === m.cartId) d.cartId = m.cartId
       d.ready = !!m.ready
       publishSeat(d)
@@ -315,6 +320,9 @@ function buildRace(): void {
   engine?.syncKarts(specs)
   audio.ambient(getMap(mapId.value).theme.ambient)
   rebuildPanes()
+  // dev-only: expose the sim so browser smokes can assert real race state
+  if ((import.meta as unknown as { dev?: boolean }).dev)
+    (window as unknown as { __pitRace?: Race }).__pitRace = race
 }
 
 function startRace(): void {
@@ -542,7 +550,8 @@ function frame(t: number): void {
       goFlash.value = true
       window.setTimeout(() => (goFlash.value = false), 900)
       audio.sfx.go()
-      audio.playMusic(raceNum.value % 2 ? 'race' : 'race2')
+      // race music sits under the engine drones + SFX; menu/podium can run hotter
+      audio.playMusic(raceNum.value % 2 ? 'race' : 'race2', 0.26)
       publishState()
     } else if (race.state === 'finish' && phase.value !== 'finish') {
       endToResults()
@@ -691,7 +700,9 @@ function onResize(): void {
 let rosterPoll = 0
 function watchRoster(): void {
   rosterPoll = window.setInterval(() => {
-    if (phase.value === 'lobby' || phase.value === 'select') syncDrivers()
+    // also during 'finish', so a phone that joined mid-race gets seated for the
+    // next cup race instead of waiting for someone to back out to the lobby
+    if (phase.value === 'lobby' || phase.value === 'select' || phase.value === 'finish') syncDrivers()
   }, 1000)
 }
 watchRoster()
@@ -708,18 +719,8 @@ onBeforeUnmount(() => {
   audio.dispose()
 })
 
-// expose for the template
-function itemSvg(kind: string): string {
-  return ITEM_SVG[kind] ?? ''
-}
-const ITEM_SVG: Record<string, string> = {
-  boost: '<svg viewBox="0 0 24 24"><path d="M4 5l7 7-7 7V5zm9 0l7 7-7 7V5z"/></svg>',
-  triple: '<svg viewBox="0 0 24 24"><path d="M2 6l5 6-5 6V6zm7 0l5 6-5 6V6zm7 0l5 6-5 6V6z"/></svg>',
-  wrench:
-    '<svg viewBox="0 0 24 24"><path d="M21.2 6.4a5.4 5.4 0 0 1-7 6.9L7 20.5a2.1 2.1 0 0 1-3-3l7.2-7.2a5.4 5.4 0 0 1 6.9-7l-2.9 2.9 2.3 2.3 2.7-2.6z"/></svg>',
-  slick: '<svg viewBox="0 0 24 24"><path d="M12 2.6c3.1 4.6 6.2 7.8 6.2 11.3A6.2 6.2 0 0 1 12 20.1a6.2 6.2 0 0 1-6.2-6.2c0-3.5 3.1-6.7 6.2-11.3z"/></svg>',
-  volt: '<svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>',
-}
+// expose for the template (shared item iconography)
+
 
 const slots = computed(() => {
   const out: Array<Driver | null> = []
@@ -763,6 +764,16 @@ function portraitRef(el: Element | null, charId: string): void {
         <div v-if="p.wrong" class="wrong"><span>WRONG WAY</span></div>
       </div>
       <div v-if="showMini" class="mini"><canvas ref="miniRef" width="190" height="190" /></div>
+      <!-- live standings ladder (full field, incl. the CPUs off-screen); hidden on
+           3-4 way splits where it would sit on top of a pane's own HUD -->
+      <div v-if="panes.length <= 2" class="ladder">
+        <div v-for="s in standings" :key="s.name" class="lrow">
+          <span class="lr">{{ s.rank }}</span>
+          <span class="lchip" :style="{ background: s.paint }" />
+          <span class="lnm">{{ s.name }}</span>
+          <span class="llap">{{ s.lap }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- countdown -->
@@ -1316,7 +1327,50 @@ h1 {
 .pane .itembox :deep(svg) {
   width: 34px;
   height: 34px;
-  fill: var(--hivis);
+}
+/* standings ladder */
+.ladder {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 35;
+}
+.lrow {
+  display: grid;
+  grid-template-columns: 16px 10px minmax(0, 110px) auto;
+  gap: 6px;
+  align-items: center;
+  background: rgba(11, 10, 15, 0.62);
+  border: 1px solid var(--pitline);
+  padding: 2px 7px;
+}
+.lrow .lr {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--hivis);
+}
+.lrow .lchip {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ink);
+}
+.lrow .lnm {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+.lrow .llap {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--smoke);
 }
 .pane .driftbar {
   position: absolute;
@@ -1494,7 +1548,7 @@ h2 {
 .resRow,
 .cupRow {
   display: grid;
-  grid-template-columns: 40px 16px 1fr auto auto;
+  grid-template-columns: 40px 20px 1fr auto auto;
   gap: 9px;
   align-items: center;
   border: 2px solid var(--pitline);
@@ -1502,7 +1556,7 @@ h2 {
   padding: 6px 11px;
 }
 .cupRow {
-  grid-template-columns: 26px 16px 1fr auto;
+  grid-template-columns: 26px 20px 1fr auto;
 }
 .resRow.podium,
 .cupRow.lead {
@@ -1524,8 +1578,9 @@ h2 {
   font-size: 13px;
 }
 .chip {
-  width: 14px;
-  height: 14px;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--ink);
   border-radius: 3px;
 }

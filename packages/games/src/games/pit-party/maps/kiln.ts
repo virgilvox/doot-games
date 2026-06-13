@@ -1,7 +1,8 @@
 import type { MapDef } from './types'
 
 /**
- * KILN CANYON - a dusk-desert sweeper. Corner walls on the four sharpest bends;
+ * KILN CANYON - a dusk-desert sweeper: long flowing curves, one double-apex ess on
+ * the right and a sweeping carousel left. Corner walls on the four sharpest bends;
  * collidable cacti + rocks line the verges (the prop you see is the one you hit,
  * placed deterministically so it never sits on the road).
  */
@@ -11,22 +12,23 @@ export const kiln: MapDef = {
   blurb: 'dusk desert sweeper',
   track: {
     control: [
-      [-150, 0, -110],
-      [-60, 0, -128],
-      [60, 0, -128],
-      [150, 0, -104],
-      [196, 0, -40],
-      [168, 0, 36],
-      [208, 0, 96],
-      [150, 0, 150],
-      [66, 0, 140],
-      [8, 0, 96],
-      [-64, 0, 140],
-      [-140, 0, 152],
-      [-196, 0, 84],
-      [-160, 0, 18],
-      [-208, 0, -48],
-      [-176, 0, -92],
+      // start/finish straight along the canyon floor
+      [-150, 0, -120],
+      [-50, 0, -140],
+      [60, 0, -140],
+      [150, 0, -110],
+      // right-side double-apex ess climbing the dunes
+      [200, 0, -40],
+      [185, 0, 55],
+      [130, 0, 115],
+      // top sweep
+      [30, 0, 105],
+      [-50, 0, 145],
+      [-140, 0, 150],
+      // carousel left and home
+      [-200, 0, 90],
+      [-175, 0, 5],
+      [-205, 0, -70],
     ],
     roadW: 13,
     voidFall: false,

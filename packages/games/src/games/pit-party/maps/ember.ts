@@ -1,8 +1,10 @@
 import type { MapDef } from './types'
 
 /**
- * EMBER WORKS - a tight, technical foundry floor under a volcanic sky. Corner
- * walls on the sharpest kinks; cooled-slag boulders are solid.
+ * EMBER WORKS - the technical course: a foundry floor under a volcanic sky with a
+ * right-side ess, a tight inner loop and a left chicane (but no self-crossings -
+ * tight should mean precise, not broken). Corner walls on the sharpest kinks;
+ * cooled-slag boulders are solid.
  */
 export const ember: MapDef = {
   id: 'ember',
@@ -10,19 +12,25 @@ export const ember: MapDef = {
   blurb: 'tight technical lava floor',
   track: {
     control: [
-      [-140, 0, -130],
-      [0, 0, -160],
-      [140, 0, -130],
-      [180, 0, -30],
-      [110, 0, 30],
-      [170, 0, 110],
-      [60, 0, 150],
-      [-40, 0, 110],
-      [-30, 0, 180],
-      [-150, 0, 150],
-      [-120, 0, 50],
-      [-190, 0, -20],
-      [-150, 0, -80],
+      // start straight
+      [-150, 0, -130],
+      [-30, 0, -155],
+      [90, 0, -150],
+      [170, 0, -110],
+      // right-side ess
+      [185, 0, -30],
+      [130, 0, 20],
+      [175, 0, 90],
+      // dip toward the works and out again
+      [110, 0, 150],
+      [10, 0, 115],
+      // top-left sweep
+      [-60, 0, 160],
+      [-150, 0, 140],
+      // left chicane home
+      [-110, 0, 60],
+      [-190, 0, 15],
+      [-160, 0, -70],
     ],
     roadW: 12,
     voidFall: false,

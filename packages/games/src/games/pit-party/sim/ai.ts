@@ -6,7 +6,7 @@
  */
 import { type ItemWorld, useItem } from './items'
 import type { AiState, BakedTrack, Kart, RaceEvent } from './types'
-import { clamp, wrapAngle } from './vec'
+import { clamp, headingOf, wrapAngle } from './vec'
 
 export function makeAi(targetPlace: number, rng: () => number): AiState {
   return {
@@ -16,6 +16,8 @@ export function makeAi(targetPlace: number, rng: () => number): AiState {
     itemT: 2 + rng() * 3,
     targetPlace,
     topMul: 1,
+    stuckT: 0,
+    lastCpSeen: -1,
   }
 }
 
@@ -34,7 +36,10 @@ export function aiThink(
 
   a.laneT -= dt
   if (a.laneT <= 0) {
-    a.lane = (rng() * 2 - 1) * 2.8
+    // never aim off the road: the swing is bounded by the actual road width,
+    // tighter still on a void course where a slip means falling
+    const maxLane = Math.max(1.2, track.roadW / 2 - 3.4) * (track.voidFall ? 0.6 : 1)
+    a.lane = (rng() * 2 - 1) * maxLane
     a.laneT = 3 + rng() * 5
   }
 
@@ -48,8 +53,21 @@ export function aiThink(
   const err = wrapAngle(want - k.heading)
 
   k.input.steer = clamp(err * 2.4 * a.skill, -1, 1)
-  k.input.gas = racing ? 1 : 0
-  k.input.brake = Math.abs(err) > 1.1 && k.speed > 22 ? 1 : 0
+
+  // ---- corner anticipation: read how much the road bends ahead and slow IN
+  // ADVANCE (reacting to steering error alone meant arriving too hot, grinding
+  // walls at crawl speed for half the lap)
+  const cur = samples[k.idx]!
+  const far = samples[(k.idx + Math.round(look * 2.1)) % n]!
+  const bend = Math.abs(wrapAngle(headingOf(far.dx, far.dz) - headingOf(cur.dx, cur.dz)))
+  const care = track.voidFall ? 4 : 0
+  let gas = racing ? 1 : 0
+  let brake = 0
+  if (bend > 0.55 && k.speed > 27 - care) gas = 0
+  if (bend > 1.0 && k.speed > 21 - care) brake = 1
+  if (Math.abs(err) > 1.1 && k.speed > 18) brake = 1
+  k.input.gas = gas
+  k.input.brake = brake
   // Drift the sharp bends to bank mini-turbos like a human would.
   if (!k.input.drift && Math.abs(err) > 0.52 && k.speed > 15) k.input.drift = 1
   else if (k.input.drift && Math.abs(err) < 0.22) k.input.drift = 0

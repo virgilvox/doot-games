@@ -88,26 +88,7 @@ export function stepKart(
     k.z += Math.cos(k.heading) * k.speed * dt
     k.speed *= 0.25 ** dt
     k.heading += dt * 4 * k.spinDir
-    if (k.fallT > 1.15) {
-      // Respawn at the last checkpoint legally passed (authored pose, facing forward).
-      const cp = track.checkpoints[k.lastCp] ?? track.checkpoints[0]!
-      k.x = cp.rx
-      k.y = cp.ry
-      k.z = cp.rz
-      k.heading = cp.ryaw
-      k.speed = 0
-      k.falling = false
-      k.fallVy = 0
-      k.invulnT = 2
-      k.boostT = 0
-      k.shockT = 0
-      k.drifting = false
-      k.driftCharge = 0
-      k.driftTier = 0
-      const ns = nearestSample(track, k.x, k.z, cp.index)
-      k.idx = ns.idx
-      ev(events, 'respawn', k)
-    }
+    if (k.fallT > 1.15) respawnAtCheckpoint(track, k, events)
     return
   }
 
@@ -158,7 +139,7 @@ export function stepKart(
   const grip = clamp(Math.abs(k.speed) / PHYS.gripSpeed, 0, 1)
   // Research: clamp steering authority at high speed so the kart doesn't spin out.
   const hiSpeed = clamp(Math.abs(k.speed) / (PHYS.baseTop * k.stats.topSpeed), 0, 1)
-  const speedCut = lerp(1, 0.62, hiSpeed)
+  const speedCut = lerp(1, 0.66, hiSpeed)
   let turnRate = PHYS.baseTurn * k.stats.handling * grip * speedCut * (k.speed < 0 ? -1 : 1)
   let effS = s
   if (k.drifting) {
@@ -304,6 +285,39 @@ export function stepKart(
   if (ds < -track.length / 2) ds += track.length
   else if (ds > track.length / 2) ds -= track.length
   k.progress += ds
+}
+
+/**
+ * Snap a kart back to the last checkpoint it legally passed (fall respawn, or the
+ * orchestrator rescuing a stuck CPU). Charges the lost distance back to `progress`
+ * so falling can never GAIN ranking distance (looping fall->respawn used to inflate
+ * progress forever and break ranking + race end).
+ */
+export function respawnAtCheckpoint(track: BakedTrack, k: Kart, events: RaceEvent[]): void {
+  const cp = track.checkpoints[k.lastCp] ?? track.checkpoints[0]!
+  const prevIdx = k.idx
+  k.x = cp.rx
+  k.y = cp.ry
+  k.z = cp.rz
+  k.heading = cp.ryaw
+  k.speed = 0
+  k.falling = false
+  k.fallT = 0
+  k.fallVy = 0
+  k.invulnT = 2
+  k.boostT = 0
+  k.shockT = 0
+  k.spinT = 0
+  k.drifting = false
+  k.driftCharge = 0
+  k.driftTier = 0
+  const ns = nearestSample(track, k.x, k.z, cp.index)
+  let ds = track.samples[ns.idx]!.s - track.samples[prevIdx]!.s
+  if (ds > track.length / 2) ds -= track.length
+  else if (ds < -track.length / 2) ds += track.length
+  if (ds < 0) k.progress += ds
+  k.idx = ns.idx
+  ev(events, 'respawn', k)
 }
 
 /** mini-turbo boost-length multiplier from the kart's stat. */

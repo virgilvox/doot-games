@@ -174,7 +174,22 @@ function buildBarriers(T: Three, group: Group, baked: BakedTrack, map: MapDef): 
 
 function buildBoxes(T: Three, group: Group, baked: BakedTrack): ItemBoxVisual[] {
   const core = new T.BoxGeometry(1.5, 1.5, 1.5)
-  const mat = new T.MeshLambertMaterial({ color: 0xffd23f, emissive: 0x6b4f00, transparent: true, opacity: 0.92 })
+  // a real "?" on every face so the box reads as a pickup at a glance
+  const qc = document.createElement('canvas')
+  qc.width = qc.height = 64
+  const qg = qc.getContext('2d')
+  if (qg) {
+    qg.fillStyle = '#ffd23f'
+    qg.fillRect(0, 0, 64, 64)
+    qg.fillStyle = '#14121a'
+    qg.font = '900 44px system-ui, sans-serif'
+    qg.textAlign = 'center'
+    qg.textBaseline = 'middle'
+    qg.fillText('?', 32, 36)
+  }
+  const qTex = new T.CanvasTexture(qc)
+  qTex.colorSpace = T.SRGBColorSpace
+  const mat = new T.MeshLambertMaterial({ map: qTex, emissive: 0x6b4f00, transparent: true, opacity: 0.94 })
   const edge = flat(T, 0x14121a)
   const out: ItemBoxVisual[] = []
   for (const b of baked.itemBoxes) {
@@ -186,10 +201,6 @@ function buildBoxes(T: Three, group: Group, baked: BakedTrack): ItemBoxVisual[] 
     const bot = new T.Mesh(new T.BoxGeometry(1.7, 0.18, 1.7), edge)
     bot.position.y = -0.85
     g.add(bot)
-    // a floating "?" mark face so the box reads as a pickup, not just a cube
-    const q = new T.Mesh(new T.BoxGeometry(0.22, 0.62, 0.05), flat(T, 0x14121a))
-    q.position.set(0, 0.05, 0.78)
-    g.add(q)
     g.position.set(b.x, b.y, b.z)
     group.add(g)
     out.push({ group: g, baseY: b.y })
@@ -210,9 +221,13 @@ function buildProps(T: Three, group: Group, baked: BakedTrack): void {
     const built = propMesh(T, kind, list.length)
     let c = 0
     for (const o of list) {
-      dummy.position.set(o.x, o.y + built.lift * o.scale, o.z)
-      dummy.rotation.set(0, o.rot, 0)
-      dummy.scale.set(o.scale, o.scale, o.scale)
+      // city blocks read better axis-aligned; everything else scatters freely
+      const rot = kind === 'building' ? Math.round(o.rot / (Math.PI / 2)) * (Math.PI / 2) : o.rot
+      // buildings vary HEIGHT more than footprint (footprint must match collision)
+      const sy = kind === 'building' ? o.scale * (0.8 + ((o.rot * 7) % 1) * 1.6) : o.scale
+      dummy.position.set(o.x, o.y + built.lift * sy, o.z)
+      dummy.rotation.set(0, rot, 0)
+      dummy.scale.set(o.scale, sy, o.scale)
       dummy.updateMatrix()
       for (const im of built.meshes) im.setMatrixAt(c, dummy.matrix)
       c++
@@ -243,6 +258,24 @@ function propMesh(
     const ring = new T.InstancedMesh(new T.CylinderGeometry(1.05, 1.05, 0.2, 12), flat(T, 0xff9b2e), count)
     return { meshes: [body, ring], lift: 1.1 }
   }
+  if (kind === 'building') {
+    // a kerbside tower block: footprint sized to the collision circle (box side
+    // 1.5r keeps the corners inside it), tall dark body + two glowing window strips
+    const body = new T.InstancedMesh(new T.BoxGeometry(10.5, 26, 10.5), toon(T, 0x161028), count)
+    const winA = new T.InstancedMesh(new T.BoxGeometry(1.8, 22, 10.9), flat(T, 0x4ec3e0), count)
+    const winB = new T.InstancedMesh(new T.BoxGeometry(10.9, 22, 1.8), flat(T, 0xff5d8f), count)
+    const crown = new T.InstancedMesh(new T.BoxGeometry(11.3, 0.9, 11.3), flat(T, 0x2a1a4e), count)
+    crown.geometry.translate(0, 13.5, 0)
+    winA.geometry.translate(-2.6, -1, 0)
+    winB.geometry.translate(0, -1, 2.6)
+    return { meshes: [body, winA, winB, crown], lift: 13 }
+  }
+  if (kind === 'lamp') {
+    const pole = new T.InstancedMesh(new T.CylinderGeometry(0.09, 0.13, 6.4, 6), toon(T, 0x241e30), count)
+    const head = new T.InstancedMesh(new T.SphereGeometry(0.42, 8, 6), flat(T, 0xffd9a0, { fog: false }), count)
+    head.geometry.translate(0, 3.4, 0)
+    return { meshes: [pole, head], lift: 3.2 }
+  }
   // cactus: trunk + two arms (the prop the prototype drew with no collision)
   const trunk = new T.InstancedMesh(new T.CylinderGeometry(0.55, 0.7, 5, 7), toon(T, 0x3f7d52), count)
   const armL = new T.InstancedMesh(new T.CylinderGeometry(0.3, 0.36, 2, 7), toon(T, 0x3f7d52), count)
@@ -259,7 +292,7 @@ function buildBackdrop(T: Three, group: Group, baked: BakedTrack, map: MapDef): 
     case 'prism':
       return backdropPrism(T, group, baked)
     case 'neon':
-      return backdropNeon(T, group)
+      return backdropNeon(T, group, baked)
     case 'ember':
       return backdropEmber(T, group)
   }
@@ -361,14 +394,14 @@ function backdropPrism(T: Three, group: Group, baked: BakedTrack): void {
   group.add(moon)
 }
 
-function backdropNeon(T: Three, group: Group): void {
+function backdropNeon(T: Three, group: Group, baked: BakedTrack): void {
   ground(T, group, 0x0a0716)
   const towerM = toon(T, 0x120c26)
   const winM = flat(T, 0x4ec3e0)
   const win2M = flat(T, 0xff5d8f)
-  for (let i = 0; i < 26; i++) {
-    const ang = (i / 26) * Math.PI * 2 + Math.random() * 0.3
-    const rad = 320 + Math.random() * 160
+  for (let i = 0; i < 30; i++) {
+    const ang = (i / 30) * Math.PI * 2 + Math.random() * 0.3
+    const rad = 300 + Math.random() * 180
     const h = 60 + Math.random() * 160
     const w = 24 + Math.random() * 34
     const tower = new T.Mesh(new T.BoxGeometry(w, h, w), towerM)
@@ -378,6 +411,26 @@ function backdropNeon(T: Three, group: Group): void {
     const strip = new T.Mesh(new T.BoxGeometry(w * 0.2, h * 0.8, 0.6), i % 2 ? winM : win2M)
     strip.position.set(tower.position.x, tower.position.y, tower.position.z + (w / 2 + 0.4) * Math.sign(Math.cos(ang) || 1))
     group.add(strip)
+  }
+  // overhead sign gantries spanning the street every so often (visual only, the
+  // crossbar rides high above kart height)
+  const postG = new T.CylinderGeometry(0.3, 0.36, 9, 8)
+  const postM = toon(T, 0x241e30)
+  const barG = new T.BoxGeometry(baked.roadW + 6, 1.3, 0.5)
+  const tints = [0x4ec3e0, 0xff5d8f, 0xffd23f]
+  for (let g = 0; g < 6; g++) {
+    const i = Math.round((g / 6) * baked.n + 70) % baked.n
+    const p = baked.samples[i]!
+    const ry = Math.atan2(p.dx, p.dz) + Math.PI / 2
+    for (const side of [-1, 1]) {
+      const post = new T.Mesh(postG, postM)
+      post.position.set(p.x + p.rx * side * (baked.roadW / 2 + 2.6), p.y + 4.5, p.z + p.rz * side * (baked.roadW / 2 + 2.6))
+      group.add(post)
+    }
+    const bar = new T.Mesh(barG, flat(T, tints[g % 3]!, { fog: false }))
+    bar.position.set(p.x, p.y + 8.6, p.z)
+    bar.rotation.y = ry
+    group.add(bar)
   }
 }
 
