@@ -60,7 +60,9 @@ const run = async () => {
   ok('keyboard driver added')
 
   // ---- PLAYER (join + select) ---------------------------------------------
-  const phone = await ctx.newPage()
+  // a landscape phone, so the controller renders in its intended layout
+  const phoneCtx = await browser.newContext({ viewport: { width: 760, height: 360 }, isMobile: true, hasTouch: true })
+  const phone = await phoneCtx.newPage()
   watch(phone, 'phone')
   step(`phone opens /play/${code}`)
   await phone.goto(`${BASE}/play/${code}`, { waitUntil: 'domcontentloaded' })
@@ -84,7 +86,8 @@ const run = async () => {
   ok('phone reached driver-select (character tiles render)')
   await phone.locator('.ctile').nth(2).click()
   await phone.locator('.ktile').nth(1).click()
-  ok('phone picked a driver + a kart')
+  await phone.screenshot({ path: '/tmp/pp-select.png' })
+  ok('phone picked a driver + a kart (shot: /tmp/pp-select.png)')
 
   // ---- HOST: run the race --------------------------------------------------
   step('host starts the race')
@@ -95,7 +98,12 @@ const run = async () => {
   // countdown + race: the split HUD pane appears (proves the sim loop + renderer ran)
   await host.waitForSelector('.hud .pane', { timeout: 12000 })
   ok('race HUD pane rendered (sim loop + engine running)')
-  await host.waitForTimeout(4000) // let the race actually run a few seconds
+  // the phone should now show the redesigned controller (joystick default)
+  await phone.waitForSelector('.drive .ctrlZone', { timeout: 8000 })
+  await phone.waitForTimeout(1500)
+  await phone.screenshot({ path: '/tmp/pp-drive.png' })
+  ok('phone controller rendered (shot: /tmp/pp-drive.png)')
+  await host.waitForTimeout(3000) // let the race actually run a few seconds
   const placeTxt = await host.locator('.pane .place').first().innerText()
   ok(`pane shows a placing: "${placeTxt.replace(/\s+/g, ' ').trim()}"`)
 

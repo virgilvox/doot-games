@@ -200,34 +200,38 @@ export function stepKart(
     const oz = k.z - sm.z
     let lat = ox * sm.rx + oz * sm.rz
     const along = ox * sm.dx + oz * sm.dz
-    const lim = roadW / 2 + 1.45
+    // A touch more room than before so a walled circuit (Sprue) doesn't feel pinched,
+    // and so the clamp lines up with where the visual rail sits.
+    const lim = roadW / 2 + 1.9
     let hitSide = 0
     if (bm & 1 && lat > lim) {
-      lat = lim - 0.04
+      lat = lim
       hitSide = 1
     } else if (bm & 2 && lat < -lim) {
-      lat = -lim + 0.04
+      lat = -lim
       hitSide = -1
     }
     if (hitSide) {
-      // Push the kart back onto the road along the wall normal.
+      // Smooth slide: clamp the lateral position back onto the road EVERY frame
+      // (the along-track motion survives, the into-wall part is removed), but DON'T
+      // nudge the heading per frame - that fought the player's steering into a judder
+      // on a walled course. The heading bump + speed bleed happen once per impact.
       k.x = sm.x + sm.dx * along + sm.rx * lat
       k.z = sm.z + sm.dz * along + sm.rz * lat
-      const tdir = Math.atan2(sm.dx, sm.dz)
-      const ang = wrapAngle(tdir - k.heading)
-      const impact = Math.abs(Math.sin(ang))
-      // Slide: steer the heading toward the wall tangent (kills the into-wall part).
-      k.heading += clamp(ang, -1, 1) * Math.min(1, dt * 7)
-      if (k.wallCd <= 0 && Math.abs(k.speed) > 5) {
-        k.wallCd = 0.22
-        const massKeep = clamp(1 - (0.12 + impact * 0.5) / k.stats.weight, 0.5, 0.95)
-        k.speed *= massKeep
+      if (k.wallCd <= 0 && Math.abs(k.speed) > 6) {
+        k.wallCd = 0.3
+        const tdir = Math.atan2(sm.dx, sm.dz)
+        const ang = wrapAngle(tdir - k.heading)
+        const impact = Math.abs(Math.sin(ang))
+        // a glancing graze barely turns you; a head-on hit straightens you out more
+        k.heading += clamp(ang, -0.7, 0.7) * (0.2 + impact * 0.5)
+        k.speed *= clamp(1 - (0.06 + impact * 0.45) / k.stats.weight, 0.5, 0.96)
         ev(events, 'wall', k, k.x + sm.rx * hitSide * 1.1, k.y + 0.4, k.z + sm.rz * hitSide * 1.1)
-      }
-      if (k.drifting && impact > 0.5) {
-        k.drifting = false
-        k.driftCharge = 0
-        k.driftTier = 0
+        if (k.drifting && impact > 0.55) {
+          k.drifting = false
+          k.driftCharge = 0
+          k.driftTier = 0
+        }
       }
     }
   }

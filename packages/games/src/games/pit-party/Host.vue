@@ -32,6 +32,16 @@ const code = computed(() => room.runtime.room)
 const joinUrl = computed(() =>
   typeof window === 'undefined' ? `/play/${code.value}` : `${window.location.origin}/play/${code.value}`,
 )
+const copied = ref(false)
+function copyLink(): void {
+  navigator.clipboard
+    ?.writeText(joinUrl.value)
+    .then(() => {
+      copied.value = true
+      window.setTimeout(() => (copied.value = false), 1600)
+    })
+    .catch(() => {})
+}
 
 const stageRef = ref<HTMLDivElement>()
 const miniRef = ref<HTMLCanvasElement>()
@@ -72,11 +82,17 @@ const viewerCount = ref(0)
 
 const seated = computed(() => drivers.filter((d) => d.seat >= 0))
 const courseName = computed(() => getMap(mapId.value).name)
+const nextCourseName = computed(() => {
+  const i = MAPS.findIndex((m) => m.id === mapId.value)
+  return getMap(MAPS[(i + 1) % MAPS.length]!.id).name
+})
 
 // lobby / settings
 function selectCourse(id: string): void {
   if (phase.value !== 'lobby') return
   mapId.value = id
+  // rebuild the cinematic preview behind the lobby so it shows the chosen course
+  engine?.loadMap(bakeMap(id, code.value), getMap(id))
 }
 function cycleLaps(): void {
   laps.value = laps.value === 2 ? 3 : laps.value === 3 ? 5 : 2
@@ -84,10 +100,28 @@ function cycleLaps(): void {
 function cycleCup(): void {
   cupRaces.value = cupRaces.value === 1 ? 3 : cupRaces.value === 3 ? 4 : 1
 }
+const kbDriver = computed(() => drivers.find((d) => d.id === 'kb') ?? null)
 function addKeyboardDriver(): void {
   if (drivers.some((d) => d.id === 'kb') || seated.value.length >= MAX_DRIVERS) return
-  drivers.push(makeDriver('kb', null, 'KEYS', 'KEYS'))
+  drivers.push(makeDriver('kb', null, 'YOU (KEYS)', 'KEYS'))
   reseat()
+}
+function cycleKbChar(dir: number): void {
+  const d = kbDriver.value
+  if (!d) return
+  const taken = new Set(drivers.filter((x) => x !== d).map((x) => x.charId))
+  let i = CHARACTER_IDS.indexOf(d.charId)
+  for (let step = 0; step < CHARACTER_IDS.length; step++) {
+    i = (i + dir + CHARACTER_IDS.length) % CHARACTER_IDS.length
+    if (!taken.has(CHARACTER_IDS[i]!)) break
+  }
+  d.charId = CHARACTER_IDS[i]!
+}
+function cycleKbCart(dir: number): void {
+  const d = kbDriver.value
+  if (!d) return
+  const i = CART_IDS.indexOf(d.cartId)
+  d.cartId = CART_IDS[(i + dir + CART_IDS.length) % CART_IDS.length]!
 }
 
 function makeDriver(id: string, pid: string | null, name: string, source: 'PAD' | 'KEYS'): Driver {
@@ -175,7 +209,10 @@ function publishSeat(d: Driver): void {
 }
 function publishTele(): void {
   if (!race) return
-  const c = phase.value === 'count' ? countNum.value : phase.value === 'race' ? 0 : -1
+  // countdown digit during 'count'; 0 (GO) only during the brief goFlash window at
+  // the gun; -1 (hidden) otherwise. Sending 0 for the whole race left the phone's GO
+  // overlay stuck on.
+  const c = phase.value === 'count' ? countNum.value : phase.value === 'race' && goFlash.value ? 0 : -1
   for (const d of drivers) {
     if (!d.pid) continue
     const k = race.getKart(d.id)
@@ -482,7 +519,10 @@ function frame(t: number): void {
     for (const d of drivers) {
       const k = race.getKart(d.id)
       if (!k || !k.human) continue
-      k.input.steer = d.input.s
+      // The chase camera looks down +z, which mirrors world +x to screen-LEFT, so a
+      // raw "steer right" turns the kart left on screen. Negate the human input so
+      // left/right match the view. (AI sets k.input.steer directly and is unaffected.)
+      k.input.steer = -d.input.s
       k.input.gas = d.input.g
       k.input.brake = d.input.b
       k.input.drift = d.input.d
@@ -621,6 +661,13 @@ function onKeydown(e: KeyboardEvent): void {
       const i = MAPS.findIndex((m) => m.id === mapId.value)
       selectCourse(MAPS[(i + 1) % MAPS.length]!.id)
     }
+    // with a keyboard driver, arrows pick its driver (left/right) + kart (up/down)
+    if (kbDriver.value) {
+      if (k === 'arrowleft') cycleKbChar(-1)
+      else if (k === 'arrowright') cycleKbChar(1)
+      else if (k === 'arrowup') cycleKbCart(-1)
+      else if (k === 'arrowdown') cycleKbCart(1)
+    }
   } else if (phase.value === 'select') {
     if (k === ' ') startRace()
   } else if (phase.value === 'race' || phase.value === 'count') {
@@ -738,6 +785,7 @@ function portraitRef(el: Element | null, charId: string): void {
               <div class="label">join code</div>
               <div class="bigcode">{{ code }}</div>
               <div class="joinhint">Open <b>{{ joinUrl.replace(/^https?:\/\//, '') }}</b> on a phone, pick a driver + kart.</div>
+              <button class="copybtn" @click="copyLink">{{ copied ? 'COPIED' : 'COPY JOIN LINK' }}</button>
             </div>
           </div>
           <div>
@@ -783,7 +831,15 @@ function portraitRef(el: Element | null, charId: string): void {
           </div>
           <div class="ctaRow">
             <button class="btn" :disabled="seated.length === 0" @click="toSelect">PICK & RACE</button>
-            <button class="btn ghostbtn" @click="addKeyboardDriver">+ KEYBOARD</button>
+            <button class="btn ghostbtn" @click="addKeyboardDriver">{{ kbDriver ? 'PLAYING ON KEYS' : '+ PLAY ON KEYBOARD' }}</button>
+          </div>
+          <div v-if="kbDriver" class="keysBar">
+            <span class="kbpick">YOUR RIDE: <b>{{ getCharacter(kbDriver.charId).name }}</b> in the <b>{{ getCart(kbDriver.cartId).name }}</b></span>
+            <span><b>&larr; &rarr;</b> driver</span>
+            <span><b>&uarr; &darr;</b> kart</span>
+            <span><b>WASD</b> drive</span>
+            <span><b>SHIFT</b> drift</span>
+            <span><b>E</b> item</span>
           </div>
         </div>
       </div>
@@ -816,30 +872,33 @@ function portraitRef(el: Element | null, charId: string): void {
 
     <!-- results -->
     <div v-if="phase === 'finish'" class="screen">
-      <div class="frame">
+      <div class="resFrame" :class="{ cup: cupRaces > 1 }">
         <div class="stripeTop hazard" />
         <div class="resInner">
-          <h2>{{ cupRaces > 1 ? 'RACE ' + raceNum + ' RESULT' : 'RACE RESULT' }}</h2>
-          <div class="resList">
-            <div v-for="r in resultsRows" :key="r.name + r.place" class="resRow" :class="{ podium: r.place <= 3 }">
-              <span class="pl">{{ ord(r.place) }}</span>
-              <span class="chip" :style="{ background: r.paint }" />
-              <span class="nm">{{ r.name }}</span>
-              <span class="pts">+{{ r.points }}</span>
-              <span class="tm">{{ r.time }}</span>
+          <h2>{{ cupRaces > 1 ? 'RACE ' + raceNum + ' OF ' + cupRaces : 'RACE RESULT' }}</h2>
+          <div class="resCols">
+            <div class="resCol">
+              <div class="colHd">finish</div>
+              <div v-for="r in resultsRows" :key="r.name + r.place" class="resRow" :class="{ podium: r.place <= 3 }">
+                <span class="pl">{{ ord(r.place) }}</span>
+                <span class="chip" :style="{ background: r.paint }" />
+                <span class="nm">{{ r.name }}</span>
+                <span class="tm">{{ r.time }}</span>
+                <span class="pts">+{{ r.points }}</span>
+              </div>
             </div>
-          </div>
-          <div v-if="cupRaces > 1" class="cupBox">
-            <div class="label">cup standings</div>
-            <div v-for="(s, i) in cup" :key="s.id" class="cupRow" :class="{ lead: i === 0 }">
-              <span class="pl">{{ i + 1 }}</span>
-              <span class="chip" :style="{ background: '#' + s.paint.toString(16).padStart(6, '0') }" />
-              <span class="nm">{{ s.name }}</span>
-              <span class="pts">{{ s.points }} PTS</span>
+            <div v-if="cupRaces > 1" class="resCol">
+              <div class="colHd">cup standings</div>
+              <div v-for="(s, i) in cup" :key="s.id" class="cupRow" :class="{ lead: i === 0 }">
+                <span class="pl">{{ i + 1 }}</span>
+                <span class="chip" :style="{ background: '#' + s.paint.toString(16).padStart(6, '0') }" />
+                <span class="nm">{{ s.name }}</span>
+                <span class="pts">{{ s.points }}</span>
+              </div>
             </div>
           </div>
           <div class="ctaRow">
-            <button v-if="raceNum < cupRaces" class="btn" @click="nextRace">NEXT RACE</button>
+            <button v-if="raceNum < cupRaces" class="btn" @click="nextRace">NEXT RACE: {{ nextCourseName }}</button>
             <button v-else class="btn" @click="rematch">REMATCH</button>
             <button class="btn ghostbtn" @click="backToLobby">LOBBY</button>
           </div>
@@ -1328,58 +1387,147 @@ h1 {
 .count .num.go {
   color: var(--flag-green);
 }
+/* copy link + keyboard legend */
+.copybtn {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--hivis);
+  border: 2px solid var(--ink);
+  padding: 7px 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+.copybtn:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.keysBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 2px solid var(--pitline);
+  background: var(--tarmac);
+}
+.keysBar span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ghost);
+}
+.keysBar b {
+  color: var(--chalk);
+  font-weight: 600;
+  background: var(--pit);
+  border: 1px solid var(--pitline);
+  padding: 1px 6px;
+}
+.keysBar .kbpick {
+  color: var(--smoke);
+  margin-right: auto;
+}
+.keysBar .kbpick b {
+  color: var(--hivis);
+  background: none;
+  border: 0;
+  padding: 0;
+}
 /* results */
-.resInner {
-  padding: 28px;
+.resFrame {
+  width: min(900px, 94vw);
+  max-height: 92vh;
+  border: 3px solid var(--ink);
+  background: var(--pit);
+  box-shadow: 8px 8px 0 var(--ink);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  grid-column: 1 / -1;
+  overflow: hidden;
+}
+.resFrame.cup {
+  width: min(1000px, 95vw);
+}
+.resInner {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
 }
 h2 {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 30px;
   color: var(--hivis);
   text-shadow: 4px 4px 0 var(--ink);
 }
-.resList,
-.cupBox {
+.resCols {
+  display: flex;
+  gap: 18px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.resCol {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
+}
+.resCol:only-child {
+  max-width: 540px;
+  margin: 0 auto;
+  width: 100%;
+}
+.colHd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ghost);
+  margin-bottom: 2px;
 }
 .resRow,
 .cupRow {
   display: grid;
-  grid-template-columns: 56px 20px 1fr auto auto;
-  gap: 10px;
+  grid-template-columns: 40px 16px 1fr auto auto;
+  gap: 9px;
   align-items: center;
   border: 2px solid var(--pitline);
   background: var(--tarmac);
-  padding: 8px 14px;
+  padding: 6px 11px;
 }
 .cupRow {
-  grid-template-columns: 40px 20px 1fr auto;
+  grid-template-columns: 26px 16px 1fr auto;
 }
 .resRow.podium,
 .cupRow.lead {
-  border-color: var(--ink);
-  box-shadow: var(--shadow-soft);
+  border-color: var(--hivis);
 }
 .resRow .pl,
 .cupRow .pl {
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 15px;
   color: var(--smoke);
 }
 .resRow.podium .pl,
 .cupRow.lead .pl {
   color: var(--hivis);
 }
+.resRow .nm,
+.cupRow .nm {
+  min-width: 0;
+  font-size: 13px;
+}
 .chip {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--ink);
+  border-radius: 3px;
 }
 .pts {
   font-family: var(--font-mono);
@@ -1387,9 +1535,14 @@ h2 {
   color: var(--hivis);
   font-weight: 600;
 }
+.cupRow .pts::after {
+  content: ' PTS';
+  font-size: 9px;
+  color: var(--smoke);
+}
 .tm {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--smoke);
 }
 @media (max-width: 880px) {

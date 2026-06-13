@@ -16,6 +16,7 @@ import { PadButton, SteeringWheel, Thumbstick } from '@doot-games/ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CARTS } from './carts'
 import { CHARACTERS } from './characters'
+import { drawCart } from './carts/preview'
 import { drawPortrait } from './characters/portraits'
 import { ord } from './logic'
 import { CH, type Phase, type SeatMsg, type TeleMsg } from './protocol'
@@ -35,7 +36,7 @@ const tele = ref<TeleMsg | null>(null)
 const charId = ref('socket')
 const cartId = ref('standard')
 const ready = ref(false)
-const scheme = ref<Scheme>((typeof localStorage !== 'undefined' && (localStorage.getItem(SCHEME_KEY) as Scheme)) || 'auto')
+const scheme = ref<Scheme>((typeof localStorage !== 'undefined' && (localStorage.getItem(SCHEME_KEY) as Scheme)) || 'joystick')
 watch(scheme, (s) => {
   try {
     localStorage.setItem(SCHEME_KEY, s)
@@ -143,12 +144,20 @@ let prevEv = { hit: 0, pick: 0, boost: 0 }
 const countNum = ref(-1)
 const finishBanner = ref('')
 
+let goTimer = 0
 watch(tele, (v) => {
   if (!v) return
   if (v.c !== prevCount) {
     countNum.value = v.c
     if (v.c >= 1) vibrate(15)
-    else if (v.c === 0) vibrate(60)
+    else if (v.c === 0) {
+      vibrate(60)
+      // belt-and-suspenders: clear GO after a beat even if telemetry keeps sending 0
+      clearTimeout(goTimer)
+      goTimer = window.setTimeout(() => {
+        if (countNum.value === 0) countNum.value = -1
+      }, 1000)
+    }
     prevCount = v.c
   }
   if (v.p > 0 && prevPlace === 0) {
@@ -246,6 +255,20 @@ onBeforeUnmount(() => {
 function portraitRef(el: Element | null, id: string): void {
   if (el instanceof HTMLCanvasElement) drawPortrait(el, id)
 }
+const cartCanvases = new Map<string, HTMLCanvasElement>()
+function cartRef(el: Element | null, id: string): void {
+  if (!(el instanceof HTMLCanvasElement)) return
+  cartCanvases.set(id, el)
+  const r = resolveKart(charId.value, id)
+  drawCart(el, id, r.paint, r.accent)
+}
+// repaint every cart preview in the driver's colours when the driver changes
+watch(charId, () => {
+  for (const [id, el] of cartCanvases) {
+    const r = resolveKart(charId.value, id)
+    drawCart(el, id, r.paint, r.accent)
+  }
+})
 </script>
 
 <template>
@@ -275,6 +298,7 @@ function portraitRef(el: Element | null, id: string): void {
         <div class="label">kart</div>
         <div class="kgrid">
           <button v-for="c in CARTS" :key="c.id" class="ktile" :class="{ sel: cartId === c.id }" @click="pickCart(c.id)">
+            <canvas :ref="(el) => cartRef(el as Element, c.id)" class="kcv" width="112" height="64" />
             <span class="kn">{{ c.name }}</span>
             <span class="kb">{{ c.blurb }}</span>
           </button>
@@ -292,57 +316,33 @@ function portraitRef(el: Element | null, id: string): void {
     <!-- DRIVE -->
     <section v-else-if="screen === 'drive'" class="drive">
       <video v-if="watching" ref="videoEl" class="streamBg" autoplay playsinline muted />
-      <div class="strip">
+      <header class="strip">
         <span class="rank">{{ tele?.r ? ord(tele.r) : '--' }}</span>
-        <span class="lap">{{ tele?.p ? 'FIN ' + ord(tele.p) : 'LAP ' + (tele?.l ?? 1) + '/' + (tele?.L ?? 3) }}</span>
+        <div class="meta">
+          <span class="lap">{{ tele?.p ? 'FINISHED ' + ord(tele.p) : 'LAP ' + (tele?.l ?? 1) + ' / ' + (tele?.L ?? 3) }}</span>
+          <span class="spd">{{ tele?.s ?? 0 }}<i>KPH</i></span>
+        </div>
         <span class="itm" :class="{ has: !!tele?.i }" v-html="itemSvg" />
-        <span class="spd">{{ tele?.s ?? 0 }} KPH</span>
-        <button v-if="canWatch" class="mini" :class="{ on: watching }" @click="toggleWatch">{{ watching ? 'WATCHING' : 'WATCH' }}</button>
-        <select v-model="scheme" class="schemesel" aria-label="Control scheme">
-          <option value="auto">AUTO</option>
-          <option value="joystick">STICK</option>
-          <option value="wheel">WHEEL</option>
-        </select>
-      </div>
+        <div class="seg">
+          <button :class="{ on: scheme === 'joystick' }" @click="scheme = 'joystick'">STICK</button>
+          <button :class="{ on: scheme === 'wheel' }" @click="scheme = 'wheel'">WHEEL</button>
+          <button :class="{ on: scheme === 'auto' }" @click="scheme = 'auto'">AUTO</button>
+        </div>
+        <button v-if="canWatch" class="watch" :class="{ on: watching }" @click="toggleWatch">{{ watching ? 'LIVE' : 'WATCH' }}</button>
+      </header>
 
       <div class="deck">
-        <!-- AUTO: wheel + drift/item (+ brake) -->
-        <template v-if="scheme === 'auto'">
-          <div class="steerZone">
-            <SteeringWheel @steer="onSteer" />
-            <span class="hint">drag to steer · auto-gas</span>
-          </div>
-          <div class="btnCol auto">
-            <PadButton id="item" label="ITEM" hue="primary" shape="square" @input="(e) => e.pressed && fireItem()" />
-            <PadButton id="drift" label="DRIFT" hue="c1" @input="holdDrift" />
-            <PadButton id="brake" label="BRAKE" hue="c2" @input="holdBrake" />
-          </div>
-        </template>
-
-        <!-- JOYSTICK: stick (steer+gas) + drift/item -->
-        <template v-else-if="scheme === 'joystick'">
-          <div class="steerZone">
-            <Thumbstick side="left" @axis="onStick" />
-            <span class="hint">push up to go · steer left/right</span>
-          </div>
-          <div class="btnCol">
-            <PadButton id="item" label="ITEM" hue="primary" shape="square" @input="(e) => e.pressed && fireItem()" />
-            <PadButton id="drift" label="DRIFT" hue="c1" @input="holdDrift" />
-          </div>
-        </template>
-
-        <!-- WHEEL: wheel + gas/brake/drift/item -->
-        <template v-else>
-          <div class="steerZone">
-            <SteeringWheel @steer="onSteer" />
-          </div>
-          <div class="btnCol wheel">
-            <PadButton id="item" label="ITEM" hue="primary" shape="square" @input="(e) => e.pressed && fireItem()" />
-            <PadButton id="drift" label="DRIFT" hue="c1" @input="holdDrift" />
-            <PadButton id="brake" label="BRAKE" hue="c2" @input="holdBrake" />
-            <PadButton id="gas" label="GAS" hue="primary" @input="holdGas" />
-          </div>
-        </template>
+        <div class="ctrlZone">
+          <Thumbstick v-if="scheme === 'joystick'" side="left" :deadzone="0.08" @axis="onStick" />
+          <SteeringWheel v-else @steer="onSteer" />
+          <span class="hint">{{ scheme === 'joystick' ? 'PUSH UP TO GO' : scheme === 'auto' ? 'DRAG TO STEER' : 'STEER' }}</span>
+        </div>
+        <div class="actions" :class="scheme">
+          <div class="cell item"><PadButton id="item" label="ITEM" hue="primary" shape="square" @input="(e) => e.pressed && fireItem()" /></div>
+          <div class="cell drift"><PadButton id="drift" label="DRIFT" hue="c1" shape="square" @input="holdDrift" /></div>
+          <div v-if="scheme !== 'joystick'" class="cell brake"><PadButton id="brake" label="BRAKE" hue="c2" shape="square" @input="holdBrake" /></div>
+          <div v-if="scheme === 'wheel'" class="cell gas"><PadButton id="gas" label="GAS" hue="c3" shape="square" @input="holdGas" /></div>
+        </div>
       </div>
 
       <div v-if="countNum >= 1" class="cdo"><span class="num">{{ countNum }}</span></div>
@@ -385,6 +385,20 @@ function portraitRef(el: Element | null, id: string): void {
   --font-ui: 'Chakra Petch', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
   --shadow: 4px 4px 0 var(--ink);
+  /* Drive the @doot-games/ui controller kit (Thumbstick / PadButton / SteeringWheel)
+     in the KERF pit-lane palette so the controls match this game's chrome. */
+  --surface: #1f1c27;
+  --surface-2: #14121a;
+  --line: #0b0a0f;
+  --bd: 3px;
+  --shadow-sm: 2px 2px 0 var(--ink);
+  --primary: #ffd23f;
+  --c1: #ff5d8f;
+  --c2: #ff4d5e;
+  --c3: #5fe08a;
+  --c4: #4ec3e0;
+  --c5: #b48ae0;
+  --control-scale: 1.1;
   position: absolute;
   inset: 0;
   background: var(--tarmac);
@@ -491,6 +505,14 @@ function portraitRef(el: Element | null, id: string): void {
   cursor: pointer;
   text-align: left;
 }
+.ktile .kcv {
+  width: 100%;
+  height: auto;
+  max-height: 48px;
+  object-fit: contain;
+  margin-bottom: 2px;
+  image-rendering: auto;
+}
 .ktile .kn {
   font-weight: 700;
   font-size: 13px;
@@ -567,51 +589,94 @@ function portraitRef(el: Element | null, id: string): void {
 }
 .strip .rank {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 26px;
   color: var(--hivis);
   text-shadow: 2px 2px 0 var(--ink);
-  min-width: 54px;
+  min-width: 50px;
+}
+.strip .meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
 }
 .strip .lap {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   color: var(--smoke);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.strip .spd {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--chalk);
+}
+.strip .spd i {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-style: normal;
+  color: var(--ghost);
+  margin-left: 3px;
 }
 .strip .itm {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border: 2px solid var(--pitline);
+  border-radius: 9px;
+  background: var(--tarmac);
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
 }
 .strip .itm.has {
   border-color: var(--hivis);
+  box-shadow: 0 0 12px rgba(255, 210, 63, 0.4);
 }
 .strip .itm :deep(svg) {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   fill: var(--hivis);
 }
-.strip .spd {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--smoke);
-  margin-left: auto;
+.seg {
+  display: flex;
+  border: 2px solid var(--ink);
+  border-radius: 9px;
+  overflow: hidden;
 }
-.strip .mini,
-.strip .schemesel {
+.seg button {
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 10px 9px;
+  background: var(--tarmac);
+  color: var(--smoke);
+  border: 0;
+  border-right: 2px solid var(--ink);
+  cursor: pointer;
+}
+.seg button:last-child {
+  border-right: 0;
+}
+.seg button.on {
+  background: var(--hivis);
+  color: var(--ink);
+}
+.watch {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  padding: 10px 11px;
   background: var(--tarmac);
   color: var(--smoke);
   border: 2px solid var(--pitline);
-  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
 }
-.strip .mini.on {
-  background: var(--hivis);
+.watch.on {
+  background: var(--flag-green);
   color: var(--ink);
   border-color: var(--ink);
 }
@@ -620,49 +685,79 @@ function portraitRef(el: Element | null, id: string): void {
   z-index: 2;
   flex: 1;
   display: flex;
+  align-items: stretch;
   min-height: 0;
   touch-action: none;
+  padding: 14px;
+  gap: 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
 }
-.steerZone {
-  flex: 1.15;
+.ctrlZone {
+  flex: 1.2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border-right: 3px solid var(--ink);
-  background: radial-gradient(circle at 50% 58%, rgba(255, 210, 63, 0.05), transparent 62%), transparent;
+  gap: 12px;
+  background: radial-gradient(circle at 50% 56%, rgba(255, 210, 63, 0.06), transparent 64%);
+  border-radius: 16px;
 }
 .hint {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   color: var(--ghost);
   text-transform: uppercase;
 }
-.btnCol {
+.actions {
   flex: 1;
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
-.btnCol :deep(.pad-btn) {
+.actions .cell {
+  display: grid;
+  min-height: 0;
+  min-width: 0;
+}
+.actions :deep(.pad-btn) {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  font-size: clamp(14px, 4.2vmin, 22px);
 }
-.btnCol.auto {
+.actions.joystick {
+  grid-template-rows: 1fr 1.35fr;
+}
+.actions.auto {
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1.4fr;
-  grid-template-areas: 'item drift' 'brake brake';
+  grid-template-rows: 1.3fr 1fr;
+  grid-template-areas: 'drift drift' 'item brake';
 }
-.btnCol.auto :deep(.pad-btn) {
-  height: 100%;
+.actions.auto .drift {
+  grid-area: drift;
 }
-.btnCol.wheel {
+.actions.auto .item {
+  grid-area: item;
+}
+.actions.auto .brake {
+  grid-area: brake;
+}
+.actions.wheel {
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1.4fr;
+  grid-template-rows: 1fr 1.3fr;
   grid-template-areas: 'item drift' 'brake gas';
+}
+.actions.wheel .item {
+  grid-area: item;
+}
+.actions.wheel .drift {
+  grid-area: drift;
+}
+.actions.wheel .brake {
+  grid-area: brake;
+}
+.actions.wheel .gas {
+  grid-area: gas;
 }
 .cdo {
   position: absolute;
