@@ -5,6 +5,45 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **EDITOR PREVIEW = TRUE DEVICE VIEWPORTS (iframe-per-preview) (2026-06-25).** Closes the
+> caveat the prior device-frame work left open: block views size some fonts in `vw`, which
+> resolves to the *window*, so the old transform-scaled previews showed phone text too large.
+> Both previews now render inside a real same-origin `<iframe>` whose own viewport equals the
+> device width (390 phone / 1280 host), so `vw`/`vh` resolve to the device, pixel-faithful.
+> New `apps/web/app/components/PreviewFrame.client.vue`:
+> - **Teleports** its slot into the iframe (`<Teleport :to>` a `#doot-root` div in the frame
+>   body), so the preview stays in the PARENT Vue tree: reactivity, two-way `modelValue`, and
+>   `provideDootRoom` (HostPreview/PlayerPreview's mock room) all keep working; only the DOM
+>   nodes live in the frame, where the viewport is correct. (Modern browsers auto-adopt nodes
+>   across documents on insert, so this is sound.)
+> - **Mirrors** every parent `<style>` + `link[rel=stylesheet]` into the frame head and keeps
+>   them in sync (MutationObserver, for HMR / lazy scoped-style injects); links are re-created
+>   with their absolute href (the frame base is about:blank). Sets `data-theme` on the frame
+>   `<html>` and watches `themeId`, so the theme + its dark `color-scheme` apply live inside
+>   the frame (verified across all 6 themes; cyber goes dark).
+> - **Self-scales**: renders at logical size, transform-scaled to fit its container; phone is
+>   capped at 1:1 (`maxScale`), host fills the 16:9 bezel. The editor no longer computes a
+>   scale (`bsScale`/`previewW`/the surface ResizeObserver are gone). `.ed-screen-stage` now
+>   fills the frame's 1280x720 viewport; `.ed-phone-device` widened to 412px for a true 390px
+>   screen interior.
+> - GATE GREEN: **797 unit tests, `pnpm -r typecheck` (incl. strict `nuxi typecheck`), web
+>   build**, plus a real-browser smoke (`scripts/preview-frame-smoke.mjs`: proves frame
+>   innerWidth === 390/1280 so `vw` resolves to the device; the teleported content + theme
+>   render in the frame; clicking an option round-trips `modelValue` back through the
+>   teleport; exactly one `#doot-root` (no load-race orphan); 0 editor overflow; 0 console
+>   errors) and reviewed phone/host screenshots.
+>   LESSONS (each cost real time, both browser-only - static checks were green throughout):
+>   1. A ResizeObserver-only measure left the phone frame at 1px (boxH stuck at its 0 init,
+>      the RO callback didn't settle in time): the frame must measure its container
+>      SYNCHRONOUSLY in onMounted (+ rAF), not rely on the observer alone.
+>   2. A `srcdoc` iframe exposes a transient `about:blank` (WITH a `body`, so a body-check
+>      passes) before the srcdoc loads - wiring `#doot-root` on mount mounted into a doc the
+>      browser then discards, then re-targeted on load. Wire the frame ONLY on `@load` (the
+>      listener is bound at element creation, before insertion + before srcdoc navigation, so
+>      it can't be missed). Audit confirmed no orphan/dup nodes after the fix.
+>   (Pre-existing, NOT from this change: a closed preview-drawer overflows ~61px at the
+>   900-1000px breakpoint; identical at HEAD.)
+
 > **EDITOR DRAG + ROOM-CODE COLLISION + RESULTS/TIMER/CONFETTI POLISH (2026-06-25).**
 > A second feedback pass. Gate green at ship: **797 unit tests, `pnpm -r typecheck`
 > (incl. strict `nuxi typecheck`), web build**, plus a full Playwright visual audit

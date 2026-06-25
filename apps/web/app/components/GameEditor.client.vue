@@ -363,25 +363,11 @@ watch([selected, canPreviewReveal], () => {
   if (!canPreviewReveal.value) previewState.value = 'open'
 })
 
-// The big-screen preview is rendered at a real 16:9 logical resolution (1280x720) and
-// scaled to fit the pane, so it reads like an actual TV/projector (the real layout and
-// proportions, not a cramped reflow). Measure the surface to set the scale.
-const BIG_SCREEN_W = 1280
-const previewSurface = ref<HTMLElement | null>(null)
-const previewW = ref(420)
-let previewRO: ResizeObserver | null = null
-watch(previewSurface, (el) => {
-  previewRO?.disconnect()
-  if (!el) return
-  previewRO = new ResizeObserver((entries) => {
-    const w = entries[0]?.contentRect.width
-    if (w) previewW.value = w
-  })
-  previewRO.observe(el)
-})
-onScopeDispose(() => previewRO?.disconnect())
-// The frame has a 7px bezel each side; the stage fills the inner width.
-const bsScale = computed(() => Math.max(0.12, (previewW.value - 14) / BIG_SCREEN_W))
+// The phone (390) and big-screen (1280x720) previews render inside <PreviewFrame>,
+// a real iframe whose own viewport equals the device width, so block views that
+// size text in `vw` resolve to the device, not the editor window. The frame
+// measures its container and transform-scales itself to fit, so we no longer
+// compute a scale here.
 function select(i: number) {
   selected.value = i
   showPreviewDrawer.value = false
@@ -1097,10 +1083,13 @@ onScopeDispose(() => {
           </div>
 
           <template v-if="cur">
-            <div ref="previewSurface" class="ed-preview-surface">
-              <!-- PHONE: a real phone-width device frame. -->
+            <div class="ed-preview-surface">
+              <!-- PHONE: a real phone-width device frame. The player view renders
+                   inside an iframe at a true 390px viewport (so its vw fonts size
+                   like a real phone), scrolling within the screen. -->
               <div v-if="previewMode === 'phone'" class="ed-phone-device">
                 <div class="ed-phone-screen">
+                  <PreviewFrame :width="390" :max-scale="1" :theme-id="themeId" title="Phone preview">
                   <div class="ed-phone">
                     <template v-if="!curIsDisplay">
                       <div class="kicker">{{ blockFor(cur)?.name }}</div>
@@ -1126,13 +1115,17 @@ onScopeDispose(() => {
                     />
                     <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
                   </div>
+                  </PreviewFrame>
                 </div>
                 <p class="ed-device-label">Phone · 390px</p>
               </div>
 
-              <!-- BIG SCREEN: a 16:9 screen, the real host stage scaled to fit. -->
+              <!-- BIG SCREEN: a 16:9 screen, the real host stage at a true 1280x720
+                   viewport (iframe) transform-scaled to fit, so vw fonts read like
+                   an actual TV. -->
               <div v-else class="ed-screen-device">
-                <div class="ed-screen-stage" :style="{ transform: `scale(${bsScale})` }" inert>
+                <PreviewFrame :width="1280" :height="720" :theme-id="themeId" title="Big screen preview">
+                <div class="ed-screen-stage" inert>
                   <!-- Display block (slide / title): owns the whole stage, like the host. -->
                   <div v-if="curIsDisplay && blockFor(cur) && !errors[selected]" class="ed-bs-full">
                     <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
@@ -1155,6 +1148,7 @@ onScopeDispose(() => {
                   </div>
                   <div v-else class="ed-bs-full"><p class="ed-bs-derived">Preview appears once this round is valid.</p></div>
                 </div>
+                </PreviewFrame>
                 <p class="ed-device-label">Big screen · 16:9</p>
               </div>
             </div>
@@ -2002,10 +1996,12 @@ onScopeDispose(() => {
   text-transform: uppercase;
   color: var(--mute);
 }
-/* PHONE: a real phone-width device with a dark bezel; the player view renders at its
-   true width and scrolls inside like an actual phone. */
+/* PHONE: a real phone-width device with a dark bezel; the player view renders in
+   an iframe at a true 390px viewport (so its vw fonts size like a real phone) and
+   scrolls inside the screen like an actual phone. The 11px bezel padding leaves a
+   390px screen interior. */
 .ed-phone-device {
-  width: min(390px, 100%);
+  width: min(412px, 100%);
   margin: 0 auto;
   background: #0e0e13;
   border-radius: 38px;
@@ -2013,10 +2009,11 @@ onScopeDispose(() => {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), inset 0 0 0 2px #2b2b34;
 }
 .ed-phone-screen {
+  position: relative;
   background: var(--surface);
   border-radius: 28px;
-  overflow: hidden auto;
-  max-height: calc(100vh - 240px);
+  overflow: hidden;
+  height: min(720px, calc(100vh - 220px));
 }
 .ed-phone {
   padding: 18px 16px;
@@ -2041,8 +2038,9 @@ onScopeDispose(() => {
   font-size: 13px;
   color: var(--ink-soft);
 }
-/* BIG SCREEN: a 16:9 monitor frame; the real host stage is rendered at 1280x720 and
-   transform-scaled to fit, so the layout + proportions read like an actual TV. */
+/* BIG SCREEN: a 16:9 monitor frame; the real host stage is rendered in an iframe at
+   a true 1280x720 viewport (so its vw fonts size like an actual TV) and the frame
+   transform-scales itself to fit, so the layout + proportions read like a real TV. */
 .ed-screen-device {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -2053,13 +2051,11 @@ onScopeDispose(() => {
   position: relative;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
+/* Inside the iframe the stage fills the 1280x720 viewport (a flex child of the
+   frame's #doot-root column). */
 .ed-screen-stage {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 1280px;
-  height: 720px;
-  transform-origin: top left;
+  flex: 1;
+  width: 100%;
   box-sizing: border-box;
   padding: 40px 44px;
   display: flex;
