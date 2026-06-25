@@ -362,6 +362,26 @@ const canPreviewReveal = computed(() => {
 watch([selected, canPreviewReveal], () => {
   if (!canPreviewReveal.value) previewState.value = 'open'
 })
+
+// The big-screen preview is rendered at a real 16:9 logical resolution (1280x720) and
+// scaled to fit the pane, so it reads like an actual TV/projector (the real layout and
+// proportions, not a cramped reflow). Measure the surface to set the scale.
+const BIG_SCREEN_W = 1280
+const previewSurface = ref<HTMLElement | null>(null)
+const previewW = ref(420)
+let previewRO: ResizeObserver | null = null
+watch(previewSurface, (el) => {
+  previewRO?.disconnect()
+  if (!el) return
+  previewRO = new ResizeObserver((entries) => {
+    const w = entries[0]?.contentRect.width
+    if (w) previewW.value = w
+  })
+  previewRO.observe(el)
+})
+onScopeDispose(() => previewRO?.disconnect())
+// The frame has a 7px bezel each side; the stage fills the inner width.
+const bsScale = computed(() => Math.max(0.12, (previewW.value - 14) / BIG_SCREEN_W))
 function select(i: number) {
   selected.value = i
   showPreviewDrawer.value = false
@@ -1077,48 +1097,66 @@ onScopeDispose(() => {
           </div>
 
           <template v-if="cur">
-            <!-- PHONE: what each player taps on their own device -->
-            <div v-if="previewMode === 'phone'" class="ed-phone panel">
-              <template v-if="!curIsDisplay">
-                <div class="kicker">{{ blockFor(cur)?.name }}</div>
-                <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
-                <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
-                <p v-if="previewContent.audio" class="ed-audio-hint">Listen to the big screen</p>
-              </template>
-              <template v-if="isDerived(cur)">
-                <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
-                <ul class="ed-sample">
-                  <li>An answer a player wrote</li>
-                  <li>Another player's answer</li>
-                  <li>A third answer</li>
-                </ul>
-              </template>
-              <PlayerPreview
-                v-else-if="blockFor(cur) && !errors[selected]"
-                :block="blockFor(cur)!"
-                :content="previewContent"
-                :model-value="previewValue(selected)"
-                :state="previewState"
-                @update:model-value="previewInputs[selected] = $event"
-              />
-              <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
-            </div>
+            <div ref="previewSurface" class="ed-preview-surface">
+              <!-- PHONE: a real phone-width device frame. -->
+              <div v-if="previewMode === 'phone'" class="ed-phone-device">
+                <div class="ed-phone-screen">
+                  <div class="ed-phone">
+                    <template v-if="!curIsDisplay">
+                      <div class="kicker">{{ blockFor(cur)?.name }}</div>
+                      <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
+                      <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
+                      <p v-if="previewContent.audio" class="ed-audio-hint">Listen to the big screen</p>
+                    </template>
+                    <template v-if="isDerived(cur)">
+                      <p class="ed-preview-hint">Filled in live from the previous round, for example:</p>
+                      <ul class="ed-sample">
+                        <li>An answer a player wrote</li>
+                        <li>Another player's answer</li>
+                        <li>A third answer</li>
+                      </ul>
+                    </template>
+                    <PlayerPreview
+                      v-else-if="blockFor(cur) && !errors[selected]"
+                      :block="blockFor(cur)!"
+                      :content="previewContent"
+                      :model-value="previewValue(selected)"
+                      :state="previewState"
+                      @update:model-value="previewInputs[selected] = $event"
+                    />
+                    <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
+                  </div>
+                </div>
+                <p class="ed-device-label">Phone · 390px</p>
+              </div>
 
-            <!-- BIG SCREEN: what the whole room watches on the TV/projector -->
-            <div v-else class="ed-bigscreen panel">
-              <div v-if="!curIsDisplay" class="ed-bs-prompt-area">
-                <h3 class="ed-bs-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
-                <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-bs-img" />
-                <AudioClip v-if="previewContent.audio" :src="previewContent.audio as string" class="ed-bs-audio" :label="previewPrompt || 'Listen'" />
+              <!-- BIG SCREEN: a 16:9 screen, the real host stage scaled to fit. -->
+              <div v-else class="ed-screen-device">
+                <div class="ed-screen-stage" :style="{ transform: `scale(${bsScale})` }" inert>
+                  <!-- Display block (slide / title): owns the whole stage, like the host. -->
+                  <div v-if="curIsDisplay && blockFor(cur) && !errors[selected]" class="ed-bs-full">
+                    <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
+                  </div>
+                  <!-- Derived (judge) round: built live from the previous round. -->
+                  <div v-else-if="isDerived(cur)" class="ed-bs-full">
+                    <p class="ed-bs-derived">The big screen fills in live from the previous round.</p>
+                  </div>
+                  <!-- Normal round: prompt/image on the left, the board on the right (the
+                       real GameHost split stage). -->
+                  <div v-else-if="blockFor(cur) && !errors[selected]" class="ed-bs-grid">
+                    <div class="ed-bs-left">
+                      <h3 class="ed-bs-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
+                      <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-bs-img" />
+                      <AudioClip v-if="previewContent.audio" :src="previewContent.audio as string" class="ed-bs-audio" :label="previewPrompt || 'Listen'" />
+                    </div>
+                    <div class="ed-bs-right">
+                      <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
+                    </div>
+                  </div>
+                  <div v-else class="ed-bs-full"><p class="ed-bs-derived">Preview appears once this round is valid.</p></div>
+                </div>
+                <p class="ed-device-label">Big screen · 16:9</p>
               </div>
-              <div v-if="isDerived(cur)" class="ed-bs-board">
-                <p class="ed-preview-hint">The big screen fills in live from the previous round.</p>
-              </div>
-              <!-- inert: a non-interactive preview, so host controls stay out of reach. -->
-              <div v-else-if="blockFor(cur) && !errors[selected]" class="ed-bs-board" inert>
-                <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
-              </div>
-              <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
             </div>
           </template>
           <p v-else class="ed-preview-hint">Add a round to see a preview.</p>
@@ -1952,9 +1990,36 @@ onScopeDispose(() => {
   color: var(--ink-soft);
   font-weight: 500;
 }
+.ed-preview-surface {
+  min-width: 0;
+}
+.ed-device-label {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+/* PHONE: a real phone-width device with a dark bezel; the player view renders at its
+   true width and scrolls inside like an actual phone. */
+.ed-phone-device {
+  width: min(390px, 100%);
+  margin: 0 auto;
+  background: #0e0e13;
+  border-radius: 38px;
+  padding: 11px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28), inset 0 0 0 2px #2b2b34;
+}
+.ed-phone-screen {
+  background: var(--surface);
+  border-radius: 28px;
+  overflow: hidden auto;
+  max-height: calc(100vh - 240px);
+}
 .ed-phone {
-  border-radius: 16px;
-  padding: 18px;
+  padding: 18px 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1970,53 +2035,84 @@ onScopeDispose(() => {
   border-radius: 12px;
   border: var(--bd) solid var(--line-soft);
 }
-/* Big-screen (host) preview: a framed "stage" distinct from the phone card. */
-.ed-bigscreen {
-  border-radius: 16px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  background: var(--surface-2);
-}
-.ed-bs-prompt-area {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-}
-.ed-bs-prompt {
-  font-family: var(--font-display, inherit);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.15;
-}
-.ed-bs-img {
-  width: 100%;
-  max-height: 160px;
-  object-fit: contain;
-  border-radius: 12px;
-  border: var(--bd) solid var(--line-soft);
-}
-.ed-bs-audio {
-  margin-top: 10px;
-}
 .ed-audio-hint {
   margin-top: 8px;
   font-weight: 700;
   font-size: 13px;
   color: var(--ink-soft);
 }
-.ed-bs-board {
-  /* The real host view is sized for a projector; scale it down to the editor
-     column. `zoom` shrinks layout and clamp()-based fonts proportionally
-     (supported in Chromium, WebKit, and Firefox 126+). */
-  zoom: 0.62;
-  border-top: var(--bd) solid var(--line-soft);
-  padding-top: 16px;
-  /* Belt-and-suspenders with `inert`: it's a preview, not a control surface. */
+/* BIG SCREEN: a 16:9 monitor frame; the real host stage is rendered at 1280x720 and
+   transform-scaled to fit, so the layout + proportions read like an actual TV. */
+.ed-screen-device {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 7px solid #15151b;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.ed-screen-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 720px;
+  transform-origin: top left;
+  box-sizing: border-box;
+  padding: 40px 44px;
+  display: flex;
+  background: var(--surface);
   pointer-events: none;
+}
+.ed-bs-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: stretch;
+}
+.ed-bs-left,
+.ed-bs-right {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+.ed-bs-full {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ed-bs-prompt {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(30px, 3.4vw, 50px);
+  font-weight: 800;
+  line-height: 1.12;
+  margin: 0;
+}
+.ed-bs-img {
+  max-width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: var(--radius-lg, 16px);
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface-2);
+}
+.ed-bs-audio {
+  margin-top: 6px;
+  max-width: 520px;
+}
+.ed-bs-derived {
+  font-size: 24px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-align: center;
 }
 /* Two-phase "this round is built automatically" explainer. */
 .ed-derived {
