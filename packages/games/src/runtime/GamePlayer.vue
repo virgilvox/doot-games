@@ -27,7 +27,13 @@ const teams = computed(() => room.meta.value?.teams ?? [])
 // the phone during the lull (locked / reveal) so the player watches their rank.
 const standings = computed(() => room.standings.value as StandardResults | undefined)
 const showStandings = computed(
-  () => (state.value === 'reveal' || state.value === 'locked') && (standings.value?.leaderboard?.length ?? 0) > 0,
+  () =>
+    // Only during active play (between rounds), never on the final results page
+    // where the full leaderboard already shows (the round state lingers on 'reveal'
+    // after the game ends, so gate on the phase too).
+    room.phase.value === 'active' &&
+    (state.value === 'reveal' || state.value === 'locked') &&
+    (standings.value?.leaderboard?.length ?? 0) > 0,
 )
 
 const config = computed<GameComposition | null>(

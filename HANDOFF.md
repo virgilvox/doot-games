@@ -2,8 +2,40 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-24. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **EDITOR DRAG + ROOM-CODE COLLISION + RESULTS/TIMER/CONFETTI POLISH (2026-06-25).**
+> A second feedback pass. Gate green at ship: **797 unit tests, `pnpm -r typecheck`
+> (incl. strict `nuxi typecheck`), web build**, plus a full Playwright visual audit
+> (screenshots reviewed for the editor rail/sections, host lobby, guess board + focused
+> reveal, player countdown, host + mobile results). What shipped:
+> - **Editor: drag-to-reorder rounds** in the left rail (native HTML5 DnD with a grip
+>   handle + a drop-indicator line; the up/down arrows stay for keyboard/touch). A
+>   discoverable **"+ Add section"** button next to "+ Add round" (group creation was
+>   previously buried in the per-round Section dropdown); **inline-rename** section
+>   headers; and dragging a round INTO a section joins it (adopts the group it's dropped
+>   inside, loose at a boundary / ungrouped stretch).
+> - **Room-code collision fix (a live bug: a new game hijacked an existing room).** On
+>   connect, a host checks the relay for a live host heartbeat on its code
+>   (`HOST_PRESENCE_WINDOW_MS`) and **regenerates the code before subscribing/publishing**
+>   if one exists, so a new game can never land on someone else's live room. The code is
+>   reactive (`RoomSnapshot.code` -> composable `room.code`), so the join code/QR follow
+>   the change; ALL host views were swept from `room.runtime.room` to `room.code`. Only
+>   the host regenerates (players/audience keep their exact code). 4 engine tests pin the
+>   live / free / stale-recycle / players-don't-regenerate cases. `RoomRuntime.room` is
+>   now mutable. The regenerate runs after `relay.connect()` and BEFORE `subscribe()`/any
+>   publish, and `loadGame` only publishes when already connected (it isn't at host setup),
+>   so nothing lands on the old code.
+> - **Player timer:** the phone shows the countdown ring when a round is timed, nothing
+>   when off (matches the big screen). A light local tick drives it.
+> - **Confetti:** fades to 0 and clears its pieces after the fall, so none linger as a
+>   "line of fallen confetti" on a scrolling phone results page.
+> - **Mobile results polish:** full player names show (wrap, no ellipsis) instead of being
+>   cut; the **winner is emphasized** (bigger avatar/name, gold star, accent card); tighter
+>   mobile panels; more names shown; join name cap raised 18 -> 24. **Audit fix:** the
+>   between-round "standings so far" peek no longer lingers on the final results page (it
+>   was gated on round state, which stays 'reveal' after finish; now gated on phase too).
 
 > **CONSUMER POLISH BATCH: authoring + presentation overhaul (2026-06-24).** A large
 > feedback-driven pass on how games look and how creators control them, driven by a
