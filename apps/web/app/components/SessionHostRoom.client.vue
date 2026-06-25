@@ -185,7 +185,7 @@ const playerCount = computed(() => room.players.value.length)
       <div class="bar-right">
         <span v-if="idx >= 0 && !finished" class="chip">Game {{ idx + 1 }}/{{ picks.length }}</span>
         <span class="chip">{{ playerCount }} {{ playerCount === 1 ? 'player' : 'players' }}</span>
-        <span class="code mono">{{ roomCode }}</span>
+        <span class="code mono">{{ room.code.value }}</span>
       </div>
     </template>
 

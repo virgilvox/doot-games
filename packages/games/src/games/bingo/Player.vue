@@ -46,7 +46,7 @@ onMounted(() => {
 const card = computed<BingoCard | null>(() => {
   const s = setup.value
   if (!s) return null
-  return buildCard(room.runtime.room, myId.value, s.pool, s.size)
+  return buildCard(room.code.value, myId.value, s.pool, s.size)
 })
 const calledSet = computed(() => new Set(calls.value))
 const fi = computed(() => (card.value ? freeIndex(card.value.size) : null))

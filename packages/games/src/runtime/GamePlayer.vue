@@ -7,8 +7,8 @@
 import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, StandardResults } from '@doot-games/sdk'
-import { Icon, StandingsPeek, teamColor } from '@doot-games/ui'
-import { computed, ref, watch } from 'vue'
+import { CountdownRing, Icon, StandingsPeek, teamColor } from '@doot-games/ui'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import { getBlock, ownMakeText } from './derive'
 
@@ -70,6 +70,30 @@ const showImage = computed(() => !!image.value && !failedImage.value)
 const hasAudio = computed(() => !!((content.value as { audio?: string } | null)?.audio))
 const submitted = computed(() => room.inputFor(index.value) !== undefined)
 const eligible = computed(() => index.value >= room.joinedAtIndex.value)
+
+// Show the same countdown on the phone the host shows on the big screen WHEN the
+// round is timed; an untimed round has no deadline, so nothing shows (the timer
+// setting reads the same on both screens). A light local tick drives the ring.
+const now = ref(0)
+let cdTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  now.value = Date.now()
+  cdTimer = setInterval(() => {
+    now.value = Date.now()
+  }, 500)
+})
+onUnmounted(() => {
+  if (cdTimer) clearInterval(cdTimer)
+})
+const roundTimer = computed(() =>
+  block.value?.timerOf && content.value ? block.value.timerOf(content.value) : null,
+)
+const countdown = computed(() => {
+  const dl = room.round.value.deadline
+  const t = roundTimer.value
+  if (!dl || !t) return null
+  return { remaining: Math.max(0, dl - now.value), total: t * 1000 }
+})
 
 // On a judge round (vote/split/...), the votable text built from THIS player's own
 // make submission, so the judge view can hide their own option and they can't vote
@@ -244,7 +268,10 @@ function reloadPage() {
     </div>
 
     <template v-else-if="state === 'open' && !submitted && value != null">
-      <div class="kicker">{{ block.name }}<template v-if="rounds.length > 1"> · Round {{ index + 1 }} of {{ rounds.length }}</template></div>
+      <div class="kicker-row">
+        <div class="kicker">{{ block.name }}<template v-if="rounds.length > 1"> · Round {{ index + 1 }} of {{ rounds.length }}</template></div>
+        <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" class="player-cd" />
+      </div>
       <h2 class="prompt">{{ prompt }}</h2>
       <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
       <p v-if="hasAudio" class="audio-hint"><Icon name="mic" :size="16" /> Listen to the big screen</p>
@@ -291,6 +318,20 @@ function reloadPage() {
 </template>
 
 <style scoped>
+/* Prompt kicker + the countdown sit on one row, so a timed round shows its clock
+   on the phone without pushing the input down. */
+.kicker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.player-cd {
+  flex: none;
+  transform: scale(0.72);
+  transform-origin: right center;
+  margin: -8px 0;
+}
 .player {
   display: flex;
   flex-direction: column;

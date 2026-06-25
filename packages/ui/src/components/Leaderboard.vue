@@ -36,13 +36,12 @@ const ranked = computed(() =>
       :class="{ first: e.leader, me: highlight && e.name === highlight }"
     >
       <span class="rank">{{ e.leader ? '★' : e.rank }}</span>
+      <Avatar :name="e.name" :id="e.id ?? e.name" :size="e.leader ? 44 : 32" class="av" />
       <span class="who">
-        <Avatar :name="e.name" :id="e.id ?? e.name" :size="30" />
         <span class="nm">{{ e.name }}</span>
+        <span v-if="e.detail" class="dt">{{ e.detail }}</span>
       </span>
-      <span class="sc mono">
-        {{ e.score }}<small v-if="e.detail"> · {{ e.detail }}</small>
-      </span>
+      <span class="sc mono">{{ e.score }}</span>
     </li>
   </ol>
 </template>
@@ -59,52 +58,73 @@ const ranked = computed(() =>
 .lb-row {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
   background: var(--surface-2);
   border: var(--bd) solid var(--line-soft);
   border-radius: 13px;
   padding: 11px 14px;
 }
+/* The winner stands out: a brighter card, a gold star, a bigger avatar and name. */
 .lb-row.first {
   border-color: var(--c1);
+  background: color-mix(in srgb, var(--c1) 12%, var(--surface-2));
   box-shadow: var(--shadow-sm);
+  padding: 14px;
+  gap: 14px;
 }
 .lb-row.me {
   border-color: var(--primary);
 }
+.lb-row.first.me {
+  border-color: var(--c1);
+  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--primary);
+}
 .rank {
+  flex: none;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 24px;
-  width: 36px;
+  font-size: 22px;
+  width: 30px;
   text-align: center;
   color: var(--mute);
 }
 .lb-row.first .rank {
   color: var(--c1);
+  font-size: 30px;
+}
+.av {
+  flex: none;
 }
 .who {
   flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
+/* Full names always show in full (wrapping onto a second line on a narrow phone)
+   instead of being cut off with an ellipsis. */
 .nm {
   font-weight: 800;
-  font-size: 18px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 17px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.lb-row.first .nm {
+  font-size: 20px;
+}
+.dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mute);
 }
 .sc {
-  font-weight: 700;
-  font-size: 18px;
+  flex: none;
+  font-weight: 800;
+  font-size: 20px;
   color: var(--c5);
 }
-.sc small {
-  color: var(--mute);
-  font-weight: 400;
-  font-size: 12px;
+.lb-row.first .sc {
+  font-size: 26px;
 }
 </style>

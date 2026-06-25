@@ -5,9 +5,15 @@
  * heavier, scene-graph celebrations are where Pixi via vue3-pixi would take
  * over. Hidden entirely under prefers-reduced-motion.
  */
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 const props = withDefaults(defineProps<{ count?: number }>(), { count: 90 })
+
+// The fall animation runs at most delay(0.6s) + dur(3.6s); clear the pieces a beat
+// after so none linger as a resting "line" of fallen confetti (the absolute layer
+// can be taller than the screen on a scrolling phone results page).
+const MAX_LIFETIME_MS = 5000
+let clearTimer: ReturnType<typeof setTimeout> | null = null
 
 interface Piece {
   left: number
@@ -31,6 +37,12 @@ onMounted(() => {
     size: 7 + Math.random() * 9,
     drift: (Math.random() - 0.5) * 220,
   }))
+  clearTimer = setTimeout(() => {
+    pieces.value = []
+  }, MAX_LIFETIME_MS)
+})
+onUnmounted(() => {
+  if (clearTimer) clearTimeout(clearTimer)
 })
 </script>
 
@@ -76,9 +88,14 @@ onMounted(() => {
     transform: translateY(-10%) translateX(0) rotate(var(--rot));
     opacity: 1;
   }
-  100% {
-    transform: translateY(108vh) translateX(var(--drift)) rotate(calc(var(--rot) + 540deg));
+  85% {
     opacity: 0.9;
+  }
+  100% {
+    /* Fade fully out at the end so a piece never rests visible if the falling
+       layer is taller than the screen (a scrolling phone results page). */
+    transform: translateY(108vh) translateX(var(--drift)) rotate(calc(var(--rot) + 540deg));
+    opacity: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {

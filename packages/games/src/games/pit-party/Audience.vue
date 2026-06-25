@@ -44,7 +44,7 @@ onUnmounted(() => viewer?.close())
   <div class="pit-watch">
     <header>
       <span class="brand">PIT PARTY</span>
-      <span class="room mono">Room {{ code ?? room.runtime.room }}</span>
+      <span class="room mono">Room {{ code ?? room.code.value }}</span>
       <span class="state mono" :class="{ live: state === 'connected' }">{{ status }}</span>
       <button class="ctl" @click="toggleSound">{{ soundOn ? 'SOUND ON' : 'SOUND OFF' }}</button>
       <button class="ctl" @click="fullscreen">FULLSCREEN</button>

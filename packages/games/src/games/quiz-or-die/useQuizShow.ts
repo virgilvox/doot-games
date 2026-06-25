@@ -66,7 +66,7 @@ export function useQuizShow() {
   }
 
   // ── Host-authoritative game state ─────────────────────────────────────────────
-  const seed = computed(() => room.runtime.room || "qod");
+  const seed = computed(() => room.code.value || "qod");
   let cast: Contestant[] = [];
   const castMap = new Map<string, Contestant>();
   let alive = new Set<string>();

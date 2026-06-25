@@ -48,7 +48,7 @@ const room = injectDootRoom()
 
 const MOUNT = '#arcade-screen'
 const joinUrl = computed(() => {
-  const code = room.runtime.room
+  const code = room.code.value
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 
@@ -455,7 +455,7 @@ function endResize() {
   <!-- LOBBY: load a ROM -->
   <div v-if="!booted" class="lobby">
     <section class="panel ticket-card">
-      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <RoomTicket :code="room.code.value" :url="joinUrl" />
       <p class="ticket-note">
         Players join from their phone, or
         <b>plug a USB / Bluetooth gamepad into this machine</b> and it takes a slot too.
@@ -540,7 +540,7 @@ function endResize() {
           <ConnChip :status="room.connected.value ? 'connected' : 'connecting'" />
         </div>
         <QrCode :value="joinUrl" :size="150" />
-        <span class="big-code">{{ room.runtime.room }}</span>
+        <span class="big-code">{{ room.code.value }}</span>
         <p class="join-url mono">{{ joinUrl.replace(/^https?:\/\//, '') }}</p>
         <p class="join-count">
           <b>{{ filledSeats }}</b> / {{ spec.max }} controllers
@@ -550,7 +550,7 @@ function endResize() {
           <DButton size="sm" block @click="copyJoin">Copy link</DButton>
           <DButton variant="ghost" size="sm" block @click="swapOpen = true">Swap ROM</DButton>
         </div>
-        <p class="watch-note mono">Watch live at /watch/{{ room.runtime.room }}</p>
+        <p class="watch-note mono">Watch live at /watch/{{ room.code.value }}</p>
       </aside>
     </div>
 

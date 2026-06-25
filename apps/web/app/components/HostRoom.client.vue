@@ -212,7 +212,7 @@ const playerCount = computed(() => room.players.value.length)
         <span class="chip" :class="room.connected.value ? 'live' : 'dead'">
           {{ room.connected.value ? 'connected' : 'connecting…' }}
         </span>
-        <span class="code mono">{{ roomCode }}</span>
+        <span class="code mono">{{ room.code.value }}</span>
       </div>
     </template>
     <component :is="HostView" :plugin="plugin" />

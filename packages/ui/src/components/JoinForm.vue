@@ -154,7 +154,7 @@ function onNameInput() {
         ref="nameInput"
         v-model="name"
         class="input"
-        maxlength="18"
+        maxlength="24"
         autocomplete="off"
         aria-label="Your display name"
         placeholder="e.g. Robin"

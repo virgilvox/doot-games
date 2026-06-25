@@ -53,6 +53,9 @@ export function useDootRoom(options: UseDootRoomOptions) {
   return {
     runtime,
     // reactive reads
+    // The room code, reactive so the join code/QR follow a host's collision-avoiding
+    // regeneration on connect. Prefer this over `runtime.room` in views.
+    code: computed(() => snapshot.value.code),
     phase: computed(() => snapshot.value.phase),
     round: computed(() => snapshot.value.round),
     players: computed(() => snapshot.value.players),

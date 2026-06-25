@@ -20,7 +20,7 @@ import {
   roomBase,
 } from './addresses'
 import { computeJoinedAtIndex, isEligible } from './eligibility'
-import { playerId } from './identity'
+import { makeRoomCode, playerId } from './identity'
 import { DEFAULT_TTL_US, type RelayClient, type RelayValue, type Unsubscribe } from './relay'
 import {
   type HostAction,
@@ -43,6 +43,9 @@ const PROBE_GET_TIMEOUT_MS = 700
 // as gone once its last ping is older than the window (a few missed beats).
 const HOST_HEARTBEAT_INTERVAL_MS = 5_000
 const HOST_PRESENCE_WINDOW_MS = 16_000
+// How many times a host regenerates a colliding room code before giving up (each
+// try is one relay round-trip; with ~1M codes, even one collision is rare).
+const MAX_ROOM_CODE_TRIES = 5
 
 /** Minimal per-round timing the runtime needs (the plugin derives the rest). */
 export interface RoundTiming {
@@ -130,6 +133,9 @@ export type ControlAction = 'start' | 'open' | 'lock' | 'reveal' | 'startVote' |
 
 /** A read-only snapshot of live room state. */
 export interface RoomSnapshot {
+  /** The room code. Reactive because a host may regenerate a colliding code on
+   *  connect, and the join code/QR on screen must follow. */
+  code: string
   phase: Phase
   round: RoomState['round']
   players: Player[]
@@ -163,7 +169,9 @@ export interface RoomSnapshot {
 type Listener = () => void
 
 export class RoomRuntime {
-  readonly room: string
+  // Mutable so a host can regenerate a colliding code on connect (see
+  // ensureFreeRoomCode); players/audience keep the exact code they were given.
+  room: string
   readonly me: Identity
 
   private relay: RelayClient
@@ -353,6 +361,10 @@ export class RoomRuntime {
       this.emit()
     })
     await this.relay.connect()
+    // A host must own a FREE code: if a live room already holds this one (a recent
+    // host heartbeat), regenerate before subscribing/publishing so we never hijack
+    // someone else's room. Players/audience keep the exact code they were given.
+    if (this.me.role === 'host') await this.ensureFreeRoomCode()
     this.subscribe()
     // Seed connection state from the synchronous truth: onConnect may have
     // already fired (a shared relay can be connected before we register), in
@@ -397,6 +409,30 @@ export class RoomRuntime {
     const beat = () => this.publish(addr.hostPing(this.room), this.now())
     beat()
     this.hostHeartbeatTimer = setInterval(beat, HOST_HEARTBEAT_INTERVAL_MS)
+  }
+
+  /** Whether a LIVE room already holds `code` (a host heartbeat within the presence
+   *  window). A stale/expired ping (or none) reads as free, so codes recycle. A relay
+   *  hiccup reads as free too, so a transient error never blocks hosting. */
+  private async roomCodeTaken(code: string): Promise<boolean> {
+    try {
+      const ping = await this.relay.get(addr.hostPing(code))
+      return ping != null && this.now() - Number(ping) < HOST_PRESENCE_WINDOW_MS
+    } catch {
+      return false
+    }
+  }
+
+  /** Ensure this host's `room` code isn't already held by a live room, regenerating
+   *  a few times if needed. Called once on connect, before any subscribe/publish, so
+   *  a new game can never land on (and hijack) someone else's room. */
+  private async ensureFreeRoomCode(): Promise<void> {
+    for (let attempt = 0; attempt < MAX_ROOM_CODE_TRIES; attempt++) {
+      if (!(await this.roomCodeTaken(this.room))) return
+      this.room = makeRoomCode()
+    }
+    // After many collisions (astronomically unlikely) keep the last code rather than
+    // loop forever; a duplicate is far less likely than the relay being unreachable.
   }
 
   /** Publish room meta (game id, title, theme) so players can render the lobby. */
@@ -636,6 +672,7 @@ export class RoomRuntime {
 
   getSnapshot(): RoomSnapshot {
     return {
+      code: this.room,
       phase: this.state.phase,
       round: { ...this.state.round },
       players: this.recentPlayers(),

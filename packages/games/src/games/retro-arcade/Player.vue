@@ -275,7 +275,7 @@ function fullscreenStream() {
 }
 function popoutStream() {
   if (typeof window === 'undefined') return
-  window.open(`/watch/${room.runtime.room}`, 'doot_watch', 'width=760,height=560')
+  window.open(`/watch/${room.code.value}`, 'doot_watch', 'width=760,height=560')
 }
 </script>
 

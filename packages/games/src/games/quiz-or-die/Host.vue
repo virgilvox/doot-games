@@ -17,7 +17,7 @@ import { useQuizShow } from './useQuizShow'
 defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
 const joinUrl = computed(() => {
-  const code = room.runtime.room
+  const code = room.code.value
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 
@@ -55,7 +55,7 @@ function pickDriver(pid: string) {
   <!-- LOBBY -->
   <div v-if="room.phase.value === 'lobby'" class="qod-lobby qod-root" @pointerdown="armAudio">
     <section class="panel ticket-card">
-      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <RoomTicket :code="room.code.value" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
       <div class="lobby-head">
@@ -124,7 +124,7 @@ function pickDriver(pid: string) {
         <!-- intro -->
         <template v-if="show?.phase === 'intro'">
           <div class="big-amber pop-in">QUIZ<i class="big-blood">OR DIE</i></div>
-          <div class="subtle rise">room {{ room.runtime.room }} · {{ (show?.cast ?? []).length }} contestants checked in</div>
+          <div class="subtle rise">room {{ room.code.value }} · {{ (show?.cast ?? []).length }} contestants checked in</div>
         </template>
 
         <!-- question / reveal -->
@@ -231,7 +231,7 @@ function pickDriver(pid: string) {
 
       <!-- HUD -->
       <div class="hud">
-        <div class="roomcode"><span class="rl">ROOM</span><span class="rc">{{ room.runtime.room }}</span></div>
+        <div class="roomcode"><span class="rl">ROOM</span><span class="rc">{{ room.code.value }}</span></div>
         <div class="exitsign" :class="{ show: exitOn }">EXIT</div>
         <div v-if="statusInfo" class="status show">{{ statusInfo.label }}<span class="scount">{{ statusInfo.count }}</span></div>
         <div v-if="remaining != null" class="clock" :class="{ low: remaining <= 5 }">

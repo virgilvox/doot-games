@@ -183,7 +183,7 @@ const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 
 const joinUrl = computed(() => {
-  const code = room.runtime.room
+  const code = room.code.value
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 const countdown = computed(() => {
@@ -283,7 +283,7 @@ async function loadBeats() {
     usingRealBeats.value = true
     // Seeded shuffle of the track indices: distinct songs for MC / left / right,
     // varied per room.
-    const order = seededShuffle(`ccbeats:${room.runtime.room}`)(Array.from({ length: n }, (_, i) => i))
+    const order = seededShuffle(`ccbeats:${room.code.value}`)(Array.from({ length: n }, (_, i) => i))
     beatPlan.value = {
       mc: order[0] ?? 0,
       left: order[1 % order.length] ?? 0,
@@ -1020,7 +1020,7 @@ onUnmounted(() => {
   <!-- LOBBY -->
   <div v-if="room.phase.value === 'lobby'" class="lobby" @pointerdown="armAudio">
     <section class="panel ticket-card">
-      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <RoomTicket :code="room.code.value" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
       <div class="roster-head">

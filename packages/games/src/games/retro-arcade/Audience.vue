@@ -47,7 +47,7 @@ onUnmounted(() => viewer?.close())
   <div class="watch">
     <header class="bar">
       <span class="brand">Retro Arcade</span>
-      <span class="mid mono">Room {{ code ?? room.runtime.room }}</span>
+      <span class="mid mono">Room {{ code ?? room.code.value }}</span>
       <span class="right">
         <span class="state mono" :class="{ on: state === 'connected' }">{{ state === 'connected' ? 'live' : '...' }}</span>
         <button class="fs" :class="{ on: soundOn }" :aria-pressed="soundOn" aria-label="Sound" @click="toggleSound">

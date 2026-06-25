@@ -414,6 +414,60 @@ function moveRound(i: number, dir: -1 | 1) {
   else if (selected.value === j) selected.value = i
 }
 
+// ── Drag to reorder (native HTML5 DnD; the arrows stay for keyboard + touch) ──
+const dragIndex = ref<number | null>(null)
+// The insertion gap (0..rounds.length) a drop would land at, for the drop indicator.
+const dropGap = ref<number | null>(null)
+function onDragStart(i: number, e: DragEvent) {
+  dragIndex.value = i
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(i)) // Firefox needs data set to drag
+    e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 16, 16)
+  }
+}
+function onDragOver(i: number, e: DragEvent) {
+  if (dragIndex.value === null) return
+  e.preventDefault() // required so the drop fires
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  // Top half of the row -> insert before it; bottom half -> after it.
+  dropGap.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1
+}
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  if (dragIndex.value !== null && dropGap.value !== null) moveRoundTo(dragIndex.value, dropGap.value)
+  endDrag()
+}
+function endDrag() {
+  dragIndex.value = null
+  dropGap.value = null
+}
+// Move a round to an insertion gap, then make its section membership match WHERE it
+// landed, so a section behaves like a container you drag into: it joins the section it
+// now sits inside (same group above and below, or the single open end of one) and is
+// otherwise loose (a boundary between sections, or an ungrouped stretch). Selection
+// follows the round you were editing (by identity), not its index.
+function moveRoundTo(from: number, gap: number) {
+  const dest = gap > from ? gap - 1 : gap
+  if (dest === from || dest < 0 || dest >= config.rounds.length + 1) return
+  const editing = config.rounds[selected.value]
+  const [r] = config.rounds.splice(from, 1)
+  config.rounds.splice(dest, 0, r!)
+  const above = config.rounds[dest - 1]?.group
+  const below = config.rounds[dest + 1]?.group
+  let next: string | undefined
+  if (above && above === below) next = above // inside a section
+  else if (above && below === undefined) next = above // appended at the open bottom end
+  else if (below && above === undefined) next = below // prepended at the open top end
+  else next = undefined // a section boundary or an ungrouped stretch
+  if (next) r!.group = next
+  else delete r!.group
+  pruneGroups()
+  clearPreviews()
+  if (editing) selected.value = Math.max(0, config.rounds.indexOf(editing))
+}
+
 // ── Round titles, results flags, and sections (groups) ─────────────────────
 // A round can carry a custom name (shown instead of "Round N"), be kept off the
 // final results, suppress its between-round standings, and belong to a named
@@ -469,6 +523,15 @@ function pruneGroups() {
   const used = new Set(config.rounds.map((r) => r.group).filter(Boolean))
   config.groups = config.groups.filter((g) => used.has(g.id))
   if (!config.groups.length) delete config.groups
+}
+// "Add section": start a new named section on the selected round so its header shows
+// at once; the author renames it on the header and drags more rounds into it. A
+// section needs at least one round to anchor it (an empty group wouldn't render).
+function addSection() {
+  if (!config.rounds.length) return
+  const i = Math.min(selected.value, config.rounds.length - 1)
+  setRoundGroup(i, '__new__')
+  selected.value = i
 }
 // A round starts a new section header in the rail when its group differs from the
 // round above it (so consecutive same-group rounds sit under one header).
@@ -746,15 +809,48 @@ onScopeDispose(() => {
       <div class="ed-body">
         <!-- LEFT: rounds navigator -->
         <nav class="ed-rail" aria-label="Rounds">
-          <button type="button" class="ed-add-btn" @click="showAdd = true">+ Add round</button>
+          <div class="ed-rail-actions">
+            <button type="button" class="ed-add-btn" @click="showAdd = true">+ Add round</button>
+            <button
+              type="button"
+              class="ed-add-btn ed-add-section"
+              :disabled="!config.rounds.length"
+              title="Group the selected round into a new section; drag rounds in to grow it"
+              @click="addSection()"
+            >
+              + Add section
+            </button>
+          </div>
           <ol v-if="config.rounds.length" class="ed-rail-list">
             <template v-for="(round, i) in config.rounds" :key="i">
-              <li v-if="sectionHeader(i)" class="ed-rail-section">{{ sectionHeader(i)!.name }}</li>
+              <li v-if="sectionHeader(i)" class="ed-rail-section">
+                <input
+                  class="ed-section-input"
+                  :value="sectionHeader(i)!.name"
+                  aria-label="Section name"
+                  maxlength="120"
+                  placeholder="Section name"
+                  @input="renameGroup(sectionHeader(i)!.id, ($event.target as HTMLInputElement).value)"
+                />
+              </li>
               <li
                 class="ed-rail-item"
-                :class="{ on: selected === i, bad: errors[i], grouped: !!round.group }"
+                :class="{
+                  on: selected === i,
+                  bad: errors[i],
+                  grouped: !!round.group,
+                  dragging: dragIndex === i,
+                  'drop-above': dropGap === i && dragIndex !== null,
+                  'drop-below': dropGap === config.rounds.length && i === config.rounds.length - 1 && dragIndex !== null,
+                }"
                 :style="{ '--round-accent': blockColor(round) }"
+                draggable="true"
+                @dragstart="onDragStart(i, $event)"
+                @dragover="onDragOver(i, $event)"
+                @drop="onDrop($event)"
+                @dragend="endDrag"
               >
+                <span class="ed-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span>
                 <button type="button" class="ed-chip" :aria-current="selected === i" @click="select(i)">
                   <GameTypeIcon :type="round.block" :size="28" />
                   <span class="ed-chip-main">
@@ -1434,10 +1530,16 @@ onScopeDispose(() => {
   gap: 10px;
   min-width: 0;
 }
-.ed-add-btn {
+.ed-rail-actions {
   position: sticky;
   top: 0;
   z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+.ed-add-btn {
+  flex: 1;
+  min-width: 0;
   font: inherit;
   font-weight: 800;
   font-size: 14px;
@@ -1451,6 +1553,20 @@ onScopeDispose(() => {
 .ed-add-btn:hover {
   filter: brightness(1.05);
 }
+/* "Add section" is the secondary action next to the primary "Add round". */
+.ed-add-section {
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--bd) solid var(--line-soft);
+}
+.ed-add-section:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ed-add-section:not(:disabled):hover {
+  border-color: var(--line);
+  filter: none;
+}
 .ed-rail-list {
   list-style: none;
   margin: 0;
@@ -1458,18 +1574,63 @@ onScopeDispose(() => {
   display: grid;
   gap: 8px;
 }
-/* A named section header above the first round of each group run. */
+/* A named section header above the first round of each group run; the name is
+   editable inline. */
 .ed-rail-section {
   margin: 8px 0 -2px;
-  padding: 2px 4px;
+  padding: 0;
+}
+.ed-section-input {
+  width: 100%;
+  font: inherit;
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--primary);
+  background: transparent;
+  border: var(--bd) solid transparent;
+  border-radius: 7px;
+  padding: 3px 6px;
+}
+.ed-section-input::placeholder {
+  color: var(--primary);
+  opacity: 0.6;
+}
+.ed-section-input:hover {
+  border-color: var(--line-soft);
+}
+.ed-section-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--surface);
 }
 .ed-rail-item.grouped {
   margin-left: 10px;
+}
+/* Drag-to-reorder affordances. */
+.ed-drag-handle {
+  flex: none;
+  align-self: center;
+  cursor: grab;
+  color: var(--mute);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
+}
+.ed-rail-item:active .ed-drag-handle {
+  cursor: grabbing;
+}
+.ed-rail-item.dragging {
+  opacity: 0.4;
+}
+/* A bold line at the gap where the drop will land. */
+.ed-rail-item.drop-above {
+  box-shadow: inset 0 3px 0 0 var(--primary);
+}
+.ed-rail-item.drop-below {
+  box-shadow: inset 0 -3px 0 0 var(--primary);
 }
 .ed-rail-item {
   display: flex;

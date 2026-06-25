@@ -76,7 +76,7 @@ const bits = computed<Bit[]>(() => ((content.value?.options as Bit[] | undefined
 const now = ref(0)
 let ticker: ReturnType<typeof setInterval> | null = null
 const joinUrl = computed(() => {
-  const code = room.runtime.room
+  const code = room.code.value
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 const countdown = computed(() => {
@@ -501,7 +501,7 @@ onUnmounted(() => {
   <!-- LOBBY -->
   <div v-if="room.phase.value === 'lobby'" class="lobby">
     <section class="panel ticket-card">
-      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <RoomTicket :code="room.code.value" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
       <div class="roster-head">

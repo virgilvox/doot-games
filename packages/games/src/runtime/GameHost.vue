@@ -190,7 +190,7 @@ const answer = computed(() =>
 )
 
 const joinUrl = computed(() => {
-  const code = room.runtime.room
+  const code = room.code.value
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
 const roundTimer = computed(() =>
@@ -521,7 +521,7 @@ watch(
   <!-- LOBBY -->
   <div v-if="room.phase.value === 'lobby'" class="lobby" @pointerdown="armSfx">
     <section class="panel ticket-card">
-      <RoomTicket :code="room.runtime.room" :url="joinUrl" />
+      <RoomTicket :code="room.code.value" :url="joinUrl" />
     </section>
     <section class="panel roster-card">
       <div class="lobby-head">

@@ -150,7 +150,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
       <section v-if="hasLeaderboard" class="panel board">
         <h3>Leaderboard</h3>
-        <Leaderboard :entries="results.leaderboard ?? []" :highlight="me" :max="6" />
+        <Leaderboard :entries="results.leaderboard ?? []" :highlight="me" :max="8" />
       </section>
 
       <section v-if="hasAwards" class="panel awards">
@@ -283,6 +283,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .awards,
 .dist {
   padding: 22px;
+}
+/* Phone: use the width. Tighten panel padding so the names/scores get more room,
+   and let the winner headline read large. */
+@media (max-width: 560px) {
+  .rgrid {
+    gap: 14px;
+  }
+  .board,
+  .awards,
+  .dist {
+    padding: 15px;
+  }
+  .rhead h1 {
+    font-size: clamp(30px, 8vw, 40px);
+  }
+  .board h3,
+  .awards h3,
+  .dist h3 {
+    margin-bottom: 10px;
+  }
 }
 
 /* Carousel ---------------------------------------------------------------- */

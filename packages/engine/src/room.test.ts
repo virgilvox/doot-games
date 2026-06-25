@@ -1037,3 +1037,42 @@ describe('RoomRuntime host + player over a shared relay', () => {
     expect(p2.inputFor(0)).toEqual({ choice: 0 })
   })
 })
+
+describe('room code collision', () => {
+  it('regenerates a colliding code on connect, never hijacking a live room', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    // A live room already holds ABCD (a recent host heartbeat).
+    hub.store.set(addr.hostPing('ABCD'), now())
+    const host = makeHost(hub, now)
+    await host.connect()
+    expect(host.room).not.toBe('ABCD')
+    // It claimed (published its lobby on) the NEW code, and left ABCD untouched.
+    expect(hub.store.get(addr.phase('ABCD'))).toBeUndefined()
+    expect(hub.store.get(addr.phase(host.room))).toBe('lobby')
+  })
+
+  it('keeps a free code (no live heartbeat there)', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 1000)
+    await host.connect()
+    expect(host.room).toBe('ABCD')
+  })
+
+  it('treats a stale heartbeat as free, so codes recycle', async () => {
+    const hub = new FakeHub()
+    hub.store.set(addr.hostPing('ABCD'), 1000) // old beat
+    const host = makeHost(hub, () => 1_000_000) // long after the presence window
+    await host.connect()
+    expect(host.room).toBe('ABCD')
+  })
+
+  it('does not regenerate for players (they keep the exact code given)', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    hub.store.set(addr.hostPing('ABCD'), now())
+    const player = makePlayer(hub, 'Robin', now)
+    await player.connect()
+    expect(player.room).toBe('ABCD')
+  })
+})

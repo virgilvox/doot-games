@@ -29,7 +29,7 @@ const TOTAL_RACERS = 8
 const MAX_DRIVERS = 4 // split-screen cap
 
 const room = injectDootRoom()
-const code = computed(() => room.runtime.room)
+const code = computed(() => room.code.value)
 const joinUrl = computed(() =>
   typeof window === 'undefined' ? `/play/${code.value}` : `${window.location.origin}/play/${code.value}`,
 )
