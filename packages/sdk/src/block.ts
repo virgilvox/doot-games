@@ -24,11 +24,17 @@ import type { ThemeTokens } from '@doot-games/themes'
 
 /** What a block's `aggregate` receives: every round of its kind, plus inputs. */
 export interface BlockResultsContext<Content = unknown, Input = unknown> {
-  rounds: Array<{ index: number; content: Content }>
+  /** This block's rounds, each carrying its index, content, and the id of the group
+   *  it belongs to (if any), so a block can roll grouped rounds together. */
+  rounds: Array<{ index: number; content: Content; group?: string }>
   inputsFor: (index: number) => Map<string, Input>
   /** The answer key for a round (the host holds these privately). */
   answerFor: (index: number) => unknown
   players: ScorePlayer[]
+  /** The game's round groups (sections). A block reads these to honor a group's
+   *  `combineRatings` (roll its rate rounds into one combined ranking). Absent when
+   *  the game has no groups. */
+  groups?: GroupDef[]
   /** P4B: the audience's votes for a round (separate from player inputs), supplied
    *  ONLY when the host turned on "the crowd's votes count". A vote-tallying block
    *  folds them into its tally as a capped, discounted bloc; every other block
@@ -123,7 +129,7 @@ export interface RevealContext<Content = unknown, Input = unknown> {
 export interface ResultsFragment {
   headline?: string
   leaderboard?: LeaderboardEntry[]
-  awards?: Array<{ label: string; subject: string; value?: string | number }>
+  awards?: Array<{ label: string; subject: string; value?: string | number; image?: string }>
   distributions?: Distribution[]
   stats?: StatItem[]
   /** Arbitrary extra payload a game's CUSTOM Results view understands but the
@@ -314,7 +320,58 @@ export interface RoundInstance {
     value?: 'media' | 'text'
     pick?: 'random' | 'first'
   }
+  /** Authoring/presentation metadata (all optional, additive; no effect on the round's
+   *  block logic). `name` is a custom round title shown in the editor and in play
+   *  instead of "Round N". `group` is the id of a `GroupDef` this round belongs to
+   *  (consecutive same-group rounds form a named section). `inResults` (default true)
+   *  keeps the round's contribution off the final results screen when false.
+   *  `showStandings` (default true) suppresses the between-round "standings so far"
+   *  peek after this round when false (e.g. on a rating round you reveal later). */
+  name?: string
+  group?: string
+  inResults?: boolean
+  showStandings?: boolean
 }
+
+/** A named group of consecutive rounds. Organizes the editor into sections and,
+ *  when `combineRatings` is set, asks the results to roll the group's rate rounds
+ *  into one combined ranking. Referenced by `RoundInstance.group`. */
+export interface GroupDef {
+  id: string
+  name: string
+  /** Roll this group's rate rounds into a single combined "best overall" ranking
+   *  on the results screen (each rated thing scored by its mean across the group). */
+  combineRatings?: boolean
+}
+
+/** Authored game-wide play defaults, set in the editor and used to seed the host
+ *  lobby (which can still override any of them live for one session). All optional;
+ *  an absent field keeps the platform default. */
+export interface GameSettings {
+  /** Cap how many can join (null/absent = no cap). */
+  playerCap?: number | null
+  /** Default number of teams (null/absent/0 = teams off). */
+  teams?: number | null
+  /** Let spectators' votes count as a capped bloc on judge rounds. */
+  crowdVotes?: boolean
+  /** Run round timers. false turns every round's timer off by default. */
+  timers?: boolean
+  /** Close a round as soon as every eligible player has answered. */
+  autoAdvance?: boolean
+  /** Stage sound effects on the big screen. */
+  sfx?: boolean
+  /** Mask flagged words in free-text galleries on the big screen. */
+  contentFilter?: 'off' | 'moderate' | 'strict'
+  /** Let the first player to join drive from their phone by default. */
+  firstToJoinDrives?: boolean
+  /** The order the results page shows its sections in (which to lead with). Section
+   *  kinds the author lists come first, in this order; any not listed follow in the
+   *  default order. e.g. `['awards','leaderboard']` opens on the top-rated picture. */
+  resultsOrder?: ResultsSection[]
+}
+
+/** A kind of section on the results page, used by `GameSettings.resultsOrder`. */
+export type ResultsSection = 'teams' | 'leaderboard' | 'awards' | 'breakdowns'
 
 /** The durable game definition a composition produces. */
 export interface GameComposition {
@@ -323,6 +380,10 @@ export interface GameComposition {
   /** Config-local decks keyed by id, referenced by rounds' `bindings`/`pool`. Each
    *  is an inline snapshot or a library reference; resolved before play. Optional. */
   decks?: Record<string, DeckUse>
+  /** Named round groups (sections). Optional; ungrouped games omit it. */
+  groups?: GroupDef[]
+  /** Authored play defaults that seed the host lobby. Optional. */
+  settings?: GameSettings
 }
 
 /**

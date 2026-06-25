@@ -7,6 +7,7 @@
  */
 import {
   type BlockResultsContext,
+  type Distribution,
   type ResultsFragment,
   type RevealContext,
   defineBlock,
@@ -132,10 +133,16 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
     }),
   }),
   aggregate: (ctx: BlockResultsContext<RateContent, RateInput>): ResultsFragment => {
-    const byCategory = new Map<string, { label: string; subject: string; avg: number; scale: RateScale }>()
+    const byCategory = new Map<
+      string,
+      { label: string; subject: string; image: string; avg: number; scale: RateScale }
+    >()
     let ratingsCast = 0
     for (const { index, content } of ctx.rounds) {
       const inputs = ctx.inputsFor(index)
+      // Name the rated thing by its subject, then its prompt, then a round number as
+      // a last resort, so the results say what was rated rather than "Round 4".
+      const name = content.subject?.trim() || content.prompt?.trim() || `Round ${index + 1}`
       for (const cat of content.categories) {
         let sum = 0
         let n = 0
@@ -153,7 +160,8 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           if (!prev || avg > prev.avg) {
             byCategory.set(cat.id, {
               label: cat.label,
-              subject: content.subject || `Round ${index + 1}`,
+              subject: name,
+              image: content.image ?? '',
               avg,
               scale: content.scale,
             })
@@ -165,10 +173,61 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
       label: `Top rated ${e.label}`,
       subject: e.subject,
       value: formatScore(e.avg, e.scale),
+      ...(e.image ? { image: e.image } : {}),
     }))
+
+    // Combined-group rankings: for each group the author marked "combine ratings",
+    // roll its rate rounds into ONE ranking by overall score (the mean of each
+    // round's category averages). This is the "combine the ratings of several
+    // rounds into a combined score" view.
+    const distributions: Distribution[] = []
+    for (const g of ctx.groups ?? []) {
+      if (!g.combineRatings) continue
+      const groupRounds = ctx.rounds.filter((r) => r.group === g.id)
+      if (groupRounds.length < 2) continue
+      const scored = groupRounds
+        .map(({ index, content }) => {
+          const name = content.subject?.trim() || content.prompt?.trim() || `Round ${index + 1}`
+          const inputs = ctx.inputsFor(index)
+          let catSum = 0
+          let catN = 0
+          for (const cat of content.categories) {
+            let sum = 0
+            let n = 0
+            for (const input of inputs.values()) {
+              const v = input?.ratings?.[cat.id]
+              if (typeof v === 'number') {
+                sum += v
+                n++
+              }
+            }
+            if (n > 0) {
+              catSum += sum / n
+              catN++
+            }
+          }
+          return { label: name, overall: catN > 0 ? catSum / catN : 0, scale: content.scale }
+        })
+        .sort((a, b) => b.overall - a.overall)
+      const top = scored[0]?.overall ?? 0
+      const ceiling = Math.max(...groupRounds.map((r) => scaleMax(r.content.scale)), top)
+      distributions.push({
+        title: g.name || 'Combined ranking',
+        bars: scored.map((s) => ({
+          label: s.label,
+          count: Math.round(s.overall * 10) / 10,
+          max: ceiling,
+          display: formatScore(s.overall, s.scale),
+          correct: s.overall === top && top > 0,
+          note: '',
+        })),
+      })
+    }
+
     return {
       headline: 'The results are in',
       awards,
+      ...(distributions.length ? { distributions } : {}),
       stats: [
         { label: 'Rate rounds', value: ctx.rounds.length },
         { label: 'Ratings cast', value: ratingsCast },

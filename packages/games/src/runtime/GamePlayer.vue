@@ -51,6 +51,11 @@ const content = computed(
     instance.value?.content ??
     null,
 )
+// A display block (slide/title) mirrors to phones unless the author turned it off
+// for this card, in which case phones show a plain "watch the big screen" notice.
+const mirrorDisplay = computed(
+  () => (content.value as { showOnPhone?: boolean } | null)?.showOnPhone !== false,
+)
 const prompt = computed(() => (content.value as { prompt?: string } | null)?.prompt ?? '')
 // Show the prompt image on the phone too (not only the host screen), so players
 // who can't see the big screen still get the question. Hide it if it 404s.
@@ -216,10 +221,15 @@ function reloadPage() {
 
     <div v-else-if="!instance || !block" class="big">Getting the next round…</div>
 
-    <!-- Display block (slide / title card): show it to everyone, no input. -->
-    <div v-else-if="block.display && content" class="slide-mirror">
+    <!-- Display block (slide / title card): mirror it to phones unless the author
+         turned that off for this slide (then phones just point at the big screen). -->
+    <div v-else-if="block.display && content && mirrorDisplay" class="slide-mirror">
       <component :is="block.PlayerInput" :content="content" />
       <p class="slide-foot">Watch the big screen.</p>
+    </div>
+    <div v-else-if="block.display" class="big">
+      <h2>Watch the big screen</h2>
+      <p>Nothing to do here right now. Keep this page open.</p>
     </div>
 
     <div v-else-if="!eligible" class="big">

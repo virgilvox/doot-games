@@ -32,8 +32,12 @@ async function corePlayLoop(browser) {
 
   await host.waitForSelector('button:has-text("Start game")')
   await host.click('button:has-text("Start game")')
-  await host.click('button:has-text("Open voting")', { timeout: 40000 })
-  ok('host started the game and opened voting')
+  // Untimed rounds auto-open (no "Open voting" click); timed rounds show the button.
+  await host.waitForSelector('button:has-text("Open voting"), button:has-text("Lock voting")', { timeout: 40000 })
+  if (await host.locator('button:has-text("Open voting")').count()) {
+    await host.click('button:has-text("Open voting")')
+  }
+  ok('host started the game (round opened)')
 
   await player.waitForSelector('.opt', { timeout: 40000 })
   await player.locator('.opt').first().click()
@@ -60,8 +64,11 @@ async function corePlayLoop(browser) {
       break
     }
     await host.click('button:has-text("Next round")')
-    await host.waitForSelector('button:has-text("Open voting")', { timeout: 40000 })
-    await host.click('button:has-text("Open voting")')
+    // Untimed rounds auto-open straight to "Lock voting"; only click Open if shown.
+    await host.waitForSelector('button:has-text("Open voting"), button:has-text("Lock voting")', { timeout: 40000 })
+    if (await host.locator('button:has-text("Open voting")').count()) {
+      await host.click('button:has-text("Open voting")')
+    }
     await host.waitForSelector('button:has-text("Lock voting")', { timeout: 40000 })
     await host.click('button:has-text("Lock voting")')
     await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })

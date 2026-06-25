@@ -12,7 +12,7 @@
  */
 import { computed } from 'vue'
 import ImageField from '../components/ImageField.vue'
-import { type FieldNode, blankValue, humanizeName } from './introspect'
+import { type FieldNode, blankValue, humanizeName, reindexAfterArrayEdit } from './introspect'
 
 const props = defineProps<{
   node: FieldNode
@@ -29,7 +29,9 @@ const label = computed(() => props.forceLabel ?? (props.name === 'id' ? 'ID' : h
 /** Help text from the schema's `.describe()`, shown under the field. */
 const hint = computed(() => props.node.description ?? '')
 
-const isImage = computed(() => props.node.kind === 'string' && props.name === 'image')
+// Any string field named `image` or ending in `Image` (e.g. `revealImage`) gets the
+// URL+preview+upload control, not a bare text box.
+const isImage = computed(() => props.node.kind === 'string' && /(^|[a-z])image$/i.test(props.name))
 // Multi-line fields: a question prompt, or a slide's body copy.
 const isPrompt = computed(() => props.node.kind === 'string' && (props.name === 'prompt' || props.name === 'body'))
 const isId = computed(() => props.node.kind === 'string' && props.name === 'id')
@@ -50,7 +52,13 @@ const optionLabels = computed(() => {
 // ── object ────────────────────────────────────────────────────────────
 const objValue = computed(() => (props.modelValue ?? {}) as Record<string, unknown>)
 function setKey(key: string, value: unknown) {
-  emit('update:modelValue', { ...objValue.value, [key]: value })
+  const next: Record<string, unknown> = { ...objValue.value, [key]: value }
+  // Keep a nested object's "mark correct" index pinned to its option through an
+  // options reorder/remove/edit (the same options↔correct convention SchemaForm uses).
+  if (key === 'options' && typeof objValue.value.correct === 'number') {
+    next.correct = reindexAfterArrayEdit(objValue.value.options, value, objValue.value.correct as number)
+  }
+  emit('update:modelValue', next)
 }
 
 // ── array ─────────────────────────────────────────────────────────────

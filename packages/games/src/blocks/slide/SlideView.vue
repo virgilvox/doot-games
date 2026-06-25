@@ -26,9 +26,14 @@ watch(image, () => {
   failed.value = false
 })
 const showImage = computed(() => !!image.value && !failed.value)
-const layout = computed(() =>
-  showImage.value && hasText.value ? 'combo' : showImage.value ? 'image-only' : 'text-only',
-)
+// Author picks how the picture sits with the text. `auto` keeps the long-standing
+// side-by-side. With only one of image/text, the choice is moot.
+const authored = computed(() => props.content?.layout ?? 'auto')
+const layout = computed(() => {
+  if (!showImage.value) return 'text-only'
+  if (!hasText.value) return 'image-only'
+  return authored.value === 'banner' ? 'banner' : 'side'
+})
 </script>
 
 <template>
@@ -52,12 +57,20 @@ const layout = computed(() =>
   min-height: 0;
   text-align: center;
 }
-/* Image + text sit side by side on a wide screen, and stack on a narrow one. */
-.slide.combo {
+/* Side: image + text side by side on a wide screen, stacking on a narrow one. */
+.slide.side {
   flex-wrap: wrap;
 }
-.slide.combo .slide-text {
+.slide.side .slide-text {
   text-align: left;
+}
+/* Banner: image centered on top (full width), text centered below it. */
+.slide.banner {
+  flex-direction: column;
+}
+.slide.banner .slide-text {
+  text-align: center;
+  align-items: center;
 }
 .slide-img {
   max-width: 100%;
@@ -67,9 +80,12 @@ const layout = computed(() =>
   border: var(--bd) solid var(--line-soft);
   background: var(--surface-2);
 }
-.slide.combo .slide-img {
+.slide.side .slide-img {
   flex: 1 1 320px;
   min-width: 0;
+}
+.slide.banner .slide-img {
+  max-height: min(52vh, 480px);
 }
 .slide-text {
   flex: 1 1 340px;
@@ -98,5 +114,8 @@ const layout = computed(() =>
 }
 .slide.text-only .slide-body {
   max-width: 26ch;
+}
+.slide.banner .slide-body {
+  max-width: 46ch;
 }
 </style>

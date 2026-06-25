@@ -803,7 +803,7 @@ function skip() {
 // delegate's phone shows ONE button for the current primary action and sends an
 // intent over `/x/drive` (validated by driverPid + nonce, like B9). `primaryDrive`
 // is the same action the host's main button performs, so write + battle both work.
-const firstToJoin = ref(true)
+const firstToJoin = ref(false)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {

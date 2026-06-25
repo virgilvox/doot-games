@@ -22,6 +22,8 @@ export interface AwardCard {
   label: string
   subject: string
   value?: string | number
+  /** Optional picture for the award (e.g. the top-rated thing's image). */
+  image?: string
 }
 
 export interface DistributionBar {

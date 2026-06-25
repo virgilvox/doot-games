@@ -8,7 +8,7 @@
  */
 import { computed } from 'vue'
 import SchemaField from './SchemaField.vue'
-import { describeSchema } from './introspect'
+import { describeSchema, reindexAfterArrayEdit } from './introspect'
 
 const props = defineProps<{
   /** A Zod schema (typically a block's `contentSchema`). */
@@ -28,7 +28,13 @@ const fields = computed(() => {
 })
 
 function setKey(key: string, value: unknown) {
-  emit('update:modelValue', { ...props.modelValue, [key]: value })
+  const next: Record<string, unknown> = { ...props.modelValue, [key]: value }
+  // Keep the "mark correct" index pinned to its option when the options array is
+  // reordered/edited (the options↔correct convention; see reindexAfterArrayEdit).
+  if (key === 'options' && typeof props.modelValue.correct === 'number') {
+    next.correct = reindexAfterArrayEdit(props.modelValue.options, value, props.modelValue.correct as number)
+  }
+  emit('update:modelValue', next)
 }
 </script>
 

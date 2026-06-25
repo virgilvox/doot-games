@@ -12,6 +12,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: GuessInput] }>()
       :options="content.options"
       :selected="modelValue.choice"
       :disabled="disabled"
+      :show-letters="content.showLetters !== false"
       @select="emit('update:modelValue', { choice: $event })"
     />
   </div>

@@ -409,7 +409,7 @@ function finish() {
 }
 
 // ── Co-host driving (built-in command path) ─────────────────────────────────
-const firstToJoin = ref(true)
+const firstToJoin = ref(false)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {

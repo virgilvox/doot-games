@@ -15,6 +15,14 @@ export const slideContentSchema = z.object({
     .default('')
     .describe('Optional text. Use it on its own, with a heading, or beside an image.'),
   image: z.string().max(2000).default('').describe('Optional picture. Shows large, on its own or beside the text.'),
+  layout: z
+    .enum(['auto', 'side', 'banner'])
+    .default('auto')
+    .describe('How the picture sits with the text: Side (picture beside the text) or Banner (picture centered on top, text below). Auto picks Side.'),
+  showOnPhone: z
+    .boolean()
+    .default(true)
+    .describe('Mirror this slide on phones. Turn off to keep phones on a simple "watch the big screen" card (handy when the slide is just for the room).'),
 })
 
 export type SlideContent = z.infer<typeof slideContentSchema>
@@ -30,6 +38,8 @@ export const slideBlock = defineBlock<SlideContent, SlideInput>({
     heading: 'Your heading here',
     body: 'Add some text, an image, or both. This slide just shows information, there is nothing to answer.',
     image: '',
+    layout: 'auto',
+    showOnPhone: true,
   }),
   defaultTimer: null,
   // A display block has no input; these satisfy the contract but the renderer never

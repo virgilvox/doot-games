@@ -224,6 +224,41 @@ describe('resolveComposition', () => {
     expect((out as { decks?: unknown }).decks).toBeUndefined() // decks resolved away
   })
 
+  it('preserves config groups/settings and round metadata (passthrough round)', () => {
+    const config: GameComposition = {
+      title: 'T',
+      rounds: [{ block: 'rate', content: { prompt: 'A' }, name: 'My round', group: 'g1', inResults: false, showStandings: false }],
+      groups: [{ id: 'g1', name: 'Section', combineRatings: true }],
+      settings: { timers: false, resultsOrder: ['awards', 'leaderboard'] },
+    }
+    const out = resolveComposition(plugin, config, 'seed')
+    expect(out.groups).toEqual(config.groups)
+    expect(out.settings).toEqual(config.settings)
+    expect(out.rounds[0]).toMatchObject({ name: 'My round', group: 'g1', inResults: false, showStandings: false })
+  })
+
+  it('preserves round metadata on a deck-expanded round', () => {
+    const config: GameComposition = {
+      title: 'T',
+      rounds: [
+        {
+          block: 'guess',
+          content: { prompt: '', options: [], timer: 20 },
+          bindings: { prompt: { deck: 'd', column: 'q' } },
+          group: 'g1',
+          inResults: false,
+        },
+      ],
+      decks: { d: { inline: triviaDeck } },
+      groups: [{ id: 'g1', name: 'Section' }],
+    }
+    const out = resolveComposition(plugin, config, 'seed')
+    expect(out.rounds[0]).toMatchObject({ group: 'g1', inResults: false })
+    expect(out.groups).toEqual(config.groups)
+    // The deck binding still applied, so metadata didn't clobber resolution.
+    expect(['Q1', 'Q2', 'Q3']).toContain((out.rounds[0]!.content as { prompt: string }).prompt)
+  })
+
   it('binds a single field from a drawn row', () => {
     const config = cfg(
       [{ block: 'guess', content: { prompt: '', options: [], timer: 20 }, bindings: { prompt: { deck: 'd', column: 'q' } } }],

@@ -11,20 +11,45 @@
 import { type DootRoom, provideDootRoom } from '@doot-games/engine/vue'
 import { type Component, computed } from 'vue'
 
-const props = defineProps<{
-  block: { HostDisplay: Component }
-  content: unknown
-  index: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    block: {
+      HostDisplay: Component
+      answerOf?: (content: unknown) => unknown
+      revealSummary?: (ctx: {
+        content: unknown
+        inputs: Map<string, unknown>
+        answer: unknown
+        players: never[]
+      }) => unknown
+    }
+    content: unknown
+    index: number
+    /** Preview the open (answering) state or the reveal (the answer shown). The
+     *  reveal uses the block's own answerOf/revealSummary, so it matches play. */
+    state?: 'open' | 'reveal'
+  }>(),
+  { state: 'open' },
+)
 
 const emptyInputs = new Map<string, unknown>()
+// At reveal, surface the block's real answer + public reveal summary (computed from
+// the AUTHORED content, which still carries the answer key in the editor), so the
+// host view shows exactly what the room will see at reveal.
+const answer = computed(() => (props.state === 'reveal' ? (props.block.answerOf?.(props.content) ?? null) : null))
+const reveal = computed(() =>
+  props.state === 'reveal'
+    ? (props.block.revealSummary?.({ content: props.content, inputs: emptyInputs, answer: answer.value, players: [] }) ??
+      undefined)
+    : undefined,
+)
 
 // A permissive, inert room: reactive reads return benign defaults; reveal/answer
 // reads return undefined; actions are no-ops. Cast through `unknown` - we only
 // need the subset host views touch, never the full runtime.
 const mockRoom = {
-  round: computed(() => ({ index: props.index, state: 'open', deadline: null })),
-  phase: computed(() => 'open'),
+  round: computed(() => ({ index: props.index, state: props.state, deadline: null })),
+  phase: computed(() => 'active'),
   players: computed(() => []),
   me: computed(() => ({ id: 'preview', name: 'Preview', role: 'host' })),
   config: computed(() => null),
@@ -48,8 +73,8 @@ const mockRoom = {
   inputFor: () => undefined,
   inputsFor: () => emptyInputs,
   runtimeContentFor: () => undefined,
-  roundRevealFor: () => undefined,
-  answerKeyFor: () => undefined,
+  roundRevealFor: () => reveal.value,
+  answerKeyFor: () => answer.value,
   host: {
     loadGame: () => {},
     start: () => {},
@@ -69,5 +94,5 @@ provideDootRoom(mockRoom)
 </script>
 
 <template>
-  <component :is="props.block.HostDisplay" :content="props.content" :inputs="emptyInputs" state="open" :answer="null" />
+  <component :is="props.block.HostDisplay" :content="props.content" :inputs="emptyInputs" :state="props.state" :answer="answer" />
 </template>

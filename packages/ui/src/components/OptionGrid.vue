@@ -20,8 +20,11 @@ const props = withDefaults(
     correct?: number | null
     revealed?: boolean
     disabled?: boolean
+    /** Show the A/B/C/D letter chip. Off gives a cleaner, picture-led row and the
+     *  option picture grows to fill the reclaimed space. */
+    showLetters?: boolean
   }>(),
-  { selected: null, counts: null, correct: null, revealed: false, disabled: false },
+  { selected: null, counts: null, correct: null, revealed: false, disabled: false, showLetters: true },
 )
 const emit = defineEmits<{ select: [index: number] }>()
 
@@ -33,7 +36,7 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
 </script>
 
 <template>
-  <div class="opt-grid">
+  <div class="opt-grid" :class="{ 'no-letters': !showLetters }">
     <button
       v-for="(o, i) in options"
       :key="i"
@@ -49,7 +52,7 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
       @click="emit('select', i)"
     >
       <span v-if="counts" class="fill" :style="{ width: `${pct(i)}%` }" />
-      <span class="letter">{{ letter(i) }}</span>
+      <span v-if="showLetters" class="letter">{{ letter(i) }}</span>
       <img v-if="o.image" :src="o.image" alt="" class="othumb" />
       <span class="olabel">
         <span class="otext">{{ o.label || `Option ${letter(i)}` }}</span>
@@ -112,12 +115,18 @@ const pct = (i: number) => (props.counts ? ((props.counts[i] ?? 0) / total.value
   font-size: 18px;
 }
 .othumb {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   flex: none;
-  border-radius: 9px;
+  border-radius: 10px;
   object-fit: cover;
   border: var(--bd) solid var(--line-soft);
+}
+/* With letters off the row is picture-led: give the thumbnail the reclaimed space. */
+.opt-grid.no-letters .othumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
 }
 .olabel {
   display: flex;

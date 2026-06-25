@@ -39,6 +39,29 @@ const roundSchema = z.object({
       pick: z.enum(['random', 'first']).optional(),
     })
     .optional(),
+  // Authoring/presentation metadata (additive; no effect on block logic). See
+  // RoundInstance in the sdk.
+  name: z.string().max(120).optional(),
+  group: z.string().max(64).optional(),
+  inResults: z.boolean().optional(),
+  showStandings: z.boolean().optional(),
+})
+
+const groupSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().max(120).default(''),
+  combineRatings: z.boolean().optional(),
+})
+const settingsSchema = z.object({
+  playerCap: z.number().int().positive().max(1000).nullable().optional(),
+  teams: z.number().int().min(0).max(8).nullable().optional(),
+  crowdVotes: z.boolean().optional(),
+  timers: z.boolean().optional(),
+  autoAdvance: z.boolean().optional(),
+  sfx: z.boolean().optional(),
+  contentFilter: z.enum(['off', 'moderate', 'strict']).optional(),
+  firstToJoinDrives: z.boolean().optional(),
+  resultsOrder: z.array(z.enum(['teams', 'leaderboard', 'awards', 'breakdowns'])).max(8).optional(),
 })
 
 const deckColumnSchema = z.object({
@@ -68,6 +91,8 @@ export const gameInputSchema = z.object({
     title: z.string().trim().min(1).max(120),
     rounds: z.array(roundSchema).min(1).max(50),
     decks: z.record(z.string().max(64), deckUseSchema).optional(),
+    groups: z.array(groupSchema).max(50).optional(),
+    settings: settingsSchema.optional(),
   }),
 })
 
@@ -89,6 +114,26 @@ interface SavedRound {
   bindings?: Record<string, { deck: string; column: string }>
   pool?: { deck: string }
   fromShares?: { from?: number; field: string; value?: 'media' | 'text'; pick?: 'random' | 'first' }
+  name?: string
+  group?: string
+  inResults?: boolean
+  showStandings?: boolean
+}
+interface SavedGroup {
+  id: string
+  name: string
+  combineRatings?: boolean
+}
+interface SavedSettings {
+  playerCap?: number | null
+  teams?: number | null
+  crowdVotes?: boolean
+  timers?: boolean
+  autoAdvance?: boolean
+  sfx?: boolean
+  contentFilter?: 'off' | 'moderate' | 'strict'
+  firstToJoinDrives?: boolean
+  resultsOrder?: Array<'teams' | 'leaderboard' | 'awards' | 'breakdowns'>
 }
 interface SavedInlineDeck {
   columns: Array<{ key: string; label: string; type: 'text' | 'image' | 'number' }>
@@ -100,6 +145,8 @@ export interface SavedConfig {
   title: string
   rounds: SavedRound[]
   decks?: Record<string, SavedDeckUse>
+  groups?: SavedGroup[]
+  settings?: SavedSettings
 }
 
 export interface SavedGame extends GameMeta {

@@ -2,8 +2,69 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-13. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-24. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **CONSUMER POLISH BATCH: authoring + presentation overhaul (2026-06-24).** A large
+> feedback-driven pass on how games look and how creators control them, driven by a
+> playtester's notes. Gate green at ship: **791 unit tests, `pnpm -r typecheck` (incl.
+> the strict `nuxi typecheck`), web build**, plus real-browser smokes (`playtest.mjs`
+> core loop + both two-phase flagships + gameshow + draw, `cypher-smoke.mjs`, and
+> targeted editor + Mad-Libs-host checks). What shipped:
+> - **Guess block:** authored answer layout (`optionLayout` auto/grid/list; auto stacks
+>   to one column when answers have pictures or long text), optional A/B/C/D letters
+>   (`showLetters`; option pictures grow when letters are off), a **focused reveal** (the
+>   correct answer shown large/centered with its count instead of the cramped 4-up board)
+>   with an optional separate **`revealImage`**, and the same reveal picture on the phone.
+> - **The correct-answer desync bug (real, fixed):** `correct` is an option INDEX, and the
+>   schema-form's option reorder/remove never remapped it, so reordering options in the
+>   editor silently marked the wrong answer correct (poisoning both the reveal and the
+>   leaderboard). Fixed with an identity-based remap (`reindexAfterArrayEdit`) in
+>   `SchemaForm`/`SchemaField` that fixes every options+correct block (guess/buzzer/answer/
+>   wager/cellar). Unit-tested.
+> - **Info slide / title:** `layout` (side vs banner, banner centers the picture on top)
+>   and `showOnPhone` (mirror to phones or show a plain "watch the big screen" card).
+> - **Fill (Mad Libs) host** redesigned from a lone number into a stage-filling view (the
+>   blanks as chips = the story's shape, no spoilers, plus a big live count). Phone fill
+>   inputs enlarged.
+> - **Results:** the top-rated award now names the thing by its **prompt** (not "Round N")
+>   and carries its **image** (shown large on the big screen); per-round **`inResults`**
+>   to keep a round off the final board; author-set **results section order**
+>   (`settings.resultsOrder`, what shows first); per-round **`showStandings`** to suppress
+>   the between-round "standings so far"; and **combine-ratings**: a named section flagged
+>   `combineRatings` rolls its rate rounds into one ranked breakdown.
+> - **Editor (kept out of the monolith):** click-to-retitle rounds (`name`), **named
+>   sections** (groups, with rail headers), a per-round options panel, and a **Game
+>   Settings** panel (authored play defaults + results order), extracted into new isolated
+>   components `RoundOptions.vue` + `GameSettingsPanel.vue` (the DeckManager/RoundBindings
+>   pattern). The preview now has an **Answering/Reveal** toggle so authors can see the
+>   reveal moment (it synthesizes the block's own `answerOf`/`revealSummary`/`PlayerReveal`).
+> - **Host:** the 8 lobby toggles moved to **authored Create-side defaults** that seed a
+>   **slimmed lobby** (join code, roster, who-drives, Start) with a collapsible "Adjust for
+>   tonight" for live overrides. **Untimed rounds auto-open** (no pointless "Open voting"
+>   click when there's no clock to start fairly). **"First to join drives" now defaults
+>   off** (generic + circuit-cypher + open-mic).
+> - **Data model (additive):** `RoundInstance.{name,group,inResults,showStandings}`,
+>   `GameComposition.{groups,settings}`, `GameSettings`, `GroupDef`, `ResultsSection`,
+>   `AwardCard.image`. Stored inside the existing JSON config blob, so **NO DB migration**.
+>   The save boundary (`gameInputSchema` in `games-repo.ts`) + `SavedConfig` were extended
+>   so the fields survive save (a plain Zod object strips unknown keys, unit-tested).
+> - **TWO bugs the static gate missed, caught in audit + fixed:**
+>   1. **`resolveComposition` dropped the new fields.** Every hosted game passes through it;
+>      it reconstructed deck-backed rounds as `{block,content,from}` and returned only
+>      `{title,rounds}`, throwing away config-level `groups`/`settings` and round metadata,
+>      which would have made combine/inResults/showStandings/settings silently no-op for
+>      EVERY game. Fixed to preserve round metadata + config groups/settings (regression
+>      tested). LESSON: `resolveComposition` strips any field it doesn't explicitly carry.
+>   2. **`revealImage` answer leak.** It was published in the redacted config before the
+>      reveal (it can BE the answer). Now stripped in `guess.redactContent` + `REDACTION_
+>      RULES` and delivered via the reveal summary at reveal only. Question image + options
+>      stay (shown during play). LESSON: adding a second secret field to an already-listed
+>      REDACTION_RULES block is NOT caught by the sync test, you must add it by hand.
+> - **Custom-flow games unaffected** (they own Host/Player/Results); the only change there
+>   is the intended first-to-join flip (cypher re-verified by its own smoke, incl. co-host
+>   driving). Existing saved games with none of the new fields behave identically (every
+>   field defaults to the old behavior).
 
 > **PIT PARTY AUDIT PASS 2: MERGED to `main` + DEPLOYED (2026-06-12, commit `0b53f4c`,
 > fast-forwarded from `pit-party-polish-2`; gate green at ship).** The headline find: the

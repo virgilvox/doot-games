@@ -56,43 +56,79 @@ const correctIndex = computed(
     (props.answer as { correct?: number } | undefined)?.correct ??
     -1,
 )
+const correctOption = computed(() =>
+  correctIndex.value >= 0 ? props.content.options[correctIndex.value] : undefined,
+)
+// At the reveal, show a dedicated reveal picture if the author set one, else the
+// correct answer's own picture (a picture quiz keeps its image), else nothing.
+const revealImg = computed(() => props.content.revealImage?.trim() || correctOption.value?.image || '')
+const answeredCount = computed(() => lockedCount.value)
+const correctCount = computed(() => (correctIndex.value >= 0 ? (counts.value[correctIndex.value] ?? 0) : 0))
+
+const showLetters = computed(() => props.content.showLetters !== false)
+// `auto` stacks into one column when answers carry pictures or run long (so nothing
+// is squeezed); otherwise a 2-up grid. `grid`/`list` force it.
+const layoutClass = computed(() => {
+  const mode = props.content.optionLayout ?? 'auto'
+  if (mode === 'list' || mode === 'grid') return mode
+  const heavy =
+    props.content.options.some((o) => !!o.image) ||
+    props.content.options.some((o) => (o.label ?? '').length > 24)
+  return heavy ? 'list' : 'grid'
+})
 
 const letter = (i: number) => String.fromCharCode(65 + i)
 </script>
 
 <template>
   <div class="board-stage">
-    <ul class="board" :class="{ revealed }">
-      <li
-        v-for="(opt, i) in content.options"
-        :key="i"
-        class="panel"
-        :class="{ right: revealed && i === correctIndex, wrong: revealed && i !== correctIndex }"
-      >
-        <span class="letter">{{ letter(i) }}</span>
-        <img v-if="opt.image" class="othumb" :src="opt.image" alt="" />
-        <span class="label">
-          <span class="ltext">{{ opt.label || `Option ${letter(i)}` }}</span>
-          <span v-if="opt.sublabel" class="sub">{{ opt.sublabel }}</span>
+    <!-- Reveal: the answer on its own, so a long answer or a picture always fits
+         (no cramped 4-up board, no clipped reveal). -->
+    <div v-if="revealed" class="answer-focus">
+      <img v-if="revealImg" class="answer-img" :src="revealImg" alt="" />
+      <div class="answer-body">
+        <span class="answer-kicker">The answer</span>
+        <span class="answer-label">{{
+          correctOption?.label || (correctIndex >= 0 ? `Option ${letter(correctIndex)}` : '—')
+        }}</span>
+        <span v-if="correctOption?.sublabel" class="answer-sub">{{ correctOption.sublabel }}</span>
+        <span v-if="answeredCount > 0" class="answer-count">
+          <span class="ac-num mono">{{ correctCount }}</span> of {{ answeredCount }} got it
         </span>
-        <span v-if="showDistribution" class="count mono">{{ counts[i] ?? 0 }}</span>
-        <span v-if="revealed && i === correctIndex" class="tick" aria-hidden="true">&#10003;</span>
-      </li>
-    </ul>
-
-    <div v-if="!revealed" class="status-row">
-      <span class="status"><span class="dot" aria-hidden="true" /> {{ lockedCount }} locked in</span>
-      <button type="button" class="peek" :aria-pressed="showLive" @click="showLive = !showLive">
-        {{ showLive ? 'Hide answers' : 'Peek at answers' }}
-      </button>
+      </div>
     </div>
+
+    <!-- Live board while answering. -->
+    <template v-else>
+      <ul class="board" :class="[layoutClass, { 'no-letters': !showLetters }]">
+        <li v-for="(opt, i) in content.options" :key="i" class="panel">
+          <span v-if="showLetters" class="letter">{{ letter(i) }}</span>
+          <img v-if="opt.image" class="othumb" :src="opt.image" alt="" />
+          <span class="label">
+            <span class="ltext">{{ opt.label || `Option ${letter(i)}` }}</span>
+            <span v-if="opt.sublabel" class="sub">{{ opt.sublabel }}</span>
+          </span>
+          <span v-if="showDistribution" class="count mono">{{ counts[i] ?? 0 }}</span>
+        </li>
+      </ul>
+
+      <div class="status-row">
+        <span class="status"><span class="dot" aria-hidden="true" /> {{ lockedCount }} locked in</span>
+        <button type="button" class="peek" :aria-pressed="showLive" @click="showLive = !showLive">
+          {{ showLive ? 'Hide answers' : 'Peek at answers' }}
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .board-stage {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 16px;
 }
 .board {
@@ -100,11 +136,16 @@ const letter = (i: number) => String.fromCharCode(65 + i)
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+.board.grid {
+  grid-template-columns: 1fr 1fr;
+}
+.board.list {
+  grid-template-columns: 1fr;
+}
 @media (max-width: 1100px) {
-  .board {
+  .board.grid {
     grid-template-columns: 1fr;
   }
 }
@@ -139,11 +180,17 @@ const letter = (i: number) => String.fromCharCode(65 + i)
 }
 .panel .othumb {
   flex: none;
-  width: 52px;
-  height: 52px;
-  border-radius: 9px;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
   object-fit: cover;
   border: var(--bd) solid var(--line-soft);
+}
+/* Letters off: the board is picture-led, so the answer picture grows. */
+.board.no-letters .panel .othumb {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
 }
 .panel .label {
   flex: 1;
@@ -163,23 +210,61 @@ const letter = (i: number) => String.fromCharCode(65 + i)
   font-size: 20px;
   color: var(--ink-soft);
 }
-.panel.right {
-  border-color: var(--c5);
-  background: color-mix(in srgb, var(--c5) 22%, var(--surface));
-  transform: scale(1.03);
-  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--c5) 60%, transparent);
+/* Focused reveal: the answer alone, centered, large. ---------------------- */
+.answer-focus {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  text-align: center;
+  gap: clamp(12px, 2vw, 22px);
 }
-.panel.right .letter {
-  background: var(--c5);
+.answer-img {
+  max-width: 100%;
+  max-height: min(48vh, 480px);
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface-2);
 }
-.panel.wrong {
-  opacity: 0.45;
+.answer-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
-.tick {
-  flex: none;
+.answer-kicker {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 14px;
   color: var(--c5);
-  font-size: 26px;
-  font-weight: 900;
+}
+.answer-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.05;
+  font-size: clamp(30px, 5vw, 60px);
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.answer-sub {
+  font-size: clamp(15px, 1.8vw, 22px);
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.answer-count {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink-soft);
+}
+.answer-count .ac-num {
+  color: var(--c5);
+  font-weight: 800;
 }
 .status-row {
   display: flex;

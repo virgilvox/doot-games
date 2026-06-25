@@ -127,6 +127,26 @@ export function humanizeName(name: string): string {
   return spaced ? spaced[0]!.toUpperCase() + spaced.slice(1) : name
 }
 
+/**
+ * Keep an index-valued field (e.g. `correct`) pinned to the SAME array item after
+ * that array is reordered, an item is removed, or an item is edited in place. The
+ * editor stores "which option is correct" as an index into `options`; without this,
+ * reordering or deleting options would silently leave `correct` pointing at the
+ * wrong answer (the marked answer and the scored answer drift apart).
+ *
+ * The form mutates one item at a time, so we can resolve the change by identity:
+ * find the previously-pointed item (by reference) in the next array. If it moved,
+ * follow it; if it was removed, clamp into range; if it was edited in place (same
+ * length, reference replaced at its own slot), keep the index.
+ */
+export function reindexAfterArrayEdit(prev: unknown, next: unknown, index: number): number {
+  if (!Array.isArray(prev) || !Array.isArray(next) || index < 0) return index
+  const target = prev[index]
+  const moved = next.indexOf(target)
+  if (moved !== -1) return moved
+  return Math.min(index, Math.max(0, next.length - 1))
+}
+
 function defOf(schema: unknown): ZodDef | undefined {
   return (schema as ZodLike | null | undefined)?._def
 }

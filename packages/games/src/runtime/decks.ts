@@ -365,15 +365,19 @@ export function resolveComposition(
       out.push(r)
       return
     }
+    // Carry forward everything except the deck-consuming fields (draw/pool/bindings)
+    // and content (rebuilt below): this preserves `from` AND the authoring/presentation
+    // metadata (name/group/inResults/showStandings) on a deck-expanded round, so a
+    // grouped or hidden-from-results round still behaves when it draws from a deck.
+    const { draw: _draw, pool: _pool, bindings: _bindings, content: _content, ...keep } = r
     for (let k = 0; k < n; k++) {
-      const from = r.from ? { from: r.from } : {}
       if (r.pool) {
         // Mode 2: the whole content from one row via the block's typed descriptor.
         const row = drawRow(decks[r.pool.deck], `${seed}:${i}:${r.pool.deck}`, k)
         const block = getBlock(plugin, r.block)
         const content =
           row && block?.pool ? block.pool.fromRow(row, (r.content ?? {}) as never) : clone(r.content)
-        out.push({ block: r.block, content, ...from })
+        out.push({ ...keep, content })
       } else {
         // Mode 1: clone the authored content, fill each bound field from its drawn row.
         const content = clone(r.content)
@@ -383,9 +387,17 @@ export function resolveComposition(
           const val = rowByDeck.get(ref.deck)?.[ref.column]
           if (val !== undefined) setPath(content, fieldPath, val)
         }
-        out.push({ block: r.block, content, ...from })
+        out.push({ ...keep, content })
       }
     }
   })
-  return { title: config.title, rounds: out.slice(0, MAX_ROUNDS) }
+  // Preserve config-level groups + settings (the rounds are resolved; decks are
+  // intentionally consumed and dropped). Without this, combine-ratings, results
+  // visibility, per-round standings, and the authored host defaults would be lost.
+  return {
+    title: config.title,
+    rounds: out.slice(0, MAX_ROUNDS),
+    ...(config.groups ? { groups: config.groups } : {}),
+    ...(config.settings ? { settings: config.settings } : {}),
+  }
 }

@@ -221,10 +221,13 @@ export function scoreGame(
   config: GameComposition,
   ctx: ScoreGameContext,
 ): StandardResults {
-  const byKind = new Map<string, Array<{ index: number; content: unknown }>>()
+  const byKind = new Map<string, Array<{ index: number; content: unknown; group?: string }>>()
   config.rounds.forEach((inst, index) => {
+    // An author can exclude a round from the final results (e.g. a poll already
+    // discussed live); it still plays, but contributes nothing to the board.
+    if (inst.inResults === false) return
     const arr = byKind.get(inst.block) ?? []
-    arr.push({ index, content: inst.content })
+    arr.push({ index, content: inst.content, group: inst.group })
     byKind.set(inst.block, arr)
   })
 
@@ -239,6 +242,7 @@ export function scoreGame(
         answerFor: (i) => ctx.answerKeys[i],
         players: ctx.players,
         audienceVotesFor: ctx.audienceVotesFor,
+        groups: config.groups,
       }),
     )
   }

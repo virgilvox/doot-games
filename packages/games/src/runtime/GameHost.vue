@@ -193,9 +193,16 @@ const joinUrl = computed(() => {
   const code = room.runtime.room
   return typeof window === 'undefined' ? `/play/${code}` : `${window.location.origin}/play/${code}`
 })
+const roundTimer = computed(() =>
+  block.value?.timerOf && content.value ? block.value.timerOf(content.value) : null,
+)
+// Does this round run a countdown (after any "turn off timers" override, which nulls
+// content.timer)? An untimed round has no clock to start fairly, so we open it on
+// entry rather than making the host press a button just to let people begin.
+const hasTimer = computed(() => typeof roundTimer.value === 'number' && roundTimer.value > 0)
 const countdown = computed(() => {
   const dl = room.round.value.deadline
-  const timer = block.value?.timerOf && content.value ? block.value.timerOf(content.value) : null
+  const timer = roundTimer.value
   if (!dl || !timer) return null
   return { remaining: Math.max(0, dl - now.value), total: timer * 1000 }
 })
@@ -297,7 +304,14 @@ function finish() {
 // Publish the running standings after a round is revealed, so phones + the big
 // screen can show a between-round leaderboard. Only for a scored game (a leaderboard
 // with entries); an unscored game publishes nothing. Cheap + purely presentational.
+// The author can suppress the "standings so far" peek after a given round (e.g. a
+// rating round whose winner you reveal later); the final results board still shows
+// everything. Default on.
+const roundShowStandings = computed(
+  () => (rounds.value[index.value] as RoundInstance | undefined)?.showStandings !== false,
+)
 function pushStandings() {
+  if (!roundShowStandings.value) return
   const s = scoreInputs()
   if (!s) return
   const summary = standingsThrough(props.plugin, s.effectiveCfg, index.value, s.ctx)
@@ -350,7 +364,11 @@ const standings = computed(() => room.standings.value as StandardResults | undef
 // Show the running standings on the big screen during the reveal beat of a scored
 // round (not on a display/slide round, and only once there's something to show).
 const showStandings = computed(
-  () => state.value === 'reveal' && !isDisplay.value && (standings.value?.leaderboard?.length ?? 0) > 0,
+  () =>
+    state.value === 'reveal' &&
+    !isDisplay.value &&
+    roundShowStandings.value &&
+    (standings.value?.leaderboard?.length ?? 0) > 0,
 )
 
 // Reload to host a fresh room of the same game (HostRoom re-resolves the config,
@@ -376,13 +394,18 @@ function startVote() {
   room.host.next()
 }
 
-// Display blocks (slides/title cards) auto-open on enter so the room sees them at
-// once, and advance with one button. Transitions update local state synchronously,
-// so we can chain through the unused open/lock/reveal beat to the next round.
+// Auto-open a round on entry when there's no reason to hold on "Get ready":
+//  - display blocks (slides/title cards): the room just reads them, advanced by one button;
+//  - untimed rounds: with no countdown to start fairly, making the host press "Open
+//    voting" is a pointless extra tap, so people can just start answering.
+// A timed round still opens deliberately, so its clock starts when the host chooses.
+// Transitions update local state synchronously, so display blocks can still chain
+// through the unused open/lock/reveal beat to the next round.
 watch(
-  [index, state, isDisplay],
+  [index, state, isDisplay, hasTimer],
   () => {
-    if (isDisplay.value && state.value === 'ready' && room.host.can('open')) room.host.openVoting()
+    if (state.value !== 'ready' || !room.host.can('open')) return
+    if (isDisplay.value || !hasTimer.value) room.host.openVoting()
   },
   { immediate: true },
 )
@@ -401,7 +424,7 @@ function advanceDisplay() {
 // The host can hand the advance controls to a joined player. Default on: the
 // first player to join drives from their phone (handy when hosting off a TV
 // where the big screen has no easy input); the host can switch back to "Just me".
-const firstToJoin = ref(true)
+const firstToJoin = ref(false)
 const driverPid = computed(() => room.driverPid.value)
 const driverName = computed(() => room.players.value.find((p) => p.id === driverPid.value)?.name ?? '')
 function pickDriver(pid: string) {
@@ -412,6 +435,49 @@ watch([firstToJoin, () => room.players.value.length], () => {
     room.host.setDriver(room.players.value[0].id)
   }
 })
+
+// ── Authored settings → seed the lobby ─────────────────────────────────────
+// The game's `config.settings` are the author's play defaults. Seed every lobby
+// control from them ONCE when the config first arrives, so the host opens to the
+// authored setup; the host can still change anything (these controls remain). The
+// injected refs (cap/timers/filter) are shared with HostRoom, so setting them here
+// drives its reload/republish exactly as a manual toggle would.
+let settingsSeeded = false
+watch(
+  config,
+  (c) => {
+    if (settingsSeeded || !c) return
+    settingsSeeded = true
+    const s = c.settings
+    if (!s) return
+    if (s.autoAdvance !== undefined) autoAdvance.value = s.autoAdvance
+    if (s.sfx !== undefined) {
+      sfxOn.value = s.sfx
+      sfx.value?.setMuted(!s.sfx)
+    }
+    if (s.firstToJoinDrives !== undefined) firstToJoin.value = s.firstToJoinDrives
+    if (s.playerCap != null) playerCap.value = s.playerCap
+    if (s.timers === false) timersOff.value = true
+    if (s.contentFilter) contentFilter.value = s.contentFilter
+    if (s.teams && s.teams > 0) teamCount.value = s.teams
+  },
+  { immediate: true },
+)
+// Teams/crowd live on relay meta, so seed them through host actions once connected
+// (a publish before connect would be dropped). Runs once.
+let metaSeeded = false
+watch(
+  [() => room.connected.value, config],
+  () => {
+    if (metaSeeded || !room.connected.value || room.phase.value !== 'lobby') return
+    const s = config.value?.settings
+    if (!s) return
+    metaSeeded = true
+    if (s.teams && s.teams > 0 && !teamsOn.value) room.host.setTeams(DEFAULT_TEAM_NAMES.slice(0, s.teams))
+    if (s.crowdVotes && !crowdOn.value) room.host.setCrowdCounts(true)
+  },
+  { immediate: true },
+)
 
 // Apply a delegated player's drive intent through the SAME handlers the host
 // buttons use, so "Final results" still scores and a make round still skips its
@@ -485,6 +551,8 @@ watch(
           </button>
         </div>
       </div>
+      <details class="lobby-advanced">
+        <summary class="lobby-advanced-sum">Adjust for tonight</summary>
       <div class="cap-pick">
         <label class="cap-row">
           <input
@@ -583,6 +651,7 @@ watch(
           <option value="strict">Strict (family-friendly)</option>
         </select>
       </div>
+      </details>
       <div class="cohost-pick">
         <span class="kicker">Who drives the game</span>
         <select
@@ -616,7 +685,7 @@ watch(
 
   <!-- RESULTS -->
   <div v-else-if="room.phase.value === 'results' && room.results.value" class="results-wrap">
-    <component :is="ResultsView" :results="room.results.value as any" :teams="teams" />
+    <component :is="ResultsView" :results="room.results.value as any" :teams="teams" :order="config?.settings?.resultsOrder ?? []" />
     <!-- What next (host controls). Plain links/reload so the engine package stays
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
     <div v-if="!sessionMode" class="results-next">
@@ -876,6 +945,36 @@ watch(
 }
 .lobby-actions {
   margin-top: 18px;
+}
+/* The authored defaults live here, collapsed, so the lobby stays focused on the
+   join code, roster, who-drives, and Start. The host opens it only to tweak. */
+.lobby-advanced {
+  margin-top: 18px;
+  border: var(--bd) solid var(--line-soft);
+  border-radius: 12px;
+  padding: 4px 14px;
+  background: var(--surface);
+}
+.lobby-advanced[open] {
+  padding-bottom: 14px;
+}
+.lobby-advanced-sum {
+  cursor: pointer;
+  padding: 10px 0;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-soft);
+  list-style: none;
+}
+.lobby-advanced-sum::-webkit-details-marker {
+  display: none;
+}
+.lobby-advanced-sum::before {
+  content: '▸ ';
+  color: var(--primary);
+}
+.lobby-advanced[open] .lobby-advanced-sum::before {
+  content: '▾ ';
 }
 .note {
   margin-top: 12px;

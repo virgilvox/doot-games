@@ -7,7 +7,7 @@
  * phone view. "Host this game" stashes the composition in the draft and opens
  * the host screen. Client-only: it mounts block player views and uses the draft.
  */
-import type { AnyBlock, GameComposition, RoundInstance } from '@doot-games/sdk'
+import type { AnyBlock, GameComposition, GroupDef, RoundInstance } from '@doot-games/sdk'
 import { getBlock, getPlugin, parseMarkdownGame, resolveComposition } from '@doot-games/games'
 import { themeList } from '@doot-games/themes'
 import { AudioClip, GameTypeIcon, IMAGE_UPLOAD, ImageField, SchemaForm, gameVisual } from '@doot-games/ui'
@@ -347,6 +347,21 @@ const previewPrompt = computed(() => (previewContent.value.prompt as string | un
 // must NOT add the generic kicker/prompt/image chrome around it (that double-shows
 // the slide's image).
 const curIsDisplay = computed(() => !!(cur.value && blockFor(cur.value)?.display))
+// Preview the answering state or the reveal (so an author can see the answer moment
+// they configured, e.g. a Guess round's focused answer + reveal image). Only offered
+// when the current block actually has a reveal.
+const previewState = ref<'open' | 'reveal'>('open')
+const canPreviewReveal = computed(() => {
+  // Derived (judge) rounds render a "built live from the previous round" placeholder,
+  // not the real block view, so a reveal preview would have nothing to show.
+  if (!cur.value || isDerived(cur.value)) return false
+  const b = blockFor(cur.value)
+  return !!b && (!!b.answerOf || !!b.revealSummary || !!b.PlayerReveal)
+})
+// Drop back to the open state when moving to a round that has no reveal to show.
+watch([selected, canPreviewReveal], () => {
+  if (!canPreviewReveal.value) previewState.value = 'open'
+})
 function select(i: number) {
   selected.value = i
   showPreviewDrawer.value = false
@@ -398,6 +413,73 @@ function moveRound(i: number, dir: -1 | 1) {
   if (selected.value === i) selected.value = j
   else if (selected.value === j) selected.value = i
 }
+
+// ── Round titles, results flags, and sections (groups) ─────────────────────
+// A round can carry a custom name (shown instead of "Round N"), be kept off the
+// final results, suppress its between-round standings, and belong to a named
+// section. All additive metadata on RoundInstance; absent = the defaults.
+function roundTitle(round: RoundInstance, i: number): string {
+  return round.name?.trim() || `Round ${i + 1}`
+}
+function setRoundName(i: number, name: string) {
+  const r = config.rounds[i]
+  if (!r) return
+  if (name.trim()) r.name = name
+  else delete r.name
+}
+function setRoundFlag(i: number, key: 'inResults' | 'showStandings', on: boolean) {
+  const r = config.rounds[i]
+  if (!r) return
+  // Store only the non-default (false); a missing flag means "on", keeping configs small.
+  if (on) delete r[key]
+  else r[key] = false
+}
+
+const groups = computed<GroupDef[]>(() => config.groups ?? [])
+function groupById(id?: string): GroupDef | undefined {
+  return id ? groups.value.find((g) => g.id === id) : undefined
+}
+function createGroup(): string {
+  if (!config.groups) config.groups = []
+  const id = `grp_${Math.random().toString(36).slice(2, 8)}`
+  config.groups.push({ id, name: `Section ${config.groups.length + 1}` })
+  return id
+}
+function setRoundGroup(i: number, id: string) {
+  const r = config.rounds[i]
+  if (!r) return
+  if (id === '__new__') r.group = createGroup()
+  else if (id) r.group = id
+  else delete r.group
+  pruneGroups()
+}
+function renameGroup(id: string, name: string) {
+  const g = groupById(id)
+  if (g) g.name = name
+}
+function toggleCombine(id: string, on: boolean) {
+  const g = groupById(id)
+  if (!g) return
+  if (on) g.combineRatings = true
+  else delete g.combineRatings
+}
+// Drop any group no round references anymore (keeps the config tidy after moves/removes).
+function pruneGroups() {
+  if (!config.groups) return
+  const used = new Set(config.rounds.map((r) => r.group).filter(Boolean))
+  config.groups = config.groups.filter((g) => used.has(g.id))
+  if (!config.groups.length) delete config.groups
+}
+// A round starts a new section header in the rail when its group differs from the
+// round above it (so consecutive same-group rounds sit under one header).
+function sectionHeader(i: number): GroupDef | null {
+  const g = config.rounds[i]?.group
+  if (!g) return null
+  if (i > 0 && config.rounds[i - 1]?.group === g) return null
+  return groupById(g) ?? null
+}
+// Does this game have any rate rounds? (combine-ratings only makes sense then.)
+const hasRateRounds = computed(() => config.rounds.some((r) => r.block === 'rate'))
 
 // Import a whole game from a markdown spec (see docs/markdown-games.md). Rounds
 // using blocks this game type doesn't support are dropped with a note (the
@@ -666,30 +748,31 @@ onScopeDispose(() => {
         <nav class="ed-rail" aria-label="Rounds">
           <button type="button" class="ed-add-btn" @click="showAdd = true">+ Add round</button>
           <ol v-if="config.rounds.length" class="ed-rail-list">
-            <li
-              v-for="(round, i) in config.rounds"
-              :key="i"
-              class="ed-rail-item"
-              :class="{ on: selected === i, bad: errors[i] }"
-              :style="{ '--round-accent': blockColor(round) }"
-            >
-              <button type="button" class="ed-chip" :aria-current="selected === i" @click="select(i)">
-                <GameTypeIcon :type="round.block" :size="28" />
-                <span class="ed-chip-main">
-                  <span class="ed-chip-top">
-                    <span class="ed-chip-n">Round {{ i + 1 }}</span>
-                    <span class="ed-chip-kind">{{ blockFor(round)?.name ?? round.block }}</span>
+            <template v-for="(round, i) in config.rounds" :key="i">
+              <li v-if="sectionHeader(i)" class="ed-rail-section">{{ sectionHeader(i)!.name }}</li>
+              <li
+                class="ed-rail-item"
+                :class="{ on: selected === i, bad: errors[i], grouped: !!round.group }"
+                :style="{ '--round-accent': blockColor(round) }"
+              >
+                <button type="button" class="ed-chip" :aria-current="selected === i" @click="select(i)">
+                  <GameTypeIcon :type="round.block" :size="28" />
+                  <span class="ed-chip-main">
+                    <span class="ed-chip-top">
+                      <span class="ed-chip-n">{{ roundTitle(round, i) }}</span>
+                      <span class="ed-chip-kind">{{ blockFor(round)?.name ?? round.block }}</span>
+                    </span>
+                    <span class="ed-chip-sub">{{ summaryOf(round) }}</span>
                   </span>
-                  <span class="ed-chip-sub">{{ summaryOf(round) }}</span>
+                  <span v-if="errors[i]" class="ed-chip-dot" :title="errors[i]" aria-label="needs attention" />
+                </button>
+                <span class="ed-chip-controls">
+                  <button type="button" class="sf-icon-btn" :disabled="i === 0" aria-label="Move up" @click="moveRound(i, -1)">↑</button>
+                  <button type="button" class="sf-icon-btn" :disabled="i === config.rounds.length - 1" aria-label="Move down" @click="moveRound(i, 1)">↓</button>
+                  <button type="button" class="sf-icon-btn" aria-label="Remove round" @click="removeRound(i)">✕</button>
                 </span>
-                <span v-if="errors[i]" class="ed-chip-dot" :title="errors[i]" aria-label="needs attention" />
-              </button>
-              <span class="ed-chip-controls">
-                <button type="button" class="sf-icon-btn" :disabled="i === 0" aria-label="Move up" @click="moveRound(i, -1)">↑</button>
-                <button type="button" class="sf-icon-btn" :disabled="i === config.rounds.length - 1" aria-label="Move down" @click="moveRound(i, 1)">↓</button>
-                <button type="button" class="sf-icon-btn" aria-label="Remove round" @click="removeRound(i)">✕</button>
-              </span>
-            </li>
+              </li>
+            </template>
           </ol>
           <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
 
@@ -699,6 +782,12 @@ onScopeDispose(() => {
               Decks<span v-if="deckCount" class="ed-decks-count">{{ deckCount }}</span>
             </summary>
             <DeckManager :model-value="config.decks" :ref-decks="refDecks" @update:model-value="config.decks = $event" />
+          </details>
+
+          <!-- Game settings: authored play defaults (host can still override) + results order. -->
+          <details class="ed-decks-disc ed-settings-disc">
+            <summary class="ed-decks-summary">Game settings</summary>
+            <GameSettingsPanel :model-value="config.settings" @update:model-value="config.settings = $event" />
           </details>
         </nav>
 
@@ -713,9 +802,16 @@ onScopeDispose(() => {
           <template v-if="cur">
             <div class="ed-center-head" :style="{ '--round-accent': blockColor(cur) }">
               <GameTypeIcon :type="cur.block" :size="30" />
-              <div>
+              <div class="ed-center-head-main">
                 <span class="ed-chip-kind">{{ blockFor(cur)?.name ?? cur.block }}</span>
-                <h2 class="ed-center-title">Round {{ selected + 1 }}</h2>
+                <input
+                  class="ed-center-title-input"
+                  :value="cur.name ?? ''"
+                  :placeholder="`Round ${selected + 1}`"
+                  aria-label="Round title"
+                  maxlength="120"
+                  @input="setRoundName(selected, ($event.target as HTMLInputElement).value)"
+                />
               </div>
             </div>
             <!-- Judge rounds (Vote/Split/...) build their content from the prior
@@ -758,6 +854,18 @@ onScopeDispose(() => {
                 <span>Use a photo shared in round {{ shareSource + 1 }}. A random one fills this round's image when you reach it.</span>
               </label>
             </div>
+
+            <!-- Round options: results visibility, standings, and the section it belongs to. -->
+            <RoundOptions
+              :round="cur"
+              :groups="groups"
+              :is-display="curIsDisplay"
+              :has-rate-rounds="hasRateRounds"
+              @set-flag="setRoundFlag(selected, $event.key, $event.on)"
+              @set-group="setRoundGroup(selected, $event)"
+              @rename-group="renameGroup($event.id, $event.name)"
+              @toggle-combine="toggleCombine($event.id, $event.on)"
+            />
           </template>
           <div v-else class="ed-empty">
             <GameTypeIcon type="custom" :size="46" />
@@ -773,6 +881,10 @@ onScopeDispose(() => {
             <div class="ed-preview-head" role="group" aria-label="Preview surface">
               <button type="button" class="ed-pt-btn" :class="{ on: previewMode === 'phone' }" :aria-pressed="previewMode === 'phone'" @click="previewMode = 'phone'">Phone</button>
               <button type="button" class="ed-pt-btn" :class="{ on: previewMode === 'host' }" :aria-pressed="previewMode === 'host'" @click="previewMode = 'host'">Big screen</button>
+            </div>
+            <div v-if="canPreviewReveal" class="ed-preview-head" role="group" aria-label="Preview moment">
+              <button type="button" class="ed-pt-btn" :class="{ on: previewState === 'open' }" :aria-pressed="previewState === 'open'" @click="previewState = 'open'">Answering</button>
+              <button type="button" class="ed-pt-btn" :class="{ on: previewState === 'reveal' }" :aria-pressed="previewState === 'reveal'" @click="previewState = 'reveal'">Reveal</button>
             </div>
             <button type="button" class="ed-drawer-close" aria-label="Close preview" @click="showPreviewDrawer = false">✕</button>
           </div>
@@ -799,6 +911,7 @@ onScopeDispose(() => {
                 :block="blockFor(cur)!"
                 :content="previewContent"
                 :model-value="previewValue(selected)"
+                :state="previewState"
                 @update:model-value="previewInputs[selected] = $event"
               />
               <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
@@ -816,7 +929,7 @@ onScopeDispose(() => {
               </div>
               <!-- inert: a non-interactive preview, so host controls stay out of reach. -->
               <div v-else-if="blockFor(cur) && !errors[selected]" class="ed-bs-board" inert>
-                <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" />
+                <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
               </div>
               <p v-else class="ed-preview-hint">Preview appears once this round is valid.</p>
             </div>
@@ -1345,6 +1458,19 @@ onScopeDispose(() => {
   display: grid;
   gap: 8px;
 }
+/* A named section header above the first round of each group run. */
+.ed-rail-section {
+  margin: 8px 0 -2px;
+  padding: 2px 4px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+}
+.ed-rail-item.grouped {
+  margin-left: 10px;
+}
 .ed-rail-item {
   display: flex;
   align-items: stretch;
@@ -1505,6 +1631,36 @@ onScopeDispose(() => {
   font-size: 22px;
   font-weight: 800;
   margin: 2px 0 0;
+}
+.ed-center-head-main {
+  flex: 1;
+  min-width: 0;
+}
+/* The round title is editable inline (click to retitle); it reads like a heading
+   until focused, then shows it's a field. */
+.ed-center-title-input {
+  width: 100%;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 2px 0 0;
+  border: var(--bd) solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  padding: 2px 8px;
+  margin-left: -8px;
+}
+.ed-center-title-input::placeholder {
+  color: var(--ink);
+  opacity: 1;
+}
+.ed-center-title-input:hover {
+  border-color: var(--line-soft);
+}
+.ed-center-title-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--surface);
 }
 .ed-empty {
   display: grid;

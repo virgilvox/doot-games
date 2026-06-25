@@ -9,6 +9,10 @@ import TitleView from './TitleView.vue'
 export const titleContentSchema = z.object({
   title: z.string().max(120).default('Welcome').describe('The big title shown center-screen.'),
   subtitle: z.string().max(160).default('').describe('Optional smaller line above the title (a kicker).'),
+  showOnPhone: z
+    .boolean()
+    .default(true)
+    .describe('Mirror this card on phones. Turn off to keep phones on a simple "watch the big screen" card.'),
 })
 
 export type TitleContent = z.infer<typeof titleContentSchema>
@@ -20,7 +24,7 @@ export const titleBlock = defineBlock<TitleContent, TitleInput>({
   name: 'Title Card',
   display: true,
   contentSchema: titleContentSchema,
-  defaultContent: () => ({ title: 'Welcome to the show', subtitle: 'Get ready to play' }),
+  defaultContent: () => ({ title: 'Welcome to the show', subtitle: 'Get ready to play', showOnPhone: true }),
   defaultTimer: null,
   emptyInput: () => ({}),
   PlayerInput: TitleView,

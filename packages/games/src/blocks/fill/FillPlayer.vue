@@ -44,7 +44,8 @@ function onInput(id: string, e: Event) {
 .fill {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  width: 100%;
 }
 .fill-template {
   font-size: clamp(17px, 4.6vw, 21px);
@@ -72,13 +73,13 @@ function onInput(id: string, e: Event) {
 .fill-input {
   width: 100%;
   font: inherit;
-  font-size: clamp(16px, 4.2vw, 19px);
+  font-size: clamp(17px, 4.6vw, 21px);
   font-weight: 600;
   color: var(--ink);
   background: var(--surface-2);
   border: var(--bd) solid var(--line-soft);
   border-radius: var(--radius);
-  padding: 12px 14px;
+  padding: 15px 16px;
   box-shadow: var(--shadow-sm);
 }
 .fill-input:focus {

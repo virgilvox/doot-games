@@ -85,7 +85,10 @@ export function isKnownPlugin(id: string): boolean {
  * a new answer-bearing block can't silently leak through the API.
  */
 export const REDACTION_RULES: Record<string, Record<string, unknown>> = {
-  guess: { correct: -1 },
+  // `correct` is the answer index; `revealImage` is the "answer in context" picture
+  // shown only at reveal, so both are withheld until then (delivered via the reveal
+  // summary). The question `image` and the options stay (they're shown during play).
+  guess: { correct: -1, revealImage: '' },
   // Type-the-answer trivia: the accepted answers are the key; blank them before
   // serving a saved answer-based game to a non-owner.
   answer: { answers: [] },

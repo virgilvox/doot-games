@@ -46,6 +46,18 @@ export const guessContentSchema = z.object({
   options: z.array(guessOptionSchema).min(2).describe('At least two answers to choose from.'),
   /** Correct option index; stripped to -1 in the published content. */
   correct: z.number().int().default(0),
+  optionLayout: z
+    .enum(['auto', 'grid', 'list'])
+    .default('auto')
+    .describe('Big-screen answer layout. Auto stacks into one column when answers have pictures or long text, else a 2-up grid.'),
+  showLetters: z
+    .boolean()
+    .default(true)
+    .describe('Show the A/B/C/D letter on each answer. Turn off for a cleaner, picture-led board (the pictures get bigger).'),
+  revealImage: z
+    .string()
+    .default('')
+    .describe('Optional picture shown on the big screen at the reveal, in place of the question picture (e.g. the answer in context).'),
 })
 
 export type GuessContent = z.infer<typeof guessContentSchema>
@@ -66,6 +78,9 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
     hideUntilReveal: true,
     options: [{ label: 'Option A' }, { label: 'Option B' }, { label: 'Option C' }, { label: 'Option D' }],
     correct: 0,
+    optionLayout: 'auto',
+    showLetters: true,
+    revealImage: '',
   }),
   defaultTimer: 20,
   timerOf: (c) => c.timer,
@@ -74,7 +89,9 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
   PlayerInput: GuessPlayer,
   HostDisplay: GuessHost,
   PlayerReveal: GuessReveal,
-  redactContent: (c) => ({ ...c, correct: -1 }),
+  // Withhold the answer index AND the reveal picture (it can BE the answer) until
+  // the reveal; the question image and the options stay (shown during play).
+  redactContent: (c) => ({ ...c, correct: -1, revealImage: '' }),
   answerOf: (c) => ({ correct: c.correct }),
   // Public per-round reveal so phones can show right/wrong feedback. The correct
   // answer is only meant to be secret BEFORE reveal; publishing it now is fine.
@@ -83,6 +100,9 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
     return {
       correctIndex,
       correctLabel: ctx.content.options[correctIndex]?.label ?? '',
+      // The reveal picture is withheld from the published config; carry it here so
+      // phones can show it at the reveal (this payload is published only at reveal).
+      revealImage: ctx.content.revealImage ?? '',
     }
   },
   aggregate: (ctx: BlockResultsContext<GuessContent, GuessInput>): ResultsFragment => {

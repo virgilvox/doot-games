@@ -15,8 +15,16 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { distributionToBars } from './derive'
 
 const props = withDefaults(
-  defineProps<{ results: StandardResults; me?: string | null; compact?: boolean; teams?: string[] }>(),
-  { me: null, compact: false, teams: () => [] },
+  defineProps<{
+    results: StandardResults
+    me?: string | null
+    compact?: boolean
+    teams?: string[]
+    /** Author-chosen section order for the results page; listed kinds lead, the rest
+     *  follow in the default order. Lets a game open on its top-rated picture, say. */
+    order?: Array<'teams' | 'leaderboard' | 'awards' | 'breakdowns'>
+  }>(),
+  { me: null, compact: false, teams: () => [], order: () => [] },
 )
 
 const hasLeaderboard = computed(() => !!props.results.leaderboard && props.results.leaderboard.length > 0)
@@ -42,7 +50,7 @@ type Slide =
 // One page per major section, in narration order: standings first (the payoff),
 // then highlights, then per-question breakdowns. Stats are NOT a page; they stay
 // pinned at the bottom so the run's tally is always in view.
-const slides = computed<Slide[]>(() => {
+const rawSlides = computed<Slide[]>(() => {
   const out: Slide[] = []
   if (hasTeams.value) out.push({ kind: 'teams', label: 'Team scores' })
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
@@ -50,6 +58,22 @@ const slides = computed<Slide[]>(() => {
   for (const d of props.results.distributions ?? [])
     out.push({ kind: 'dist', label: d.title ?? 'Breakdown', dist: d })
   return out
+})
+// Apply the author's chosen section order (which to lead with). Listed kinds come
+// first in that order; anything not listed keeps the default order after them. A
+// stable sort keeps multiple breakdowns in their authored order.
+const sectionOf = (k: Slide['kind']) => (k === 'dist' ? 'breakdowns' : k)
+const slides = computed<Slide[]>(() => {
+  const order = props.order
+  if (!order.length) return rawSlides.value
+  const rank = (s: Slide) => {
+    const i = order.indexOf(sectionOf(s.kind) as (typeof order)[number])
+    return i === -1 ? order.length : i
+  }
+  return rawSlides.value
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => rank(a.s) - rank(b.s) || a.i - b.i)
+    .map((x) => x.s)
 })
 
 const current = ref(0)
@@ -132,7 +156,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       <section v-if="hasAwards" class="panel awards">
         <h3>Top rated</h3>
         <div v-for="(a, i) in results.awards" :key="i" class="award">
-          <div>
+          <img v-if="a.image" class="award-img" :src="a.image" alt="" />
+          <div class="award-text">
             <div class="al">{{ a.label }}</div>
             <div class="as">{{ a.subject }}</div>
           </div>
@@ -192,8 +217,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                   :max="10"
                 />
                 <template v-else-if="currentKind === 'awards'">
-                  <div v-for="(a, i) in results.awards" :key="i" class="award">
-                    <div>
+                  <div v-for="(a, i) in results.awards" :key="i" class="award host">
+                    <img v-if="a.image" class="award-img" :src="a.image" alt="" />
+                    <div class="award-text">
                       <div class="al">{{ a.label }}</div>
                       <div class="as">{{ a.subject }}</div>
                     </div>
@@ -443,6 +469,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   padding: 12px 15px;
   margin-bottom: 9px;
 }
+.award-text {
+  min-width: 0;
+  flex: 1;
+}
+.award-img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: var(--bd) solid var(--line-soft);
+}
+/* On the big screen the top-rated picture is the payoff, so show it large. */
+.award.host {
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.award.host .award-img {
+  width: clamp(96px, 12vw, 160px);
+  height: clamp(96px, 12vw, 160px);
+  border-radius: 14px;
+}
 .al {
   font-size: 11px;
   letter-spacing: 0.1em;
@@ -454,6 +502,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 20px;
+  overflow-wrap: anywhere;
 }
 .av {
   font-family: var(--font-display);

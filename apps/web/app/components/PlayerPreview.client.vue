@@ -13,12 +13,37 @@
 import { type DootRoom, provideDootRoom } from '@doot-games/engine/vue'
 import { type Component, computed } from 'vue'
 
-const props = defineProps<{
-  block: { PlayerInput: Component }
-  content: unknown
-  modelValue: unknown
-}>()
+const props = withDefaults(
+  defineProps<{
+    block: {
+      PlayerInput: Component
+      PlayerReveal?: Component
+      answerOf?: (content: unknown) => unknown
+      revealSummary?: (ctx: {
+        content: unknown
+        inputs: Map<string, unknown>
+        answer: unknown
+        players: never[]
+      }) => unknown
+    }
+    content: unknown
+    modelValue: unknown
+    /** Preview the open (answering) state or the reveal (the personal feedback a
+     *  player sees). Reveal uses the block's PlayerReveal + its real reveal summary. */
+    state?: 'open' | 'reveal'
+  }>(),
+  { state: 'open' },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
+
+const answer = computed(() => (props.state === 'reveal' ? (props.block.answerOf?.(props.content) ?? null) : null))
+const reveal = computed(() =>
+  props.state === 'reveal'
+    ? (props.block.revealSummary?.({ content: props.content, inputs: emptyInputs, answer: answer.value, players: [] }) ??
+      null)
+    : null,
+)
+const showReveal = computed(() => props.state === 'reveal' && !!props.block.PlayerReveal)
 
 const samplePlayers = [
   { id: 'preview-1', name: 'Alex', joinedAtIndex: 0 },
@@ -78,6 +103,14 @@ provideDootRoom(mockRoom)
 
 <template>
   <component
+    v-if="showReveal"
+    :is="props.block.PlayerReveal"
+    :content="props.content"
+    :my-input="props.modelValue"
+    :reveal="reveal"
+  />
+  <component
+    v-else
     :is="props.block.PlayerInput"
     :content="props.content"
     :model-value="props.modelValue"

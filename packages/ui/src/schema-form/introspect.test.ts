@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { type FieldNode, blankValue, describeSchema, humanizeName } from './introspect'
+import { type FieldNode, blankValue, describeSchema, humanizeName, reindexAfterArrayEdit } from './introspect'
 
 const field = (node: FieldNode, name: string): FieldNode | undefined => {
   if (node.kind !== 'object') throw new Error('expected object node')
@@ -143,5 +143,53 @@ describe('humanizeName', () => {
     expect(humanizeName('prompt')).toBe('Prompt')
     expect(humanizeName('maxScore')).toBe('Max score')
     expect(humanizeName('time_limit')).toBe('Time limit')
+  })
+})
+
+describe('reindexAfterArrayEdit (options ↔ correct)', () => {
+  // Mutations happen one at a time; each preserves item identity for the
+  // unedited items, which is how the remap stays correct.
+  const a = { label: 'A' }
+  const b = { label: 'B' }
+  const c = { label: 'C' }
+  const d = { label: 'D' }
+
+  it('follows the correct option when options are reordered', () => {
+    // correct = B (index 1). Swap A and B -> B is now index 0.
+    const next = [b, a, c, d]
+    expect(reindexAfterArrayEdit([a, b, c, d], next, 1)).toBe(0)
+  })
+
+  it('shifts down when an earlier option is removed', () => {
+    // correct = C (index 2). Remove A -> C is now index 1.
+    expect(reindexAfterArrayEdit([a, b, c, d], [b, c, d], 2)).toBe(1)
+  })
+
+  it('stays put when a later option is removed', () => {
+    // correct = A (index 0). Remove D -> A still index 0.
+    expect(reindexAfterArrayEdit([a, b, c, d], [a, b, c], 0)).toBe(0)
+  })
+
+  it('clamps into range when the correct option itself is removed', () => {
+    // correct = D (index 3). Remove D -> clamp to last valid index.
+    expect(reindexAfterArrayEdit([a, b, c, d], [a, b, c], 3)).toBe(2)
+  })
+
+  it('keeps the index when the correct option is edited in place', () => {
+    // correct = B (index 1). Edit B's label -> a new object replaces it at slot 1.
+    const editedB = { label: 'B!' }
+    expect(reindexAfterArrayEdit([a, b, c, d], [a, editedB, c, d], 1)).toBe(1)
+  })
+
+  it('is unaffected by editing a non-correct option', () => {
+    // correct = C (index 2). Edit A -> C reference unchanged, still index 2.
+    const editedA = { label: 'A!' }
+    expect(reindexAfterArrayEdit([a, b, c, d], [editedA, b, c, d], 2)).toBe(2)
+  })
+
+  it('grows correctly when an option is added', () => {
+    // correct = B (index 1). Append E -> B still index 1.
+    const e = { label: 'E' }
+    expect(reindexAfterArrayEdit([a, b, c, d], [a, b, c, d, e], 1)).toBe(1)
   })
 })
