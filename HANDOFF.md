@@ -15,11 +15,24 @@ prod via CI, no staging)._
 >   discoverable **"+ Add section"** button sits by "+ Add round". **Sections render as
 >   visible container boxes** (tinted, bordered, a "Section" tag + inline-rename name): drag
 >   a round onto a section box to put it IN (the box highlights and a live banner reads
->   "Drop into <name>"), or onto the gutter / a loose round to take it OUT ("Drop here, no
->   section"). The drop target is EXPLICIT, whichever box/gutter the cursor is over (set via
->   event bubbling + stopPropagation), not hidden neighbor-inference. The round row is its
->   own `RailRound.vue` component (kept out of the editor monolith). [Refined 2026-06-25
->   from the first cut, which used an invisible header + neighbor rule.]
+>   "Drop into <name>"), or onto a loose round to take it OUT ("Drop here, no section").
+>   The drop target is decided by **the round you're hovering** (join its section; a loose
+>   round drops loose) - robust and never stuck on the section you started in. The rail
+>   **auto-scrolls** while dragging near its edges so offscreen targets are reachable. The
+>   round row is its own `RailRound.vue` component (kept out of the editor monolith).
+>   [This went through three cuts on 2026-06-25: an invisible header + neighbor rule, then
+>   visible boxes with event-bubbling + stopPropagation (drag-OUT was broken: the target
+>   got stuck on the start section), then the final hovered-round model + auto-scroll.
+>   LESSON: synthetic DragEvents in Playwright did NOT reproduce the real drag-out bug;
+>   verify native DnD with real mouse drag (mouse.down + stepped mouse.move) or dragTo.]
+> - **Editor preview = real device viewports.** The round preview renders like the actual
+>   screens: a **16:9 monitor frame** with the real host stage at 1280x720 (prompt/image
+>   left, board right, like GameHost) transform-scaled to fit; and a **390px phone device**
+>   (bezel + the player view at true mobile width, scrolling inside). Both honor the
+>   Answering/Reveal toggle. Replaces the old `zoom: 0.62` board hack. CAVEAT: the block
+>   views size some fonts with `vw` (resolves to the editor window, not the frame), so phone
+>   text reads a touch large; pixel-perfect font fidelity would need an `<iframe>` per
+>   preview (its own viewport) - not done.
 > - **Room-code collision fix (a live bug: a new game hijacked an existing room).** On
 >   connect, a host checks the relay for a live host heartbeat on its code
 >   (`HOST_PRESENCE_WINDOW_MS`) and **regenerates the code before subscribing/publishing**
