@@ -416,6 +416,17 @@ function moveRound(i: number, dir: -1 | 1) {
 
 // ── Drag to reorder + drag in/out of sections (native HTML5 DnD; arrows stay for
 // keyboard + touch) ──
+// The scrollable rail; auto-scrolled while dragging so an offscreen target (a loose
+// round or another section below the fold) is reachable without letting go.
+const railEl = ref<HTMLElement | null>(null)
+function autoScroll(e: DragEvent) {
+  const el = railEl.value
+  if (!el || dragIndex.value === null) return
+  const r = el.getBoundingClientRect()
+  const edge = 56
+  if (e.clientY < r.top + edge) el.scrollTop -= 14
+  else if (e.clientY > r.bottom - edge) el.scrollTop += 14
+}
 const dragIndex = ref<number | null>(null)
 // The insertion gap (0..rounds.length) the drop lands at, for the indicator line.
 const dropGap = ref<number | null>(null)
@@ -436,28 +447,30 @@ function onDragStart(i: number, e: DragEvent) {
     e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 16, 16)
   }
 }
-// Over a round: set the insertion position (top half -> before, bottom half -> after).
-// WHICH section is decided by the box/gutter the event bubbles to.
+// Over a round: set the insertion position (top half -> before, bottom half -> after)
+// AND the drop target = the section of the round you're hovering (a loose round drops
+// loose). Reading the hovered round directly is robust: it never gets stuck on the
+// section you started in, so dragging OUT (onto a loose round) always works.
 function onDragOver(i: number, e: DragEvent) {
   if (dragIndex.value === null) return
   e.preventDefault() // required so the drop fires
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
   dropGap.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1
+  dropGroup.value = config.rounds[i]?.group ?? null
 }
-// Over a section box: the drop JOINS this section. Stop bubbling so the rail gutter
-// (which marks a drop loose) doesn't override it.
+// Over a section box but not on one of its rounds (the header / padding): still drop
+// INTO this section. No stopPropagation, so the round handlers above stay authoritative.
 function onSectionDragOver(groupId: string, e: DragEvent) {
   if (dragIndex.value === null) return
   e.preventDefault()
-  e.stopPropagation()
   dropGroup.value = groupId
 }
-// Over the rail but outside any section box: the drop is loose (out of all sections).
+// The rail gutter only needs to allow a drop (so releasing between rows still lands);
+// it does NOT change the target, so it can't override a hovered round's section.
 function onRailDragOver(e: DragEvent) {
   if (dragIndex.value === null) return
   e.preventDefault()
-  dropGroup.value = null
 }
 function onDrop(e: DragEvent) {
   e.preventDefault()
@@ -856,7 +869,7 @@ onScopeDispose(() => {
       <!-- 3-pane body: rounds rail | selected round | persistent preview. -->
       <div class="ed-body">
         <!-- LEFT: rounds navigator -->
-        <nav class="ed-rail" aria-label="Rounds">
+        <nav ref="railEl" class="ed-rail" aria-label="Rounds" @dragover="autoScroll">
           <div class="ed-rail-actions">
             <button type="button" class="ed-add-btn" @click="showAdd = true">+ Add round</button>
             <button
