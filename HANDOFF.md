@@ -10,12 +10,16 @@ prod via CI, no staging)._
 > (incl. strict `nuxi typecheck`), web build**, plus a full Playwright visual audit
 > (screenshots reviewed for the editor rail/sections, host lobby, guess board + focused
 > reveal, player countdown, host + mobile results). What shipped:
-> - **Editor: drag-to-reorder rounds** in the left rail (native HTML5 DnD with a grip
->   handle + a drop-indicator line; the up/down arrows stay for keyboard/touch). A
->   discoverable **"+ Add section"** button next to "+ Add round" (group creation was
->   previously buried in the per-round Section dropdown); **inline-rename** section
->   headers; and dragging a round INTO a section joins it (adopts the group it's dropped
->   inside, loose at a boundary / ungrouped stretch).
+> - **Editor: drag-to-reorder rounds + drag in/out of sections.** The rail uses native
+>   HTML5 DnD (grip handle + a drop-indicator line; arrows stay for keyboard/touch). A
+>   discoverable **"+ Add section"** button sits by "+ Add round". **Sections render as
+>   visible container boxes** (tinted, bordered, a "Section" tag + inline-rename name): drag
+>   a round onto a section box to put it IN (the box highlights and a live banner reads
+>   "Drop into <name>"), or onto the gutter / a loose round to take it OUT ("Drop here, no
+>   section"). The drop target is EXPLICIT, whichever box/gutter the cursor is over (set via
+>   event bubbling + stopPropagation), not hidden neighbor-inference. The round row is its
+>   own `RailRound.vue` component (kept out of the editor monolith). [Refined 2026-06-25
+>   from the first cut, which used an invisible header + neighbor rule.]
 > - **Room-code collision fix (a live bug: a new game hijacked an existing room).** On
 >   connect, a host checks the relay for a live host heartbeat on its code
 >   (`HOST_PRESENCE_WINDOW_MS`) and **regenerates the code before subscribing/publishing**

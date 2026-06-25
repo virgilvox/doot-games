@@ -414,58 +414,114 @@ function moveRound(i: number, dir: -1 | 1) {
   else if (selected.value === j) selected.value = i
 }
 
-// ── Drag to reorder (native HTML5 DnD; the arrows stay for keyboard + touch) ──
+// ── Drag to reorder + drag in/out of sections (native HTML5 DnD; arrows stay for
+// keyboard + touch) ──
 const dragIndex = ref<number | null>(null)
-// The insertion gap (0..rounds.length) a drop would land at, for the drop indicator.
+// The insertion gap (0..rounds.length) the drop lands at, for the indicator line.
 const dropGap = ref<number | null>(null)
+// Which section the drop lands in: a group id (join that section) or null (loose, out
+// of every section). Set by whichever section box / rail gutter the cursor is over, so
+// the drop does exactly what the highlighted box shows. No hidden inference.
+const dropGroup = ref<string | null>(null)
+const isDragging = computed(() => dragIndex.value !== null)
+const dropTargetGroup = computed(() => dropGroup.value ?? undefined)
+const dropTargetName = computed(() => groupById(dropGroup.value ?? undefined)?.name?.trim() || 'No section')
+
 function onDragStart(i: number, e: DragEvent) {
   dragIndex.value = i
+  dropGroup.value = config.rounds[i]?.group ?? null
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(i)) // Firefox needs data set to drag
     e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 16, 16)
   }
 }
+// Over a round: set the insertion position (top half -> before, bottom half -> after).
+// WHICH section is decided by the box/gutter the event bubbles to.
 function onDragOver(i: number, e: DragEvent) {
   if (dragIndex.value === null) return
   e.preventDefault() // required so the drop fires
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  // Top half of the row -> insert before it; bottom half -> after it.
   dropGap.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1
+}
+// Over a section box: the drop JOINS this section. Stop bubbling so the rail gutter
+// (which marks a drop loose) doesn't override it.
+function onSectionDragOver(groupId: string, e: DragEvent) {
+  if (dragIndex.value === null) return
+  e.preventDefault()
+  e.stopPropagation()
+  dropGroup.value = groupId
+}
+// Over the rail but outside any section box: the drop is loose (out of all sections).
+function onRailDragOver(e: DragEvent) {
+  if (dragIndex.value === null) return
+  e.preventDefault()
+  dropGroup.value = null
 }
 function onDrop(e: DragEvent) {
   e.preventDefault()
-  if (dragIndex.value !== null && dropGap.value !== null) moveRoundTo(dragIndex.value, dropGap.value)
+  e.stopPropagation() // handle once (item drop), not again as it bubbles to box/rail
+  if (dragIndex.value !== null && dropGap.value !== null) moveRoundTo(dragIndex.value, dropGap.value, dropGroup.value)
   endDrag()
 }
 function endDrag() {
   dragIndex.value = null
   dropGap.value = null
+  dropGroup.value = null
 }
-// Move a round to an insertion gap, then make its section membership match WHERE it
-// landed, so a section behaves like a container you drag into: it joins the section it
-// now sits inside (same group above and below, or the single open end of one) and is
-// otherwise loose (a boundary between sections, or an ungrouped stretch). Selection
-// follows the round you were editing (by identity), not its index.
-function moveRoundTo(from: number, gap: number) {
-  const dest = gap > from ? gap - 1 : gap
-  if (dest === from || dest < 0 || dest >= config.rounds.length + 1) return
+// Move a round to the insertion gap and set its section to exactly where it was dropped
+// (a section box -> that group; the gutter -> loose). Selection follows the round you
+// were editing (by identity), not its index.
+function moveRoundTo(from: number, gap: number, group: string | null) {
   const editing = config.rounds[selected.value]
-  const [r] = config.rounds.splice(from, 1)
-  config.rounds.splice(dest, 0, r!)
-  const above = config.rounds[dest - 1]?.group
-  const below = config.rounds[dest + 1]?.group
-  let next: string | undefined
-  if (above && above === below) next = above // inside a section
-  else if (above && below === undefined) next = above // appended at the open bottom end
-  else if (below && above === undefined) next = below // prepended at the open top end
-  else next = undefined // a section boundary or an ungrouped stretch
-  if (next) r!.group = next
-  else delete r!.group
+  let dest = gap > from ? gap - 1 : gap
+  dest = Math.max(0, Math.min(dest, config.rounds.length - 1))
+  if (dest !== from) {
+    const [r] = config.rounds.splice(from, 1)
+    config.rounds.splice(dest, 0, r!)
+  }
+  const moved = config.rounds[dest]
+  if (!moved) return
+  if (group) moved.group = group
+  else delete moved.group
   pruneGroups()
   clearPreviews()
   if (editing) selected.value = Math.max(0, config.rounds.indexOf(editing))
+}
+
+// The rail as a list of loose rounds and section boxes (a contiguous run of rounds
+// sharing a group). Rendering sections as visible containers makes it obvious what a
+// section holds and lets the author drag rounds into and out of the box.
+interface RailLoose {
+  type: 'loose'
+  round: RoundInstance
+  index: number
+}
+interface RailSection {
+  type: 'section'
+  group: GroupDef
+  items: Array<{ round: RoundInstance; index: number }>
+}
+const railRows = computed<Array<RailLoose | RailSection>>(() => {
+  const rows: Array<RailLoose | RailSection> = []
+  config.rounds.forEach((round, index) => {
+    const gid = round.group
+    if (gid) {
+      const last = rows[rows.length - 1]
+      if (last && last.type === 'section' && last.group.id === gid) last.items.push({ round, index })
+      else rows.push({ type: 'section', group: groupById(gid) ?? { id: gid, name: '' }, items: [{ round, index }] })
+    } else {
+      rows.push({ type: 'loose', round, index })
+    }
+  })
+  return rows
+})
+function dropAboveAt(i: number): boolean {
+  return isDragging.value && dropGap.value === i
+}
+function dropBelowAt(i: number): boolean {
+  return isDragging.value && dropGap.value === config.rounds.length && i === config.rounds.length - 1
 }
 
 // ── Round titles, results flags, and sections (groups) ─────────────────────
@@ -532,14 +588,6 @@ function addSection() {
   const i = Math.min(selected.value, config.rounds.length - 1)
   setRoundGroup(i, '__new__')
   selected.value = i
-}
-// A round starts a new section header in the rail when its group differs from the
-// round above it (so consecutive same-group rounds sit under one header).
-function sectionHeader(i: number): GroupDef | null {
-  const g = config.rounds[i]?.group
-  if (!g) return null
-  if (i > 0 && config.rounds[i - 1]?.group === g) return null
-  return groupById(g) ?? null
 }
 // Does this game have any rate rounds? (combine-ratings only makes sense then.)
 const hasRateRounds = computed(() => config.rounds.some((r) => r.block === 'rate'))
@@ -821,55 +869,85 @@ onScopeDispose(() => {
               + Add section
             </button>
           </div>
-          <ol v-if="config.rounds.length" class="ed-rail-list">
-            <template v-for="(round, i) in config.rounds" :key="i">
-              <li v-if="sectionHeader(i)" class="ed-rail-section">
-                <input
-                  class="ed-section-input"
-                  :value="sectionHeader(i)!.name"
-                  aria-label="Section name"
-                  maxlength="120"
-                  placeholder="Section name"
-                  @input="renameGroup(sectionHeader(i)!.id, ($event.target as HTMLInputElement).value)"
-                />
-              </li>
-              <li
-                class="ed-rail-item"
-                :class="{
-                  on: selected === i,
-                  bad: errors[i],
-                  grouped: !!round.group,
-                  dragging: dragIndex === i,
-                  'drop-above': dropGap === i && dragIndex !== null,
-                  'drop-below': dropGap === config.rounds.length && i === config.rounds.length - 1 && dragIndex !== null,
-                }"
-                :style="{ '--round-accent': blockColor(round) }"
-                draggable="true"
-                @dragstart="onDragStart(i, $event)"
-                @dragover="onDragOver(i, $event)"
+          <!-- While dragging, say exactly where the round will land. -->
+          <div v-if="isDragging" class="ed-drag-hint" :class="{ into: !!dropTargetGroup }">
+            <template v-if="dropTargetGroup">Drop into <strong>{{ dropTargetName }}</strong></template>
+            <template v-else>Drop here, <strong>no section</strong></template>
+          </div>
+          <div v-if="config.rounds.length" class="ed-rail-list" role="list" @dragover="onRailDragOver" @drop="onDrop">
+            <template v-for="(row, ri) in railRows" :key="ri">
+              <!-- A loose round (not in any section). -->
+              <RailRound
+                v-if="row.type === 'loose'"
+                :block="row.round.block"
+                :title="roundTitle(row.round, row.index)"
+                :kind="blockFor(row.round)?.name ?? row.round.block"
+                :summary="summaryOf(row.round)"
+                :accent="blockColor(row.round)"
+                :index="row.index"
+                :total="config.rounds.length"
+                :selected="selected === row.index"
+                :error="errors[row.index]"
+                :dragging="dragIndex === row.index"
+                :drop-above="dropAboveAt(row.index)"
+                :drop-below="dropBelowAt(row.index)"
+                @select="select(row.index)"
+                @move-up="moveRound(row.index, -1)"
+                @move-down="moveRound(row.index, 1)"
+                @remove="removeRound(row.index)"
+                @dragstart="onDragStart(row.index, $event)"
+                @dragover="onDragOver(row.index, $event)"
                 @drop="onDrop($event)"
                 @dragend="endDrag"
+              />
+              <!-- A section: a visible box you can drag rounds into and out of. -->
+              <div
+                v-else
+                class="ed-section"
+                :class="{ 'drop-into': isDragging && dropTargetGroup === row.group.id }"
+                @dragover="onSectionDragOver(row.group.id, $event)"
+                @drop="onDrop"
               >
-                <span class="ed-drag-handle" aria-hidden="true" title="Drag to reorder">⠿</span>
-                <button type="button" class="ed-chip" :aria-current="selected === i" @click="select(i)">
-                  <GameTypeIcon :type="round.block" :size="28" />
-                  <span class="ed-chip-main">
-                    <span class="ed-chip-top">
-                      <span class="ed-chip-n">{{ roundTitle(round, i) }}</span>
-                      <span class="ed-chip-kind">{{ blockFor(round)?.name ?? round.block }}</span>
-                    </span>
-                    <span class="ed-chip-sub">{{ summaryOf(round) }}</span>
-                  </span>
-                  <span v-if="errors[i]" class="ed-chip-dot" :title="errors[i]" aria-label="needs attention" />
-                </button>
-                <span class="ed-chip-controls">
-                  <button type="button" class="sf-icon-btn" :disabled="i === 0" aria-label="Move up" @click="moveRound(i, -1)">↑</button>
-                  <button type="button" class="sf-icon-btn" :disabled="i === config.rounds.length - 1" aria-label="Move down" @click="moveRound(i, 1)">↓</button>
-                  <button type="button" class="sf-icon-btn" aria-label="Remove round" @click="removeRound(i)">✕</button>
-                </span>
-              </li>
+                <div class="ed-section-head">
+                  <span class="ed-section-tag">Section</span>
+                  <input
+                    class="ed-section-input"
+                    :value="row.group.name"
+                    aria-label="Section name"
+                    maxlength="120"
+                    placeholder="Name this section"
+                    @input="renameGroup(row.group.id, ($event.target as HTMLInputElement).value)"
+                  />
+                </div>
+                <div class="ed-section-rounds">
+                  <RailRound
+                    v-for="item in row.items"
+                    :key="item.index"
+                    :block="item.round.block"
+                    :title="roundTitle(item.round, item.index)"
+                    :kind="blockFor(item.round)?.name ?? item.round.block"
+                    :summary="summaryOf(item.round)"
+                    :accent="blockColor(item.round)"
+                    :index="item.index"
+                    :total="config.rounds.length"
+                    :selected="selected === item.index"
+                    :error="errors[item.index]"
+                    :dragging="dragIndex === item.index"
+                    :drop-above="dropAboveAt(item.index)"
+                    :drop-below="dropBelowAt(item.index)"
+                    @select="select(item.index)"
+                    @move-up="moveRound(item.index, -1)"
+                    @move-down="moveRound(item.index, 1)"
+                    @remove="removeRound(item.index)"
+                    @dragstart="onDragStart(item.index, $event)"
+                    @dragover="onDragOver(item.index, $event)"
+                    @drop="onDrop($event)"
+                    @dragend="endDrag"
+                  />
+                </div>
+              </div>
             </template>
-          </ol>
+          </div>
           <p v-else class="ed-rail-empty">No rounds yet. Add one to begin.</p>
 
           <!-- Content decks: paste a spreadsheet of rows, then pull fields into rounds. -->
@@ -1568,34 +1646,82 @@ onScopeDispose(() => {
   filter: none;
 }
 .ed-rail-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
-/* A named section header above the first round of each group run; the name is
-   editable inline. */
-.ed-rail-section {
-  margin: 8px 0 -2px;
-  padding: 0;
-}
-.ed-section-input {
-  width: 100%;
-  font: inherit;
+/* A live "here's where it'll land" banner while dragging. */
+.ed-drag-hint {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  text-align: center;
   font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: var(--bd) dashed var(--line);
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+.ed-drag-hint.into {
+  color: var(--primary);
+  border-color: var(--primary);
+  border-style: solid;
+}
+.ed-drag-hint strong {
+  font-weight: 800;
+}
+/* A section is a visible container: a tinted, bordered box that holds its rounds,
+   with an editable name. Dragging a round over it highlights it (you'll drop INTO
+   this section); dragging out to the gutter drops the round loose. */
+.ed-section {
+  border: var(--bd) solid color-mix(in srgb, var(--primary) 35%, var(--line-soft));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+.ed-section.drop-into {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.ed-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 0;
+}
+.ed-section-tag {
+  flex: none;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.ed-section-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
   background: transparent;
   border: var(--bd) solid transparent;
   border-radius: 7px;
   padding: 3px 6px;
 }
 .ed-section-input::placeholder {
-  color: var(--primary);
-  opacity: 0.6;
+  color: var(--ink-soft);
+  opacity: 0.7;
 }
 .ed-section-input:hover {
   border-color: var(--line-soft);
@@ -1605,112 +1731,10 @@ onScopeDispose(() => {
   border-color: var(--primary);
   background: var(--surface);
 }
-.ed-rail-item.grouped {
-  margin-left: 10px;
-}
-/* Drag-to-reorder affordances. */
-.ed-drag-handle {
-  flex: none;
-  align-self: center;
-  cursor: grab;
-  color: var(--mute);
-  font-size: 15px;
-  line-height: 1;
-  padding: 0 2px;
-  user-select: none;
-}
-.ed-rail-item:active .ed-drag-handle {
-  cursor: grabbing;
-}
-.ed-rail-item.dragging {
-  opacity: 0.4;
-}
-/* A bold line at the gap where the drop will land. */
-.ed-rail-item.drop-above {
-  box-shadow: inset 0 3px 0 0 var(--primary);
-}
-.ed-rail-item.drop-below {
-  box-shadow: inset 0 -3px 0 0 var(--primary);
-}
-.ed-rail-item {
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
-  border: var(--bd) solid var(--line-soft);
-  border-left: 4px solid var(--round-accent, var(--line-soft));
-  border-radius: 12px;
-  background: var(--surface);
-  overflow: hidden;
-}
-.ed-rail-item.on {
-  border-color: var(--ink);
-  box-shadow: 0 0 0 1px var(--ink) inset;
-}
-.ed-rail-item.bad {
-  border-color: color-mix(in srgb, var(--primary) 55%, var(--line-soft));
-  border-left-color: var(--primary);
-}
-.ed-chip {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 6px 10px 11px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  color: var(--ink);
-  font-family: inherit;
-}
-.ed-chip-main {
-  min-width: 0;
+.ed-section-rounds {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-}
-.ed-chip-top {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-.ed-chip-n {
-  font-weight: 800;
-  font-size: 13px;
-}
-.ed-chip-kind {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--round-accent, var(--primary)) 22%, transparent);
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.ed-chip-sub {
-  color: var(--ink-soft);
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ed-chip-dot {
-  width: 9px;
-  height: 9px;
-  flex: none;
-  margin-right: 4px;
-  border-radius: 50%;
-  background: var(--primary);
-}
-.ed-chip-controls {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  padding: 4px;
-  border-left: var(--bd) solid var(--line-soft);
+  gap: 8px;
 }
 .ed-rail-empty {
   color: var(--ink-soft);
