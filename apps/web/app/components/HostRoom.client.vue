@@ -51,7 +51,7 @@ const themeState = useState<string>('doot-theme', () => 'doot')
 // instead of stranding players on a regenerated code. See useHostSession.
 const { room: roomCode, token: hostToken } = useHostSession()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
-const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken })
+const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 provideDootRoom(room)
 // If the engine regenerates the code (a genuine collision on a fresh host), persist the
 // settled code so a later reload resumes the right room.

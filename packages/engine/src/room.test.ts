@@ -1099,3 +1099,37 @@ describe('room code collision', () => {
     expect(host.room).not.toBe('ABCD') // a genuine collision, regenerate (no hijack)
   })
 })
+
+describe('player-name filter', () => {
+  it('masks the roster display name via the injected nameFilter, keeping identity', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    const host = new RoomRuntime({
+      relay: new FakeRelayClient(hub),
+      room: 'ABCD',
+      role: 'host',
+      now,
+      nameFilter: (n) => n.replace(/badword/gi, '*******'),
+    })
+    cleanups.push(() => host.dispose())
+    await host.connect()
+    const p = makePlayer(hub, 'Badword', now)
+    await p.connect()
+    await flush()
+    const roster = host.recentPlayers()
+    expect(roster.length).toBe(1)
+    expect(roster[0].name).toBe('*******') // masked on the big screen / roster
+    expect(roster[0].id).toBe(playerId('ABCD', 'Badword')) // identity from the RAW name (reconnect-safe)
+  })
+
+  it('leaves names unchanged when no nameFilter is set', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    const host = makeHost(hub, now)
+    await host.connect()
+    const p = makePlayer(hub, 'Robin', now)
+    await p.connect()
+    await flush()
+    expect(host.recentPlayers()[0].name).toBe('Robin')
+  })
+})

@@ -40,7 +40,7 @@ const themeId = themeState.value
 // room instead of stranding players on a regenerated code (see useHostSession).
 const { room: roomCode, token: hostToken } = useHostSession()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
-const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken })
+const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 provideDootRoom(room)
 watch(() => room.code.value, (c) => persistHostRoom(c))
 

@@ -16,7 +16,7 @@ const props = defineProps<{ room: string }>()
 const runtime = useRuntimeConfig()
 
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-audience' })
-const room = useDootRoom({ relay, room: props.room, role: 'audience' })
+const room = useDootRoom({ relay, room: props.room, role: 'audience', nameFilter: playerNameFilter })
 provideDootRoom(room)
 
 // Adopt the host's per-game theme once meta arrives (same as a player).

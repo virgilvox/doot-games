@@ -5,6 +5,29 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **MODERATION 1/3: player-name profanity filter (2026-06-26).** First of the moderation trio
+> (name filter -> host kick -> report flow). Player names are public (projected on the big
+> screen), so strong profanity/slurs in them are now masked.
+> - **Engine**: new `RoomRuntimeOptions.nameFilter?: (name) => string`, applied in
+>   `recentPlayers()` via a `displayName()` helper - the SINGLE chokepoint, since
+>   `getSnapshot().players` and scoring's `getPlayers()` both go through it, so roster +
+>   results + standings + custom-flow hosts are all covered by one seam. The RAW name is kept
+>   for identity (`pid = hash(room+name)`), so reconnect-by-name is unaffected (masking is
+>   display-only). The engine stays content-policy-agnostic (DI; it can't import `contentFilter`
+>   - dependency direction is games->engine).
+> - **App**: `app/utils/playerNameFilter.ts` (auto-imported) = `maskText(name, 'moderate')`
+>   (reuses the existing obscenity-based gallery filter; 'moderate' = slurs/strong profanity,
+>   not the mild list); wired into ALL 5 `useDootRoom` sites (HostRoom, SessionHostRoom,
+>   PlayerRoom, AudienceRoom, WatchRoom) so every screen masks consistently. Names always mask
+>   at 'moderate' regardless of a game's gallery content-filter tier (public screen = never OK).
+> - **Verified**: 2 new engine unit tests (masks the roster name / keeps identity; no-op
+>   without a filter) - 801 tests; `nuxi typecheck` + build; real-browser
+>   `scripts/name-filter-smoke.mjs` ("fuckwit" -> "••••wit" on the host roster, no raw word).
+> - **NEXT (2/3, 3/3):** host "kick player" = a host-side ignore set in RoomRuntime filtered out
+>   of `recentPlayers()`/`inputsFor()` (clean seam; no relay write since the relay is trustless)
+>   + a per-player control in RosterChips; then a post-game report flow (a `reports` table +
+>   `/api/admin/reports` + a Reports tab in the admin console + a report button on results).
+
 > **FIX: host reload keeps the room code (players no longer stranded) (2026-06-26).** The
 > foundation half of host-reload recovery (see the prior entry for the verified bug). Now a
 > host reload resumes the SAME room instead of regenerating the code.

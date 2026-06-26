@@ -126,6 +126,11 @@ export interface RoomRuntimeOptions {
    *  code (so players aren't stranded), while a genuinely different host colliding on
    *  the same code still regenerates. Without it, a live code always reads as taken. */
   hostToken?: string
+  /** Optional transform applied to a player's DISPLAY name wherever the roster is
+   *  surfaced (the big screen, results, roster games). The app injects it (e.g. a
+   *  profanity mask) so the engine stays content-policy-agnostic. The raw name is kept
+   *  for identity (`pid = hash(room+name)`), so reconnect-by-name is unaffected. */
+  nameFilter?: (name: string) => string
 }
 
 /**
@@ -184,6 +189,8 @@ export class RoomRuntime {
   private ttlUs: number
   /** Host only: this host instance's token (see RoomRuntimeOptions.hostToken). */
   private hostToken: string | null
+  /** Optional display-name transform (see RoomRuntimeOptions.nameFilter). */
+  private nameFilter: ((name: string) => string) | null
 
   private state: RoomState = { ...INITIAL_STATE, round: { ...INITIAL_STATE.round } }
   private playersMap = new Map<string, Player>()
@@ -248,6 +255,7 @@ export class RoomRuntime {
     this.now = opts.now ?? Date.now
     this.ttlUs = opts.ttlUs ?? DEFAULT_TTL_US
     this.hostToken = opts.hostToken ?? null
+    this.nameFilter = opts.nameFilter ?? null
     const name = opts.name ?? ''
     this.me = {
       role: opts.role,
@@ -750,9 +758,16 @@ export class RoomRuntime {
     const out: Player[] = []
     for (const [pid, p] of this.playersMap) {
       const live = p.lastPing != null && now - p.lastPing < PRESENCE_WINDOW_MS
-      if (live || pidsWithInput.has(pid)) out.push({ ...p })
+      if (live || pidsWithInput.has(pid)) out.push({ ...p, name: this.displayName(p.name) })
     }
     return out
+  }
+
+  /** A player's name as shown on the roster/board, with the optional name filter
+   *  applied (e.g. a profanity mask). Identity (pid) is unaffected: it derives from
+   *  the raw name, so reconnect-by-name still works. */
+  private displayName(name: string): string {
+    return this.nameFilter ? this.nameFilter(name) : name
   }
 
   /** This player's own submission for a round (for restore). */
