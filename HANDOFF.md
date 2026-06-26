@@ -27,12 +27,27 @@ prod via CI, no staging)._
 >   the existing 4 collision tests green (799 tests total); `nuxi typecheck` + build; and a
 >   real-browser smoke `scripts/host-reload-smoke.mjs` (host reload keeps the code, the
 >   pre-reload player stays in the roster, not stranded) + the core-loop smoke (no regression).
-> - **STILL TODO (the other half):** on a host reload mid-GAME the engine re-publishes `lobby`
->   on connect (room.ts connect()), so a generic game RESETS to the lobby (players stay, not
->   stranded - strictly better than before, but not full recovery). Full mid-game recovery =
->   don't overwrite a non-lobby phase on a resumed code + per-game turn-state rehydrate (Truth
->   or Share `/x/turn` + a new `/x/show` snapshot; Circuit Cypher rebuild bracket from round-0
->   inputs). That's the next layer.
+> - **STILL TODO (the other half) - mid-game recovery is a DESIGN effort, not a quick fix
+>   (mapped 2026-06-26, do not attempt naively):** on a host reload mid-GAME the engine
+>   re-publishes `lobby` on connect, so the game RESETS to the lobby (players stay, not
+>   stranded - strictly better than before, but not full recovery). The investigation found
+>   the host's authoritative state is largely UNRECOVERABLE from the relay by design:
+>   - The host deliberately does NOT subscribe to its own phase/round/results/standings/
+>     runtimeContent/reveals (`room.ts` subscribe(), `if (role !== 'host')`), so a reload must
+>     EXPLICITLY relay.get + reseed them (inputs + roster DO re-read via subscribe). That part
+>     is doable.
+>   - But the **withhold-answers invariant** keeps answer keys host-only-in-memory (never on
+>     the relay before reveal), and **pool-sampled flagships generate their full config (with
+>     answers) fresh at load**, so a reload RESAMPLES and mismatches the in-progress game on
+>     the relay. So full recovery (incl. scoring) is cleanly possible only for deterministic-
+>     config games (saved-by-id, static built-ins) AND single-type (no derive); pool-sampled
+>     or two-phase generic games + custom-flow have host-only state a reload can't restore.
+>   - A naive partial fix (skip the lobby publish + reseed phase/round) would leave pool-sampled
+>     games with a resampled config that mismatches the relay = CORRUPTION, worse than the clean
+>     lobby-reset. So this needs real design (e.g. persist the resolved config to the relay/DB
+>     keyed to the live room, or gate recovery to deterministic-config games), not a rushed
+>     change. Current lobby-reset is SAFE; leave it until designed. The foundation (players not
+>     stranded) already captured the bulk of the value.
 
 > **VERIFIED BUG: host reload regenerates the room code + strands ALL players (2026-06-26).**
 > Investigating Tier-1 "custom-flow host-reload recovery" surfaced a bigger, GENERAL
