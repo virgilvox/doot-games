@@ -39,6 +39,23 @@ prod via CI, no staging)._
 >   round**. (Note: the earlier custom-flow Host had a critical unvalidated-vote bug + a 100-player
 >   lock-dot blowout - both gone, since votes now go through the validated standard input and the
 >   dots cap.)
+> - **Prod-bug pass (2026-06-26, after owner tested live):** four reported issues fixed.
+>   (1) **Host cramped to the left** — `.tl-host` now `flex:1; width:100%; min-width:0; height:100%`
+>   so it fills the solo `.stage-full` flex row instead of collapsing to content width.
+>   (2) **"It doesn't let you vote, it auto locks"** — the per-item timer no longer auto-reveals an
+>   item with ZERO votes in (`lockCount.locked > 0` guard); a lone tester now has unlimited time to
+>   cast a first vote and the host's Reveal button always moves it on. Plus the host re-publishes
+>   `/x/tiershow` whenever the roster grows, so a late joiner converges to the current item/phase
+>   (never a stale retained `reveal`). The reconnect path was also hardened: TierPlayer reads its
+>   board from `room.inputFor(index)` (engine replays it on reconnect) + a local `pending` overlay,
+>   so a phone reload no longer overwrites the whole board with just the current item.
+>   (3) **"Where is the real-time ranking"** — the "Top of the room" leaderboard is always shown
+>   (was gated on `content.scored`); `scored` now defaults to TRUE.
+>   (4) **Editor preview mismatch** — a solo block now previews FULL-BLEED (`curIsSolo` joins
+>   `curIsDisplay` for both the phone scaffolding gate and the big-screen `.ed-bs-full` branch),
+>   so the preview matches the real host/phone instead of the split "prompt big on half the screen".
+>   Verified: 839 tests + all-package typecheck + web build green; `tier-flow-smoke` ALL GREEN
+>   (12 items, 144 votes, advances to poll); host/phone/editor screenshots match the mockup.
 
 > **TIER LIST rebuilt as an ITEM-BY-ITEM custom-flow flagship (2026-06-26).** Per owner
 > direction + a mockup: the flagship now runs one item at a time (not all-at-once). The host

@@ -20,6 +20,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: TierInput] }>()
 const room = injectDootRoom()
 
 const show = ref<TierShow | null>(null)
+// Local optimistic picks for instant feedback (and so the editor preview highlights).
+const pending = ref<Record<string, number>>({})
 onMounted(() => {
   room.onExtra('tiershow', (v) => {
     show.value = (v as TierShow | null) ?? null
@@ -31,7 +33,11 @@ const items = computed(() => props.content.items ?? [])
 const index = computed(() => Math.min(show.value?.index ?? 0, Math.max(0, items.value.length - 1)))
 const item = computed(() => items.value[index.value] ?? null)
 const phase = computed(() => show.value?.phase ?? 'voting')
-const placements = computed(() => props.modelValue?.placements ?? {})
+// The AUTHORITATIVE board is the player's own stored round input: the engine replays it
+// on reconnect, so a phone reload keeps every prior placement instead of overwriting the
+// board with just the current item. Local `pending` overlays for immediate UI.
+const stored = computed(() => (room.inputFor(room.round.value.index) as TierInput | undefined)?.placements ?? {})
+const placements = computed(() => ({ ...stored.value, ...pending.value }))
 const myTier = computed(() => (item.value ? placements.value[item.value.id] : undefined))
 
 function colorOf(i: number): string {
@@ -39,9 +45,10 @@ function colorOf(i: number): string {
 }
 function vote(tier: number) {
   if (phase.value === 'reveal' || !item.value) return // locked once the host reveals
-  const next: TierInput = { placements: { ...placements.value, [item.value.id]: tier } }
-  emit('update:modelValue', next)
+  pending.value = { ...pending.value, [item.value.id]: tier }
+  const next: TierInput = { placements: { ...stored.value, ...pending.value } }
   room.submit(next as never)
+  emit('update:modelValue', next)
 }
 </script>
 

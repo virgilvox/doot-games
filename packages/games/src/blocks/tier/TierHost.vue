@@ -14,7 +14,7 @@
 import type { RelayValue, RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import { Avatar, ConfettiBurst, DButton, Icon } from '@doot-games/ui'
-import { type Ref, computed, inject, onMounted, onUnmounted, ref } from 'vue'
+import { type Ref, computed, inject, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { TierInput, TierContent } from './block'
 import { type ItemConsensus, DEFAULT_TIERS, consensusBoard, runningLeaderboard, textOn } from './logic'
 import type { TierShow } from './show'
@@ -51,13 +51,16 @@ const allPlacements = computed(() => {
 })
 // Per-item consensus over the standard inputs (board cells + reveal).
 const board = computed<ItemConsensus[]>(() => consensusBoard(items.value, tierCount.value, allPlacements.value))
+function validTier(t: unknown): t is number {
+  return typeof t === 'number' && Number.isInteger(t) && t >= 0 && t < tierCount.value
+}
 function votesForItem(i: number): Map<string, number> {
   const id = items.value[i]?.id
   const m = new Map<string, number>()
   if (!id) return m
   for (const [pid, input] of props.inputs ?? []) {
     const t = input?.placements?.[id]
-    if (typeof t === 'number') m.set(pid, t)
+    if (validTier(t)) m.set(pid, t)
   }
   return m
 }
@@ -74,7 +77,7 @@ const lanes = computed(() => {
 const lockCount = computed(() => {
   const id = currentItem.value?.id
   let locked = 0
-  if (id) for (const input of props.inputs?.values() ?? []) if (typeof input?.placements?.[id] === 'number') locked++
+  if (id) for (const input of props.inputs?.values() ?? []) if (validTier(input?.placements?.[id])) locked++
   return { locked, total: room.players.value.length }
 })
 const leaderboard = computed(() => {
@@ -122,6 +125,7 @@ function revealItem() {
   publishShow()
 }
 function nextItem() {
+  if (phase.value !== 'reveal') return // guard a double-tap from skipping an item
   if (itemIndex.value + 1 < itemCount.value) openItem(itemIndex.value + 1)
   else wrapUp()
 }
@@ -144,6 +148,16 @@ function pauseToggle() {
   publishShow()
 }
 
+// A live host can perform some host action during active play; the editor preview's
+// mock room can't (every `can` is false). Used to keep the timer inert in preview.
+const isLive = computed(
+  () =>
+    room.host.can('open') ||
+    room.host.can('lock') ||
+    room.host.can('reveal') ||
+    room.host.can('next') ||
+    room.host.can('finish'),
+)
 onMounted(() => {
   if (!started) {
     started = true
@@ -152,9 +166,23 @@ onMounted(() => {
   }
   timer = setInterval(() => {
     nowMs.value = Date.now()
-    if (phase.value === 'voting' && deadline.value && Date.now() >= deadline.value) revealItem()
+    // Auto-reveal when the per-item clock runs out — but only once at least one vote is
+    // in. A timer that fires on an empty item locks a lone tester out before they can tap
+    // ("it auto locks"); hold instead, and let the host's Reveal button move it on.
+    if (isLive.value && phase.value === 'voting' && deadline.value && Date.now() >= deadline.value && lockCount.value.locked > 0) {
+      revealItem()
+    }
   }, 300)
 })
+// A late joiner gets whatever `/x/tiershow` value the relay last retained; re-push the
+// live show whenever the roster grows so a freshly-joined phone always lands on the
+// CURRENT item and phase (never a stale 'reveal' from before they arrived).
+watch(
+  () => room.players.value.length,
+  (n, prev) => {
+    if (isLive.value && n > prev) publishShow()
+  },
+)
 onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
@@ -214,7 +242,7 @@ onUnmounted(() => {
           </template>
         </div>
 
-        <div v-if="content.scored" class="tl-top panel">
+        <div class="tl-top panel">
           <div class="kicker">Top of the room</div>
           <ol class="tl-lb">
             <li v-for="(r, i) in leaderboard.slice(0, 5)" :key="r.id" class="tl-lb-row">
@@ -247,6 +275,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* The parent .stage-full is a flex row; fill it (else the grid collapses to content
+     width and crams to the left). */
+  flex: 1;
+  width: 100%;
+  min-width: 0;
   height: 100%;
   min-height: 0;
 }

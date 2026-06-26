@@ -348,6 +348,9 @@ const previewPrompt = computed(() => (previewContent.value.prompt as string | un
 // must NOT add the generic kicker/prompt/image chrome around it (that double-shows
 // the slide's image).
 const curIsDisplay = computed(() => !!(cur.value && blockFor(cur.value)?.display))
+// A solo block owns the whole stage (like display) - preview it full-bleed, with no
+// generic prompt scaffolding, since the block's own views render everything.
+const curIsSolo = computed(() => !!(cur.value && blockFor(cur.value)?.solo))
 // Preview the answering state or the reveal (so an author can see the answer moment
 // they configured, e.g. a Guess round's focused answer + reveal image). Only offered
 // when the current block actually has a reveal.
@@ -1101,7 +1104,7 @@ onScopeDispose(() => {
                 <div class="ed-phone-screen">
                   <PreviewFrame :width="390" :max-scale="1" :theme-id="themeId" title="Phone preview">
                   <div class="ed-phone">
-                    <template v-if="!curIsDisplay">
+                    <template v-if="!curIsDisplay && !curIsSolo">
                       <div class="kicker">{{ blockFor(cur)?.name }}</div>
                       <h3 class="ed-phone-prompt">{{ previewPrompt || promptOf(cur) }}</h3>
                       <img v-if="previewContent.image" :src="previewContent.image as string" alt="" class="ed-phone-img" />
@@ -1136,8 +1139,8 @@ onScopeDispose(() => {
               <div v-else class="ed-screen-device">
                 <PreviewFrame :width="1280" :height="720" :theme-id="themeId" title="Big screen preview">
                 <div class="ed-screen-stage" inert>
-                  <!-- Display block (slide / title): owns the whole stage, like the host. -->
-                  <div v-if="curIsDisplay && blockFor(cur) && !errors[selected]" class="ed-bs-full">
+                  <!-- Display OR solo block: owns the whole stage, like the host. -->
+                  <div v-if="(curIsDisplay || curIsSolo) && blockFor(cur) && !errors[selected]" class="ed-bs-full">
                     <HostPreview :block="blockFor(cur)!" :content="previewContent" :index="selected" :state="previewState" />
                   </div>
                   <!-- Derived (judge) round: built live from the previous round. -->

@@ -67,8 +67,8 @@ export const tierContentSchema = z.object({
   items: z.array(tierItemSchema).min(2).max(24).describe('The things the room places into tiers.'),
   scored: z
     .boolean()
-    .default(false)
-    .describe('Score players for guessing where the room lands. Off = just build the board.'),
+    .default(true)
+    .describe('Score players for guessing where the room lands (the "top of the room" ranking). Off = just build the board.'),
   liveConsensus: z
     .boolean()
     .default(true)
@@ -125,7 +125,7 @@ export const tierBlock = defineBlock<TierContent, TierInput>({
       { id: 'wings', label: 'Wings', image: '' },
       { id: 'pineapple-pizza', label: 'Pineapple on pizza', image: '' },
     ],
-    scored: false,
+    scored: true,
     liveConsensus: true,
   }),
   defaultTimer: null,

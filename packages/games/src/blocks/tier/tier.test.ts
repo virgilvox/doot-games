@@ -160,7 +160,7 @@ const ctx = (over: Partial<TierContent> = {}, inputs = INPUTS) => ({
 
 describe('tier block aggregate', () => {
   it('builds the board as a distribution + crown/divisive awards, no leaderboard when unscored', () => {
-    const frag = tierBlock.aggregate!(ctx())
+    const frag = tierBlock.aggregate!(ctx({ scored: false }))
     expect(frag.leaderboard).toBeUndefined()
     const bars = frag.distributions?.[0]?.bars ?? []
     // top tier first; display is the band label; count = tierCount - tierIndex
