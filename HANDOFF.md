@@ -5,6 +5,28 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **POST-DEPLOY GAMEPLAY SMOKE (production safety net, part 3 - sprint complete) (2026-06-26).**
+> CI ran tests + typecheck + build then deployed, but NOTHING exercised the real play loop
+> over the relay, so a deploy that broke gameplay (the class of bug static checks miss - custom-
+> flow show-stoppers, the preview iframe) shipped silently. Now a **`smoke` job** in
+> `.github/workflows/deploy.yml` runs AFTER deploy and drives the actual host+player core loop
+> against prod (host a VoteBox room -> player joins -> answer -> host advances -> both surfaces
+> show results), turning the run red if gameplay is broken.
+> - `scripts/smoke-coreloop.mjs` (factored from `playtest.mjs`'s `corePlayLoop`): BASE_URL-
+>   parametrized, **timing-robust** (never waits on countdown timers - headless throttles
+>   background-tab timers - only host-driven advancement + relay state, 40s waits), **health-
+>   gated** (polls `/api/health` so a still-rolling deploy doesn't false-fail), and **retried**
+>   (`SMOKE_ATTEMPTS`, default 2) so transient relay flake doesn't red a good deploy while a
+>   real break (fails every attempt) still does. It's post-deploy = ALERT, not prevention (no
+>   rollback wired); the deploy already happened.
+> - **Verified:** ran green against PROD first try (hosted room, player joined, results on both
+>   surfaces) - which also confirms live gameplay survived the backups + observability + audit
+>   deploys. YAML validated (`check -> build -> deploy -> smoke`); biome lint clean.
+> - **Production safety-net sprint DONE** (backups + observability + post-deploy smoke). Next
+>   per plan: the operator infra TODOs (Spaces lifecycle rule, block volume + snapshots), then
+>   Tier-1 custom-flow host-reload recovery, then the DO Managed Postgres migration (separate
+>   project). Plan: `~/.claude/plans/snug-enchanting-glade.md`.
+
 > **OBSERVABILITY / ERROR TRACKING (production safety net, part 2) (2026-06-26).** A
 > solo operator was blind to breakage (only GoatCounter pageviews). Now errors are captured
 > and visible. Vendor-neutral, no external account, fits the small-deps/self-host ethos.
