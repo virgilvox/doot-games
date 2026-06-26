@@ -37,11 +37,18 @@ prod via CI, no staging)._
 >   it ("76-way tie: Bot001, Bot002, Bot004 & 73 more"); same cap on `teamCrownHeadline`; a
 >   `-webkit-line-clamp:3` on the results h1 is the belt-and-suspenders. After the fix the host
 >   results carousel (leaderboard slide + poll-breakdown slide) renders within bounds and the
->   stat strip reads "100 players". Two NON-bugs noted: the lobby roster wraps all 100 pills so
->   the lobby panel scrolls (~2286px) - acceptable, the code/QR/count stay above the fold; and
->   the 10-row leaderboard slide is ~477px taller than an 1440x900 host (its own internal
->   scroll handles it; fits a 1080p TV; not player-count-specific). Both are candidates for a
->   later "+N more" cap if a fixed-height host TV ever needs it.
+>   stat strip reads "100 players".
+> - **Lobby roster "+N more" cap - FIXED (2026-06-26).** The lobby roster wrapped all 100 pills
+>   and scrolled the host page ~2286px, pushing the **Start button below the fold** (at 1120px of
+>   a 900px viewport). `RosterChips` now caps the visible pills at `max` (default **12**) and
+>   collapses the rest into a "+N more" chip the host can expand into a height-bounded (270px)
+>   scroll box, so the full list is reachable (incl. kick) without the page ever scrolling.
+>   Result at 100 players: lobby overflow **0px**, Start **VISIBLE** (808px) in BOTH collapsed
+>   and expanded states. `max={0}` opts out (show everyone). Applied as the component default, so
+>   all 7 host lobbies (generic + 6 custom-flow) benefit; host-kick smoke still green.
+> - One NON-bug remains: the 10-row leaderboard slide is ~477px taller than an 1440x900 host
+>   (its own internal scroll handles it; fits a 1080p TV; not player-count-specific, the board is
+>   already capped at 10).
 
 > **MODERATION 3/3: post-game report flow (2026-06-26). DONE - completes the moderation
 > trio** (name filter -> host kick -> report flow). Players can now flag a game for a

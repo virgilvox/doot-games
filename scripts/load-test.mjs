@@ -184,14 +184,43 @@ const run = { roundSubmits: {}, t: {} }
   run.rosterSeen = roster
   run.target = target
 
-  // Layout check: the lobby roster at full scale.
+  // Layout check: the lobby roster at full scale, and crucially whether the Start
+  // button stays within the viewport (a roster that pushes Start off-screen on a
+  // fixed host TV is the real failure mode).
   const lobbyOv = await overflow(host)
+  const startVis = await host.evaluate(() => {
+    const btn = [...document.querySelectorAll('button')].find((b) => /start game/i.test(b.textContent || ''))
+    if (!btn) return { found: false }
+    const r = btn.getBoundingClientRect()
+    return { found: true, bottom: Math.round(r.bottom), vh: window.innerHeight, visible: r.bottom <= window.innerHeight && r.top >= 0 }
+  })
   log(`host LOBBY overflow: horizontal ${lobbyOv.hx}px, vertical ${lobbyOv.vy}px (roster of ${roster})`)
+  log(`  Start button: ${startVis.found ? `bottom ${startVis.bottom}px of ${startVis.vh}px viewport -> ${startVis.visible ? 'VISIBLE' : 'BELOW FOLD'}` : 'not found'}`)
   run.lobbyOv = lobbyOv
+  run.startVis = startVis
   if (SHOTS) {
     const { mkdirSync } = await import('node:fs')
     mkdirSync(SHOT_DIR, { recursive: true })
     await host.screenshot({ path: `${SHOT_DIR}/host-lobby.png` })
+  }
+  // Verify the roster "+N more" expand: it reveals every player in a height-bounded
+  // scroll box, and the Start button stays in view (the box, not the page, scrolls).
+  const moreBtn = host.locator('.pill.more')
+  if (await moreBtn.count()) {
+    await moreBtn.first().click()
+    await sleep(400)
+    const expandedChips = await host.locator('.roster .pill').count()
+    const startVis2 = await host.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find((b) => /start game/i.test(b.textContent || ''))
+      const r = btn?.getBoundingClientRect()
+      return r ? r.bottom <= window.innerHeight && r.top >= 0 : false
+    })
+    log(`  expand "+N more": ${expandedChips} chips rendered, Start still ${startVis2 ? 'VISIBLE' : 'BELOW FOLD'}`)
+    run.expandChips = expandedChips
+    if (SHOTS) await host.screenshot({ path: `${SHOT_DIR}/host-lobby-expanded.png` })
+    // collapse back so the game starts from the normal lobby
+    await host.locator('.pill.more', { hasText: 'Show fewer' }).click().catch(() => {})
+    await sleep(200)
   }
 
   // ── Drive the game; phones submit via UI, headless auto-submit on open ──
