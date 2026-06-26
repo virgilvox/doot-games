@@ -23,6 +23,13 @@ prod via CI, no staging)._
 > - **Verified**: 2 new engine unit tests (masks the roster name / keeps identity; no-op
 >   without a filter) - 801 tests; `nuxi typecheck` + build; real-browser
 >   `scripts/name-filter-smoke.mjs` ("fuckwit" -> "••••wit" on the host roster, no raw word).
+> - **Deep audit (2026-06-26):** confirmed `recentPlayers()` is the true chokepoint - it
+>   feeds BOTH `room.players` (snapshot) and the derive/scoring `ctx.players` (via
+>   `getPlayers()`), so even name-bearing blocks (faker/accuse `names` map) mask correctly;
+>   all 5 `useDootRoom` sites wired. KNOWN TRADE-OFFS (documented in `docs/admin.md`): masking
+>   is display-only (the relay profile still carries the raw name - best-effort over a
+>   trustless relay), and obscenity has rare false positives so a real name like "Dick" is
+>   masked too (accepted cost of never projecting a slur).
 > - **NEXT (2/3, 3/3):** host "kick player" = a host-side ignore set in RoomRuntime filtered out
 >   of `recentPlayers()`/`inputsFor()` (clean seam; no relay write since the relay is trustless)
 >   + a per-player control in RosterChips; then a post-game report flow (a `reports` table +

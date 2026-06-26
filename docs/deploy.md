@@ -177,6 +177,22 @@ doctl compute volume-action attach <volume-id> <droplet-id>
 doctl compute volume snapshot <volume-id> --snapshot-name "doot-$(date +%F)"
 ```
 
+## Observability (errors + health)
+
+A solo operator should know when something breaks without tailing logs. Errors are
+captured in-memory and surfaced in the admin console:
+
+- **Server errors** (unhandled 5xx; `server/plugins/error-track.ts` hooks Nitro's `error`)
+  and **client errors** (Vue/window/promise; `app/plugins/error-track.client.ts` posts to
+  the rate-limited, anonymous `POST /api/client-errors`) are recorded in two capped
+  in-memory rings (`server/utils/observability.ts`; per-instance runtime state, never the
+  DB). They show in **`/admin` -> Status** alongside the last backup time.
+- This is vendor-neutral and needs no external account. To ALSO get a push alert, set
+  **`DOOT_ERROR_WEBHOOK`** to any Slack/Discord-style incoming webhook (the forward is
+  throttled and sends both `text` and `content` so either works); unset = stdout logs only.
+- Page analytics stay separate (GoatCounter; see above). The `/api/health` endpoint is the
+  cheap liveness probe used by the container health check and the post-deploy CI smoke.
+
 ## Scaling later
 
 - Wire `drizzle-orm/node-postgres` behind the existing `useDb()` seam and select

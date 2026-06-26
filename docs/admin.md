@@ -68,6 +68,9 @@ it's local-only and never exists in production.
   Override visibility (take a game down to private), toggle the **Feature** flag, or
   delete. Sort by plays or recency; filter by visibility; search.
 - **Decks** - every deck with its owner; override visibility or delete.
+- **Status** - operational health: the last database backup (time + object key, so
+  "did the backup run?" is a glance, not an SSH) and the recent server + client errors
+  captured in-memory (see "Observability" in `docs/deploy.md`). Read-only.
 
 ## Play counts
 
@@ -91,3 +94,21 @@ then blocks that account from the entire content-write surface (`/api/games`,
 `/api/decks`, `/api/uploads` writes) with a 403 that surfaces the reason. Anonymous
 hosting/playing need no account, so they are out of scope by design; moderation targets
 saved content and accounts.
+
+## Moderation: player names
+
+Player names are public (projected on the big screen + every roster), so strong
+profanity/slurs in them are masked at display time. The engine takes an optional
+`nameFilter` (injected by the app as `playerNameFilter` = `maskText(name, 'moderate')`,
+the same obscenity-based filter the free-text galleries use) and applies it in
+`recentPlayers()` - the single point that feeds `room.players`, scoring/derive
+(`ctx.players`), results, and standings - so every screen masks consistently. The RAW
+name is kept for identity (`pid = hash(room+name)`), so masking is display-only and
+reconnect-by-name is unaffected.
+
+Trade-offs (inherent, documented): masking is best-effort over a trustless relay - a
+relay inspector can still read the raw name in the published profile; only the rendered
+surfaces are masked (that is where the harm is). And the obscenity matcher has rare
+false positives, so a legitimate name that contains a flagged word (e.g. "Dick") is
+masked too; that is the accepted cost of never projecting a slur. (Host "kick a player"
+and a post-game report flow are the next moderation steps.)
