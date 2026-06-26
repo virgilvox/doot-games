@@ -5,6 +5,35 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **TIER LIST rebuilt as an ITEM-BY-ITEM custom-flow flagship (2026-06-26).** Per owner
+> direction + a mockup: the flagship now runs one item at a time (not all-at-once). The host
+> steps through items, the room votes which S-to-F band each lands in, the board fills live on
+> the big screen, and a "Top of the room" leaderboard rewards reading the room.
+> - **Architecture**: `games/tier-list/` is now CUSTOM-FLOW (`components: { Host, Player }`),
+>   parking the engine on a single `tier` round (which only carries items + bands) and driving
+>   the show over `/x/`: host publishes retained `/x/show` (phase/item/deadline); players publish
+>   `/x/vote/<i>/<pid>`; the host collects, resolves consensus (mode), and scores match-the-room
+>   locally, then `room.host.finish()`. Files: `Host.vue` (board + NOW RANKING panel + leaderboard
+>   + reveal beat + timer + PAUSE + NEXT ITEM), `Player.vue` (big item image + full-width tier
+>   buttons with sublabels like "GOD TIER"), `show.ts` (the show contract), `logic.ts` (pure:
+>   resolveItem, leaderboard; 7 tests). A lobby toggle switches to **all-at-once** (place every
+>   item in parallel). Per-item timer (default 25s) honours the "turn off timers" lobby control;
+>   a Pause button holds the countdown for discussion.
+> - **Scales like the board did**: output is per-ITEM, so the host is the same size for 8 or 100
+>   players (crowd shows up only as the lock count + agreement). Verified: `scripts/tier-flow-smoke.mjs`
+>   at 98 players (95 headless RoomRuntime voters over `/x/` + 3 phones), 12 items, **1140 votes,
+>   0 host errors, 0 overflow**; host + phone match the mockup exactly.
+> - **The `tier` BLOCK stays** as the all-at-once composable for custom games (the standalone
+>   `## tier` markdown block); the flagship no longer uses the block's views. Deck-feeding the
+>   flagship still works (buildConfig maps a prompt deck -> the item list).
+> - **Audit hardening (4-agent ultra-audit)**: prod has **0 saved tier/tier-list games** (checked
+>   the prod DB), so the rebuild degrades nothing. Fixed: `textOn` 3-digit hex (#000 was
+>   unreadable), markdown parser clamps items to 24, `isComplete` rejects NaN/out-of-range,
+>   `votesIn` counts only non-empty boards, award crown/divisive dedup by id AND label, the editor
+>   "Image" button's aria-pressed now matches its visual state (+ a ✓ when set), player-chip
+>   reduced-motion guard. Removed the stale tier-list step from `quickwins-smoke` (it has its own
+>   `tier-flow-smoke`). 846 tests, typecheck, build green.
+
 > **NEW BLOCK: `tier` (a real tier-list board) + the `tier-list` flagship rebuilt on it
 > (2026-06-26).** The canonical "place a SET of items into S/A/B/C/D bands" board, as a
 > first-party block you can drop into any custom game. (The old `tier-list` was a `rate`

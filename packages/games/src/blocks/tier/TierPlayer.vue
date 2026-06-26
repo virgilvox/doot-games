@@ -145,4 +145,11 @@ function place(itemId: string, tier: number) {
   opacity: 0.55;
   cursor: default;
 }
+@media (prefers-reduced-motion: reduce) {
+  .tp-chip,
+  .tp-chip:active {
+    transition: none;
+    transform: none;
+  }
+}
 </style>

@@ -18,6 +18,8 @@ export interface TierDef {
   label: string
   /** A CSS colour for the lane (a hex default; authors can recolour). */
   color: string
+  /** An optional descriptive name shown beside the letter (e.g. "GOD TIER"). */
+  sublabel?: string
 }
 export interface TierItem {
   id: string
@@ -46,11 +48,11 @@ export interface ItemConsensus {
 /** The classic tier gradient, used as editable defaults so a fresh board reads as a
  *  tier list at a glance. Index 0 is the top tier. */
 export const DEFAULT_TIERS: TierDef[] = [
-  { label: 'S', color: '#ff6b6b' },
-  { label: 'A', color: '#ffa94d' },
-  { label: 'B', color: '#ffd43b' },
-  { label: 'C', color: '#69db7c' },
-  { label: 'D', color: '#4dabf7' },
+  { label: 'S', color: '#ff6b6b', sublabel: 'GOD TIER' },
+  { label: 'A', color: '#ffa94d', sublabel: 'GREAT' },
+  { label: 'B', color: '#ffd43b', sublabel: 'GOOD' },
+  { label: 'C', color: '#69db7c', sublabel: 'FINE' },
+  { label: 'D', color: '#4dabf7', sublabel: 'EH' },
 ]
 
 /** Pick a readable text colour (near-black or white) for a label sitting ON a tier
@@ -58,9 +60,12 @@ export const DEFAULT_TIERS: TierDef[] = [
  *  letter (the band label is a primary cue, never colour alone). Non-hex inputs fall
  *  back to dark. Pure + tested. */
 export function textOn(color: string): string {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec((color ?? '').trim())
-  if (!m) return '#1a1a1a'
-  const n = Number.parseInt(m[1] as string, 16)
+  let s = (color ?? '').trim().replace(/^#/, '')
+  // Expand a 3-digit shorthand (#0a8 -> 00aa88) so a valid short hex like #000 / #fff
+  // gets the right contrast instead of falling through to the dark default.
+  if (/^[0-9a-fA-F]{3}$/.test(s)) s = [...s].map((ch) => ch + ch).join('')
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return '#1a1a1a'
+  const n = Number.parseInt(s, 16)
   const r = (n >> 16) & 255
   const g = (n >> 8) & 255
   const b = n & 255

@@ -25,7 +25,9 @@ const voteList = computed<TierPlacements[]>(() => {
   for (const i of props.inputs?.values() ?? []) if (i?.placements) out.push(i.placements)
   return out
 })
-const votesIn = computed(() => props.inputs?.size ?? 0)
+// Count only players who actually placed something, so the badge matches the board
+// (an empty/null submit contributes no votes to any item).
+const votesIn = computed(() => voteList.value.filter((p) => Object.keys(p).length > 0).length)
 
 // Show placements while the board forms live, or once revealed. When the author
 // hid the consensus, everything waits in the tray until the reveal.

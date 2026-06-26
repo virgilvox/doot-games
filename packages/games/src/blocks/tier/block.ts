@@ -40,6 +40,7 @@ import {
 export const tierDefSchema = z.object({
   label: z.string().min(1).max(18),
   color: z.string().default('').describe('Lane colour (a CSS colour; blank uses the default).'),
+  sublabel: z.string().max(24).optional().describe('Optional descriptor beside the letter (e.g. "GOD TIER").'),
 })
 export const tierItemSchema = z.object({
   id: z.string().min(1).describe('Internal id (auto-filled).'),
@@ -127,9 +128,14 @@ export const tierBlock = defineBlock<TierContent, TierInput>({
   defaultTimer: 60,
   timerOf: (c) => c.timer,
   emptyInput: (): TierInput => ({ placements: {} }),
-  // Complete once every item has a tier, so an untouched submit does not silently
-  // dump everything into the top band and skew the board.
-  isComplete: (c, input) => c.items.every((it) => typeof input?.placements?.[it.id] === 'number'),
+  // Complete once every item has a VALID tier (a real in-range band), so an untouched
+  // submit does not silently dump everything into the top band, and a forged NaN /
+  // out-of-range index does not read as "placed" while the tally drops it.
+  isComplete: (c, input) =>
+    c.items.every((it) => {
+      const t = input?.placements?.[it.id]
+      return typeof t === 'number' && Number.isInteger(t) && t >= 0 && t < c.tiers.length
+    }),
   PlayerInput: TierPlayer,
   HostDisplay: TierHost,
   PlayerReveal: TierReveal,
@@ -207,7 +213,9 @@ export const tierBlock = defineBlock<TierContent, TierInput>({
         ...(crown.item.image ? { image: crown.item.image } : {}),
       })
     }
-    if (divisive && divisive.id !== crown?.item.id) {
+    // Don't name the same subject as both the crown and the divisive award (across
+    // multi-round games an id or label can repeat); compare by both.
+    if (divisive && divisive.id !== crown?.item.id && divisive.label !== crown?.item.label) {
       awards.push({
         label: 'Most divisive',
         subject: divisive.label,

@@ -244,8 +244,11 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
     }
     case 'tier': {
       // `- item` lines are the things to tier; an optional `tiers: S | A | B | C | D`
-      // names the bands (else the classic S-D defaults).
-      const items = (labels.length >= 2 ? labels : ['Pizza', 'Tacos']).map((label, i) => ({
+      // names the bands (else the classic S-D defaults). Clamp to the schema max so a
+      // long list validates + saves instead of producing invalid content.
+      const itemLabels = labels.length >= 2 ? labels : ['Pizza', 'Tacos']
+      if (itemLabels.length > 24) warnings.push(`A tier round takes at most 24 items; using the first 24 of ${itemLabels.length}.`)
+      const items = itemLabels.slice(0, 24).map((label, i) => ({
         id: slugId(label, i),
         label,
         image: '',

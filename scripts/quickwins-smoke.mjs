@@ -57,8 +57,8 @@ async function run() {
   const browser = await chromium.launch()
   try {
     step('Quick-win games: each hosts and plays a round')
-    // Would You Rather + Over/Under use option buttons (.opt); Tier List uses the
-    // rating dots (.rdot).
+    // Would You Rather + Over/Under use option buttons (.opt). (Tier List is now a
+    // custom-flow item-by-item game with its own scripts/tier-flow-smoke.mjs.)
     await playOne(browser, 'would-you-rather', async (p) => {
       await p.waitForSelector('.opt', { timeout: 40000 })
       await p.locator('.opt').first().click()
@@ -66,10 +66,6 @@ async function run() {
     await playOne(browser, 'over-under', async (p) => {
       await p.waitForSelector('.opt', { timeout: 40000 })
       await p.locator('.opt').first().click()
-    })
-    await playOne(browser, 'tier-list', async (p) => {
-      await p.waitForSelector('.rdot', { timeout: 40000 })
-      await p.locator('.rdot').last().click() // top tier (S)
     })
     console.log('\nPASS: quickwins-smoke')
   } finally {

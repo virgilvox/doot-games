@@ -222,6 +222,10 @@ describe('textOn (label contrast)', () => {
     expect(textOn('#1a2a4a')).toBe('#ffffff') // a dark navy a user might pick
     expect(textOn('#000000')).toBe('#ffffff')
   })
+  it('handles 3-digit shorthand hex', () => {
+    expect(textOn('#000')).toBe('#ffffff') // black shorthand -> white text
+    expect(textOn('#fff')).toBe('#1a1a1a') // white shorthand -> dark text
+  })
   it('falls back to dark for a non-hex / empty color', () => {
     expect(textOn('var(--primary)')).toBe('#1a1a1a')
     expect(textOn('')).toBe('#1a1a1a')

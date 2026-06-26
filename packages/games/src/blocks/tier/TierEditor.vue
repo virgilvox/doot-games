@@ -162,7 +162,7 @@ const timerOn = computed(() => c.value.timer != null)
               placeholder="Item name"
               @input="setItem(i, { label: ($event.target as HTMLInputElement).value })"
             />
-            <button type="button" class="te-mini" :class="{ on: openImage.has(item.id) || item.image }" :aria-pressed="openImage.has(item.id)" title="Add a picture" @click="toggleImage(item.id)">Image</button>
+            <button type="button" class="te-mini" :class="{ on: openImage.has(item.id) }" :aria-pressed="openImage.has(item.id)" title="Add a picture" @click="toggleImage(item.id)">{{ item.image ? 'Image ✓' : 'Image' }}</button>
             <button type="button" class="te-mini" :disabled="i === 0" aria-label="Move up" @click="moveItem(i, -1)">↑</button>
             <button type="button" class="te-mini" :disabled="i === c.items.length - 1" aria-label="Move down" @click="moveItem(i, 1)">↓</button>
             <button type="button" class="te-mini danger" :disabled="c.items.length <= 2" aria-label="Remove item" @click="removeItem(i)">✕</button>
