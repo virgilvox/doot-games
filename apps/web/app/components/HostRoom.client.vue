@@ -47,10 +47,42 @@ if (!plugin) throw createError({ statusCode: 404, statusMessage: `Unknown game t
 const game = plugin
 
 const themeState = useState<string>('doot-theme', () => 'doot')
-const roomCode = makeRoomCode()
+// Persist the room code + a per-host-instance token for THIS tab, so a host RELOAD
+// resumes the same room (the engine recognizes its own token and won't regenerate the
+// code) instead of stranding every player on a fresh code. sessionStorage is per-tab
+// and survives a reload but not a tab close, which is exactly the scope we want; the
+// host is a real browser, not the storage-blocked embedded player surface.
+const HOST_ROOM_KEY = 'doot-host-room'
+const HOST_TOKEN_KEY = 'doot-host-token'
+function hostSession(): { room: string; token: string } {
+  const fresh = () => ({
+    room: makeRoomCode(),
+    token: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  })
+  if (typeof sessionStorage === 'undefined') return fresh()
+  let code = sessionStorage.getItem(HOST_ROOM_KEY)
+  let token = sessionStorage.getItem(HOST_TOKEN_KEY)
+  if (!code || !token) {
+    const f = fresh()
+    code = f.room
+    token = f.token
+    sessionStorage.setItem(HOST_ROOM_KEY, code)
+    sessionStorage.setItem(HOST_TOKEN_KEY, token)
+  }
+  return { room: code, token }
+}
+const { room: roomCode, token: hostToken } = hostSession()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
-const room = useDootRoom({ relay, room: roomCode, role: 'host' })
+const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken })
 provideDootRoom(room)
+// If the engine regenerates the code (a genuine collision on a fresh host), persist the
+// settled code so a later reload resumes the right room.
+watch(
+  () => room.code.value,
+  (c) => {
+    if (c && typeof sessionStorage !== 'undefined') sessionStorage.setItem(HOST_ROOM_KEY, c)
+  },
+)
 
 // Precedence: an explicit config (a saved game) > the editor draft (if it's for
 // this game type) > a fresh pool sample (replayable flagships) > the default deck.

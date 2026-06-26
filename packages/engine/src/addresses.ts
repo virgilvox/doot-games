@@ -20,6 +20,10 @@ export const addr = {
   roundDeadline: (room: string) => `${roomBase(room)}/round/deadline`,
   /** Host liveness heartbeat; players watch it to detect a vanished host. */
   hostPing: (room: string) => `${roomBase(room)}/host/ping`,
+  /** A per-host-instance token (stable across a host's own reload). The collision
+   *  check reads it to tell the host's OWN live code from a different host's, so a
+   *  reload keeps the code (players stay) while a genuine collision still regenerates. */
+  hostToken: (room: string) => `${roomBase(room)}/host/token`,
   /** The delegated driver (co-host/MC): a player's pid, or '' for none. Host writes. */
   controlDriver: (room: string) => `${roomBase(room)}/control/driver`,
   /** A drive intent from the delegated player (advance the round). They write it;

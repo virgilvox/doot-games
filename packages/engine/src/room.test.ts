@@ -1075,4 +1075,27 @@ describe('room code collision', () => {
     await player.connect()
     expect(player.room).toBe('ABCD')
   })
+
+  it('keeps its OWN live code on reload (matching host token), so players are not stranded', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    // A live room holds ABCD, carrying THIS host's token (the pre-reload heartbeat).
+    hub.store.set(addr.hostPing('ABCD'), now())
+    hub.store.set(addr.hostToken('ABCD'), 'tok-1')
+    const host = new RoomRuntime({ relay: new FakeRelayClient(hub), room: 'ABCD', role: 'host', now, hostToken: 'tok-1' })
+    cleanups.push(() => host.dispose())
+    await host.connect()
+    expect(host.room).toBe('ABCD') // recognized itself, did not regenerate
+  })
+
+  it('still regenerates when a DIFFERENT host holds the live code (different token)', async () => {
+    const hub = new FakeHub()
+    const now = () => 1000
+    hub.store.set(addr.hostPing('ABCD'), now())
+    hub.store.set(addr.hostToken('ABCD'), 'tok-1') // someone else's host instance
+    const host = new RoomRuntime({ relay: new FakeRelayClient(hub), room: 'ABCD', role: 'host', now, hostToken: 'tok-2' })
+    cleanups.push(() => host.dispose())
+    await host.connect()
+    expect(host.room).not.toBe('ABCD') // a genuine collision, regenerate (no hijack)
+  })
 })

@@ -5,6 +5,33 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **FIX: host reload keeps the room code (players no longer stranded) (2026-06-26).** The
+> foundation half of host-reload recovery (see the prior entry for the verified bug). Now a
+> host reload resumes the SAME room instead of regenerating the code.
+> - **App** (`apps/web/app/components/HostRoom.client.vue`): persist the room code + a
+>   per-host-instance token in **sessionStorage** (per-tab; survives reload, not tab-close,
+>   which is exactly right; the host is a real browser, not the storage-blocked player embed),
+>   reuse them on remount, pass the token to `useDootRoom`, and persist the settled code if the
+>   engine regenerates it.
+> - **Engine**: `RoomRuntimeOptions.hostToken`; new `addr.hostToken` channel (the host publishes
+>   its token on the settled code after `ensureFreeRoomCode`); `roomCodeTaken` now reads it - a
+>   live code carrying MY token (a reload) reads as FREE (keep it), a different/absent token
+>   reads as taken (regenerate). `hostPing` stays a plain number, so player liveness reads are
+>   untouched (no deploy-time blip). Security: a genuine collision still regenerates; the token
+>   being public on the trustless relay doesn't weaken the posture (the collision check only
+>   constrains engine hosts - a determined attacker who knows a live code can already raw-publish
+>   regardless; the fix was always an ACCIDENTAL-collision safeguard).
+> - **Verified:** 2 new engine unit tests (own-token keeps / different-token regenerates) +
+>   the existing 4 collision tests green (799 tests total); `nuxi typecheck` + build; and a
+>   real-browser smoke `scripts/host-reload-smoke.mjs` (host reload keeps the code, the
+>   pre-reload player stays in the roster, not stranded) + the core-loop smoke (no regression).
+> - **STILL TODO (the other half):** on a host reload mid-GAME the engine re-publishes `lobby`
+>   on connect (room.ts connect()), so a generic game RESETS to the lobby (players stay, not
+>   stranded - strictly better than before, but not full recovery). Full mid-game recovery =
+>   don't overwrite a non-lobby phase on a resumed code + per-game turn-state rehydrate (Truth
+>   or Share `/x/turn` + a new `/x/show` snapshot; Circuit Cypher rebuild bracket from round-0
+>   inputs). That's the next layer.
+
 > **VERIFIED BUG: host reload regenerates the room code + strands ALL players (2026-06-26).**
 > Investigating Tier-1 "custom-flow host-reload recovery" surfaced a bigger, GENERAL
 > regression (affects every game, not just custom-flow), **verified on prod**: host

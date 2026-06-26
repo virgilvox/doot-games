@@ -121,6 +121,11 @@ export interface RoomRuntimeOptions {
   now?: () => number
   /** Absolute TTL (microseconds) on every published value. */
   ttlUs?: number
+  /** Host only: a per-host-instance token the app persists across reload (e.g. in
+   *  sessionStorage). It lets a reloaded host recognize its OWN live room and keep the
+   *  code (so players aren't stranded), while a genuinely different host colliding on
+   *  the same code still regenerates. Without it, a live code always reads as taken. */
+  hostToken?: string
 }
 
 /**
@@ -177,6 +182,8 @@ export class RoomRuntime {
   private relay: RelayClient
   private now: () => number
   private ttlUs: number
+  /** Host only: this host instance's token (see RoomRuntimeOptions.hostToken). */
+  private hostToken: string | null
 
   private state: RoomState = { ...INITIAL_STATE, round: { ...INITIAL_STATE.round } }
   private playersMap = new Map<string, Player>()
@@ -240,6 +247,7 @@ export class RoomRuntime {
     this.room = opts.room
     this.now = opts.now ?? Date.now
     this.ttlUs = opts.ttlUs ?? DEFAULT_TTL_US
+    this.hostToken = opts.hostToken ?? null
     const name = opts.name ?? ''
     this.me = {
       role: opts.role,
@@ -364,7 +372,12 @@ export class RoomRuntime {
     // A host must own a FREE code: if a live room already holds this one (a recent
     // host heartbeat), regenerate before subscribing/publishing so we never hijack
     // someone else's room. Players/audience keep the exact code they were given.
-    if (this.me.role === 'host') await this.ensureFreeRoomCode()
+    if (this.me.role === 'host') {
+      await this.ensureFreeRoomCode()
+      // Publish our token on the (now settled) code so a later reload of THIS host
+      // recognizes its own room and a colliding host sees a different token.
+      if (this.hostToken) this.publish(addr.hostToken(this.room), this.hostToken)
+    }
     this.subscribe()
     // Seed connection state from the synchronous truth: onConnect may have
     // already fired (a shared relay can be connected before we register), in
@@ -417,7 +430,14 @@ export class RoomRuntime {
   private async roomCodeTaken(code: string): Promise<boolean> {
     try {
       const ping = await this.relay.get(addr.hostPing(code))
-      return ping != null && this.now() - Number(ping) < HOST_PRESENCE_WINDOW_MS
+      const live = ping != null && this.now() - Number(ping) < HOST_PRESENCE_WINDOW_MS
+      if (!live) return false
+      // A live ping holds the code. If it carries OUR token (a reload of this same
+      // host instance), the code is still ours: keep it so the players aren't stranded.
+      // A different host (or a tokenless legacy host) reads as taken and regenerates.
+      if (!this.hostToken) return true
+      const token = await this.relay.get(addr.hostToken(code))
+      return token !== this.hostToken
     } catch {
       return false
     }
