@@ -2,7 +2,7 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
 > **MODERATION 1/3: player-name profanity filter (2026-06-26).** First of the moderation trio
@@ -37,9 +37,18 @@ prod via CI, no staging)._
 >   in-memory, cleared on a host reload. `kickPlayer`/`unkickPlayer` host actions (unkick reverses
 >   an accidental kick). UI: a `kickable` opt-in + `@kick` on `RosterChips` (a per-pill remove
 >   button using a new `close` Icon glyph), wired in the GameHost lobby roster with a confirm.
->   Verified: 1 engine unit test (kick drops from roster+inputs, unkick restores) - 802 tests;
->   typecheck + build; real-browser `scripts/host-kick-smoke.mjs`. KNOWN: kick UI is on the lobby
->   roster (RosterChips); custom-flow games' own rosters would need separate wiring.
+>   Verified: engine unit tests (kick drops from roster+inputs, unkick restores; kicking the
+>   driver revokes driving) - 803 tests; typecheck + build; real-browser
+>   `scripts/host-kick-smoke.mjs` (dev + prod).
+>   DEEP AUDIT (2026-06-26): (a) FIXED - `kickPlayer` now clears the delegated driver if the
+>   kicked pid was driving (else a kicked co-host could keep sending drive commands; shipped
+>   `f141419`). (b) VERIFIED OK - the "everyone answered" auto-advance respects the kick (its
+>   eligible count iterates the kick-filtered `room.players` + `inputsFor`). (c) KNOWN LIMITS:
+>   the kick UI is **lobby-only** (RosterChips is rendered in GameHost's `phase==='lobby'`
+>   block; the engine supports kick in any phase, so a mid-GAME kick control is a follow-up,
+>   as is wiring kick into custom-flow games' own rosters); there is no in-UI **unkick** yet
+>   (reload clears the ignore set); and a mid-judge-round kick doesn't retroactively scrub an
+>   already-published gallery entry (the gallery text is content-filtered regardless).
 > - **NEXT (3/3):** a post-game report flow (a `reports` table + `/api/admin/reports` + a Reports
 >   tab in the admin console next to Status + a report button on the results screen).
 
