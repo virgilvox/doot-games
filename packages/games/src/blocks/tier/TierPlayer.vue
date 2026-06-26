@@ -8,7 +8,7 @@
  */
 import { computed } from 'vue'
 import type { TierContent, TierInput } from './block'
-import { DEFAULT_TIERS } from './logic'
+import { DEFAULT_TIERS, textOn } from './logic'
 
 const props = defineProps<{ content: TierContent; modelValue: TierInput; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: TierInput] }>()
@@ -18,6 +18,9 @@ const placedCount = computed(() => props.content.items.filter((it) => typeof pla
 
 function colorOf(i: number): string {
   return props.content.tiers[i]?.color || DEFAULT_TIERS[i % DEFAULT_TIERS.length]?.color || 'var(--primary)'
+}
+function inkOf(i: number): string {
+  return textOn(colorOf(i))
 }
 function place(itemId: string, tier: number) {
   if (props.disabled) return
@@ -43,7 +46,7 @@ function place(itemId: string, tier: number) {
             type="button"
             class="tp-chip"
             :class="{ on: placements[item.id] === ti }"
-            :style="{ '--tc': colorOf(ti) }"
+            :style="{ '--tc': colorOf(ti), '--tt': inkOf(ti) }"
             :aria-pressed="placements[item.id] === ti"
             :aria-label="`Place ${item.label} in tier ${tier.label}`"
             :disabled="disabled"
@@ -135,7 +138,7 @@ function place(itemId: string, tier: number) {
 .tp-chip.on {
   background: var(--tc);
   border-color: var(--tc);
-  color: #1a1a1a;
+  color: var(--tt, #1a1a1a);
   box-shadow: var(--shadow-sm);
 }
 .tp-chip:disabled {

@@ -12,7 +12,7 @@
 import type { RoundState } from '@doot-games/engine'
 import { computed } from 'vue'
 import type { TierContent, TierInput } from './block'
-import { type TierPlacements, DEFAULT_TIERS, boardByTier, consensusBoard } from './logic'
+import { type TierPlacements, DEFAULT_TIERS, boardByTier, consensusBoard, textOn } from './logic'
 
 const props = defineProps<{
   content: TierContent
@@ -40,6 +40,9 @@ const tray = computed(() => (revealed.value ? grouped.value.unplaced : board.val
 function colorOf(i: number): string {
   return props.content.tiers[i]?.color || DEFAULT_TIERS[i % DEFAULT_TIERS.length]?.color || 'var(--primary)'
 }
+function inkOf(i: number): string {
+  return textOn(colorOf(i))
+}
 function isDivisive(c: { controversy: number; total: number }): boolean {
   return props.state === 'reveal' && c.total >= 2 && c.controversy >= 0.5
 }
@@ -48,7 +51,7 @@ function isDivisive(c: { controversy: number; total: number }): boolean {
 <template>
   <div class="tier-host">
     <div class="th-board">
-      <div v-for="(tier, ti) in content.tiers" :key="ti" class="th-lane" :style="{ '--tc': colorOf(ti) }">
+      <div v-for="(tier, ti) in content.tiers" :key="ti" class="th-lane" :style="{ '--tc': colorOf(ti), '--tt': inkOf(ti) }">
         <div class="th-lane-label" :title="tier.label">{{ tier.label }}</div>
         <TransitionGroup name="th-pop" tag="div" class="th-lane-items">
           <div v-for="c in lanes[ti]" :key="c.id" class="th-cell" :class="{ divisive: isDivisive(c) }">
@@ -94,6 +97,9 @@ function isDivisive(c: { controversy: number; total: number }): boolean {
   gap: 8px;
   flex: 1;
   min-height: 0;
+  /* If a lopsided board (grade inflation) ever outgrows the stage, scroll the board
+     rather than clip items off the screen. */
+  overflow-y: auto;
 }
 .th-lane {
   display: grid;
@@ -103,14 +109,14 @@ function isDivisive(c: { controversy: number; total: number }): boolean {
   background: color-mix(in srgb, var(--tc) 9%, var(--surface));
   border: var(--bd) solid color-mix(in srgb, var(--tc) 28%, var(--line-soft));
   border-radius: 12px;
-  overflow: hidden;
   min-height: clamp(56px, 9vh, 96px);
 }
 .th-lane-label {
   display: grid;
   place-items: center;
   background: var(--tc);
-  color: #1a1a1a;
+  border-radius: 11px 0 0 11px;
+  color: var(--tt, #1a1a1a);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(20px, 3vw, 34px);
@@ -194,6 +200,10 @@ function isDivisive(c: { controversy: number; total: number }): boolean {
   padding: 4px 0;
   flex: 1;
   min-width: 0;
+  /* When the board is hidden until reveal, every item waits here; cap the tray so it
+     never pushes the lanes off the host stage. */
+  max-height: 30vh;
+  overflow-y: auto;
 }
 .th-count {
   flex: none;

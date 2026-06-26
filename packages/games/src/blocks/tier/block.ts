@@ -73,6 +73,20 @@ export const tierContentSchema = z.object({
     .default(true)
     .describe('Show the board forming live as votes arrive. Off = keep it hidden until the reveal.'),
 })
+  // Placements key by item id, so duplicate ids would merge two items' votes and
+  // collide their list keys. Every first-party generator de-dupes; this guards a
+  // hand- or API-authored config (caught by validate_doot_game). Safe to refine:
+  // tier uses a custom Editor, so the schema is only ever parsed, never introspected.
+  .superRefine((c, ctx) => {
+    const seen = new Set<string>()
+    for (const it of c.items) {
+      if (seen.has(it.id)) {
+        ctx.addIssue({ code: 'custom', message: `Duplicate item id "${it.id}" (each item needs a unique id).`, path: ['items'] })
+        return
+      }
+      seen.add(it.id)
+    }
+  })
 export type TierContent = z.infer<typeof tierContentSchema>
 export interface TierInput {
   placements: TierPlacements

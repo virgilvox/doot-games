@@ -38,6 +38,20 @@ prod via CI, no staging)._
 >   doot_format_guide + docs/markdown-games.md, `visuals.ts`, GameEditor `SINGLE_DESC`. The
 >   `tier-list` game's buildConfig maps its subject pool (and any prompt deck) into ONE board's
 >   items, so deck-feeding still works; `roundOptions` now sets item count.
+> - **Deep audit + hardening (2026-06-26, follow-up commit):** (1) the `aggregate`/`revealSummary`/
+>   `isComplete`/scoring were UNTESTED - added 11 block-contract tests (distribution shape, crown vs
+>   divisive award dedup, scored leaderboard + partial credit, multi-round accumulation, late-join
+>   eligibility, empty room); tier block now has 23 tests. (2) item-id uniqueness enforced via a
+>   schema `superRefine` (placements key by id; dup ids would merge votes + collide Vue keys) -
+>   safe because tier uses a custom Editor so the schema is only ever parsed, never introspected;
+>   `validate_doot_game` now rejects dup ids. (3) author-chosen tier colours get a contrast-safe
+>   label via a pure `textOn()` (dark text on the pastels, white on a dark custom colour) - the band
+>   label is never colour-alone. (4) host overflow safety: the board scrolls instead of clipping a
+>   lopsided lane, the hidden-until-reveal tray is height-capped, lanes no longer clip. (5) flagship
+>   `buildConfig` falls back to the built-in pool when a deck has <2 rows (a board needs >=2 items).
+>   (6) LLM/MCP: a `## tier` markdown round-trip test (parses + validates against the schema), and
+>   tier-list added to the `remix_game` prompt-deck list. 838 tests, typecheck, build green;
+>   re-verified at 97 players (0 overflow / 0 errors).
 > - **Known follow-ups:** deck-fed item IMAGES need a multi-row "column -> array" pool (mode-3,
 >   per the decks roadmap) - v1 is manual items + per-item image. Pairwise/Elo for huge sets, a
 >   2-axis alignment grid, and a host-driven item-by-item "panel" mode are separate primitives.

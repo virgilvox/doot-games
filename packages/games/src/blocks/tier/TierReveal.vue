@@ -6,7 +6,7 @@
  */
 import { computed } from 'vue'
 import type { TierContent, TierInput, TierRevealSummary } from './block'
-import { DEFAULT_TIERS } from './logic'
+import { DEFAULT_TIERS, textOn } from './logic'
 
 const props = defineProps<{
   content: TierContent
@@ -28,6 +28,9 @@ const agreedCount = computed(() => rows.value.filter((r) => r.agreed).length)
 function colorOf(i: number): string {
   return tiers.value[i]?.color || DEFAULT_TIERS[i % DEFAULT_TIERS.length]?.color || 'var(--primary)'
 }
+function inkOf(i: number): string {
+  return textOn(colorOf(i))
+}
 function labelOf(i: number): string {
   return tiers.value[i]?.label ?? '?'
 }
@@ -42,7 +45,7 @@ function labelOf(i: number): string {
     <ul class="tr-rows">
       <li v-for="r in rows" :key="r.id" class="tr-row" :class="{ agreed: r.agreed }">
         <span class="tr-label">{{ r.label }}</span>
-        <span class="tr-tier" :style="{ '--tc': colorOf(r.tier) }">{{ labelOf(r.tier) }}</span>
+        <span class="tr-tier" :style="{ '--tc': colorOf(r.tier), '--tt': inkOf(r.tier) }">{{ labelOf(r.tier) }}</span>
         <span v-if="r.my != null && !r.agreed" class="tr-mine">you said {{ labelOf(r.my) }}</span>
         <span v-else-if="r.agreed" class="tr-check" aria-label="you agreed">✓</span>
       </li>
@@ -98,7 +101,7 @@ function labelOf(i: number): string {
   padding: 0 7px;
   border-radius: 8px;
   background: var(--tc);
-  color: #1a1a1a;
+  color: var(--tt, #1a1a1a);
   font-family: var(--font-display);
   font-weight: 800;
 }

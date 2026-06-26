@@ -20,6 +20,7 @@ import { quipBlock } from './blocks/quip/block'
 import { rankBlock } from './blocks/rank/block'
 import { rateBlock } from './blocks/rate/block'
 import { splitBlock } from './blocks/split/block'
+import { tierBlock } from './blocks/tier/block'
 import { voteBlock } from './blocks/vote/block'
 import { parseMarkdownGame } from './markdown'
 import { resolveComposition } from './runtime/decks'
@@ -36,6 +37,7 @@ const SCHEMAS: Record<string, { safeParse: (c: unknown) => { success: boolean } 
   rate: rateBlock.contentSchema,
   poll: pollBlock.contentSchema,
   rank: rankBlock.contentSchema,
+  tier: tierBlock.contentSchema,
   draw: drawBlock.contentSchema,
   drawvote: drawVoteBlock.contentSchema,
   hivemind: hivemindBlock.contentSchema,
@@ -359,6 +361,35 @@ describe('parseMarkdownGame', () => {
     expect(rounds[0]!.block).toBe('spectrum')
     expect(c).toMatchObject({ prompt: 'Pineapple on pizza', leftLabel: 'Disgusting', rightLabel: 'Delicious' })
     expect(SCHEMAS.spectrum!.safeParse(c).success).toBe(true)
+  })
+
+  it('parses a ## tier round with items and custom band labels', () => {
+    const { rounds, warnings } = parseMarkdownGame(
+      '## tier\nprompt: Tier these snacks\ntiers: S | A | B | C | D\nscored: yes\n- Pizza\n- Tacos\n- Pineapple on pizza\n- Kale',
+    )
+    expect(warnings).toEqual([])
+    const c = rounds[0]!.content as {
+      prompt: string
+      tiers: Array<{ label: string; color: string }>
+      items: Array<{ id: string; label: string }>
+      scored: boolean
+    }
+    expect(rounds[0]!.block).toBe('tier')
+    expect(c.prompt).toBe('Tier these snacks')
+    expect(c.tiers.map((t) => t.label)).toEqual(['S', 'A', 'B', 'C', 'D'])
+    expect(c.items.map((i) => i.label)).toEqual(['Pizza', 'Tacos', 'Pineapple on pizza', 'Kale'])
+    expect(c.scored).toBe(true)
+    // ids are unique (placements key by id)
+    expect(new Set(c.items.map((i) => i.id)).size).toBe(c.items.length)
+    expect(SCHEMAS.tier!.safeParse(c).success).toBe(true)
+  })
+
+  it('defaults a ## tier round to the S-D bands when none are given', () => {
+    const { rounds } = parseMarkdownGame('## tier\nprompt: Rank the seasons\n- Summer\n- Winter')
+    const c = rounds[0]!.content as { tiers: Array<{ label: string }>; liveConsensus: boolean }
+    expect(c.tiers.length).toBeGreaterThanOrEqual(5)
+    expect(c.liveConsensus).toBe(true) // shown live unless hideboard: yes
+    expect(SCHEMAS.tier!.safeParse(c).success).toBe(true)
   })
 
   it('parses a ## categories round with a letter and category list', () => {

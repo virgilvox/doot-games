@@ -1,4 +1,6 @@
+import type { ScorePlayer } from '@doot-games/sdk'
 import { describe, expect, it } from 'vitest'
+import { type TierContent, type TierInput, tierBlock } from './block'
 import {
   type TierItem,
   type TierPlacements,
@@ -9,6 +11,7 @@ import {
   playerBoardScore,
   standout,
   tallyItem,
+  textOn,
   tierProximity,
 } from './logic'
 
@@ -117,5 +120,148 @@ describe('awards', () => {
   it('returns null awards for an empty / uncontested room', () => {
     expect(mostDivisive(consensusBoard(ITEMS, 5, []))).toBeNull()
     expect(standout(consensusBoard(ITEMS, 5, []))).toBeNull()
+  })
+})
+
+// ── the block contract: aggregate / revealSummary / isComplete ──────────────────
+function content(over: Partial<TierContent> = {}): TierContent {
+  return {
+    ...tierBlock.defaultContent(),
+    tiers: [
+      { label: 'S', color: '#f00' },
+      { label: 'A', color: '#fa0' },
+      { label: 'B', color: '#ff0' },
+    ],
+    items: [
+      { id: 'pizza', label: 'Pizza', image: '' },
+      { id: 'kale', label: 'Kale', image: '' },
+    ],
+    ...over,
+  }
+}
+const PLAYERS: ScorePlayer[] = [
+  { id: 'a', name: 'Ann', joinedAtIndex: 0 },
+  { id: 'b', name: 'Bo', joinedAtIndex: 0 },
+  { id: 'c', name: 'Cy', joinedAtIndex: 0 },
+]
+// pizza: 2 in S, 1 in A (modal S, divisive); kale: unanimous B.
+const INPUTS = new Map<string, TierInput>([
+  ['a', { placements: { pizza: 0, kale: 2 } }],
+  ['b', { placements: { pizza: 0, kale: 2 } }],
+  ['c', { placements: { pizza: 1, kale: 2 } }],
+])
+const ctx = (over: Partial<TierContent> = {}, inputs = INPUTS) => ({
+  rounds: [{ index: 0, content: content(over) }],
+  inputsFor: () => inputs,
+  answerFor: () => null,
+  players: PLAYERS,
+})
+
+describe('tier block aggregate', () => {
+  it('builds the board as a distribution + crown/divisive awards, no leaderboard when unscored', () => {
+    const frag = tierBlock.aggregate!(ctx())
+    expect(frag.leaderboard).toBeUndefined()
+    const bars = frag.distributions?.[0]?.bars ?? []
+    // top tier first; display is the band label; count = tierCount - tierIndex
+    expect(bars.map((b) => `${b.label}:${b.display}:${b.count}`)).toEqual(['Pizza:S:3', 'Kale:B:1'])
+    const awards = Object.fromEntries((frag.awards ?? []).map((a) => [a.subject, a.label]))
+    expect(awards.Kale).toMatch(/Room agrees: B/) // unanimous standout
+    expect(awards.Pizza).toBe('Most divisive') // the split item, distinct from the crown
+  })
+
+  it('scores "match the room" when scored, with partial credit for off-by-one', () => {
+    const frag = tierBlock.aggregate!(ctx({ scored: true }))
+    const byName = Object.fromEntries((frag.leaderboard ?? []).map((e) => [e.name, e.score]))
+    // consensus: pizza=S(0), kale=B(2). a,b match both -> full; c off-by-one on pizza -> 0.75
+    expect(byName.Ann).toBe(byName.Bo)
+    expect(byName.Ann).toBeGreaterThan(byName.Cy)
+    expect(byName.Cy).toBe(Math.round(byName.Ann * 0.75))
+    expect((frag.leaderboard ?? [])[0]?.detail).toBe('2 matched')
+  })
+
+  it('accumulates the leaderboard across multiple tier rounds', () => {
+    const one = content({ scored: true })
+    const frag = tierBlock.aggregate!({
+      rounds: [
+        { index: 0, content: one },
+        { index: 1, content: one },
+      ],
+      inputsFor: () => INPUTS,
+      answerFor: () => null,
+      players: PLAYERS,
+    })
+    const single = tierBlock.aggregate!(ctx({ scored: true }))
+    const ann2 = (frag.leaderboard ?? []).find((e) => e.name === 'Ann')?.score ?? 0
+    const ann1 = (single.leaderboard ?? []).find((e) => e.name === 'Ann')?.score ?? 0
+    expect(ann2).toBe(ann1 * 2)
+  })
+
+  it('does not score players for rounds before they joined', () => {
+    const late: ScorePlayer[] = [{ id: 'a', name: 'Ann', joinedAtIndex: 1 }] // joined after round 0
+    const frag = tierBlock.aggregate!({
+      rounds: [{ index: 0, content: content({ scored: true }) }],
+      inputsFor: () => new Map([['a', { placements: { pizza: 0, kale: 2 } }]]),
+      answerFor: () => null,
+      players: late,
+    })
+    // a perfect board but ineligible round -> 0 -> no leaderboard surfaces
+    expect(frag.leaderboard).toBeUndefined()
+  })
+
+  it('handles an empty room (no inputs) without a board or a crash', () => {
+    const frag = tierBlock.aggregate!(ctx({}, new Map()))
+    expect(frag.distributions ?? []).toHaveLength(0)
+    expect(frag.awards ?? []).toHaveLength(0)
+  })
+})
+
+describe('textOn (label contrast)', () => {
+  it('keeps dark text on the pastel default bands and flips to white on dark colors', () => {
+    expect(textOn('#ffd43b')).toBe('#1a1a1a') // yellow B
+    expect(textOn('#ff6b6b')).toBe('#1a1a1a') // red S
+    expect(textOn('#1a2a4a')).toBe('#ffffff') // a dark navy a user might pick
+    expect(textOn('#000000')).toBe('#ffffff')
+  })
+  it('falls back to dark for a non-hex / empty color', () => {
+    expect(textOn('var(--primary)')).toBe('#1a1a1a')
+    expect(textOn('')).toBe('#1a1a1a')
+  })
+})
+
+describe('tier content schema', () => {
+  it('rejects duplicate item ids (which would merge votes + collide list keys)', () => {
+    const dup = tierBlock.contentSchema.safeParse({
+      prompt: 'x',
+      items: [
+        { id: 'same', label: 'A', image: '' },
+        { id: 'same', label: 'B', image: '' },
+      ],
+    })
+    expect(dup.success).toBe(false)
+  })
+  it('accepts a board with unique ids (defaults fill the rest)', () => {
+    const okParse = tierBlock.contentSchema.safeParse({
+      prompt: 'x',
+      items: [
+        { id: 'a', label: 'A', image: '' },
+        { id: 'b', label: 'B', image: '' },
+      ],
+    })
+    expect(okParse.success).toBe(true)
+  })
+})
+
+describe('tier block revealSummary + isComplete', () => {
+  it('reveals the consensus tier per item', () => {
+    const summary = tierBlock.revealSummary!({ content: content(), inputs: INPUTS, answer: null, players: PLAYERS })
+    expect(summary.tiers.map((t) => t.label)).toEqual(['S', 'A', 'B'])
+    expect(summary.board.find((b) => b.id === 'kale')?.tier).toBe(2)
+    expect(summary.board.find((b) => b.id === 'pizza')?.tier).toBe(0)
+  })
+  it('is complete only when every item is placed', () => {
+    const c = content()
+    expect(tierBlock.isComplete!(c, { placements: { pizza: 0, kale: 2 } })).toBe(true)
+    expect(tierBlock.isComplete!(c, { placements: { pizza: 0 } })).toBe(false)
+    expect(tierBlock.isComplete!(c, { placements: {} })).toBe(false)
   })
 })

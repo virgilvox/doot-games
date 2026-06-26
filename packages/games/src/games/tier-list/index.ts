@@ -93,7 +93,9 @@ export const tierList = defineGame({
   defaultConfig: { title: 'Tier List', rounds: [boardRound(POOL.slice(0, ITEMS_PER_GAME))] },
   contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {
-    const rows = opts?.rows?.length ? opts.rows : DEFAULT_ROWS
+    // A board needs >= 2 items (schema min); a one-row deck would be degenerate, so
+    // fall back to the built-in pool when the deck is too small.
+    const rows = (opts?.rows?.length ?? 0) >= 2 ? opts!.rows! : DEFAULT_ROWS
     const n = Math.max(2, Math.min(opts?.rounds ?? ITEMS_PER_GAME, rows.length))
     const subjects = seededShuffle(`tier-list:${seed}`)(rows)
       .slice(0, n)

@@ -147,7 +147,7 @@ bind: prompt = trivia.question
 bind: correct = trivia.answer
 
 REMIX A FLAGSHIP WITH YOUR OWN CONTENT: many flagships play a built-in pool, but a creator can swap in their own deck. list_game_types marks each remixable game with a "contentDeck" kind. There are two shapes:
-- PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room): one text column. Use remix_game with the prompts as "csv" (one per line) and it saves a host-ready remix in one step. No markdown needed.
+- PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room, tier-list): one text column. Use remix_game with the prompts as "csv" (one per line) and it saves a host-ready remix in one step. No markdown needed.
 - TYPED games (fib-finder + ballpark + what-you-didnt-know + quiz-or-die = "quiz"; faker = "card"; mad-libs = "generic"): multiple columns (e.g. question + answer). The single-column "csv" can't carry these, so first save_deck a multi-column deck, then remix_game with its deckId. Conventional columns per game: fib-finder = question, truth; ballpark = prompt, answer (+ optional unit); what-you-didnt-know = prompt, options (a |-separated list) , correct (1-based index); quiz-or-die = question, options, correct (1-based) + an optional lurid category (the finale stays built-in); faker = category, word; mad-libs = template (with {token} blanks). Answer columns (truth, answer, correct, word) are withheld from non-owners, so KEEP A TYPED REMIX DECK PRIVATE.
 
 == CUSTOM-FLOW GAMES (not authorable as markdown) ==
@@ -335,7 +335,7 @@ const TOOLS = [
   {
     name: 'remix_game',
     description:
-      "Remix a pool-driven Doot flagship to play YOUR content. Attach a content deck to a game and it plays your content instead of the built-in pool (the host still shuffles + picks how many each play). PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room) take a single text column: give it as 'csv' (one prompt per line). TYPED games (fib-finder, ballpark, what-you-didnt-know, faker, mad-libs) need multiple columns, so save_deck first and pass its 'deckId'. See list_game_types for which games are remixable and their deck kind. Returns a link to host the remix.",
+      "Remix a pool-driven Doot flagship to play YOUR content. Attach a content deck to a game and it plays your content instead of the built-in pool (the host still shuffles + picks how many each play). PROMPT games (quip-clash, open-mic, backronym, most-likely, hivemind, sketch-spot, split-room, tier-list) take a single text column: give it as 'csv' (one prompt per line). TYPED games (fib-finder, ballpark, what-you-didnt-know, faker, mad-libs) need multiple columns, so save_deck first and pass its 'deckId'. See list_game_types for which games are remixable and their deck kind. Returns a link to host the remix.",
     inputSchema: {
       type: 'object',
       properties: {

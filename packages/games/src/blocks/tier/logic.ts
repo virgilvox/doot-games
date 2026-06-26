@@ -53,6 +53,23 @@ export const DEFAULT_TIERS: TierDef[] = [
   { label: 'D', color: '#4dabf7' },
 ]
 
+/** Pick a readable text colour (near-black or white) for a label sitting ON a tier
+ *  colour, so an author who recolours a band to something dark still gets a legible
+ *  letter (the band label is a primary cue, never colour alone). Non-hex inputs fall
+ *  back to dark. Pure + tested. */
+export function textOn(color: string): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec((color ?? '').trim())
+  if (!m) return '#1a1a1a'
+  const n = Number.parseInt(m[1] as string, 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  // Perceived luminance; the pastel defaults stay dark-texted (>0.5), darker custom
+  // colours flip to white.
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return lum > 0.5 ? '#1a1a1a' : '#ffffff'
+}
+
 /** Tally one item's votes across every player's board. Out-of-range tiers are dropped. */
 export function tallyItem(itemId: string, tierCount: number, placements: Iterable<TierPlacements>): number[] {
   const votes = new Array(tierCount).fill(0)
