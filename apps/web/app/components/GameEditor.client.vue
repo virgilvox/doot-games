@@ -103,6 +103,7 @@ const SINGLE_DESC: Record<string, string> = {
   rate: 'Score things on a scale.',
   poll: 'An opinion vote, no right answer.',
   rank: 'Players drag items into order.',
+  tier: 'Place items into S/A/B/C/D tiers; the room builds one board.',
   draw: 'Players sketch the prompt.',
   hivemind: 'Free-text answers; score by matching the crowd.',
   mostlikely: 'Vote on who in the room fits the prompt.',
@@ -1027,8 +1028,17 @@ onScopeDispose(() => {
                 </p>
               </div>
             </div>
+            <!-- A block can ship a purpose-built editor (e.g. Tier's bulk-add board
+                 builder); otherwise the form is generated from its Zod schema. Both
+                 share the same model-value contract, so the editor stores either. -->
+            <component
+              :is="blockFor(cur)!.Editor"
+              v-if="blockFor(cur)?.Editor"
+              :model-value="contentOf(cur)"
+              @update:model-value="onContentUpdate(selected, $event)"
+            />
             <SchemaForm
-              v-if="blockFor(cur)"
+              v-else-if="blockFor(cur)"
               :schema="blockFor(cur)!.contentSchema"
               :hide="derivedFieldsOf(cur)"
               :model-value="contentOf(cur)"

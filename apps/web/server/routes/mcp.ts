@@ -72,6 +72,7 @@ Header fields above also work as save_game / update_game / set_game_meta argumen
 * "## buzzer": first-correct trivia, fastest right answer scores most. Fields: subject, prompt, image, timer (default 20), "points:" (worth, default 100; raise each round to escalate). 2+ "- choice"; "(correct)" marks the answer.
 * "## poll": opinion, no right answer. Fields: prompt, image, timer (default none). 2+ "- choice".
 * "## rank": players drag items into order; a consensus ranking is shown. Fields: prompt, image, timer (default none). 2+ "- item".
+* "## tier": the whole room places items into S/A/B/C/D tiers, building one consensus board (the big screen shows it form live). Fields: prompt, image, timer (default none), "tiers: S | A | B | C | D" (pipe-separated band labels), "scored: yes" (score matching the room), "hideboard: yes" (hide until reveal). 2+ "- item".
 * "## rate": score subjects on a scale. Fields: subject, prompt, image, timer, "categories: A, B, C", "scale:" (a range like "1-10", or labels like "F, D, C, B, A").
 * "## draw": players sketch the prompt. Fields: prompt, image, timer (default 60). Add "vote: true" for draw-then-vote (the room votes the best drawing). With vote: "voteprompt:", "votetimer:" (default 30).
 * "## hivemind": free-text answer, score by MATCHING the crowd ("read the room"). Fields: prompt, timer (default 30). Use prompts with an obvious popular answer ("Name a color of the rainbow"). No "- " items.

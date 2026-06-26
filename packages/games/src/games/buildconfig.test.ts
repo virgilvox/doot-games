@@ -257,14 +257,16 @@ describe('new games build the shape they claim', () => {
     }
   })
 
-  it('tier-list: rate rounds on a labelled tier scale', () => {
-    for (const r of rounds('tier-list')) {
-      expect(r.block).toBe('rate')
-      const c = r.content as { scale: { kind: string }; categories: Array<{ id: string }>; subject: string }
-      expect(c.scale.kind).toBe('levels')
-      expect(c.categories[0]!.id).toBe('tier')
-      expect(c.subject.length).toBeGreaterThan(0)
-    }
+  it('tier-list: one tier board whose items come from the pool', () => {
+    const rs = rounds('tier-list')
+    expect(rs.length).toBe(1) // a single board, not one round per subject
+    const c = rs[0]!.content as { tiers: Array<{ label: string }>; items: Array<{ id: string; label: string }> }
+    expect(c.tiers.length).toBeGreaterThanOrEqual(2)
+    expect(c.items.length).toBeGreaterThanOrEqual(2)
+    expect(rs[0]!.block).toBe('tier')
+    expect(c.items.every((it) => it.id && it.label.length > 0)).toBe(true)
+    // ids are unique (placements key by id)
+    expect(new Set(c.items.map((it) => it.id)).size).toBe(c.items.length)
   })
 
   it('categories: a single uppercase letter + at least one category', () => {

@@ -23,6 +23,7 @@
  */
 import { PROMPT_MAX, type DeckUse, type RoundInstance } from '@doot-games/sdk'
 import { parseBoard } from './blocks/survey/logic'
+import { DEFAULT_TIERS } from './blocks/tier/logic'
 import { parseSheet } from './runtime/sheet'
 
 // Re-export the pure spreadsheet parser so server code (which can't import the package
@@ -241,6 +242,34 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
         },
       ]
     }
+    case 'tier': {
+      // `- item` lines are the things to tier; an optional `tiers: S | A | B | C | D`
+      // names the bands (else the classic S-D defaults).
+      const items = (labels.length >= 2 ? labels : ['Pizza', 'Tacos']).map((label, i) => ({
+        id: slugId(label, i),
+        label,
+        image: '',
+      }))
+      const tierLabels = pipeList(p.tiers)
+      const tiers =
+        tierLabels.length >= 2
+          ? tierLabels.slice(0, 8).map((label, i) => ({ label, color: DEFAULT_TIERS[i % DEFAULT_TIERS.length]!.color }))
+          : DEFAULT_TIERS.map((t) => ({ ...t }))
+      return [
+        {
+          block: 'tier',
+          content: {
+            prompt: p.prompt ?? 'Tier these',
+            image: p.image ?? '',
+            timer: toTimer(p.timer, null),
+            tiers,
+            items,
+            scored: isTruthy(p.scored),
+            liveConsensus: !isTruthy(p.hideboard),
+          },
+        },
+      ]
+    }
     case 'draw': {
       const aspect = Number(p.aspect)
       const asp = Number.isFinite(aspect) && aspect > 0 ? aspect : 0.7
@@ -447,7 +476,7 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
     }
     default:
       warnings.push(
-        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, answer, wager, poll, rank, rate, draw, buzzer, hivemind, mostlikely, ballpark, categories, survey, spectrum, quip, fill, faker.`,
+        `Unknown block kind "${raw.kind}" - skipped. Use one of: guess, answer, wager, poll, rank, tier, rate, draw, buzzer, hivemind, mostlikely, ballpark, categories, survey, spectrum, quip, fill, faker.`,
       )
       return []
   }

@@ -5,6 +5,43 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **NEW BLOCK: `tier` (a real tier-list board) + the `tier-list` flagship rebuilt on it
+> (2026-06-26).** The canonical "place a SET of items into S/A/B/C/D bands" board, as a
+> first-party block you can drop into any custom game. (The old `tier-list` was a `rate`
+> composition that scored one subject per round; the new one is one shared board.)
+> - **Why it scales to a packed room (the headline property):** the board aggregates per
+>   ITEM, so 100 players collapse into one fixed-size board (tiers x items). The crowd shows
+>   up only as each item's agreement % and a vote count, NEVER as per-player DOM - unlike the
+>   roster, the host board does not grow with players. Verified: `scripts/tier-board-smoke.mjs`
+>   at 97 players (95 headless RoomRuntime + 2 phones) renders 5 lanes / 12 items, **0 host
+>   errors, 0 overflow**, identical layout to 8 players; a grade-inflation stress (all 12 items
+>   dumped into S) wraps in-lane with **0 overflow** (empty lanes cede the space).
+> - **Player UX = tap-to-assign, no drag** (Doot's deliberate choice, like RankList's buttons):
+>   each item card has the tier chips; one tap places it. `8/12 placed` gates Lock-in. Fully
+>   keyboard/SR-accessible, clean at 390px.
+> - **Consensus = MODE, not mean** (a 50/50 S-vs-D split averages to a tier nobody chose). Pure
+>   `blocks/tier/logic.ts` (agreement, controversy, awards, optional match-the-crowd scoring via
+>   `(exact=1, off-by-one=0.5)` normalised to BASE_POINTS) with 12 unit tests. No answer is
+>   withheld (consensus emerges from inputs, like rank/hivemind) - so no REDACTION rule.
+> - **Building UX (the ask):** a purpose-built `TierEditor.vue` wired through a NEW generic
+>   `block.Editor` hook in `GameEditor` (mount `block.Editor` when present, else `SchemaForm` -
+>   any block can now ship a custom editor). It has BULK ADD (paste a list, one item per line ->
+>   all become items at once), per-item image (URL/upload via `ImageField`), reorder, and tier
+>   presets (Classic S–D / S–F / Hot–Cold) with colour swatches. This is how you add many
+>   "options" inside the one tier round.
+> - **Host board** (`TierHost.vue`): colored lanes; items drift into their modal tier as votes
+>   arrive (CSS, `liveConsensus` toggle), agreement % + a divisive-split sparkline at reveal.
+>   Renders in the right half of the GameHost split stage. **Phone reveal** (`TierReveal.vue`):
+>   "the room's board - you matched N of M".
+> - **Wired everywhere:** `blocks/index` export, the `custom` game's blocks (addable by hand),
+>   `markdown.ts` (`## tier`, `tiers: S | A | B | C | D`, `scored`, `hideboard`) + the
+>   doot_format_guide + docs/markdown-games.md, `visuals.ts`, GameEditor `SINGLE_DESC`. The
+>   `tier-list` game's buildConfig maps its subject pool (and any prompt deck) into ONE board's
+>   items, so deck-feeding still works; `roundOptions` now sets item count.
+> - **Known follow-ups:** deck-fed item IMAGES need a multi-row "column -> array" pool (mode-3,
+>   per the decks roadmap) - v1 is manual items + per-item image. Pairwise/Elo for huge sets, a
+>   2-axis alignment grid, and a host-driven item-by-item "panel" mode are separate primitives.
+
 > **LOAD TEST: 100 players in one room - PASSED (2026-06-26).** A new harness
 > `scripts/load-test.mjs` (run with the repo's `jiti`, since it imports the TS engine
 > package) stress-tests a real game at party scale. It authors + saves a `custom`

@@ -171,6 +171,22 @@ prompt: Rank these from best to worst
 - Sushi
 ```
 
+### `tier`: build one S-to-D board the whole room shares
+Fields: `prompt`, `image`, `timer` (default none), `tiers:` (pipe-separated band
+labels; default `S | A | B | C | D`), `scored: yes` (score players for matching the
+room), `hideboard: yes` (hide the forming consensus until the reveal). The items to
+place as `- `. Everyone tiers every item; the big screen shows the consensus board.
+
+```markdown
+## tier
+prompt: Tier these snacks
+tiers: S | A | B | C | D
+- Pizza
+- Tacos
+- Pineapple on pizza
+- Kale
+```
+
 ### `rate`: score subjects on a scale
 Fields: `subject`, `prompt`, `image`, `timer` (default none),
 `categories:` (comma-separated), and `scale:`. The scale is either a numeric

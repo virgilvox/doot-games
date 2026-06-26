@@ -28,6 +28,7 @@ import { slideBlock } from '../../blocks/slide/block'
 import { spectrumBlock } from '../../blocks/spectrum/block'
 import { splitBlock } from '../../blocks/split/block'
 import { surveyBlock } from '../../blocks/survey/block'
+import { tierBlock } from '../../blocks/tier/block'
 import { titleBlock } from '../../blocks/title/block'
 import { wagerBlock } from '../../blocks/wager/block'
 import { voteBlock } from '../../blocks/vote/block'
@@ -60,6 +61,7 @@ export const custom = defineGame({
     rateBlock,
     pollBlock,
     rankBlock,
+    tierBlock,
     drawBlock,
     drawVoteBlock,
     hivemindBlock,
