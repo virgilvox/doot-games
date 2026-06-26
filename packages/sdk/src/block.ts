@@ -147,6 +147,15 @@ export interface RoundBlock<Content = unknown, Input = unknown> {
    *  phones with no submit button, and the host advances it with a single button
    *  instead of the open/lock/reveal beat. Such a block has no aggregate/answer. */
   display?: boolean
+  /** A custom-flow block that OWNS the whole round and runs its own multi-step,
+   *  host-driven sequence (e.g. a tier list that votes one item at a time and fills a
+   *  board). The renderer shows its HostDisplay full-stage (no prompt grid) and the
+   *  PlayerInput full (no generic "Lock it in"), suppresses the open/lock/reveal
+   *  ControlBar, and never auto-locks: the block's own views drive the flow via the
+   *  injected room (`room.host.openVoting/lock/reveal/next`, `publishExtra`/`onExtra`)
+   *  and submit through the standard round input so the normal aggregate still scores
+   *  it. Such a block sets `timerOf` to null so the engine never auto-locks under it. */
+  solo?: boolean
   /** One round's content. The editor auto-forms from this (image fields get
    *  an uploader with preview). */
   contentSchema: z.ZodType<Content>

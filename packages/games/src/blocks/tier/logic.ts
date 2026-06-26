@@ -173,6 +173,28 @@ export function mostDivisive(board: ItemConsensus[]): ItemConsensus | null {
   return best
 }
 
+/** The running "match the room" leaderboard for the item-by-item flow: each player
+ *  earns points on every PLACED item by how close their pick was to the room's
+ *  consensus (exact = full, one off = half), summed and sorted. Pure + tested. */
+export function runningLeaderboard(
+  roster: Array<{ id: string; name: string }>,
+  placed: Array<{ tier: number; votes: Map<string, number> }>,
+  base = BASE_POINTS,
+): Array<{ id: string; name: string; score: number; hits: number }> {
+  const rows = new Map(roster.map((r) => [r.id, { id: r.id, name: r.name, score: 0, hits: 0 }]))
+  for (const item of placed) {
+    if (item.tier < 0) continue
+    for (const [pid, tier] of item.votes) {
+      const row = rows.get(pid)
+      if (!row) continue
+      const p = tierProximity(tier, item.tier)
+      row.score += Math.round(base * p)
+      if (p === 1) row.hits++
+    }
+  }
+  return [...rows.values()].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+}
+
 /** A standout: the item the room most agreed on, preferring the top tiers so the
  *  award reads like a crowning ("Unanimous S"). Null when nothing was placed. */
 export function standout(board: ItemConsensus[]): ItemConsensus | null {

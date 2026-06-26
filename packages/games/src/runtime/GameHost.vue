@@ -217,6 +217,9 @@ const countdown = computed(() => {
 // A display block (an info slide / title card) has no player input: the room just
 // reads it and the host advances with a single button.
 const isDisplay = computed(() => !!block.value?.display)
+// A solo block owns the whole stage and drives its own multi-step flow; the generic
+// ControlBar + auto-lock are suppressed (the block advances the round itself).
+const isSolo = computed(() => !!block.value?.solo)
 // "Voting" only fits the judge rounds (Vote/Split); a make/standalone round
 // collects answers, so label the state by what's actually happening.
 const isJudge = computed(() => !!block.value?.derive)
@@ -254,6 +257,7 @@ const answering = computed(() => state.value === 'open' || state.value === 'lock
 // can't trip it (the timer or the host still cover those). Never auto-reveals or
 // advances: the host keeps the reveal beat.
 function maybeAutoLock() {
+  if (isSolo.value) return // a solo block drives its own advancement
   if (!autoAdvance.value) return
   if (state.value !== 'open') return
   const { locked, total } = lockCount.value
@@ -705,8 +709,12 @@ watch(
 
   <!-- ACTIVE -->
   <div v-else-if="instance && block" class="stage">
+    <!-- A solo block owns the whole stage AND its controls (item-by-item tier list). -->
+    <div v-if="isSolo" class="stage-full">
+      <component :is="block.HostDisplay" :key="index" :content="content" :inputs="room.inputsFor(index)" :state="state" :answer="answer" />
+    </div>
     <!-- A display block (slide / title card) owns the whole stage. -->
-    <div v-if="isDisplay" class="stage-full">
+    <div v-else-if="isDisplay" class="stage-full">
       <component :is="block.HostDisplay" :key="index" :content="content" :state="state" />
     </div>
     <div v-else class="stage-grid">
@@ -740,7 +748,11 @@ watch(
       <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
     </div>
 
+    <!-- A solo block drives its own item flow during 'open' (its ControlBar is hidden),
+         then locks+reveals when done so the standard Next round / Final results button
+         appears and end-of-game scoring runs over every round as usual. -->
     <ControlBar
+      v-if="!isSolo || state === 'reveal'"
       :round-index="index"
       :round-count="rounds.length"
       :state-label="stateLabel"

@@ -1,10 +1,10 @@
 /**
- * Tier List, the item-by-item "build the S-to-F board" party game. A CUSTOM-FLOW
- * flagship: the engine parks on a single `tier` round (which only carries the items +
- * bands), and the custom Host/Player drive the show over `/x/` — one item at a time,
- * the room votes which tier it lands in, the board fills on the big screen, and a
- * "top of the room" leaderboard rewards reading the room. A lobby toggle switches to
- * "all at once" (place every item in parallel). See Host.vue / show.ts / logic.ts.
+ * Tier List, the item-by-item "build the S-to-F board" party game. A simple composition
+ * over the SOLO `tier` block: the block itself runs the whole show (one item at a time,
+ * the room votes which tier it lands in, the board fills on the big screen, a "top of
+ * the room" leaderboard) and then advances. The game is just the block plus a fresh set
+ * of subjects each play; the same block dropped into any custom game does the same thing
+ * and then moves on to the next round.
  *
  * Deck-feedable: attach a prompt deck of subjects (one per row) and the host tiers
  * your list instead of the built-in pool.
@@ -15,8 +15,6 @@ import { tierBlock } from '../../blocks/tier/block'
 import { DEFAULT_TIERS } from '../../blocks/tier/logic'
 import { promptFromRow } from '../../runtime/decks'
 import { seededShuffle } from '../../runtime/derive'
-import TierHost from './Host.vue'
-import TierPlayer from './Player.vue'
 
 /** Built-in subjects to tier (broadly known, party-safe). A creator deck overrides these. */
 const POOL: string[] = [
@@ -70,10 +68,10 @@ function boardRound(subjects: string[]): RoundInstance {
     content: {
       prompt: 'Where does each one land?',
       image: '',
-      timer: null,
+      timer: 20, // seconds per item (the solo block drives its own per-item countdown)
       tiers: DEFAULT_TIERS.map((t) => ({ ...t })),
       items: itemsFor(subjects),
-      scored: false,
+      scored: true, // the flagship shows the "top of the room" leaderboard
       liveConsensus: true,
     },
   }
@@ -94,7 +92,6 @@ export const tierList = defineGame({
     flagship: true,
   },
   blocks: [tierBlock],
-  components: { Host: TierHost, Player: TierPlayer },
   defaultConfig: { title: 'Tier List', rounds: [boardRound(POOL.slice(0, ITEMS_PER_GAME))] },
   contentPool: { defaultRows: DEFAULT_ROWS, deckKind: 'prompt', fromRow: promptFromRow },
   buildConfig: (seed: string, opts?: { rounds?: number; rows?: Array<Record<string, string | number>> }) => {

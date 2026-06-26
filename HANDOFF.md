@@ -5,6 +5,41 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **TIER LIST is now a SOLO BLOCK (2026-06-26, final). SUPERSEDES the two tier entries
+> below** (the all-at-once block + the custom-flow-game versions). Per owner direction: the
+> item-by-item tier experience is baked into the `tier` BLOCK itself, so dropping a Tier List
+> round into any game runs the whole show (board fills, NOW RANKING, leaderboard, the reveal
+> beat), then advances to whatever round comes next (any type). One block, not a special game.
+> - **New renderer capability: `solo` blocks.** Added `RoundBlock.solo?: boolean` (sdk, mirrors
+>   `display`). `GameHost` renders a solo block full-stage, hides the generic open/lock/reveal
+>   ControlBar (shown again only at the round's `reveal` so the standard Next round / Final
+>   results + end-of-game scoring still run), and skips `maybeAutoLock`. `GamePlayer` renders the
+>   solo PlayerInput full (no "Lock it in"). All opt-in + gated; every other block/game untouched
+>   (verified: 841 tests + typecheck green). Block views reach the room via `injectDootRoom()`
+>   (works live AND in the editor preview's no-op mock room). Documented as "Way 5" in
+>   docs/authoring-a-game.md.
+> - **The `tier` block** (`packages/games/src/blocks/tier/`): `solo: true`, `timerOf: () => null`.
+>   Its HostDisplay opens the round, drives an item-by-item show (broadcasts the current item on
+>   `/x/tiershow`; reads the live cumulative board / lock count / leaderboard straight from the
+>   STANDARD round `inputs`), and when items are exhausted calls `lock()`+`reveal()` to hand off.
+>   PlayerInput shows ONE item + full-width tier buttons (sublabels like "GOD TIER"); a re-tap
+>   CHANGES your vote until the host reveals that item (no early lock); it submits the growing
+>   placements via `room.submit`, so the existing all-at-once `aggregate` scores it unchanged.
+>   Per-item timer = `content.timer` seconds (default 20), pausable; honours the lobby "turn off
+>   timers". `content.scored` gates the "Top of the room" leaderboard (flagship = true).
+> - **Image vs text + overflow handled**: an item shows its image big (or the name big when text);
+>   board cells are thumbnails or text chips; a packed band shrinks its cells and caps with a "+N"
+>   chip so any distribution (incl. all 24 in one tier) fits; the lock indicator is dots for small
+>   rooms, a bar for big ones (no per-player DOM).
+> - **The flagship `tier-list` game is now just `[tier]`** (a one-line composition; the custom-flow
+>   Host/Player/show/logic were deleted). Deck-feeding preserved. Verified `scripts/tier-flow-smoke.mjs`:
+>   Part A = 98 players (95 headless voting via the standard input over `/x/`-synced items), 12
+>   items, **1140 votes, 0 host errors, 0 overflow**, host + phone + editor-preview match the mockup;
+>   Part B = a `[tier, poll]` game proves the block finishes its items and **advances to the poll
+>   round**. (Note: the earlier custom-flow Host had a critical unvalidated-vote bug + a 100-player
+>   lock-dot blowout - both gone, since votes now go through the validated standard input and the
+>   dots cap.)
+
 > **TIER LIST rebuilt as an ITEM-BY-ITEM custom-flow flagship (2026-06-26).** Per owner
 > direction + a mockup: the flagship now runs one item at a time (not all-at-once). The host
 > steps through items, the room votes which S-to-F band each lands in, the board fills live on

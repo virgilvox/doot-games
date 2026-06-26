@@ -108,11 +108,14 @@ function placementsOf(inputs: Map<string, TierInput | null | undefined>): TierPl
 export const tierBlock = defineBlock<TierContent, TierInput>({
   kind: 'tier',
   name: 'Tier List',
+  // A solo block: it owns the whole round and runs the item-by-item show itself (the
+  // board fills on the big screen, the room votes one item at a time), then advances.
+  solo: true,
   contentSchema: tierContentSchema,
   defaultContent: (): TierContent => ({
-    prompt: 'Tier these snacks',
+    prompt: 'Where does it go?',
     image: '',
-    timer: 60,
+    timer: 20, // SECONDS PER ITEM (the block drives its own per-item countdown)
     tiers: DEFAULT_TIERS.map((t) => ({ ...t })),
     items: [
       { id: 'pizza', label: 'Pizza', image: '' },
@@ -125,8 +128,10 @@ export const tierBlock = defineBlock<TierContent, TierInput>({
     scored: false,
     liveConsensus: true,
   }),
-  defaultTimer: 60,
-  timerOf: (c) => c.timer,
+  defaultTimer: null,
+  // The engine must NEVER auto-lock a solo round; the block holds it open and drives
+  // its own per-item timing. (`content.timer` is repurposed as seconds-per-item.)
+  timerOf: () => null,
   emptyInput: (): TierInput => ({ placements: {} }),
   // Complete once every item has a VALID tier (a real in-range band), so an untouched
   // submit does not silently dump everything into the top band, and a forged NaN /

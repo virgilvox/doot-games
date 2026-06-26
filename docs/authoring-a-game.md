@@ -97,6 +97,28 @@ Custom views reach the live room with `injectDootRoom()` from
 `results`), `room.submit(input)`, and host actions (`room.host.start/openVoting/
 lock/reveal/next/finish`, gated by `room.host.can(...)`).
 
+### Way 5 - A SOLO block (one block that runs its own multi-step show)
+
+When you want a single **block** (composable into any game, advances to the next
+round when done) that runs a richer host-driven flow than one open→lock→reveal beat
+- e.g. the Tier List, which votes one item at a time and fills a board. Set
+`solo: true` on the block (mirrors `display`). The renderer then shows the block's
+HostDisplay full-stage with NO prompt grid, shows the PlayerInput full with no generic
+"Lock it in", hides the open/lock/reveal ControlBar, and never auto-locks. The block's
+own views drive everything via `injectDootRoom()`:
+
+- the **HostDisplay** opens the round (`room.host.openVoting()`), holds it open while it
+  sequences its steps (broadcasting state on a custom channel, e.g. `room.publishExtra('tiershow', ...)`),
+  and when finished calls `room.host.lock()` + `room.host.reveal()` so the standard "Next
+  round / Final results" button reappears (end-of-game scoring runs over every round as usual);
+- the **PlayerInput** reads that channel (`room.onExtra(...)`) and submits through the
+  **standard round input** (`room.submit(input)`) so the normal `aggregate` still scores it.
+
+The block MUST set `timerOf` to `null` (the engine must never auto-lock under it; drive
+your own per-step timer). It works in the editor preview too: the mock room's
+`publishExtra`/`onExtra`/`submit` are no-ops, so the views render a static first-step.
+The `tier` block (`packages/games/src/blocks/tier/`) is the reference.
+
 ---
 
 ## 3. The two-phase pattern (make → judge)

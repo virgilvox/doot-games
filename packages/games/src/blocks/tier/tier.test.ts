@@ -9,6 +9,7 @@ import {
   itemConsensus,
   mostDivisive,
   playerBoardScore,
+  runningLeaderboard,
   standout,
   tallyItem,
   textOn,
@@ -212,6 +213,32 @@ describe('tier block aggregate', () => {
     const frag = tierBlock.aggregate!(ctx({}, new Map()))
     expect(frag.distributions ?? []).toHaveLength(0)
     expect(frag.awards ?? []).toHaveLength(0)
+  })
+})
+
+describe('runningLeaderboard (item-by-item match the room)', () => {
+  const roster = [
+    { id: 'a', name: 'Ann' },
+    { id: 'b', name: 'Bo' },
+  ]
+  it('awards full for the consensus tier, half for one off, accumulates + sorts', () => {
+    const placed = [
+      { tier: 0, votes: new Map([['a', 0], ['b', 1]]) }, // Ann exact, Bo one-off
+      { tier: 2, votes: new Map([['a', 2], ['b', 4]]) }, // Ann exact, Bo miss
+    ]
+    const lb = runningLeaderboard(roster, placed, 1000)
+    const byName = Object.fromEntries(lb.map((r) => [r.name, r.score]))
+    expect(byName.Ann).toBe(2000) // two exact
+    expect(byName.Bo).toBe(500) // one off-by-one
+    expect(lb[0]!.name).toBe('Ann')
+    expect(lb.find((r) => r.name === 'Ann')!.hits).toBe(2)
+  })
+  it('skips unresolved items and unknown voters', () => {
+    const lb = runningLeaderboard(roster, [
+      { tier: -1, votes: new Map([['a', 0]]) },
+      { tier: 0, votes: new Map([['zzz', 0]]) },
+    ])
+    expect(lb.every((r) => r.score === 0)).toBe(true)
   })
 })
 

@@ -1,153 +1,184 @@
 <script setup lang="ts">
 /**
- * Phone input for a Tier round: TAP to assign. Each item is a card with a row of
- * tier chips; tapping a chip places the item in that tier. No drag (Doot's
- * deliberate choice, like RankList's buttons): precise dragging of small thumbnails
- * on a touchscreen is the format's worst pain point, and taps are faster + fully
- * keyboard/screen-reader accessible.
+ * Phone for the solo Tier List block: the host drives the item-by-item show; this
+ * shows the CURRENT item big and a stack of full-width tier buttons. One tap places
+ * it; re-tap to change freely until the host reveals that item (no early lock). Votes
+ * go through the STANDARD round input (room.submit of the growing placements map), so
+ * the normal aggregate scores it — the relay's `/x/tiershow` only syncs which item.
+ *
+ * With no live room (the editor preview) it falls back to item 0, so the preview shows
+ * the real one-item-at-a-time experience.
  */
-import { computed } from 'vue'
+import { injectDootRoom } from '@doot-games/engine/vue'
+import { computed, onMounted, ref } from 'vue'
 import type { TierContent, TierInput } from './block'
 import { DEFAULT_TIERS, textOn } from './logic'
+import type { TierShow } from './show'
 
-const props = defineProps<{ content: TierContent; modelValue: TierInput; disabled?: boolean }>()
+const props = defineProps<{ content: TierContent; modelValue?: TierInput }>()
 const emit = defineEmits<{ 'update:modelValue': [value: TierInput] }>()
+const room = injectDootRoom()
 
+const show = ref<TierShow | null>(null)
+onMounted(() => {
+  room.onExtra('tiershow', (v) => {
+    show.value = (v as TierShow | null) ?? null
+  })
+})
+
+const tiers = computed(() => props.content.tiers ?? DEFAULT_TIERS)
+const items = computed(() => props.content.items ?? [])
+const index = computed(() => Math.min(show.value?.index ?? 0, Math.max(0, items.value.length - 1)))
+const item = computed(() => items.value[index.value] ?? null)
+const phase = computed(() => show.value?.phase ?? 'voting')
 const placements = computed(() => props.modelValue?.placements ?? {})
-const placedCount = computed(() => props.content.items.filter((it) => typeof placements.value[it.id] === 'number').length)
+const myTier = computed(() => (item.value ? placements.value[item.value.id] : undefined))
 
 function colorOf(i: number): string {
-  return props.content.tiers[i]?.color || DEFAULT_TIERS[i % DEFAULT_TIERS.length]?.color || 'var(--primary)'
+  return tiers.value[i]?.color || DEFAULT_TIERS[i % DEFAULT_TIERS.length]?.color || 'var(--primary)'
 }
-function inkOf(i: number): string {
-  return textOn(colorOf(i))
-}
-function place(itemId: string, tier: number) {
-  if (props.disabled) return
-  emit('update:modelValue', { placements: { ...placements.value, [itemId]: tier } })
+function vote(tier: number) {
+  if (phase.value === 'reveal' || !item.value) return // locked once the host reveals
+  const next: TierInput = { placements: { ...placements.value, [item.value.id]: tier } }
+  emit('update:modelValue', next)
+  room.submit(next as never)
 }
 </script>
 
 <template>
-  <div class="tier-player">
-    <p class="tp-progress" aria-live="polite">
-      <span class="tp-count mono">{{ placedCount }}/{{ content.items.length }}</span> placed
-    </p>
-    <ol class="tp-items">
-      <li v-for="item in content.items" :key="item.id" class="tp-item" :class="{ done: typeof placements[item.id] === 'number' }">
-        <div class="tp-head">
-          <img v-if="item.image" :src="item.image" alt="" class="tp-thumb" />
-          <span class="tp-label">{{ item.label }}</span>
-        </div>
-        <div class="tp-chips" role="group" :aria-label="`Tier for ${item.label}`">
-          <button
-            v-for="(tier, ti) in content.tiers"
-            :key="ti"
-            type="button"
-            class="tp-chip"
-            :class="{ on: placements[item.id] === ti }"
-            :style="{ '--tc': colorOf(ti), '--tt': inkOf(ti) }"
-            :aria-pressed="placements[item.id] === ti"
-            :aria-label="`Place ${item.label} in tier ${tier.label}`"
-            :disabled="disabled"
-            @click="place(item.id, ti)"
-          >
-            {{ tier.label }}
-          </button>
-        </div>
-      </li>
-    </ol>
+  <div class="tl-player">
+    <template v-if="item">
+      <p class="tl-prompt">{{ content.prompt || 'Where does it go?' }}</p>
+      <img v-if="item.image" :src="item.image" alt="" class="tl-img" />
+      <h1 class="tl-name" :class="{ 'no-img': !item.image }">{{ item.label }}</h1>
+
+      <div v-if="phase === 'reveal'" class="tl-locked">
+        <span v-if="myTier != null" class="tl-yourpick" :style="{ '--tc': colorOf(myTier), '--tt': textOn(colorOf(myTier)) }">You said {{ tiers[myTier]?.label }}</span>
+        <h2>Locked in</h2>
+        <p>Watch the big screen — it's landing now.</p>
+      </div>
+      <div v-else class="tl-tiers" role="group" :aria-label="`Tier for ${item.label}`">
+        <button
+          v-for="(t, ti) in tiers"
+          :key="ti"
+          type="button"
+          class="tl-tier"
+          :class="{ on: myTier === ti }"
+          :style="{ '--tc': colorOf(ti), '--tt': textOn(colorOf(ti)) }"
+          :aria-pressed="myTier === ti"
+          @click="vote(ti)"
+        >
+          <span class="tl-letter">{{ t.label }}</span>
+          <span v-if="t.sublabel" class="tl-sub">{{ t.sublabel }}</span>
+        </button>
+      </div>
+      <p v-if="phase !== 'reveal'" class="tl-hint">Tap a tier — you can change it until it locks.</p>
+    </template>
+    <div v-else class="tl-locked"><h2>Get ready</h2><p>The first item is coming up.</p></div>
   </div>
 </template>
 
 <style scoped>
-.tier-player {
+.tl-player {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 11px;
 }
-.tp-progress {
+.tl-prompt {
   text-align: center;
   color: var(--ink-soft);
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
 }
-.tp-count {
-  font-weight: 800;
-  color: var(--ink);
-}
-.tp-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.tp-item {
-  background: var(--surface);
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 14px;
-  padding: 12px;
-  transition: border-color 0.15s;
-}
-.tp-item.done {
-  border-color: color-mix(in srgb, var(--primary) 35%, var(--line-soft));
-}
-.tp-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-.tp-thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 9px;
+.tl-img {
+  width: clamp(120px, 44vw, 190px);
+  height: clamp(120px, 44vw, 190px);
   object-fit: cover;
+  border-radius: 18px;
+  align-self: center;
   border: var(--bd) solid var(--line-soft);
-  flex: none;
 }
-.tp-label {
+.tl-name {
+  text-align: center;
   font-weight: 800;
-  font-size: 16px;
+  font-size: clamp(26px, 8vw, 38px);
   overflow-wrap: anywhere;
 }
-.tp-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
+/* Text-only items get a bigger, bolder name (no image to carry the weight). */
+.tl-name.no-img {
+  font-size: clamp(30px, 10vw, 46px);
+  padding: 14px 0 4px;
 }
-.tp-chip {
-  flex: 1 1 0;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 11px;
-  border: 2px solid color-mix(in srgb, var(--tc) 45%, var(--line-soft));
-  background: color-mix(in srgb, var(--tc) 8%, var(--surface-2));
-  color: var(--ink);
+.tl-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.tl-tier {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: none;
+  background: var(--tc);
+  color: var(--tt, #1a1a1a);
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.12s, outline-color 0.12s;
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+}
+.tl-tier:active {
+  transform: scale(0.98);
+}
+.tl-tier.on {
+  outline-color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.tl-letter {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 17px;
-  cursor: pointer;
-  transition: transform 0.08s, background 0.12s, border-color 0.12s;
+  font-size: 26px;
+  min-width: 30px;
 }
-.tp-chip:active {
-  transform: scale(0.94);
+.tl-sub {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 13px;
+  opacity: 0.85;
 }
-.tp-chip.on {
+.tl-hint {
+  text-align: center;
+  color: var(--mute);
+  font-size: 13px;
+}
+.tl-locked {
+  text-align: center;
+  padding: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.tl-locked h2 {
+  font-weight: 800;
+  font-size: 22px;
+}
+.tl-yourpick {
+  display: inline-block;
   background: var(--tc);
-  border-color: var(--tc);
   color: var(--tt, #1a1a1a);
-  box-shadow: var(--shadow-sm);
-}
-.tp-chip:disabled {
-  opacity: 0.55;
-  cursor: default;
+  font-weight: 800;
+  border-radius: 10px;
+  padding: 6px 14px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .tp-chip,
-  .tp-chip:active {
+  .tl-tier,
+  .tl-tier:active {
     transition: none;
     transform: none;
   }

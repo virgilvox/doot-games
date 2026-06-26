@@ -1,9 +1,11 @@
 /**
- * Item-by-item Tier List flow smoke. Hosts the custom-flow flagship, fills the room
- * with HEADLESS players that vote each item over the /x/ transport (via RoomRuntime
- * publishExtra/onExtra), plus a real "phone", and drives the host item-by-item:
- * Start -> (per item: vote -> Reveal -> Next) -> Final results. Checks the board fills,
- * the leaderboard scores, the host fits, and there are no host errors.
+ * Solo Tier List block flow smoke. The tier block now OWNS its round and runs the
+ * item-by-item show itself. Headless players read `/x/tiershow` and vote each item via
+ * the STANDARD round input (room.submit of a growing placements map); the host drives
+ * the block's own Reveal / Next item / Wrap up controls, then the standard Final results.
+ *
+ * Part A: the flagship (one tier round) at scale. Part B: a [tier, poll] game to prove
+ * the block advances to a following round of a different type.
  *
  *   pnpm dev   then   node_modules/.bin/jiti scripts/tier-flow-smoke.mjs
  *   HEADLESS=40 PHONES=1 SHOTS=1
@@ -29,60 +31,84 @@ const ok = (c, m) => {
   console.log(`  ${c ? '✓' : '✗'} ${m}`)
   if (!c) fails.push(m)
 }
-
 function chooseTier(name, idx, tierCount) {
   const h = [...name].reduce((a, c) => a + c.charCodeAt(0), 0)
   const base = Math.min(tierCount - 1, idx % tierCount)
   return (h + idx) % 4 === 0 ? Math.min(tierCount - 1, Math.max(0, base + ((h % 2) ? 1 : -1))) : base
 }
 
-;(async () => {
-  console.log(`Tier flow: ${HEADLESS} headless + ${PHONES} phones`)
-  const browser = await chromium.launch()
+/** A headless player that votes each tier item over the standard input. */
+function makeVoter(code, name, relays) {
+  const relay = createClaspRelay(RELAY)
+  relays.push(relay)
+  const p = createRoom({ relay, room: code, role: 'player', name })
+  const placements = {}
+  let votes = 0
+  p.onExtra('tiershow', (s) => {
+    if (!s || s.phase !== 'voting') return
+    const snap = p.getSnapshot()
+    const round = snap.config?.rounds?.[snap.round?.index ?? 0]
+    const items = round?.content?.items
+    const tierCount = round?.content?.tiers?.length ?? 5
+    const item = items?.[Number(s.index) || 0]
+    if (!item || placements[item.id] != null) return
+    placements[item.id] = chooseTier(name, Number(s.index) || 0, tierCount)
+    p.submit({ placements: { ...placements } })
+    votes++
+  })
+  return { p, voteCount: () => votes }
+}
+
+/** Click whichever tier control is showing; returns what it did. */
+async function step(host) {
+  await host.waitForSelector(
+    'button:has-text("Reveal"), button:has-text("Next item"), button:has-text("Wrap up"), button:has-text("Final results"), button:has-text("Next round")',
+    { timeout: 40000 },
+  )
+  if (await host.locator('button:has-text("Reveal")').count()) {
+    await sleep(1300) // let headless votes land
+    await host.locator('button:has-text("Reveal")').first().click()
+    return 'reveal'
+  }
+  if (await host.locator('button:has-text("Wrap up")').count()) {
+    await host.locator('button:has-text("Wrap up")').first().click()
+    return 'wrap'
+  }
+  if (await host.locator('button:has-text("Next item")').count()) {
+    await host.locator('button:has-text("Next item")').first().click()
+    return 'next-item'
+  }
+  if (await host.locator('button:has-text("Final results")').count()) {
+    await host.locator('button:has-text("Final results")').first().click()
+    return 'final'
+  }
+  if (await host.locator('button:has-text("Next round")').count()) {
+    await host.locator('button:has-text("Next round")').first().click()
+    return 'next-round'
+  }
+  return 'none'
+}
+
+async function partA(browser) {
+  console.log(`\n== Part A: flagship at ${HEADLESS} headless + ${PHONES} phones ==`)
   const host = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
-  const hostErrors = []
-  host.on('pageerror', (e) => hostErrors.push(String(e).slice(0, 200)))
+  const errs = []
+  host.on('pageerror', (e) => errs.push(String(e).slice(0, 200)))
   await host.goto(`${BASE}/host/tier-list`)
   await host.waitForSelector('.code', { timeout: 60000 })
   const code = (await host.textContent('.code')).trim()
-  console.log(`room code ${code}`)
+  console.log(`room ${code}`)
 
-  // Headless players: subscribe to /x/show and vote the current item.
-  const players = []
   const relays = []
-  let connected = 0
-  let voteEvents = 0
-  const spawn = async (name) => {
-    const relay = createClaspRelay(RELAY)
-    relays.push(relay)
-    const p = createRoom({ relay, room: code, role: 'player', name })
-    let lastVoted = -1
-    p.onExtra('show', (s) => {
-      if (!s || s.phase !== 'voting') return
-      const idx = Number(s.index) || 0
-      if (lastVoted === idx) return
-      const snap = p.getSnapshot()
-      const round = snap.config?.rounds?.[0]
-      const tierCount = round?.content?.tiers?.length ?? 5
-      const items = round?.content?.items ?? []
-      if (!items.length) return
-      lastVoted = idx
-      p.publishExtra(`vote/${idx}/${snap.me.id}`, { tier: chooseTier(name, idx, tierCount) })
-      voteEvents++
-    })
-    players.push(p)
-    await p.connect()
-    connected++
-  }
-  const names = Array.from({ length: HEADLESS }, (_, i) => `Bot${String(i + 1).padStart(3, '0')}`)
-  for (let i = 0; i < names.length; i += 10) {
-    await Promise.all(names.slice(i, i + 10).map((n) => spawn(n).catch((e) => fails.push(`spawn ${n}: ${e.message}`))))
+  const voters = []
+  for (let i = 0; i < HEADLESS; i += 10) {
+    const batch = Array.from({ length: Math.min(10, HEADLESS - i) }, (_, k) => makeVoter(code, `Bot${String(i + k + 1).padStart(3, '0')}`, relays))
+    voters.push(...batch)
+    await Promise.all(batch.map((v) => v.p.connect().catch((e) => fails.push(`spawn: ${e.message}`))))
     await sleep(400)
   }
   await sleep(2500)
-  console.log(`headless connected ${connected}/${HEADLESS}`)
 
-  // One phone (real browser) to verify the phone UI.
   const phones = []
   for (let i = 0; i < PHONES; i++) {
     const ph = await (await browser.newContext({ viewport: { width: 390, height: 800 } })).newPage()
@@ -94,57 +120,103 @@ function chooseTier(name, idx, tierCount) {
       await ph.waitForSelector('text=You\'re in', { timeout: 40000 })
       phones.push(ph)
     } catch (e) {
-      fails.push(`phone ${i + 1}: ${e.message.split('\n')[0]}`)
+      fails.push(`phone: ${e.message.split('\n')[0]}`)
     }
   }
-  console.log(`phones joined ${phones.length}/${PHONES}`)
+  console.log(`joined: ${voters.length} headless, ${phones.length} phones`)
 
-  // Drive the show.
-  await host.waitForSelector('button:has-text("Start the tier list")', { timeout: 40000 })
-  await host.click('button:has-text("Start the tier list")')
+  await host.waitForSelector('button:has-text("Start game")', { timeout: 40000 })
+  await host.click('button:has-text("Start game")')
 
-  let itemsDriven = 0
-  for (let guard = 0; guard < 30; guard++) {
-    await host.waitForSelector('button:has-text("Reveal"), button:has-text("Next item"), button:has-text("Final results")', { timeout: 40000 })
-    // The phone votes the first item, to verify the phone path.
-    if (guard === 0 && phones[0]) {
-      try {
-        await phones[0].waitForSelector('.tl-tier', { timeout: 6000 })
-        await phones[0].locator('.tl-tier').first().click()
-      } catch { /* */ }
-    }
-    await sleep(1200) // let headless votes land
-    if (SHOTS && guard === 1) {
+  let items = 0
+  for (let guard = 0; guard < 40; guard++) {
+    if (SHOTS && guard === 2) {
       const { mkdirSync } = await import('node:fs')
       mkdirSync(SHOT_DIR, { recursive: true })
       await host.screenshot({ path: `${SHOT_DIR}/host-voting.png` })
       if (phones[0]) await phones[0].screenshot({ path: `${SHOT_DIR}/phone-voting.png`, fullPage: true })
     }
-    if (await host.locator('button:has-text("Reveal")').count()) {
-      await host.click('button:has-text("Reveal")')
-      itemsDriven++
-    }
-    await host.waitForSelector('button:has-text("Next item"), button:has-text("Final results")', { timeout: 40000 })
-    if (await host.locator('button:has-text("Final results")').count()) {
-      if (SHOTS) await host.screenshot({ path: `${SHOT_DIR}/host-board.png` })
-      await host.click('button:has-text("Final results")')
-      break
-    }
-    await host.click('button:has-text("Next item")')
+    const did = await step(host)
+    if (guard < 6 || did !== 'next-item') console.log(`  step ${guard}: ${did}`)
+    if (did === 'reveal') items++
+    if (did === 'final' || did === 'none') break
+    if (did === 'wrap' && SHOTS) await host.screenshot({ path: `${SHOT_DIR}/host-board.png` })
   }
-  console.log(`items driven: ${itemsDriven}, headless vote events: ${voteEvents}`)
-
-  await host.waitForSelector('text=/wins|read the room|board is set|results/i', { timeout: 40000 })
+  await sleep(1500)
+  if (SHOTS) {
+    const { mkdirSync } = await import('node:fs')
+    mkdirSync(SHOT_DIR, { recursive: true })
+    await host.screenshot({ path: `${SHOT_DIR}/host-results.png` })
+  }
+  const headline = await host.evaluate(() => document.querySelector('.rhead h1, .results h1, h1')?.textContent?.trim() ?? '(none)')
+  console.log(`  results headline: "${headline}"`)
+  const atResults = await host.locator('text=/wins|read the room|board is set|results are|Play again/i').count()
+  if (!atResults) fails.push('never reached results')
   const ov = await host.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-  ok(itemsDriven >= 3, `drove multiple items (${itemsDriven})`)
-  ok(voteEvents >= HEADLESS * 2, `headless voted across items (${voteEvents} events)`)
-  ok(ov === 0, `host no horizontal overflow (h=${ov})`)
-  ok(hostErrors.length === 0, `no host page errors${hostErrors.length ? ': ' + hostErrors.slice(0, 2).join(' | ') : ''}`)
-  if (SHOTS) await host.screenshot({ path: `${SHOT_DIR}/host-results.png` })
-
-  for (const p of players) try { p.dispose() } catch { /* */ }
+  const totalVotes = voters.reduce((a, v) => a + v.voteCount(), 0)
+  console.log(`items revealed ${items}, headless votes ${totalVotes}`)
+  ok(items >= 3, `drove multiple items (${items})`)
+  ok(totalVotes >= HEADLESS * 2, `headless voted via standard input (${totalVotes})`)
+  ok(ov === 0, `host no horizontal overflow (${ov})`)
+  ok(errs.length === 0, `no host errors${errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''}`)
+  for (const v of voters) try { v.p.dispose() } catch { /* */ }
   for (const r of relays) try { r.close() } catch { /* */ }
-  await browser.close()
+}
+
+async function partB(browser) {
+  console.log('\n== Part B: [tier, poll] advance to a following round ==')
+  const email = `tieradv_${Date.now()}@doot.dev`
+  const su = await fetch(`${BASE}/api/auth/sign-up/email`, { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE }, body: JSON.stringify({ email, password: 'supersecret123', name: 'adv' }) })
+  const cookie = (su.headers.get('set-cookie') || '').split(';')[0]
+  const game = {
+    pluginId: 'custom',
+    visibility: 'unlisted',
+    config: {
+      title: 'Tier then Poll',
+      rounds: [
+        { block: 'tier', content: { prompt: 'Where does it go?', timer: 8, scored: true, tiers: [{ label: 'S', color: '#ff6b6b' }, { label: 'A', color: '#ffa94d' }, { label: 'B', color: '#ffd43b' }], items: [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Bravo' }, { id: 'c', label: 'Charlie' }] } },
+        { block: 'poll', content: { prompt: 'Best of the three?', timer: null, options: [{ label: 'Alpha' }, { label: 'Bravo' }, { label: 'Charlie' }] } },
+      ],
+    },
+  }
+  const res = await fetch(`${BASE}/api/games`, { method: 'POST', headers: { 'content-type': 'application/json', origin: BASE, cookie }, body: JSON.stringify(game) })
+  if (!res.ok) { fails.push(`save 2-round game ${res.status}`); return }
+  const { id } = await res.json()
+  const host = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
+  const errs = []
+  host.on('pageerror', (e) => errs.push(String(e).slice(0, 200)))
+  await host.goto(`${BASE}/host/g/${id}`)
+  await host.waitForSelector('.code', { timeout: 60000 })
+  const code = (await host.textContent('.code')).trim()
+  const relays = []
+  const voters = Array.from({ length: 5 }, (_, i) => makeVoter(code, `Adv${i + 1}`, relays))
+  await Promise.all(voters.map((v) => v.p.connect()))
+  await sleep(2500)
+  await host.waitForSelector('button:has-text("Start game")', { timeout: 40000 })
+  await host.click('button:has-text("Start game")')
+  // Run the tier block to completion (3 items), then it should reach the poll round.
+  let reachedPoll = false
+  for (let guard = 0; guard < 30; guard++) {
+    // The poll round uses the generic stage: its prompt "Best of the three?" appears.
+    if (await host.locator('text=Best of the three?').count()) { reachedPoll = true; break }
+    const did = await step(host)
+    if (did === 'none') break
+    if (did === 'next-round') { reachedPoll = true; break }
+  }
+  ok(reachedPoll, 'tier block finished its items and advanced to the poll round')
+  ok(errs.length === 0, `no host errors in 2-round game${errs.length ? ': ' + errs.slice(0, 2).join(' | ') : ''}`)
+  for (const v of voters) try { v.p.dispose() } catch { /* */ }
+  for (const r of relays) try { r.close() } catch { /* */ }
+}
+
+;(async () => {
+  const browser = await chromium.launch()
+  try {
+    await partA(browser)
+    await partB(browser)
+  } finally {
+    await browser.close()
+  }
   console.log(fails.length ? `\nFAIL (${fails.length})` : '\nALL GREEN')
   process.exit(fails.length ? 1 : 0)
 })().catch((e) => {

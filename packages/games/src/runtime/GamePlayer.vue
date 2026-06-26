@@ -47,6 +47,9 @@ const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
+// A solo block owns the whole active player view (it drives its own flow + submit);
+// the generic prompt/input/"Lock it in" scaffolding is suppressed for it.
+const isSolo = computed(() => !!block.value?.solo)
 // A two-phase round's content (the vote options) arrives at runtime via the
 // relay; overlay it on the authored content when present. A hidden-role round
 // delivers SECRET per-player content to this player's own address, which takes
@@ -257,6 +260,16 @@ function reloadPage() {
     </div>
 
     <div v-else-if="!instance || !block" class="big">Getting the next round…</div>
+
+    <!-- A solo block (e.g. the item-by-item tier list) owns the whole active player
+         view across its own internal phases; it injects the room and submits itself. -->
+    <component
+      v-else-if="isSolo && block.PlayerInput && content"
+      :is="block.PlayerInput"
+      :content="content"
+      :model-value="value"
+      @update:model-value="value = $event"
+    />
 
     <!-- Display block (slide / title card): mirror it to phones unless the author
          turned that off for this slide (then phones just point at the big screen). -->
