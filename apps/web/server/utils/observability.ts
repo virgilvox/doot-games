@@ -19,8 +19,12 @@ interface ErrorRecord {
   context?: Record<string, unknown>
 }
 
-const MAX_ERRORS = 200
-const ring: ErrorRecord[] = []
+// Separate rings per source: frequent (and untrusted, anonymous) CLIENT reports
+// must never evict the rarer, more important SERVER errors from the operator's view.
+const SERVER_MAX = 100
+const CLIENT_MAX = 100
+const serverRing: ErrorRecord[] = []
+const clientRing: ErrorRecord[] = []
 
 const backup: {
   lastOkAt: number | null
@@ -57,15 +61,17 @@ export function recordError(rec: { source: 'server' | 'client'; message: string;
     stack: rec.stack ? rec.stack.slice(0, 4000) : undefined,
     context: rec.context,
   }
+  const ring = entry.source === 'server' ? serverRing : clientRing
+  const max = entry.source === 'server' ? SERVER_MAX : CLIENT_MAX
   ring.push(entry)
-  if (ring.length > MAX_ERRORS) ring.shift()
+  if (ring.length > max) ring.shift()
   console.error(`[doot] ${entry.source} error:`, entry.message, entry.context ?? '')
   forward(entry)
 }
 
-/** The most recent errors, newest first. */
+/** The most recent errors across both sources, newest first. */
 export function recentErrors(limit = 50): ErrorRecord[] {
-  return ring.slice(-limit).reverse()
+  return [...serverRing, ...clientRing].sort((a, b) => b.at - a.at).slice(0, limit)
 }
 
 export function recordBackupOk(key: string): void {

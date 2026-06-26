@@ -17,10 +17,12 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!msg) return
     const key = `${kind}:${msg}`.slice(0, 200)
     if (seen.has(key)) return
+    const now = Date.now()
+    // Throttle BEFORE marking seen, so a distinct error throttled here can still be
+    // reported when it recurs (otherwise co-occurring distinct errors are lost).
+    if (now - lastSentAt < THROTTLE_MS) return
     seen.add(key)
     if (seen.size > 100) seen.clear()
-    const now = Date.now()
-    if (now - lastSentAt < THROTTLE_MS) return
     lastSentAt = now
     // Fire-and-forget; reporting must never throw into the page.
     $fetch('/api/client-errors', {

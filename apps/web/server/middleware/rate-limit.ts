@@ -45,7 +45,10 @@ export default defineEventHandler((event) => {
 
   // Behind Caddy the real client IP is in x-forwarded-for.
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  if (limited(ip, Date.now())) {
+  // Client error reports get their own bucket so an error burst from one venue's
+  // shared IP can't starve a host's legitimate game saves from the same IP.
+  const key = path.startsWith('/api/client-errors') ? `ce:${ip}` : ip
+  if (limited(key, Date.now())) {
     throw createError({ statusCode: 429, statusMessage: 'Too many requests, slow down a moment.' })
   }
 })
