@@ -5,6 +5,30 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **LOAD TEST: 100 players in one room - PASSED (2026-06-26).** A new harness
+> `scripts/load-test.mjs` (run with the repo's `jiti`, since it imports the TS engine
+> package) stress-tests a real game at party scale. It authors + saves a `custom`
+> block-composed game (guess + poll + guess) via the API, hosts it in a real Playwright
+> browser, joins a few "phone" players in real browsers, and spawns the REST as HEADLESS
+> players that connect straight to the live CLASP relay through the engine's real
+> `RoomRuntime` (no DOM - `createRoom`/`createClaspRelay` run in Node 22 with no polyfill,
+> resolved via jiti) and auto-answer each round. Headless is ~10x cheaper than a browser,
+> so one process drives ~95 of them.
+> - **Result at 95 headless + 5 phones (= 100 players, one room):** all 100 joined, the
+>   host roster saw all 100, every headless player submitted every round, **0 host page
+>   errors**, and host aggregation->reveal stayed **28-80ms** even scoring 100 inputs into
+>   a leaderboard. The poll tallied all 100 votes correctly and the co-crown tie handling
+>   produced a "76-way tie" headline. Phones + host rendered cleanly at 390/1440.
+> - **Gotchas captured in the harness:** (a) `autoAdvance` defaults ON, so a fast headless
+>   crowd auto-locks a round before a manual "Lock voting" click - the driver tolerates
+>   either path. (b) backgrounded Playwright phone tabs throttle timers (the known gotcha),
+>   so the harness `bringToFront()`s each phone before it answers. (c) players publish their
+>   profile + heartbeat only AFTER receiving the host's `lobby` phase, so the host must be
+>   up first (it is - the code is read off its page). (d) all virtual players join in the
+>   lobby so `joinedAtIndex===0` (late joiners' submits are silently dropped by eligibility).
+> - Env: `HEADLESS`, `PHONES`, `SHOTS=1`, `BASE_URL`. Ramps connections in batches of 10 to
+>   avoid a per-IP burst on the public relay (95 connected in ~29s, 0 spawn fails).
+
 > **MODERATION 3/3: post-game report flow (2026-06-26). DONE - completes the moderation
 > trio** (name filter -> host kick -> report flow). Players can now flag a game for a
 > moderator from the results screen; admins triage the reports in the console.
