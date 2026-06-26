@@ -5,6 +5,32 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **VERIFIED BUG: host reload regenerates the room code + strands ALL players (2026-06-26).**
+> Investigating Tier-1 "custom-flow host-reload recovery" surfaced a bigger, GENERAL
+> regression (affects every game, not just custom-flow), **verified on prod**: host
+> `/host/votebox` (code `N3HH`), reload the host tab, the code becomes `NMB8` - the players,
+> still on the old code, are stranded. This CONTRADICTS the prior handoff claim that "generic
+> games survive a host reload"; they do not.
+> - **Root cause (two compounding):** (1) `apps/web/app/components/HostRoom.client.vue:50` runs
+>   `const roomCode = makeRoomCode()` fresh on EVERY mount, so a reload (= remount) gets a new
+>   code regardless. (2) Even if the code were reused, `ensureFreeRoomCode`/`roomCodeTaken`
+>   (`packages/engine/src/room.ts:414-436`) can't tell the host's OWN ≤5s-old heartbeat
+>   (`HOST_HEARTBEAT_INTERVAL_MS=5s`, `HOST_PRESENCE_WINDOW_MS=16s`) from a competing host's, so
+>   it would regenerate the reused code too.
+> - **Fix design (the FOUNDATION for any host-reload recovery; do BEFORE per-game turn state):**
+>   persist the host's room code + a per-host-instance token (sessionStorage or a URL param -
+>   host is not the storage-blocked embed case) in HostRoom and reuse them on reload; the host
+>   heartbeat carries the token; `roomCodeTaken` treats a ping bearing MY token as free (it's
+>   me) while a genuinely different host still regenerates (preserves the anti-hijack fix).
+>   SECURITY-SENSITIVE + heartbeat payload shape changes number->{{t,h}} (players read
+>   `lastHostPing` from it - keep it number-or-object tolerant). Needs the 4 collision unit
+>   tests extended + a real-browser check of BOTH directions (reload keeps code; different host
+>   regenerates). Only AFTER this does per-game turn-state recovery (Truth or Share `/x/turn` +
+>   a new `/x/show` snapshot of order/results/names/turnIndex; Circuit Cypher rebuild bracket
+>   from round-0 inputs + an awards snapshot) make sense - else the recovered host has a new
+>   code and no players.
+> - Not yet implemented (too security-sensitive to rush). Verified via a prod reload test.
+
 > **POST-DEPLOY GAMEPLAY SMOKE (production safety net, part 3 - sprint complete) (2026-06-26).**
 > CI ran tests + typecheck + build then deployed, but NOTHING exercised the real play loop
 > over the relay, so a deploy that broke gameplay (the class of bug static checks miss - custom-
