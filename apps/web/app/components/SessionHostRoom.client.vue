@@ -10,7 +10,7 @@
  * engine's `room.host.nextGame`. Custom-flow games (their own Host + /x/ state) are
  * excluded, since nextGame only resets the engine, not their bespoke state.
  */
-import { type RelayValue, type RoomMeta, createClaspRelay, makeRoomCode } from '@doot-games/engine'
+import { type RelayValue, type RoomMeta, createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
 import {
   GameHost,
@@ -36,10 +36,13 @@ const runtime = useRuntimeConfig()
 const themeState = useState<string>('doot-theme', () => 'doot')
 const themeId = themeState.value
 
-const roomCode = makeRoomCode()
+// A per-tab host identity that survives a reload, so the session host resumes the same
+// room instead of stranding players on a regenerated code (see useHostSession).
+const { room: roomCode, token: hostToken } = useHostSession()
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
-const room = useDootRoom({ relay, room: roomCode, role: 'host' })
+const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken })
 provideDootRoom(room)
+watch(() => room.code.value, (c) => persistHostRoom(c))
 
 const getPlayers = (): ScorePlayer[] =>
   room.runtime.recentPlayers().map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex, team: p.team }))

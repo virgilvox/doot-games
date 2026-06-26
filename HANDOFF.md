@@ -8,11 +8,13 @@ prod via CI, no staging)._
 > **FIX: host reload keeps the room code (players no longer stranded) (2026-06-26).** The
 > foundation half of host-reload recovery (see the prior entry for the verified bug). Now a
 > host reload resumes the SAME room instead of regenerating the code.
-> - **App** (`apps/web/app/components/HostRoom.client.vue`): persist the room code + a
->   per-host-instance token in **sessionStorage** (per-tab; survives reload, not tab-close,
->   which is exactly right; the host is a real browser, not the storage-blocked player embed),
->   reuse them on remount, pass the token to `useDootRoom`, and persist the settled code if the
->   engine regenerates it.
+> - **App** (`composables/useHostSession.ts`, used by BOTH `HostRoom.client.vue` and
+>   `SessionHostRoom.client.vue`): persist the room code + a per-host-instance token in
+>   **sessionStorage** (per-tab; survives reload, not tab-close, which is exactly right; the
+>   host is a real browser, not the storage-blocked player embed), reuse them on remount, pass
+>   the token to `useDootRoom`, and persist the settled code if the engine regenerates it.
+>   (Audit caught that the session/playlist host was a SECOND host entry point with the same
+>   bug; centralizing the logic in the composable fixed both.)
 > - **Engine**: `RoomRuntimeOptions.hostToken`; new `addr.hostToken` channel (the host publishes
 >   its token on the settled code after `ensureFreeRoomCode`); `roomCodeTaken` now reads it - a
 >   live code carrying MY token (a reload) reads as FREE (keep it), a different/absent token
