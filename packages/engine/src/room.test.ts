@@ -1163,4 +1163,19 @@ describe('host kick', () => {
     expect(host.recentPlayers().length).toBe(2)
     expect(host.inputsFor(0).size).toBe(2)
   })
+
+  it('kicking the delegated driver revokes their driving', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    const bo = makePlayer(hub, 'Bo', now)
+    await bo.connect()
+    await flush()
+    const boPid = playerId('ABCD', 'Bo')
+    host.setDriver(boPid)
+    expect(host.getSnapshot().driverPid).toBe(boPid)
+    host.kickPlayer(boPid)
+    expect(host.getSnapshot().driverPid).toBe(null) // driving revoked with the kick
+  })
 })

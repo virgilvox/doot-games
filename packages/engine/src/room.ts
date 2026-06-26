@@ -1053,6 +1053,9 @@ export class RoomRuntime {
     this.assertHost()
     if (!pid) return
     this.ignoredPids.add(pid)
+    // If we kicked the delegated driver (co-host/MC), revoke their driving too, else a
+    // kicked-but-still-connected client could keep sending drive commands.
+    if (pid === this.driverPid) this.setDriver(null)
     this.emit()
   }
 
