@@ -21,7 +21,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@libsql/client": "0.17.3",
     "@vitejs/plugin-vue": "^6.0.7",
+    "aws4fetch": "^1.0.20",
     "playwright": "1.60.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5",

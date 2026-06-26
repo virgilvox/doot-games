@@ -5,6 +5,36 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUTOMATED DATABASE BACKUPS (production safety net, part 1) (2026-06-25).** The scariest
+> gap from a platform audit: the durable libSQL/SQLite file (`/opt/doot/data/doot.sqlite`,
+> which also holds better-auth's accounts + argon2id password hashes) had **no backup** - a
+> disk failure lost everything. Now the app self-backs-up to object storage.
+> - **Pattern (researched): `VACUUM INTO`, NOT Litestream.** Litestream streams the SQLite
+>   `-wal` and shares checkpoint control with the writer, but we run **libSQL** (its own
+>   virtual-WAL; Litestream documents no libSQL support; v0.5.6/0.5.7 had a silent
+>   replication-loss bug). `VACUUM INTO` runs through libSQL itself = transaction-consistent,
+>   zero WAL-format risk. (Revisit Litestream only after a move to plain SQLite/Postgres.)
+> - **What shipped:** `server/utils/backup.ts` (`runBackup()` = `VACUUM INTO` -> gzip ->
+>   PRIVATE upload to `backups/db/<Y>/<M>/<D>/<stamp>.sqlite.gz`) + `server/plugins/backup.ts`
+>   (baseline ~30s after boot, then hourly; single-flight; no-op unless storage configured AND
+>   a `file:` DB; `BACKUP_INTERVAL_MS`/`DOOT_BACKUP_DISABLED`). New
+>   `uploadPrivateObject()` in `storage.ts` (`x-amz-acl: private` - the backup must NEVER be
+>   public; `uploadObject` forces `public-read`). `scripts/restore-db.mjs` (list latest ->
+>   download -> gunzip -> `integrity_check` + row counts -> prints swap-in steps) and
+>   `scripts/backup-drill.mjs` (offline round-trip proof). `@libsql/client` + `aws4fetch`
+>   added as ROOT devDeps so the scripts resolve (they only lived in `apps/web`).
+> - **Verified:** the drill (online `VACUUM INTO` + gzip + restore `integrity_check` ok, rows
+>   intact); a full e2e against a real MinIO (private PUT, **unauthenticated GET -> 403** so
+>   the backup isn't world-readable, signed GET ok, `restore-db.mjs` round-trips it). Gate:
+>   797 tests, `pnpm -r typecheck` (incl. `nuxi`), web build, `biome lint` clean.
+> - **Owner/infra TODO (documented in `docs/deploy.md`):** add a Spaces lifecycle rule to
+>   expire `backups/db/` after N days; move `/opt/doot/data` onto a DO **block volume** +
+>   enable volume/droplet snapshots (whole-system secondary net). **NEXT in this sprint:**
+>   error tracking + a CI gameplay E2E / post-deploy smoke. **Then (separate project):** the
+>   DO Managed Postgres migration (E17) - `.env.example` still advertises Postgres but a
+>   `postgres://` URL silently FALLS BACK to SQLite today (now noted in the file).
+>   Full plan: `~/.claude/plans/snug-enchanting-glade.md`.
+
 > **EDITOR PREVIEW = TRUE DEVICE VIEWPORTS (iframe-per-preview) (2026-06-25).** Closes the
 > caveat the prior device-frame work left open: block views size some fonts in `vw`, which
 > resolves to the *window*, so the old transform-scaled previews showed phone text too large.

@@ -88,3 +88,22 @@ export async function uploadObject(objectKey: string, contentType: string, body:
   if (!res.ok) throw createError({ statusCode: 502, statusMessage: `Storage upload failed (${res.status}).` })
   return `${cfg.publicBase}/${objectKey}`
 }
+
+/**
+ * Server-side upload of a PRIVATE object (never `public-read`). Used for database
+ * backups, which contain account emails + password hashes and must not be world-
+ * readable. The object is read back only via a signed request (e.g.
+ * `scripts/restore-db.mjs`). Throws if storage isn't configured.
+ */
+export async function uploadPrivateObject(objectKey: string, contentType: string, body: Uint8Array): Promise<void> {
+  const cfg = readConfig()
+  if (!cfg) throw createError({ statusCode: 501, statusMessage: 'Storage is not configured.' })
+  const objectUrl = `${cfg.endpoint}/${cfg.bucket}/${objectKey}`
+  const res = await awsClient(cfg).fetch(objectUrl, {
+    method: 'PUT',
+    headers: { 'content-type': contentType, 'x-amz-acl': 'private' },
+    // Uint8Array is a valid fetch body at runtime; cast past the lib's stricter BodyInit.
+    body: body as unknown as BodyInit,
+  })
+  if (!res.ok) throw createError({ statusCode: 502, statusMessage: `Backup upload failed (${res.status}).` })
+}

@@ -112,11 +112,70 @@ This stays a small, additive layer: gameplay and controller input never touch We
 
 ## Backups
 
-The durable state is the SQLite file at `/opt/doot/data/doot.sqlite`. Back it up
-with a timed copy to a Spaces bucket (e.g. `sqlite3 doot.sqlite ".backup
-/tmp/doot.bak"`, then upload). It holds only small durable state (accounts +
-saved game definitions), so backups are quick. *(There is no Postgres, so don't
+The durable state is the libSQL/SQLite file at `/opt/doot/data/doot.sqlite` (it also
+holds better-auth's accounts + password hashes). It is small (accounts + saved game
+definitions + decks), so backups are quick. *(There is no Postgres yet, so don't
 schedule `pg_dump`.)*
+
+### Automatic snapshots to Spaces (built in)
+
+When object storage (`SPACES_*`) is configured, the app backs the database up
+automatically: a server plugin (`apps/web/server/plugins/backup.ts`) takes a
+`VACUUM INTO` snapshot ~30s after boot and then hourly, gzips it, and uploads it
+**privately** to `backups/db/<YYYY>/<MM>/<DD>/<stamp>.sqlite.gz`
+(`apps/web/server/utils/backup.ts`). `VACUUM INTO` runs through libSQL itself, so the
+copy is transaction-consistent with no WAL-format risk.
+
+> We deliberately do **not** use Litestream here: it streams the SQLite `-wal` and must
+> share checkpoint control with the writer, but we run **libSQL** (its own virtual-WAL),
+> Litestream documents no libSQL support, and v0.5.6/0.5.7 had a silent replication-loss
+> bug. Revisit only after moving to plain SQLite or (better) Managed Postgres.
+
+Tune with `BACKUP_INTERVAL_MS` (default 1h) or turn off with `DOOT_BACKUP_DISABLED=1`.
+Backups are private; the upload uses `x-amz-acl: private`, never `public-read`.
+
+**Operator setup (one time):**
+- Generate a **Spaces access key** (Console → Spaces → access keys) for restores. The
+  app already uses `SPACES_KEY`/`SPACES_SECRET`; reuse them or make a read-only key.
+- Add a **lifecycle rule** on the bucket to expire `backups/db/` after N days (e.g. 30),
+  so old snapshots prune themselves. (Console → the Space → Settings → lifecycle, or
+  `s3api put-bucket-lifecycle-configuration`.)
+- Consider a dedicated private bucket (or a bucket policy denying public listing) so
+  backups never sit next to the public image objects.
+
+### Restoring (or just verifying a backup)
+
+`scripts/restore-db.mjs` lists the snapshots, downloads the latest (or `BACKUP_KEY=...`),
+gunzips it, and runs `PRAGMA integrity_check` + row counts. Run it from a workspace
+checkout (or inside the app container) with the `SPACES_*` env set:
+
+```
+SPACES_ENDPOINT=... SPACES_REGION=... SPACES_BUCKET=... SPACES_KEY=... SPACES_SECRET=... \
+  node scripts/restore-db.mjs ./restored.sqlite
+```
+
+It does **not** overwrite the live DB; it prints the swap-in steps (stop the app,
+`cp restored.sqlite /opt/doot/data/doot.sqlite`, start the app). Do a periodic restore
+drill so you know the backups are good. (`scripts/backup-drill.mjs` proves the
+snapshot+restore round-trip locally with no network.)
+
+### Block volume + whole-system snapshots (secondary net)
+
+Put `/opt/doot/data` on a **DigitalOcean Block Storage volume** (resizable, survives a
+droplet rebuild, snapshottable), and enable scheduled volume/droplet snapshots as the
+whole-system safety net (covers the `.env`, the GoatCounter SQLite file, and any local
+uploads, not just the app DB). Volume/droplet snapshots are crash-consistent (a restore
+relies on SQLite crash recovery), so they complement the logical `VACUUM INTO` backup
+rather than replace it. Sketch with `doctl`:
+
+```
+# one-time: create + attach a volume, then mount it at /opt/doot/data and point the
+# compose bind-mount at it (docker-compose.deploy.yml), then copy the existing data in.
+doctl compute volume create doot-data --region <rgn> --size 10GiB --fs-type ext4
+doctl compute volume-action attach <volume-id> <droplet-id>
+# scheduled snapshots (or enable weekly droplet backups in the Console):
+doctl compute volume snapshot <volume-id> --snapshot-name "doot-$(date +%F)"
+```
 
 ## Scaling later
 
