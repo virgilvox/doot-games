@@ -80,13 +80,20 @@ async function checkAccess() {
   }
 }
 
-const tab = ref<'overview' | 'users' | 'games' | 'decks'>('overview')
+const tab = ref<'overview' | 'users' | 'games' | 'decks' | 'status'>('overview')
+
+interface SystemStatus {
+  now: number
+  backup: { lastOkAt: number | null; lastKey: string | null; lastFailAt: number | null; lastError: string | null }
+  errors: Array<{ at: number; source: 'server' | 'client'; message: string; context?: Record<string, unknown> }>
+}
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 const stats = ref<Stats | null>(null)
 const users = ref<AdminUser[]>([])
 const games = ref<AdminGame[]>([])
 const decks = ref<AdminDeck[]>([])
+const status = ref<SystemStatus | null>(null)
 const userQuery = ref('')
 const gameQuery = ref('')
 const gameSort = ref<'plays' | 'recent'>('plays')
@@ -100,6 +107,23 @@ function flash(msg: string) {
   setTimeout(() => {
     if (note.value === msg) note.value = ''
   }, 3000)
+}
+
+/** Compact relative time, e.g. "3m ago" / "never". */
+function ago(at: number | null): string {
+  if (!at) return 'never'
+  const s = Math.max(0, Math.round((Date.now() - at) / 1000))
+  if (s < 60) return `${s}s ago`
+  if (s < 3600) return `${Math.round(s / 60)}m ago`
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`
+  return `${Math.round(s / 86400)}d ago`
+}
+async function refreshStatus() {
+  try {
+    await loadStatus()
+  } catch (e) {
+    flash((e as { statusMessage?: string })?.statusMessage ?? 'Could not load status.')
+  }
 }
 
 async function loadStats() {
@@ -119,6 +143,9 @@ async function loadDecks() {
   const r = await $fetch<{ decks: AdminDeck[] }>('/api/admin/decks', { query: { q: deckQuery.value || undefined } })
   decks.value = r.decks
 }
+async function loadStatus() {
+  status.value = await $fetch<SystemStatus>('/api/admin/status')
+}
 
 // Load each tab's data on first visit (and overview up front).
 const loaded = ref<Record<string, boolean>>({})
@@ -129,6 +156,7 @@ async function ensureTab(t: typeof tab.value) {
     if (t === 'users') await loadUsers()
     if (t === 'games') await loadGames()
     if (t === 'decks') await loadDecks()
+    if (t === 'status') await loadStatus()
     loaded.value[t] = true
   } catch (e) {
     flash((e as { statusMessage?: string })?.statusMessage ?? 'Could not load data.')
@@ -263,6 +291,7 @@ const overview = computed(() => stats.value)
           <button :class="{ on: tab === 'users' }" role="tab" @click="tab = 'users'">Users</button>
           <button :class="{ on: tab === 'games' }" role="tab" @click="tab = 'games'">Games</button>
           <button :class="{ on: tab === 'decks' }" role="tab" @click="tab = 'decks'">Decks</button>
+          <button :class="{ on: tab === 'status' }" role="tab" @click="tab = 'status'">Status</button>
         </nav>
 
         <!-- OVERVIEW ------------------------------------------------------- -->
@@ -484,6 +513,47 @@ const overview = computed(() => stats.value)
               </tbody>
             </table>
           </div>
+        </section>
+
+        <!-- STATUS --------------------------------------------------------- -->
+        <section v-show="tab === 'status'" class="tabpanel">
+          <div class="toolbar">
+            <button class="btn btn-ghost" :disabled="busy" @click="refreshStatus">Refresh</button>
+          </div>
+          <div v-if="!status" class="muted">Loading status…</div>
+          <template v-else>
+            <div class="grid2">
+              <div class="panel sub">
+                <h2>Database backup</h2>
+                <ul class="kv">
+                  <li>
+                    <span>Last backup</span>
+                    <b :class="{ warn: !status.backup.lastOkAt }">{{ ago(status.backup.lastOkAt) }}</b>
+                  </li>
+                  <li><span>Latest key</span><b class="mono small">{{ status.backup.lastKey || '-' }}</b></li>
+                  <li v-if="status.backup.lastFailAt">
+                    <span>Last failure</span><b class="warn">{{ ago(status.backup.lastFailAt) }}</b>
+                  </li>
+                  <li v-if="status.backup.lastError"><span>Error</span><b class="warn small">{{ status.backup.lastError }}</b></li>
+                </ul>
+                <p class="muted small mt">
+                  Snapshots upload to object storage hourly (and ~30s after each deploy). "never" with
+                  storage configured means the first backup hasn't run yet, or storage/`file:` DB checks failed.
+                </p>
+              </div>
+              <div class="panel sub">
+                <h2>Recent errors <span class="dim">({{ status.errors.length }})</span></h2>
+                <ol v-if="status.errors.length" class="errlist">
+                  <li v-for="(e, i) in status.errors" :key="i">
+                    <span class="errtag" :class="e.source">{{ e.source }}</span>
+                    <span class="errtime">{{ ago(e.at) }}</span>
+                    <span class="errmsg">{{ e.message }}</span>
+                  </li>
+                </ol>
+                <p v-else class="muted">No errors recorded since the last restart.</p>
+              </div>
+            </div>
+          </template>
         </section>
       </template>
     </div>
@@ -785,5 +855,57 @@ const overview = computed(() => stats.value)
   .grid2 {
     grid-template-columns: 1fr;
   }
+}
+/* Status tab */
+.small {
+  font-size: 12px;
+}
+.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  word-break: break-all;
+}
+.mt {
+  margin-top: 12px;
+}
+.errlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.errlist li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.errtag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line-soft);
+}
+.errtag.server {
+  background: color-mix(in srgb, var(--danger, #c0392b) 14%, transparent);
+  color: var(--danger, #c0392b);
+}
+.errtag.client {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary-ink, var(--ink));
+}
+.errtime {
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.errmsg {
+  word-break: break-word;
 }
 </style>

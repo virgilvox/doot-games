@@ -5,6 +5,35 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-25. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **OBSERVABILITY / ERROR TRACKING (production safety net, part 2) (2026-06-26).** A
+> solo operator was blind to breakage (only GoatCounter pageviews). Now errors are captured
+> and visible. Vendor-neutral, no external account, fits the small-deps/self-host ethos.
+> - **Core:** `server/utils/observability.ts` = an in-memory ring of recent errors (server +
+>   client, capped 200) + last-backup status (mirrors the `rate-limit.ts` module-singleton
+>   pattern; per-instance runtime state, never the DB). Optional `DOOT_ERROR_WEBHOOK`
+>   forwards a THROTTLED line to any Slack/Discord-style webhook (sends both `text` +
+>   `content` so either works); default off = structured stdout logs only.
+> - **Capture:** `server/plugins/error-track.ts` hooks Nitro's `error` event and records
+>   unhandled 5xx (4xx createErrors are normal control flow, skipped). Client side:
+>   `app/plugins/error-track.client.ts` catches `vue:error` / `window error` /
+>   `unhandledrejection` (deduped + 3s-throttled, fire-and-forget) -> `POST /api/client-errors`
+>   (anonymous, rate-limited via the existing middleware + size-capped, manual validation -
+>   zod is NOT an apps/web dep). The backup plugin now records ok/fail into the ring.
+> - **Visibility:** `GET /api/admin/status` (admin-gated) + a new **Status tab** in the admin
+>   console (`/admin`) showing last backup time/key + recent errors. This also makes "did the
+>   backup run?" a glance instead of an SSH.
+> - **Verified (runtime, via curl + a clean-DB dev server):** client error -> endpoint ->
+>   ring -> admin status round-trips with source/message/stack/context intact; valid->204,
+>   invalid->400; admin status 403 for a non-admin, 401 unauth; backup card correctly null in
+>   dev (no storage). Gate: 797 tests, `nuxi typecheck` (validates the Nitro hook API + admin
+>   route + Vue template), web build, `biome lint` clean. CAVEAT: the server 5xx hook is
+>   typecheck-valid + boots clean + shares the proven `recordError` sink, but a LIVE 500 was
+>   not forced (no safe trigger without a throwaway prod route); a 400 confirmed correct
+>   non-capture. NOTE: in local dev a fresh first account did NOT auto-promote to admin
+>   (used `scripts/set-admin.mjs`); pre-existing bootstrap quirk, unrelated, worth a look.
+> - **Sprint status:** part 1 backups + part 2 observability done; **part 3 = CI gameplay E2E +
+>   post-deploy smoke** next. Plan: `~/.claude/plans/snug-enchanting-glade.md`.
+
 > **AUTOMATED DATABASE BACKUPS (production safety net, part 1) (2026-06-25).** The scariest
 > gap from a platform audit: the durable libSQL/SQLite file (`/opt/doot/data/doot.sqlite`,
 > which also holds better-auth's accounts + argon2id password hashes) had **no backup** - a

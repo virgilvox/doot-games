@@ -7,6 +7,7 @@
  */
 import { runBackup } from '../utils/backup'
 import { databaseUrl } from '../utils/db'
+import { recordBackupFail, recordBackupOk } from '../utils/observability'
 import { isStorageConfigured } from '../utils/storage'
 
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000 // hourly
@@ -22,9 +23,14 @@ export default defineNitroPlugin(() => {
     running = true
     try {
       const key = await runBackup()
-      if (key) console.info(`[doot] db backup uploaded: ${key}`)
+      if (key) {
+        console.info(`[doot] db backup uploaded: ${key}`)
+        recordBackupOk(key)
+      }
     } catch (err) {
-      console.error('[doot] db backup FAILED:', err instanceof Error ? err.message : err)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[doot] db backup FAILED:', msg)
+      recordBackupFail(msg)
     } finally {
       running = false
     }

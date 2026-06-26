@@ -36,7 +36,12 @@ export default defineEventHandler((event) => {
   const method = event.method
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return
   const path = event.path || ''
-  if (!path.startsWith('/api/games') && !path.startsWith('/api/uploads')) return
+  if (
+    !path.startsWith('/api/games') &&
+    !path.startsWith('/api/uploads') &&
+    !path.startsWith('/api/client-errors')
+  )
+    return
 
   // Behind Caddy the real client IP is in x-forwarded-for.
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
