@@ -28,6 +28,20 @@ prod via CI, no staging)._
 >   lobby so `joinedAtIndex===0` (late joiners' submits are silently dropped by eligibility).
 > - Env: `HEADLESS`, `PHONES`, `SHOTS=1`, `BASE_URL`. Ramps connections in batches of 10 to
 >   avoid a per-IP burst on the public relay (95 connected in ~29s, 0 spawn fails).
+> - **Layout-at-scale audit (what 100 players did to the UI):** horizontal overflow was
+>   **0px on every surface** (lobby, active, results, phone); the leaderboard is already
+>   capped at 10 rows and poll/distribution bars are per-option, so both are player-count
+>   independent. **One real bug, now FIXED:** a big top-score tie made `crownHeadline`
+>   enumerate ALL winners ("76-way tie: Bot001, Bot002, ... & Bot095"), a wall of names that
+>   filled the host results `<h1>` and shoved the carousel off-screen. `tieNames()` now caps
+>   it ("76-way tie: Bot001, Bot002, Bot004 & 73 more"); same cap on `teamCrownHeadline`; a
+>   `-webkit-line-clamp:3` on the results h1 is the belt-and-suspenders. After the fix the host
+>   results carousel (leaderboard slide + poll-breakdown slide) renders within bounds and the
+>   stat strip reads "100 players". Two NON-bugs noted: the lobby roster wraps all 100 pills so
+>   the lobby panel scrolls (~2286px) - acceptable, the code/QR/count stay above the fold; and
+>   the 10-row leaderboard slide is ~477px taller than an 1440x900 host (its own internal
+>   scroll handles it; fits a 1080p TV; not player-count-specific). Both are candidates for a
+>   later "+N more" cap if a fixed-height host TV ever needs it.
 
 > **MODERATION 3/3: post-game report flow (2026-06-26). DONE - completes the moderation
 > trio** (name filter -> host kick -> report flow). Players can now flag a game for a

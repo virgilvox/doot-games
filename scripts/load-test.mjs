@@ -99,8 +99,17 @@ const run = { roundSubmits: {}, t: {} }
     return { name, value, domain: 'localhost', path: '/', httpOnly: true, sameSite: 'Lax' }
   })()
 
-  // Host (real browser, owner-cookied so it can host the unlisted game).
-  const hostCtx = await browser.newContext()
+  // Horizontal overflow (must be 0) + vertical overflow (a fixed host view should
+  // not scroll; the lobby may). Measured against the real host viewport.
+  const overflow = (page) =>
+    page.evaluate(() => ({
+      hx: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      vy: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+    }))
+
+  // Host (real browser, owner-cookied so it can host the unlisted game), sized to a
+  // real host screen so layout-at-scale is honest.
+  const hostCtx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   await hostCtx.addCookies([ownerCookie])
   const host = await hostCtx.newPage()
   const hostErrors = []
@@ -175,6 +184,16 @@ const run = { roundSubmits: {}, t: {} }
   run.rosterSeen = roster
   run.target = target
 
+  // Layout check: the lobby roster at full scale.
+  const lobbyOv = await overflow(host)
+  log(`host LOBBY overflow: horizontal ${lobbyOv.hx}px, vertical ${lobbyOv.vy}px (roster of ${roster})`)
+  run.lobbyOv = lobbyOv
+  if (SHOTS) {
+    const { mkdirSync } = await import('node:fs')
+    mkdirSync(SHOT_DIR, { recursive: true })
+    await host.screenshot({ path: `${SHOT_DIR}/host-lobby.png` })
+  }
+
   // ── Drive the game; phones submit via UI, headless auto-submit on open ──
   const submitPhones = async () => {
     // Foreground each phone first: backgrounded Playwright tabs throttle timers,
@@ -229,14 +248,22 @@ const run = { roundSubmits: {}, t: {} }
   }
 
   // ── Results ──
-  await host.waitForSelector('text=/wins|tie for the win|Leaderboard|results/i', { timeout: 40000 })
+  await host.waitForSelector('.results', { timeout: 40000 })
+  await sleep(800)
   log('host results rendered')
-  // What did the host actually score? Pull the leaderboard rows off the host DOM.
+  // The win headline at scale (was a wall of 76 names before the cap).
+  const headline = await host.evaluate(() => document.querySelector('.rhead h1')?.textContent?.trim() ?? '')
+  log(`results headline: "${headline}"`)
+  const resultsOv = await overflow(host)
+  log(`host RESULTS overflow: horizontal ${resultsOv.hx}px, vertical ${resultsOv.vy}px (should be ~0/0, fixed view)`)
+  run.resultsOv = resultsOv
+  // The leaderboard slide is the first carousel page when the game scored. Confirm it's
+  // bounded (capped at 10 rows) and reachable.
   const board = await host.evaluate(() => {
-    const rows = [...document.querySelectorAll('.lb-row, .leaderboard li, [class*="leader"] li')]
-    return rows.slice(0, 5).map((r) => r.textContent.replace(/\s+/g, ' ').trim())
+    const rows = [...document.querySelectorAll('.lb-row')]
+    return { count: rows.length, top: rows.slice(0, 3).map((r) => r.textContent.replace(/\s+/g, ' ').trim()) }
   })
-  log('top of leaderboard:', JSON.stringify(board))
+  log(`leaderboard slide: ${board.count} rows shown (capped), top: ${JSON.stringify(board.top)}`)
 
   log('\n── METRICS ──')
   log(`players: target ${run.target}, host roster saw ${run.rosterSeen}`)
@@ -245,10 +272,21 @@ const run = { roundSubmits: {}, t: {} }
   log(`host page errors: ${hostErrors.length}${hostErrors.length ? ' :: ' + hostErrors.slice(0, 3).join(' | ') : ''}`)
   log(`spawn/join fails: ${fails.length}${fails.length ? ' :: ' + fails.slice(0, 3).join(' | ') : ''}`)
 
+  if (phones[0]) {
+    await phones[0].bringToFront()
+    const phoneOv = await overflow(phones[0])
+    log(`phone RESULTS overflow: horizontal ${phoneOv.hx}px (should be 0; phone scrolls vertically by design)`)
+    run.phoneOv = phoneOv
+  }
+
   if (SHOTS) {
     const { mkdirSync } = await import('node:fs')
     mkdirSync(SHOT_DIR, { recursive: true })
     await host.screenshot({ path: `${SHOT_DIR}/host-results.png` })
+    // Page the carousel one slide to confirm it advances (leaderboard -> next breakdown).
+    await host.keyboard.press('ArrowRight')
+    await sleep(500)
+    await host.screenshot({ path: `${SHOT_DIR}/host-results-2.png` })
     if (phones[0]) await phones[0].screenshot({ path: `${SHOT_DIR}/phone-results.png`, fullPage: true })
     log(`screenshots -> ${SHOT_DIR}`)
   }

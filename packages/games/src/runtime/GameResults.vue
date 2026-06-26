@@ -272,6 +272,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .rhead h1 {
   font-size: clamp(28px, 5vw, 48px);
   font-weight: 800;
+  /* Safety net: even after the tie headline caps its names, keep the title to a few
+     lines so a long winner name can never push the carousel/board off the host screen. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .rgrid {
   display: grid;

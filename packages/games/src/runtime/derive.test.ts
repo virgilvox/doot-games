@@ -165,6 +165,15 @@ describe('crownHeadline (tie handling / co-crown)', () => {
     const lb = [{ name: 'Ann', score: 500 }, { name: 'Bob', score: 500 }, { name: 'Cal', score: 500 }]
     expect(crownHeadline(lb)).toBe('3-way tie: Ann, Bob & Cal')
   })
+  it('lists up to four tied names in full', () => {
+    const lb = ['Ann', 'Bob', 'Cal', 'Dee'].map((name) => ({ name, score: 500 }))
+    expect(crownHeadline(lb)).toBe('4-way tie: Ann, Bob, Cal & Dee')
+  })
+  it('caps a big tie so the headline stays one short line (no wall of names)', () => {
+    // 76 players all correct: name the first three, summarise the rest.
+    const lb = Array.from({ length: 76 }, (_, i) => ({ name: `Bot${i + 1}`, score: 22 }))
+    expect(crownHeadline(lb)).toBe('76-way tie: Bot1, Bot2, Bot3 & 73 more')
+  })
   it('returns null when nobody scored above 0 (so the caller falls back)', () => {
     expect(crownHeadline([{ name: 'Ann', score: 0 }, { name: 'Bob', score: 0 }])).toBeNull()
     expect(crownHeadline([])).toBeNull()

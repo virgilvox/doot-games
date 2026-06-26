@@ -152,10 +152,22 @@ export interface ScoreGameContext {
 }
 
 /**
+ * Format the names in a 3+ way tie, CAPPING the list so a big tie (e.g. 76 players
+ * all correct at a party) stays one short headline instead of a wall of names that
+ * overflows the host screen. Up to 4 names are listed in full; beyond that the first
+ * three are named and the rest summarised ("a, b, c & 73 more"). Pure + tested.
+ */
+function tieNames(winners: string[]): string {
+  const n = winners.length
+  if (n <= 4) return `${winners.slice(0, -1).join(', ')} & ${winners[n - 1]}`
+  return `${winners.slice(0, 3).join(', ')} & ${n - 3} more`
+}
+
+/**
  * The win headline, with co-crowning on a top-score tie: "Ann wins", "Ann & Bob
- * tie for the win", "3-way tie: Ann, Bob & Cal". Returns null when nobody scored
- * above 0 (so "Nobody wins at 0" never shows), letting the caller fall back to a
- * block headline. Pure + tested.
+ * tie for the win", "3-way tie: Ann, Bob & Cal", "76-way tie: Ann, Bob, Cal & 73
+ * more". Returns null when nobody scored above 0 (so "Nobody wins at 0" never
+ * shows), letting the caller fall back to a block headline. Pure + tested.
  */
 export function crownHeadline(leaderboard?: Array<{ name: string; score: number }>): string | null {
   if (!leaderboard?.length) return null
@@ -164,7 +176,7 @@ export function crownHeadline(leaderboard?: Array<{ name: string; score: number 
   const winners = leaderboard.filter((e) => e.score === max).map((e) => e.name)
   if (winners.length === 1) return `${winners[0]} wins`
   if (winners.length === 2) return `${winners[0]} & ${winners[1]} tie for the win`
-  return `${winners.length}-way tie: ${winners.slice(0, -1).join(', ')} & ${winners[winners.length - 1]}`
+  return `${winners.length}-way tie: ${tieNames(winners)}`
 }
 
 /**
@@ -212,7 +224,7 @@ export function teamCrownHeadline(teams?: TeamScore[]): string | null {
   const winners = teams.filter((t) => t.score === max).map((t) => t.team)
   if (winners.length === 1) return `${winners[0]} wins`
   if (winners.length === 2) return `${winners[0]} & ${winners[1]} tie`
-  return `${winners.length}-way tie: ${winners.slice(0, -1).join(', ')} & ${winners[winners.length - 1]}`
+  return `${winners.length}-way tie: ${tieNames(winners)}`
 }
 
 /** Group rounds by block, run each block's aggregate, and merge the fragments. */
