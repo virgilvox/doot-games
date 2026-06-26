@@ -194,6 +194,11 @@ export class RoomRuntime {
 
   private state: RoomState = { ...INITIAL_STATE, round: { ...INITIAL_STATE.round } }
   private playersMap = new Map<string, Player>()
+  /** Host-only: players the host has removed ("kicked"). The relay is trustless, so a
+   *  kick can't force a client off; instead the host IGNORES them - they drop from the
+   *  roster, the board, and scoring. In-memory + host-local (no relay write); cleared on
+   *  a host reload. Keyed by pid, so a kicked player re-entering the same name stays out. */
+  private ignoredPids = new Set<string>()
   /** Host-only: audience id -> last heartbeat, for the "N watching" count. */
   private audiencePings = new Map<string, number>()
   /** Audience votes (P4B). Host collects every spectator's; an audience member
@@ -757,6 +762,7 @@ export class RoomRuntime {
     }
     const out: Player[] = []
     for (const [pid, p] of this.playersMap) {
+      if (this.ignoredPids.has(pid)) continue // host kicked them: drop from the roster
       const live = p.lastPing != null && now - p.lastPing < PRESENCE_WINDOW_MS
       if (live || pidsWithInput.has(pid)) out.push({ ...p, name: this.displayName(p.name) })
     }
@@ -780,7 +786,8 @@ export class RoomRuntime {
     const out = new Map<string, RelayValue>()
     for (const [key, value] of this.inputs) {
       const [idx, pid] = key.split(':')
-      if (idx === String(roundIndex) && pid) out.set(pid, value)
+      // A kicked player's submissions never reach the board, the derive, or scoring.
+      if (idx === String(roundIndex) && pid && !this.ignoredPids.has(pid)) out.set(pid, value)
     }
     return out
   }
@@ -1036,6 +1043,23 @@ export class RoomRuntime {
     if (this.game) this.game = { ...this.game, meta: this.meta }
     this.publish(addr.meta(this.room), this.meta as unknown as RelayValue)
     this.emit()
+  }
+
+  /** Host removes a disruptive player ("kick"): they drop from the roster, the board,
+   *  and scoring. Host-local + in-memory (no relay write, since the relay is trustless
+   *  and can't force a client off); keyed by pid, so re-entering the same name stays out.
+   *  Cleared on a host reload. {@link unkickPlayer} reverses an accidental kick. */
+  kickPlayer(pid: string): void {
+    this.assertHost()
+    if (!pid) return
+    this.ignoredPids.add(pid)
+    this.emit()
+  }
+
+  /** Reverse a kick (e.g. an accidental one): the player rejoins the roster/scoring. */
+  unkickPlayer(pid: string): void {
+    this.assertHost()
+    if (this.ignoredPids.delete(pid)) this.emit()
   }
 
   /** Delegate driving to a player (co-host/MC), or pass null to drive yourself.

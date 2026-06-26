@@ -5,6 +5,7 @@
 import { computed } from 'vue'
 import { teamColor } from '../visuals'
 import Avatar from './Avatar.vue'
+import Icon from './Icon.vue'
 
 interface RosterPlayer {
   id: string
@@ -12,9 +13,12 @@ interface RosterPlayer {
   team?: string
 }
 const props = withDefaults(
-  defineProps<{ players: RosterPlayer[]; emptyText?: string; teams?: string[] }>(),
-  { emptyText: 'No one has joined yet, share the code!', teams: () => [] },
+  defineProps<{ players: RosterPlayer[]; emptyText?: string; teams?: string[]; kickable?: boolean }>(),
+  { emptyText: 'No one has joined yet, share the code!', teams: () => [], kickable: false },
 )
+// When `kickable` (host context), each pill gets a remove button; the parent confirms
+// and calls the engine. Kept opt-in so player/spectator rosters show no controls.
+const emit = defineEmits<{ kick: [pid: string] }>()
 
 /** team name -> its accent colour, by index in the configured team list. */
 const colorOf = computed<Record<string, string>>(() => {
@@ -42,6 +46,16 @@ function tint(team?: string): string | undefined {
       <Avatar :name="p.name" :id="p.id" :size="28" />
       {{ p.name }}
       <span v-if="p.team" class="team-tag">{{ p.team }}</span>
+      <button
+        v-if="kickable"
+        type="button"
+        class="kick"
+        :aria-label="`Remove ${p.name} from the game`"
+        :title="`Remove ${p.name}`"
+        @click="emit('kick', p.id)"
+      >
+        <Icon name="close" :size="13" />
+      </button>
     </span>
   </div>
 </template>
@@ -68,6 +82,25 @@ function tint(team?: string): string | undefined {
 .pill.teamed {
   border-color: var(--team);
   background: color-mix(in srgb, var(--team) 14%, var(--surface-2));
+}
+.kick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 1px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--mute);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.kick:hover {
+  background: color-mix(in srgb, var(--danger, #c0392b) 16%, transparent);
+  color: var(--danger, #c0392b);
 }
 .team-tag {
   font-size: 11px;

@@ -100,6 +100,14 @@ function toggleCrowd(on: boolean) {
   room.host.setCrowdCounts(on)
 }
 
+// Host removes a disruptive player (drops them from the roster, board, and scoring).
+// Confirm first, since it pulls them from the game.
+function kick(pid: string) {
+  const who = room.players.value.find((p) => p.id === pid)?.name ?? 'this player'
+  if (typeof window !== 'undefined' && !window.confirm(`Remove ${who} from the game?`)) return
+  room.host.kickPlayer(pid)
+}
+
 // ── Stage SFX (big screen only) ─────────────────────────────────────────────
 // Synthesized stage feedback for every composed game: join pop, lock-in click,
 // "everyone's in" chime, countdown ticks, reveal sting, results fanfare. The
@@ -534,7 +542,7 @@ watch(
           {{ room.players.value.length }} joined<template v-if="room.audienceCount.value > 0"> · {{ room.audienceCount.value }} watching</template>
         </span>
       </div>
-      <RosterChips :players="room.players.value" :teams="teams" />
+      <RosterChips :players="room.players.value" :teams="teams" kickable @kick="kick" />
       <div v-if="roundConfig" class="round-pick">
         <span class="kicker">{{ roundConfig.label }}</span>
         <div class="round-opts" role="group" :aria-label="roundConfig.label">

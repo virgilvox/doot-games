@@ -30,10 +30,18 @@ prod via CI, no staging)._
 >   is display-only (the relay profile still carries the raw name - best-effort over a
 >   trustless relay), and obscenity has rare false positives so a real name like "Dick" is
 >   masked too (accepted cost of never projecting a slur).
-> - **NEXT (2/3, 3/3):** host "kick player" = a host-side ignore set in RoomRuntime filtered out
->   of `recentPlayers()`/`inputsFor()` (clean seam; no relay write since the relay is trustless)
->   + a per-player control in RosterChips; then a post-game report flow (a `reports` table +
->   `/api/admin/reports` + a Reports tab in the admin console + a report button on results).
+> - **2/3 host "kick player" - DONE (2026-06-26).** A host-side ignore set in `RoomRuntime`
+>   (`ignoredPids`) filtered out of `recentPlayers()` + `inputsFor()`, so a kicked player drops
+>   from the roster, the board, the derive, AND scoring. No relay write (the relay is trustless,
+>   can't force a client off; keyed by pid so re-entering the same name stays out); host-local +
+>   in-memory, cleared on a host reload. `kickPlayer`/`unkickPlayer` host actions (unkick reverses
+>   an accidental kick). UI: a `kickable` opt-in + `@kick` on `RosterChips` (a per-pill remove
+>   button using a new `close` Icon glyph), wired in the GameHost lobby roster with a confirm.
+>   Verified: 1 engine unit test (kick drops from roster+inputs, unkick restores) - 802 tests;
+>   typecheck + build; real-browser `scripts/host-kick-smoke.mjs`. KNOWN: kick UI is on the lobby
+>   roster (RosterChips); custom-flow games' own rosters would need separate wiring.
+> - **NEXT (3/3):** a post-game report flow (a `reports` table + `/api/admin/reports` + a Reports
+>   tab in the admin console next to Status + a report button on the results screen).
 
 > **FIX: host reload keeps the room code (players no longer stranded) (2026-06-26).** The
 > foundation half of host-reload recovery (see the prior entry for the verified bug). Now a

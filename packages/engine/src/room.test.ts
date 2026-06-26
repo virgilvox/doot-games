@@ -1133,3 +1133,34 @@ describe('player-name filter', () => {
     expect(host.recentPlayers()[0].name).toBe('Robin')
   })
 })
+
+describe('host kick', () => {
+  it('drops a kicked player from the roster + inputs/scoring; unkick restores', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    const bo = makePlayer(hub, 'Bo', now)
+    await bo.connect()
+    await flush()
+    ada.submit({ choice: 0 } as RelayValue)
+    bo.submit({ choice: 1 } as RelayValue)
+    const boPid = playerId('ABCD', 'Bo')
+    expect(host.recentPlayers().map((p) => p.name).sort()).toEqual(['Ada', 'Bo'])
+    expect(host.inputsFor(0).size).toBe(2)
+
+    host.kickPlayer(boPid)
+    expect(host.recentPlayers().map((p) => p.name)).toEqual(['Ada']) // gone from the roster
+    expect(host.inputsFor(0).has(boPid)).toBe(false) // and from the tally/scoring
+    expect(host.inputsFor(0).size).toBe(1)
+
+    host.unkickPlayer(boPid) // an accidental kick is reversible
+    expect(host.recentPlayers().length).toBe(2)
+    expect(host.inputsFor(0).size).toBe(2)
+  })
+})

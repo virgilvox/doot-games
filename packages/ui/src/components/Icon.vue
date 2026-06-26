@@ -8,7 +8,7 @@ import { computed } from 'vue'
 
 const props = withDefaults(defineProps<{ name: IconName; size?: number | string }>(), { size: 20 })
 
-type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc' | 'bell' | 'eye' | 'mask'
+type IconName = 'mic' | 'volume' | 'mute' | 'skip' | 'cheer' | 'crown' | 'cpu' | 'mc' | 'bell' | 'eye' | 'mask' | 'close'
 
 interface Glyph {
   inner: string
@@ -63,6 +63,10 @@ const ICONS: Record<IconName, Glyph> = {
     // incognito glasses, for the faker role
     inner:
       '<path d="M2 11h20"/><circle cx="7" cy="13.5" r="3.2"/><circle cx="17" cy="13.5" r="3.2"/><path d="M10.2 13a2 2 0 0 1 3.6 0"/>',
+  },
+  close: {
+    // an X, for dismiss / remove (e.g. kicking a player from the roster)
+    inner: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
   },
 }
 
