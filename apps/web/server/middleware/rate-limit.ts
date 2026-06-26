@@ -39,15 +39,21 @@ export default defineEventHandler((event) => {
   if (
     !path.startsWith('/api/games') &&
     !path.startsWith('/api/uploads') &&
-    !path.startsWith('/api/client-errors')
+    !path.startsWith('/api/client-errors') &&
+    !path.startsWith('/api/reports')
   )
     return
 
   // Behind Caddy the real client IP is in x-forwarded-for.
   const ip = getRequestIP(event, { xForwardedFor: true }) || 'unknown'
-  // Client error reports get their own bucket so an error burst from one venue's
-  // shared IP can't starve a host's legitimate game saves from the same IP.
-  const key = path.startsWith('/api/client-errors') ? `ce:${ip}` : ip
+  // Anonymous, high-volume endpoints get their own bucket so a burst from one venue's
+  // shared IP (an error storm, or report spam) can't starve a host's legitimate game
+  // saves from that same IP.
+  const key = path.startsWith('/api/client-errors')
+    ? `ce:${ip}`
+    : path.startsWith('/api/reports')
+      ? `rep:${ip}`
+      : ip
   if (limited(key, Date.now())) {
     throw createError({ statusCode: 429, statusMessage: 'Too many requests, slow down a moment.' })
   }

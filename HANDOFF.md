@@ -5,6 +5,39 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **MODERATION 3/3: post-game report flow (2026-06-26). DONE - completes the moderation
+> trio** (name filter -> host kick -> report flow). Players can now flag a game for a
+> moderator from the results screen; admins triage the reports in the console.
+> - **DB**: a new additive `reports` table (`apps/web/server/utils/db.ts` ensureSchema +
+>   a `reports_status_idx`), durable and explicitly NOT room state - by the time a report
+>   is filed the room is over, so it keeps only breadcrumbs (reason, optional note, the
+>   live room code, the game's title + pluginId, a status). `REPORT_REASONS` /
+>   `REPORT_STATUSES` consts are the server-side source of truth.
+> - **Repo + API** (`server/utils/reports-repo.ts`): `createReport`/`listReports`/
+>   `setReportStatus`/`openReportCount`, plus the exported `reportInputSchema` (the Zod
+>   POST boundary - a plain object STRIPS unknown fields so a caller can't forge a
+>   `status`/`id` into the store). Routes: `POST /api/reports` (ANONYMOUS - players have
+>   no account - rate-limited via a new `rep:` bucket in `server/middleware/rate-limit.ts`
+>   so a report burst can't starve game saves; size-capped; returns 204),
+>   `GET /api/admin/reports` (admin, status-filtered + openCount), `POST
+>   /api/admin/reports/[id]` (admin, set status). All admin routes gate with `requireAdmin`.
+> - **Admin UI**: a **Reports** tab in `/admin` (filter open/reviewed/dismissed/all;
+>   Reviewed/Dismiss/Reopen actions), an open-count **badge** on the tab + an alert
+>   **stat card** on Overview that jumps to the tab. `getStats` gained `openReports`.
+> - **Player UI**: a reusable `ReportButton.vue` (`packages/games/src/runtime`, exported)
+>   wired into the GamePlayer **results** block (covers every block-composed game). It
+>   reads context from `room` (code + meta.title + meta.pluginId) and posts with the
+>   global `fetch` (no Nuxt dependency, so it lives in the games package). A new `flag`
+>   Icon glyph. Custom-flow games (Quiz or Die / Circuit Cypher / etc.) have their own
+>   Player.vue and don't show the button yet - a small follow-up (mount `ReportButton`
+>   in those results views).
+> - **Verified**: 6 new unit tests (the `reportInputSchema` boundary: rejects bad/missing
+>   reason + over-long detail, strips a forged status/id) - 809 tests; `nuxi typecheck` +
+>   build; a real-browser `scripts/report-flow-smoke.mjs` (bad reason -> 400, good -> 204;
+>   the results button files end to end -> 204 -> thank-you state; rows land in the DB with
+>   the real game title from `meta`; the admin endpoint is 401 without auth). Screenshots
+>   at 390/1440 = 0 horizontal overflow on both the Reports tab and the player report panel.
+
 > **MODERATION 1/3: player-name profanity filter (2026-06-26).** First of the moderation trio
 > (name filter -> host kick -> report flow). Player names are public (projected on the big
 > screen), so strong profanity/slurs in them are now masked.

@@ -68,6 +68,10 @@ it's local-only and never exists in production.
   Override visibility (take a game down to private), toggle the **Feature** flag, or
   delete. Sort by plays or recency; filter by visibility; search.
 - **Decks** - every deck with its owner; override visibility or delete.
+- **Reports** - the post-game content reports players filed from the results screen
+  (see "Moderation: reports"). Filter by status (open/reviewed/dismissed/all); mark a
+  report reviewed or dismissed, or reopen it. A badge on the tab and an alert card on
+  Overview surface the open count.
 - **Status** - operational health: the last database backup (time + object key, so
   "did the backup run?" is a glance, not an SSH) and the recent server + client errors
   captured in-memory (see "Observability" in `docs/deploy.md`). Read-only.
@@ -110,5 +114,26 @@ Trade-offs (inherent, documented): masking is best-effort over a trustless relay
 relay inspector can still read the raw name in the published profile; only the rendered
 surfaces are masked (that is where the harm is). And the obscenity matcher has rare
 false positives, so a legitimate name that contains a flagged word (e.g. "Dick") is
-masked too; that is the accepted cost of never projecting a slur. (Host "kick a player"
-and a post-game report flow are the next moderation steps.)
+masked too; that is the accepted cost of never projecting a slur.
+
+## Moderation: reports
+
+Any player can report a game from the **results screen** (a "Report this game" button,
+no account needed). They pick a reason (hateful/offensive, sexual/explicit, harassment,
+spam, or other) and may add a note; it posts to `POST /api/reports` (anonymous, but
+rate-limited via its own `rep:` bucket in `server/middleware/rate-limit.ts` and
+size-capped by the `reportInputSchema` Zod boundary, so it can't flood the queue). The
+report stores only breadcrumbs - the reason/note, the live room code, and the game's
+title + type - never any room state (the room is already over).
+
+Admins triage in the **Reports** tab: each report can be marked **reviewed** (actioned)
+or **dismissed** (no action), or reopened. Reports are intentionally thin: by the time
+one is filed there is no live room left to inspect, so the workflow is to take the game
+title to the **Games** tab, find the saved/published game, and take it down (set it to
+private) or delete it if warranted. A report about a player's behaviour (not saved
+content) is a signal only - there is no durable player account to act on (identity is
+ephemeral, reconnect-by-name), so the host's in-room **kick** is the live remedy.
+
+The `reports` table is additive and durable (a moderation queue, explicitly NOT room
+state - PRD §1 allows durable moderation/stat records). It is the only place a (now
+over) room's code + game title is retained, and only as a moderator breadcrumb.

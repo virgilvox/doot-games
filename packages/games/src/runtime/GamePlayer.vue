@@ -10,6 +10,7 @@ import type { GameComposition, GamePlugin, StandardResults } from '@doot-games/s
 import { CountdownRing, Icon, StandingsPeek, teamColor } from '@doot-games/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
+import ReportButton from './ReportButton.vue'
 import { getBlock, ownMakeText } from './derive'
 
 const props = defineProps<{ plugin: GamePlugin }>()
@@ -241,6 +242,12 @@ function reloadPage() {
     <template v-else-if="room.phase.value === 'results' && room.results.value">
       <component :is="ResultsView" :results="room.results.value as any" :me="room.me.value.name" :teams="teams" compact />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
+      <ReportButton
+        class="results-report"
+        :room-code="room.code.value"
+        :game-title="room.meta.value?.title"
+        :plugin-id="room.meta.value?.pluginId"
+      />
     </template>
 
     <div v-else-if="unknownBlock" class="big">
@@ -464,6 +471,9 @@ function reloadPage() {
 }
 .player-standings {
   flex: none;
+}
+.results-report {
+  margin-top: 4px;
 }
 .audio-hint {
   display: inline-flex;

@@ -39,6 +39,8 @@ export interface AdminStats {
   }
   decks: { total: number; public: number; unlisted: number; private: number; new7d: number }
   bookmarks: number
+  /** Open (un-triaged) content reports awaiting a moderator. */
+  openReports: number
   /** Games per game-type (pluginId), most first. */
   byType: Array<{ pluginId: string; count: number }>
   /** Most-hosted public/unlisted games. */
@@ -142,6 +144,11 @@ export async function getStats(): Promise<AdminStats> {
     return n(r.c)
   }, 0)
 
+  const openReports = await safeRow(async () => {
+    const r = (await db.get(sql`SELECT count(*) AS c FROM reports WHERE status = 'open'`)) as Record<string, unknown>
+    return n(r.c)
+  }, 0)
+
   const byType = await safeRow(async () => {
     const rows = (await db.all(sql`
       SELECT plugin_id AS pluginId, count(*) AS count FROM games GROUP BY plugin_id ORDER BY count DESC
@@ -162,7 +169,7 @@ export async function getStats(): Promise<AdminStats> {
     }))
   }, [])
 
-  return { users, games: gamesRow, decks: decksRow, bookmarks: bookmarkCount, byType, topPlayed }
+  return { users, games: gamesRow, decks: decksRow, bookmarks: bookmarkCount, openReports, byType, topPlayed }
 }
 
 // ── User management ──────────────────────────────────────────────────────────

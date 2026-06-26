@@ -7,7 +7,7 @@
  * security is on the routes.
  *
  * Tabs: Overview (metrics), Users (roles + bans), Games (visibility, feature, delete),
- * Decks (visibility, delete).
+ * Decks (visibility, delete), Reports (triage player reports), Status (backups + errors).
  */
 import { computed, onMounted, ref, watch } from 'vue'
 
@@ -18,6 +18,7 @@ interface Stats {
   games: { total: number; public: number; unlisted: number; private: number; featured: number; plays: number; new7d: number }
   decks: { total: number; public: number; unlisted: number; private: number; new7d: number }
   bookmarks: number
+  openReports: number
   byType: Array<{ pluginId: string; count: number }>
   topPlayed: Array<{ id: string; title: string; plays: number; visibility: Visibility }>
 }
@@ -80,7 +81,27 @@ async function checkAccess() {
   }
 }
 
-const tab = ref<'overview' | 'users' | 'games' | 'decks' | 'status'>('overview')
+const tab = ref<'overview' | 'users' | 'games' | 'decks' | 'reports' | 'status'>('overview')
+
+type ReportStatus = 'open' | 'reviewed' | 'dismissed'
+interface AdminReport {
+  id: string
+  reason: string
+  detail: string | null
+  roomCode: string | null
+  gameTitle: string | null
+  pluginId: string | null
+  status: ReportStatus
+  createdAt: number
+  reviewedAt: number | null
+}
+const REPORT_REASON_LABELS: Record<string, string> = {
+  offensive: 'Hateful or offensive',
+  sexual: 'Sexual or explicit',
+  harassment: 'Harassment or bullying',
+  spam: 'Spam or off-topic',
+  other: 'Something else',
+}
 
 interface SystemStatus {
   now: number
@@ -93,6 +114,9 @@ const stats = ref<Stats | null>(null)
 const users = ref<AdminUser[]>([])
 const games = ref<AdminGame[]>([])
 const decks = ref<AdminDeck[]>([])
+const reports = ref<AdminReport[]>([])
+const reportOpenCount = ref(0)
+const reportFilter = ref<'' | ReportStatus>('open')
 const status = ref<SystemStatus | null>(null)
 const userQuery = ref('')
 const gameQuery = ref('')
@@ -128,6 +152,7 @@ async function refreshStatus() {
 
 async function loadStats() {
   stats.value = await $fetch<Stats>('/api/admin/stats')
+  reportOpenCount.value = stats.value.openReports
 }
 async function loadUsers() {
   const r = await $fetch<{ users: AdminUser[] }>('/api/admin/users', { query: { q: userQuery.value || undefined } })
@@ -143,6 +168,13 @@ async function loadDecks() {
   const r = await $fetch<{ decks: AdminDeck[] }>('/api/admin/decks', { query: { q: deckQuery.value || undefined } })
   decks.value = r.decks
 }
+async function loadReports() {
+  const r = await $fetch<{ reports: AdminReport[]; openCount: number }>('/api/admin/reports', {
+    query: { status: reportFilter.value || undefined },
+  })
+  reports.value = r.reports
+  reportOpenCount.value = r.openCount
+}
 async function loadStatus() {
   status.value = await $fetch<SystemStatus>('/api/admin/status')
 }
@@ -156,6 +188,7 @@ async function ensureTab(t: typeof tab.value) {
     if (t === 'users') await loadUsers()
     if (t === 'games') await loadGames()
     if (t === 'decks') await loadDecks()
+    if (t === 'reports') await loadReports()
     if (t === 'status') await loadStatus()
     loaded.value[t] = true
   } catch (e) {
@@ -249,6 +282,25 @@ async function deleteDeck(d: AdminDeck) {
     decks.value = decks.value.filter((x) => x.id !== d.id)
 }
 
+async function setReportStatus(r: AdminReport, statusValue: ReportStatus) {
+  const wasOpen = r.status === 'open'
+  if (
+    await action(
+      () => $fetch(`/api/admin/reports/${r.id}`, { method: 'POST', body: { status: statusValue } }),
+      statusValue === 'dismissed' ? 'Report dismissed.' : statusValue === 'reviewed' ? 'Marked reviewed.' : 'Reopened.',
+    )
+  ) {
+    r.status = statusValue
+    // Keep the open badge honest as items leave/enter the open queue.
+    if (wasOpen && statusValue !== 'open') reportOpenCount.value = Math.max(0, reportOpenCount.value - 1)
+    else if (!wasOpen && statusValue === 'open') reportOpenCount.value += 1
+    // When filtering to one status, a row that no longer matches drops out of view.
+    if (reportFilter.value && r.status !== reportFilter.value) {
+      reports.value = reports.value.filter((x) => x.id !== r.id)
+    }
+  }
+}
+
 function fmtDate(v: number | string | null): string {
   if (!v) return '-'
   const d = typeof v === 'number' ? new Date(v) : new Date(v)
@@ -291,6 +343,10 @@ const overview = computed(() => stats.value)
           <button :class="{ on: tab === 'users' }" role="tab" @click="tab = 'users'">Users</button>
           <button :class="{ on: tab === 'games' }" role="tab" @click="tab = 'games'">Games</button>
           <button :class="{ on: tab === 'decks' }" role="tab" @click="tab = 'decks'">Decks</button>
+          <button :class="{ on: tab === 'reports' }" role="tab" @click="tab = 'reports'">
+            Reports
+            <span v-if="reportOpenCount > 0" class="tab-badge">{{ reportOpenCount }}</span>
+          </button>
           <button :class="{ on: tab === 'status' }" role="tab" @click="tab = 'status'">Status</button>
         </nav>
 
@@ -319,6 +375,16 @@ const overview = computed(() => stats.value)
                 <span class="stat-l">Decks</span>
                 <span class="stat-sub">{{ overview.decks.public }} public</span>
               </div>
+              <button
+                v-if="overview.openReports > 0"
+                type="button"
+                class="stat stat-alert"
+                @click="tab = 'reports'"
+              >
+                <span class="stat-n">{{ overview.openReports }}</span>
+                <span class="stat-l">Open reports</span>
+                <span class="stat-sub">needs review</span>
+              </button>
             </div>
 
             <div class="grid2">
@@ -515,6 +581,54 @@ const overview = computed(() => stats.value)
           </div>
         </section>
 
+        <!-- REPORTS -------------------------------------------------------- -->
+        <section v-show="tab === 'reports'" class="tabpanel">
+          <div class="toolbar">
+            <select v-model="reportFilter" class="sf-input narrow" :disabled="busy" @change="loadReports">
+              <option value="open">Open</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="dismissed">Dismissed</option>
+              <option value="">All</option>
+            </select>
+            <button class="btn btn-ghost" :disabled="busy" @click="loadReports">Refresh</button>
+          </div>
+          <p class="muted small mt">
+            Anonymous reports players filed from the results screen. There is no live room left to inspect;
+            use the game title to find a saved or published game in the Games tab and take it down if needed.
+          </p>
+          <div class="tablewrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>When</th><th>Reason</th><th>Game</th><th>Room</th><th>Note</th>
+                  <th>Status</th><th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in reports" :key="r.id">
+                  <td class="dim">{{ ago(r.createdAt) }}</td>
+                  <td>{{ REPORT_REASON_LABELS[r.reason] ?? r.reason }}</td>
+                  <td>
+                    <span class="who-name">{{ r.gameTitle || 'Untitled' }}</span>
+                    <span v-if="r.pluginId" class="dim small"> · {{ r.pluginId }}</span>
+                  </td>
+                  <td class="mono small">{{ r.roomCode || '-' }}</td>
+                  <td class="report-note">{{ r.detail || '-' }}</td>
+                  <td>
+                    <span class="pill" :class="`pill-${r.status}`">{{ r.status }}</span>
+                  </td>
+                  <td class="actions-col">
+                    <button v-if="r.status !== 'reviewed'" class="mini" :disabled="busy" @click="setReportStatus(r, 'reviewed')">Reviewed</button>
+                    <button v-if="r.status !== 'dismissed'" class="mini" :disabled="busy" @click="setReportStatus(r, 'dismissed')">Dismiss</button>
+                    <button v-if="r.status !== 'open'" class="mini" :disabled="busy" @click="setReportStatus(r, 'open')">Reopen</button>
+                  </td>
+                </tr>
+                <tr v-if="!reports.length"><td colspan="7" class="muted center">No reports here. Nice.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- STATUS --------------------------------------------------------- -->
         <section v-show="tab === 'status'" class="tabpanel">
           <div class="toolbar">
@@ -649,6 +763,17 @@ const overview = computed(() => stats.value)
   font-size: 34px;
   font-weight: 800;
   line-height: 1;
+}
+.stat-alert {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 45%, var(--line-soft));
+  background: color-mix(in srgb, var(--danger, #c0392b) 8%, var(--surface));
+}
+.stat-alert .stat-n,
+.stat-alert .stat-sub {
+  color: var(--danger, #c0392b);
 }
 .stat-l {
   margin-top: 6px;
@@ -818,6 +943,35 @@ const overview = computed(() => stats.value)
 .pill-feat {
   margin-left: 8px;
   color: var(--primary);
+}
+.pill-open {
+  background: color-mix(in srgb, var(--danger, #c0392b) 16%, transparent);
+  border-color: color-mix(in srgb, var(--danger, #c0392b) 40%, transparent);
+  color: var(--danger, #c0392b);
+}
+.pill-reviewed {
+  color: var(--ok, #1a8f5a);
+}
+.pill-dismissed {
+  color: var(--mute);
+}
+.tab-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  background: var(--danger, #c0392b);
+  color: #fff;
+}
+.report-note {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .actions-col {
   white-space: nowrap;

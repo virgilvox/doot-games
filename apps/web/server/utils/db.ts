@@ -107,6 +107,28 @@ export const bookmarks = sqliteTable(
   (t) => ({ pk: primaryKey({ columns: [t.userId, t.gameId] }) }),
 )
 
+/** A post-game content report filed by a player from the results screen. Anonymous
+ *  (players have no account) and durable so a moderator can triage it later. This is
+ *  NOT live room state: the room is already over when a report is filed; we keep only
+ *  the few breadcrumbs a moderator needs to find the offending game/room. */
+export const reports = sqliteTable('reports', {
+  id: text('id').primaryKey(),
+  /** Why it was reported (a fixed category; see REPORT_REASONS). */
+  reason: text('reason').notNull(),
+  /** Optional free-text the reporter added (capped). */
+  detail: text('detail'),
+  /** The live room's join code at report time (ephemeral, kept only as a breadcrumb). */
+  roomCode: text('room_code'),
+  /** The reported game's title + type, so a moderator can locate a saved/public game. */
+  gameTitle: text('game_title'),
+  pluginId: text('plugin_id'),
+  /** Triage state: 'open' (new), 'reviewed' (actioned), or 'dismissed' (no action). */
+  status: text('status').notNull().default('open'),
+  createdAt: integer('created_at').notNull(),
+  /** When a moderator last changed the status, or null while open. */
+  reviewedAt: integer('reviewed_at'),
+})
+
 /** A tiny durable key/value store for app-level flags that must persist and run
  *  once (e.g. the first-admin bootstrap marker). NOT room state. */
 export const appMeta = sqliteTable('app_meta', {
@@ -118,6 +140,15 @@ export const appMeta = sqliteTable('app_meta', {
 /** Game visibility levels. */
 export type Visibility = 'private' | 'unlisted' | 'public'
 export const VISIBILITIES: Visibility[] = ['private', 'unlisted', 'public']
+
+/** The fixed reasons a player can pick when reporting a game from the results
+ *  screen. Kept here as the single server-side source of truth; the report button's
+ *  client labels mirror this list (see ReportButton.vue). */
+export const REPORT_REASONS = ['offensive', 'sexual', 'harassment', 'spam', 'other'] as const
+export type ReportReason = (typeof REPORT_REASONS)[number]
+/** Triage states for a filed report. */
+export const REPORT_STATUSES = ['open', 'reviewed', 'dismissed'] as const
+export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
 const DEFAULT_URL = 'file:./.data/doot.sqlite'
 
@@ -214,6 +245,22 @@ async function ensureSchema(c: Client): Promise<void> {
   `)
   await c.execute('CREATE INDEX IF NOT EXISTS playlists_owner_idx ON playlists(owner_id)')
   await c.execute('CREATE INDEX IF NOT EXISTS playlists_visibility_idx ON playlists(visibility)')
+  // Post-game content reports (anonymous, filed from the results screen).
+  await c.execute(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      reason TEXT NOT NULL,
+      detail TEXT,
+      room_code TEXT,
+      game_title TEXT,
+      plugin_id TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at INTEGER NOT NULL,
+      reviewed_at INTEGER
+    )
+  `)
+  // The moderation queue lists open reports newest-first.
+  await c.execute('CREATE INDEX IF NOT EXISTS reports_status_idx ON reports(status, created_at)')
   // App-level persistent flags (e.g. the one-time first-admin bootstrap marker).
   await c.execute(`
     CREATE TABLE IF NOT EXISTS app_meta (
