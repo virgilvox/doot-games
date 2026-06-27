@@ -2,7 +2,7 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-27. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
 > **ROOM-CODE LIFECYCLE: codes now cycle between games (2026-06-26).** Owner reported the
@@ -218,7 +218,10 @@ prod via CI, no staging)._
 
 > **FIX: host reload keeps the room code (players no longer stranded) (2026-06-26).** The
 > foundation half of host-reload recovery (see the prior entry for the verified bug). Now a
-> host reload resumes the SAME room instead of regenerating the code.
+> host reload resumes the SAME room instead of regenerating the code. (NOTE: `useHostSession`
+> has since evolved from this single code+token slot to a per-CONTEXT room map so codes cycle
+> between games — see the "ROOM-CODE LIFECYCLE" entry at the top; the keep-on-reload property
+> below still holds, now scoped per game.)
 > - **App** (`composables/useHostSession.ts`, used by BOTH `HostRoom.client.vue` and
 >   `SessionHostRoom.client.vue`): persist the room code + a per-host-instance token in
 >   **sessionStorage** (per-tab; survives reload, not tab-close, which is exactly right; the
