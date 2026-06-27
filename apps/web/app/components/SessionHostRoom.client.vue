@@ -37,8 +37,11 @@ const themeState = useState<string>('doot-theme', () => 'doot')
 const themeId = themeState.value
 
 // A per-tab host identity that survives a reload, so the session host resumes the same
-// room instead of stranding players on a regenerated code (see useHostSession).
-const { room: roomCode, token: hostToken } = useHostSession()
+// room instead of stranding players on a regenerated code (see useHostSession). A saved
+// playlist gets its own context (a different playlist starts a fresh room); the ad-hoc
+// picker uses a stable context so it resumes on refresh.
+const sessionContext = props.gameIds?.length ? `pl:${props.gameIds.join(',')}` : 'session'
+const { room: roomCode, token: hostToken } = useHostSession({ context: sessionContext })
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 provideDootRoom(room)
@@ -179,6 +182,15 @@ function advance() {
 const atResults = computed(() => room.phase.value === 'results')
 const isLastGame = computed(() => idx.value >= picks.value.length - 1)
 const playerCount = computed(() => room.players.value.length)
+
+// "New room": drop this tab's room and reload for a brand-new code + clean roster. Only
+// when NOT mid-game (the setup screen or between/after games), never mid-round.
+const canNewRoom = computed(() => room.phase.value !== 'active')
+function newRoom() {
+  if (room.phase.value === 'active') return
+  resetHostSession()
+  if (typeof window !== 'undefined') window.location.reload()
+}
 </script>
 
 <template>
@@ -189,6 +201,7 @@ const playerCount = computed(() => room.players.value.length)
         <span v-if="idx >= 0 && !finished" class="chip">Game {{ idx + 1 }}/{{ picks.length }}</span>
         <span class="chip">{{ playerCount }} {{ playerCount === 1 ? 'player' : 'players' }}</span>
         <span class="code mono">{{ room.code.value }}</span>
+        <button v-if="canNewRoom" type="button" class="newroom" title="Start a fresh room with a new code" @click="newRoom">New room</button>
       </div>
     </template>
 
@@ -266,6 +279,9 @@ const playerCount = computed(() => room.players.value.length)
   background: var(--surface); border-radius: 999px; padding: 6px 13px;
 }
 .code { font-weight: 700; font-size: 22px; letter-spacing: 0.3em; color: var(--primary); padding-left: 0.3em; }
+.newroom { font-weight: 700; font-size: 12px; border: var(--bd) solid var(--line-soft); background: var(--surface); color: var(--ink-soft); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.newroom:hover { color: var(--ink); border-color: var(--line); }
+.newroom:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 .setup, .session-done {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;

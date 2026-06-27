@@ -48,8 +48,11 @@ const game = plugin
 
 const themeState = useState<string>('doot-theme', () => 'doot')
 // A per-tab host identity that survives a reload, so the host resumes the same room
-// instead of stranding players on a regenerated code. See useHostSession.
-const { room: roomCode, token: hostToken } = useHostSession()
+// instead of stranding players on a regenerated code. The context is the game being
+// hosted, so opening a DIFFERENT game starts a fresh room (no inherited roster); a
+// refresh of THIS game resumes it. See useHostSession.
+const sessionContext = props.gameId ? `g:${props.gameId}` : `p:${props.pluginId}`
+const { room: roomCode, token: hostToken } = useHostSession({ context: sessionContext })
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 provideDootRoom(room)
@@ -206,6 +209,16 @@ if (props.gameId) {
 
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)
+
+// "New room": drop this tab's room and reload, so the host gets a brand-new code with a
+// clean roster. Only offered when NOT mid-game (lobby or the final results), so it can't
+// strand a room of players mid-round. The unambiguous "this session is over" signal.
+const canNewRoom = computed(() => room.phase.value !== 'active')
+function newRoom() {
+  if (room.phase.value === 'active') return
+  resetHostSession()
+  if (typeof window !== 'undefined') window.location.reload()
+}
 </script>
 
 <template>
@@ -218,6 +231,7 @@ const playerCount = computed(() => room.players.value.length)
           {{ room.connected.value ? 'connected' : 'connecting…' }}
         </span>
         <span class="code mono">{{ room.code.value }}</span>
+        <button v-if="canNewRoom" type="button" class="newroom" title="Start a fresh room with a new code" @click="newRoom">New room</button>
       </div>
     </template>
     <component :is="HostView" :plugin="plugin" />
@@ -264,5 +278,23 @@ const playerCount = computed(() => room.players.value.length)
   letter-spacing: 0.3em;
   color: var(--primary);
   padding-left: 0.3em;
+}
+.newroom {
+  font-weight: 700;
+  font-size: 12px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.newroom:hover {
+  color: var(--ink);
+  border-color: var(--line);
+}
+.newroom:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 </style>

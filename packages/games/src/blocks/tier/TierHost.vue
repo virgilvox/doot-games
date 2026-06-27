@@ -121,7 +121,8 @@ function revealItem() {
   revealedUpTo.value = Math.max(revealedUpTo.value, itemIndex.value)
   phase.value = 'reveal'
   deadline.value = null
-  confetti.value = true
+  // Celebrate only a TOP-tier (S) landing; confetti on a C/D/F item is silly.
+  confetti.value = currentResult.value?.tier === 0
   publishShow()
 }
 function nextItem() {

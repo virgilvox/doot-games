@@ -5,6 +5,31 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-26. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **ROOM-CODE LIFECYCLE: codes now cycle between games (2026-06-26).** Owner reported the
+> host code "always stays the same" and old players still show connected across games. Root
+> cause: `useHostSession` persisted code+token in sessionStorage and NOTHING ever cycled it
+> within a tab, so a new game reused the old code and inherited the previous room's retained
+> relay state (profiles/pings/inputs, 8h TTL) — `recentPlayers()` keeps anyone with prior
+> inputs (load-bearing for scoring; the aggregates map over `ctx.players`), so those ghosts
+> persisted. The roster semantics are correct + well-tested; the real fix is the room
+> lifecycle, not the roster.
+> - **`useHostSession({ context })`** (`apps/web/app/composables/`): a persisted room is now
+>   resumed ONLY for a genuine refresh of the SAME hosting context that isn't idle. A
+>   DIFFERENT game (new `context`) or a tab idle > 6h mints a FRESH code (the idle clock is
+>   bumped each load, so an active session never trips it). Context = `g:<id>` for a saved
+>   game, `p:<plugin>` for a flagship, `pl:<ids>`/`session` for the playlist host.
+> - **"New room" button** in the host bar (HostRoom + SessionHostRoom), shown when NOT mid-game
+>   (`phase !== 'active'`): `resetHostSession()` + reload → brand-new code, clean roster. The
+>   explicit "this game has ended" signal the owner asked for. A fresh code = fresh relay
+>   namespace = zero ghosts, without touching the (correct) scoring roster.
+> - **Room conflict** is unchanged + already handled: on connect `ensureFreeRoomCode`/
+>   `roomCodeTaken` regenerate if a DIFFERENT live host holds the code (host-token match keeps
+>   your own on reload). Cycling mints a random code that still runs that collision check.
+> - Verified: 7 new `useHostSession` lifecycle tests + 848 total green, typecheck + build green,
+>   and an e2e proving refresh RESUMES the code while "New room" CYCLES it.
+> - **Tier confetti** now fires only on a TOP-tier (S) landing, not every reveal (was silly on
+>   a C/D/F item). `TierHost.revealItem`: `confetti = currentResult?.tier === 0`.
+
 > **TIER LIST is now a SOLO BLOCK (2026-06-26, final). SUPERSEDES the two tier entries
 > below** (the all-at-once block + the custom-flow-game versions). Per owner direction: the
 > item-by-item tier experience is baked into the `tier` BLOCK itself, so dropping a Tier List
