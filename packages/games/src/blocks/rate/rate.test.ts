@@ -43,6 +43,35 @@ describe('rate aggregate', () => {
     expect(frag.awards?.[0]?.value).toBe('9.0')
   })
 
+  it('shares the top-rated award across every subject tied for the best average', () => {
+    const a = content({ subject: 'Hole A', image: 'http://x/a.jpg' })
+    const b = content({ subject: 'Hole B', image: 'http://x/b.jpg' })
+    const c = content({ subject: 'Hole C' })
+    const frag = rateBlock.aggregate!(
+      ctxFor(
+        [
+          { index: 0, content: a },
+          { index: 1, content: b },
+          { index: 2, content: c },
+        ],
+        { 0: [{ overall: 8 }, { overall: 8 }], 1: [{ overall: 8 }], 2: [{ overall: 3 }] },
+      ),
+    )
+    // A and B both average 8 (a tie for top); C averages 3 and is not a winner.
+    expect(frag.awards?.map((x) => x.subject)).toEqual(['Hole A', 'Hole B'])
+    expect(frag.awards?.every((x) => x.value === '8.0')).toBe(true)
+    expect(frag.awards?.map((x) => x.image)).toEqual(['http://x/a.jpg', 'http://x/b.jpg'])
+  })
+
+  it('keeps a single award when there is a clear winner (no spurious tie)', () => {
+    const a = content({ subject: 'Hole A' })
+    const b = content({ subject: 'Hole B' })
+    const frag = rateBlock.aggregate!(
+      ctxFor([{ index: 0, content: a }, { index: 1, content: b }], { 0: [{ overall: 9 }], 1: [{ overall: 4 }] }),
+    )
+    expect(frag.awards?.map((x) => x.subject)).toEqual(['Hole A'])
+  })
+
   it('prefers an explicit subject over the prompt', () => {
     const c = content({ subject: 'Peach', prompt: 'Rate that pose' })
     const frag = rateBlock.aggregate!(ctxFor([{ index: 0, content: c }], { 0: [{ overall: 7 }] }))

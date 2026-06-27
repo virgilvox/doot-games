@@ -133,9 +133,13 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
     }),
   }),
   aggregate: (ctx: BlockResultsContext<RateContent, RateInput>): ResultsFragment => {
+    // A tie for the top rating is a SHARED crown: keep every subject within an
+    // epsilon of the best average per category (not just the first one seen), so
+    // the reveal shows everyone who tied, each with its own picture.
+    const TIE_EPS = 1e-9
     const byCategory = new Map<
       string,
-      { label: string; subject: string; image: string; avg: number; scale: RateScale }
+      { label: string; scale: RateScale; best: number; winners: Array<{ subject: string; image: string }> }
     >()
     let ratingsCast = 0
     for (const { index, content } of ctx.rounds) {
@@ -154,27 +158,32 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           }
         }
         ratingsCast += n
-        if (n > 0) {
-          const avg = sum / n
-          const prev = byCategory.get(cat.id)
-          if (!prev || avg > prev.avg) {
-            byCategory.set(cat.id, {
-              label: cat.label,
-              subject: name,
-              image: content.image ?? '',
-              avg,
-              scale: content.scale,
-            })
-          }
+        if (n === 0) continue
+        const avg = sum / n
+        const entry = { subject: name, image: content.image ?? '' }
+        const prev = byCategory.get(cat.id)
+        if (!prev) {
+          byCategory.set(cat.id, { label: cat.label, scale: content.scale, best: avg, winners: [entry] })
+        } else if (avg > prev.best + TIE_EPS) {
+          // A clear new best resets the shared crown to this subject.
+          prev.best = avg
+          prev.winners = [entry]
+        } else if (avg >= prev.best - TIE_EPS) {
+          // Within epsilon of the best: a tie, so this subject joins the crown.
+          prev.winners.push(entry)
         }
       }
     }
-    const awards = [...byCategory.values()].map((e) => ({
-      label: `Top rated ${e.label}`,
-      subject: e.subject,
-      value: formatScore(e.avg, e.scale),
-      ...(e.image ? { image: e.image } : {}),
-    }))
+    // One award card per winner, so a tie lists every subject (each with its own
+    // image) instead of silently dropping all but the first.
+    const awards = [...byCategory.values()].flatMap((e) =>
+      e.winners.map((w) => ({
+        label: `Top rated ${e.label}`,
+        subject: w.subject,
+        value: formatScore(e.best, e.scale),
+        ...(w.image ? { image: w.image } : {}),
+      })),
+    )
 
     // Combined-group rankings: for each group the author marked "combine ratings",
     // roll its rate rounds into ONE ranking by overall score (the mean of each
@@ -218,7 +227,8 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           count: Math.round(s.overall * 10) / 10,
           max: ceiling,
           display: formatScore(s.overall, s.scale),
-          correct: s.overall === top && top > 0,
+          // Mark every subject tied for the top (within epsilon), not just the first.
+          correct: top > 0 && s.overall >= top - TIE_EPS,
           note: '',
         })),
       })

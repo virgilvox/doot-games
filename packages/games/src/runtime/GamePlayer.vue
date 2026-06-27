@@ -7,7 +7,7 @@
 import type { ControlAction } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, StandardResults } from '@doot-games/sdk'
-import { CountdownRing, Icon, StandingsPeek, teamColor } from '@doot-games/ui'
+import { CountdownRing, Icon, MediaFrame, StandingsPeek, teamColor } from '@doot-games/ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import ReportButton from './ReportButton.vue'
@@ -306,7 +306,7 @@ function reloadPage() {
         <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" class="player-cd" />
       </div>
       <h2 class="prompt">{{ prompt }}</h2>
-      <img v-if="showImage" :src="image" alt="" class="player-img" @error="failedImage = true" />
+      <MediaFrame v-if="showImage" :src="image" class="player-img" max-h="38vh" @error="failedImage = true" />
       <p v-if="hasAudio" class="audio-hint"><Icon name="mic" :size="16" /> Listen to the big screen</p>
       <component
         :is="block.PlayerInput"
@@ -467,13 +467,11 @@ function reloadPage() {
   font-size: clamp(22px, 6vw, 32px);
   font-weight: 800;
 }
+/* The prompt picture on the phone hugs the image (MediaFrame), so a portrait or
+   square never shows letterbox bands inside a full-width bordered box. */
 .player-img {
-  width: 100%;
-  max-height: 38vh;
-  object-fit: contain;
-  border-radius: 14px;
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface);
+  align-self: center;
+  max-width: 100%;
 }
 /* A mirrored slide / title card on the phone: fills the space and centers. */
 .slide-mirror {

@@ -7,7 +7,7 @@
 import { type RelayValue, isEligible } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GameComposition, GamePlugin, RoundInstance, ScorePlayer } from '@doot-games/sdk'
-import { AudioClip, ControlBar, CountdownRing, DButton, Icon, RoomTicket, RosterChips, StandingsPeek, type StageSfx, createStageSfx } from '@doot-games/ui'
+import { AudioClip, ControlBar, CountdownRing, DButton, Icon, MediaFrame, RoomTicket, RosterChips, StandingsPeek, type StageSfx, createStageSfx } from '@doot-games/ui'
 import type { StandardResults } from '@doot-games/sdk'
 import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, ref, shallowRef, watch } from 'vue'
 import GameResults from './GameResults.vue'
@@ -725,7 +725,14 @@ watch(
       <div class="left">
         <span v-if="subject" class="subject">{{ subject }}</span>
         <h1 class="prompt" :style="promptStyle">{{ prompt }}</h1>
-        <div v-if="showImage" class="imgbox"><img :src="image" alt="" @error="failedImages.add(image!)" /></div>
+        <MediaFrame
+          v-if="showImage"
+          :src="image!"
+          fill
+          max-h="min(58vh, 600px)"
+          class="stage-image"
+          @error="failedImages.add(image!)"
+        />
         <AudioClip v-if="audio" :key="audio" :src="audio" class="stage-audio" :label="prompt || 'Listen'" />
       </div>
       <div class="right">
@@ -757,6 +764,7 @@ watch(
          appears and end-of-game scoring runs over every round as usual. -->
     <ControlBar
       v-if="!isSolo || state === 'reveal'"
+      class="stage-controlbar"
       :round-index="index"
       :round-count="rounds.length"
       :state-label="stateLabel"
@@ -938,6 +946,16 @@ watch(
   width: min(720px, 100%);
   margin-top: 12px;
 }
+/* Pin the control bar to the bottom of the viewport so the standings peek (or any
+   tall reveal content) can never shove it off-screen: the host's Next/Reveal
+   button is always reachable. The bar's own opaque panel background covers any
+   content scrolling beneath it. Belt-and-suspenders with the fill image, which
+   already shrinks to make room rather than growing the page. */
+.stage-controlbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+}
 .stage-audio {
   margin-top: 14px;
   max-width: 560px;
@@ -1010,6 +1028,14 @@ watch(
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* Bound the active stage to the viewport (minus the host bar + page padding) so
+     its flex children get real shrink pressure: when the standings peek appears on
+     a reveal, the round grid shrinks to make room instead of growing the page and
+     scrolling the control bar away. Active-only — the lobby (.lobby) and results
+     (.results-wrap) have their own roots and are free to scroll. The offset is
+     approximate; the sticky control bar is the backstop if a wrapped bar makes the
+     header taller than estimated. */
+  max-height: calc(100dvh - 116px);
 }
 .stage-grid {
   flex: 1;
@@ -1055,22 +1081,14 @@ watch(
   font-weight: 800;
   margin: 14px 0;
 }
-.imgbox {
-  border: var(--bd) solid var(--line-soft);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--surface-2);
-  display: grid;
-  place-items: center;
-}
-/* The question image is the main visual on a guess/trivia round, so fit it whole
-   (no crop) rather than filling a fixed box. Capped so a tall image can't blow
-   out the stage. */
-.imgbox img {
-  max-width: 100%;
-  max-height: min(46vh, 460px);
-  object-fit: contain;
-  display: block;
+/* The question image is the main visual on a guess/trivia round. MediaFrame in
+   fill mode grows it to fill the space left under the prompt (so it never sits
+   small with empty stage around it) while still hugging the picture — no crop,
+   no letterbox gap. `flex:1` gives the frame the bounded height fill needs. */
+.stage-image {
+  flex: 1;
+  min-height: 0;
+  margin-top: 6px;
 }
 @media (max-width: 900px) {
   .lobby,

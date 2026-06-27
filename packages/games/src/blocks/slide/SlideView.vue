@@ -8,6 +8,7 @@
  * Used as both the block's HostDisplay and PlayerInput; the extra props those
  * call sites pass (inputs/state/answer/modelValue) are ignored (inheritAttrs off).
  */
+import { MediaFrame } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import type { SlideContent } from './block'
 
@@ -38,7 +39,14 @@ const layout = computed(() => {
 
 <template>
   <div class="slide" :class="layout">
-    <img v-if="showImage" class="slide-img" :src="image" alt="" @error="failed = true" />
+    <MediaFrame
+      v-if="showImage"
+      class="slide-img"
+      :src="image"
+      :fill="layout === 'side' || layout === 'image-only'"
+      :max-h="layout === 'banner' ? 'min(52vh, 480px)' : layout === 'image-only' ? '76vh' : '72vh'"
+      @error="failed = true"
+    />
     <div v-if="hasText" class="slide-text">
       <h1 v-if="heading" class="slide-heading">{{ heading }}</h1>
       <p v-if="body" class="slide-body">{{ body }}</p>
@@ -72,20 +80,25 @@ const layout = computed(() => {
   text-align: center;
   align-items: center;
 }
-.slide-img {
-  max-width: 100%;
-  max-height: min(70vh, 620px);
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface-2);
-}
+/* Side: the picture fills the stage height beside the text and hugs the image
+   (MediaFrame fill). flex:0 (no grow) keeps the frame the picture's own width —
+   a portrait stays narrow, a landscape caps its width so the text keeps room —
+   so there is never an empty letterbox band inside the card. */
 .slide.side .slide-img {
-  flex: 1 1 320px;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: min(58%, 720px);
 }
+/* Banner: a centered hero capped in height (MediaFrame handles wrap + cap). */
 .slide.banner .slide-img {
-  max-height: min(52vh, 480px);
+  flex: none;
+  max-width: 100%;
+}
+/* Image-only: the picture fills the whole stage. */
+.slide.image-only .slide-img {
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
 }
 .slide-text {
   flex: 1 1 340px;

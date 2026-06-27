@@ -10,6 +10,7 @@
  */
 import type { RoundState } from '@doot-games/engine'
 import { injectDootRoom } from '@doot-games/engine/vue'
+import { MediaFrame } from '@doot-games/ui'
 import { computed, ref } from 'vue'
 import type { GuessContent, GuessInput } from './block'
 
@@ -85,7 +86,7 @@ const letter = (i: number) => String.fromCharCode(65 + i)
     <!-- Reveal: the answer on its own, so a long answer or a picture always fits
          (no cramped 4-up board, no clipped reveal). -->
     <div v-if="revealed" class="answer-focus">
-      <img v-if="revealImg" class="answer-img" :src="revealImg" alt="" />
+      <MediaFrame v-if="revealImg" class="answer-img" :src="revealImg" fill max-h="min(54vh, 540px)" />
       <div class="answer-body">
         <span class="answer-kicker">The answer</span>
         <span class="answer-label">{{
@@ -221,13 +222,12 @@ const letter = (i: number) => String.fromCharCode(65 + i)
   text-align: center;
   gap: clamp(12px, 2vw, 22px);
 }
+/* The reveal picture fills the space above the answer label and hugs the image
+   (MediaFrame fill): big, no crop, no letterbox gap. */
 .answer-img {
+  flex: 1;
+  min-height: 0;
   max-width: 100%;
-  max-height: min(48vh, 480px);
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-  border: var(--bd) solid var(--line-soft);
-  background: var(--surface-2);
 }
 .answer-body {
   display: flex;
