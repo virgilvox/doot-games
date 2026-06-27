@@ -13,25 +13,34 @@ prod via CI, no staging)._
 > inputs (load-bearing for scoring; the aggregates map over `ctx.players`), so those ghosts
 > persisted. The roster semantics are correct + well-tested; the real fix is the room
 > lifecycle, not the roster.
-> - **`useHostSession({ context })`** (`apps/web/app/composables/`): a persisted room is now
->   resumed ONLY for a genuine refresh of the SAME hosting context that isn't idle. A
->   DIFFERENT game (new `context`) or a tab idle > 6h mints a FRESH code (the idle clock is
->   bumped each load, so an active session never trips it). Context = `g:<id>` for a saved
->   game, `p:<plugin>` for a flagship, `pl:<ids>`/`session` for the playlist host.
+> - **`useHostSession({ context })`** (`apps/web/app/composables/`): sessionStorage now holds a
+>   per-CONTEXT map (`doot-host-rooms`: ctx → {room, token, ts}). A refresh of the SAME game
+>   resumes its room; a DIFFERENT game gets its OWN room (never inherits the old code + ghosts);
+>   alternating between two games keeps EACH game's room + crowd (a detour to another host page
+>   and back no longer abandons the first room — the audit's only real lifecycle finding, now
+>   fixed); an entry idle > 6h is pruned (the idle clock is bumped each load, so a live session
+>   never trips it). Context = `g:<id>` (saved game), `p:<plugin>` (flagship/draft),
+>   `pl:<ids>`/`session` (playlist host).
 > - **"New room" button** in the host bar (HostRoom + SessionHostRoom), shown when NOT mid-game
->   (`phase !== 'active'`): `resetHostSession()` + reload → brand-new code, clean roster. The
->   explicit "this game has ended" signal the owner asked for. A fresh code = fresh relay
->   namespace = zero ghosts, without touching the (correct) scoring roster.
+>   (`phase !== 'active'`): `resetHostSession(context)` + reload → brand-new code for THIS game,
+>   clean roster (other games' rooms untouched). The explicit "this game has ended" signal the
+>   owner asked for. A fresh code = fresh relay namespace = zero ghosts, without touching the
+>   (correct) scoring roster.
 > - **Room conflict** is unchanged + already handled: on connect `ensureFreeRoomCode`/
 >   `roomCodeTaken` regenerate if a DIFFERENT live host holds the code (host-token match keeps
 >   your own on reload). Cycling mints a random code that still runs that collision check.
-> - Verified: 7 new `useHostSession` lifecycle tests + 848 total green, typecheck + build green,
->   and an e2e proving refresh RESUMES the code while "New room" CYCLES it.
+> - **Solo-block driver guard (audit fix):** a delegated MC could previously `lock`/`reveal` a
+>   solo tier round mid-show (the round is held `'open'`, so `can('lock')` stayed true), cutting
+>   it short. The driver button is now hidden during a solo show (only the end-of-round `next`/
+>   `finish` step shows), and `GameHost` ignores `lock`/`reveal` drive intents for solo blocks.
+> - Verified: 9 `useHostSession` lifecycle tests (incl. detour-and-return) + full suite green,
+>   typecheck + build green, an e2e proving refresh RESUMES the code while "New room" CYCLES it.
 > - **Tier confetti** now fires only on a TOP-tier (S) landing, not every reveal (was silly on
 >   a C/D/F item). `TierHost.revealItem`: `confetti = currentResult?.tier === 0`.
 
-> **TIER LIST is now a SOLO BLOCK (2026-06-26, final). SUPERSEDES the two tier entries
-> below** (the all-at-once block + the custom-flow-game versions). Per owner direction: the
+> **TIER LIST is now a SOLO BLOCK (2026-06-26, final).** This supersedes the earlier interim
+> tier approaches (the all-at-once block + the custom-flow flagship; both trimmed from this
+> log). Per owner direction: the
 > item-by-item tier experience is baked into the `tier` BLOCK itself, so dropping a Tier List
 > round into any game runs the whole show (board fills, NOW RANKING, leaderboard, the reveal
 > beat), then advances to whatever round comes next (any type). One block, not a special game.
@@ -81,86 +90,6 @@ prod via CI, no staging)._
 >   so the preview matches the real host/phone instead of the split "prompt big on half the screen".
 >   Verified: 839 tests + all-package typecheck + web build green; `tier-flow-smoke` ALL GREEN
 >   (12 items, 144 votes, advances to poll); host/phone/editor screenshots match the mockup.
-
-> **TIER LIST rebuilt as an ITEM-BY-ITEM custom-flow flagship (2026-06-26).** Per owner
-> direction + a mockup: the flagship now runs one item at a time (not all-at-once). The host
-> steps through items, the room votes which S-to-F band each lands in, the board fills live on
-> the big screen, and a "Top of the room" leaderboard rewards reading the room.
-> - **Architecture**: `games/tier-list/` is now CUSTOM-FLOW (`components: { Host, Player }`),
->   parking the engine on a single `tier` round (which only carries items + bands) and driving
->   the show over `/x/`: host publishes retained `/x/show` (phase/item/deadline); players publish
->   `/x/vote/<i>/<pid>`; the host collects, resolves consensus (mode), and scores match-the-room
->   locally, then `room.host.finish()`. Files: `Host.vue` (board + NOW RANKING panel + leaderboard
->   + reveal beat + timer + PAUSE + NEXT ITEM), `Player.vue` (big item image + full-width tier
->   buttons with sublabels like "GOD TIER"), `show.ts` (the show contract), `logic.ts` (pure:
->   resolveItem, leaderboard; 7 tests). A lobby toggle switches to **all-at-once** (place every
->   item in parallel). Per-item timer (default 25s) honours the "turn off timers" lobby control;
->   a Pause button holds the countdown for discussion.
-> - **Scales like the board did**: output is per-ITEM, so the host is the same size for 8 or 100
->   players (crowd shows up only as the lock count + agreement). Verified: `scripts/tier-flow-smoke.mjs`
->   at 98 players (95 headless RoomRuntime voters over `/x/` + 3 phones), 12 items, **1140 votes,
->   0 host errors, 0 overflow**; host + phone match the mockup exactly.
-> - **The `tier` BLOCK stays** as the all-at-once composable for custom games (the standalone
->   `## tier` markdown block); the flagship no longer uses the block's views. Deck-feeding the
->   flagship still works (buildConfig maps a prompt deck -> the item list).
-> - **Audit hardening (4-agent ultra-audit)**: prod has **0 saved tier/tier-list games** (checked
->   the prod DB), so the rebuild degrades nothing. Fixed: `textOn` 3-digit hex (#000 was
->   unreadable), markdown parser clamps items to 24, `isComplete` rejects NaN/out-of-range,
->   `votesIn` counts only non-empty boards, award crown/divisive dedup by id AND label, the editor
->   "Image" button's aria-pressed now matches its visual state (+ a ✓ when set), player-chip
->   reduced-motion guard. Removed the stale tier-list step from `quickwins-smoke` (it has its own
->   `tier-flow-smoke`). 846 tests, typecheck, build green.
-
-> **NEW BLOCK: `tier` (a real tier-list board) + the `tier-list` flagship rebuilt on it
-> (2026-06-26).** The canonical "place a SET of items into S/A/B/C/D bands" board, as a
-> first-party block you can drop into any custom game. (The old `tier-list` was a `rate`
-> composition that scored one subject per round; the new one is one shared board.)
-> - **Why it scales to a packed room (the headline property):** the board aggregates per
->   ITEM, so 100 players collapse into one fixed-size board (tiers x items). The crowd shows
->   up only as each item's agreement % and a vote count, NEVER as per-player DOM - unlike the
->   roster, the host board does not grow with players. Verified: `scripts/tier-board-smoke.mjs`
->   at 97 players (95 headless RoomRuntime + 2 phones) renders 5 lanes / 12 items, **0 host
->   errors, 0 overflow**, identical layout to 8 players; a grade-inflation stress (all 12 items
->   dumped into S) wraps in-lane with **0 overflow** (empty lanes cede the space).
-> - **Player UX = tap-to-assign, no drag** (Doot's deliberate choice, like RankList's buttons):
->   each item card has the tier chips; one tap places it. `8/12 placed` gates Lock-in. Fully
->   keyboard/SR-accessible, clean at 390px.
-> - **Consensus = MODE, not mean** (a 50/50 S-vs-D split averages to a tier nobody chose). Pure
->   `blocks/tier/logic.ts` (agreement, controversy, awards, optional match-the-crowd scoring via
->   `(exact=1, off-by-one=0.5)` normalised to BASE_POINTS) with 12 unit tests. No answer is
->   withheld (consensus emerges from inputs, like rank/hivemind) - so no REDACTION rule.
-> - **Building UX (the ask):** a purpose-built `TierEditor.vue` wired through a NEW generic
->   `block.Editor` hook in `GameEditor` (mount `block.Editor` when present, else `SchemaForm` -
->   any block can now ship a custom editor). It has BULK ADD (paste a list, one item per line ->
->   all become items at once), per-item image (URL/upload via `ImageField`), reorder, and tier
->   presets (Classic S–D / S–F / Hot–Cold) with colour swatches. This is how you add many
->   "options" inside the one tier round.
-> - **Host board** (`TierHost.vue`): colored lanes; items drift into their modal tier as votes
->   arrive (CSS, `liveConsensus` toggle), agreement % + a divisive-split sparkline at reveal.
->   Renders in the right half of the GameHost split stage. **Phone reveal** (`TierReveal.vue`):
->   "the room's board - you matched N of M".
-> - **Wired everywhere:** `blocks/index` export, the `custom` game's blocks (addable by hand),
->   `markdown.ts` (`## tier`, `tiers: S | A | B | C | D`, `scored`, `hideboard`) + the
->   doot_format_guide + docs/markdown-games.md, `visuals.ts`, GameEditor `SINGLE_DESC`. The
->   `tier-list` game's buildConfig maps its subject pool (and any prompt deck) into ONE board's
->   items, so deck-feeding still works; `roundOptions` now sets item count.
-> - **Deep audit + hardening (2026-06-26, follow-up commit):** (1) the `aggregate`/`revealSummary`/
->   `isComplete`/scoring were UNTESTED - added 11 block-contract tests (distribution shape, crown vs
->   divisive award dedup, scored leaderboard + partial credit, multi-round accumulation, late-join
->   eligibility, empty room); tier block now has 23 tests. (2) item-id uniqueness enforced via a
->   schema `superRefine` (placements key by id; dup ids would merge votes + collide Vue keys) -
->   safe because tier uses a custom Editor so the schema is only ever parsed, never introspected;
->   `validate_doot_game` now rejects dup ids. (3) author-chosen tier colours get a contrast-safe
->   label via a pure `textOn()` (dark text on the pastels, white on a dark custom colour) - the band
->   label is never colour-alone. (4) host overflow safety: the board scrolls instead of clipping a
->   lopsided lane, the hidden-until-reveal tray is height-capped, lanes no longer clip. (5) flagship
->   `buildConfig` falls back to the built-in pool when a deck has <2 rows (a board needs >=2 items).
->   (6) LLM/MCP: a `## tier` markdown round-trip test (parses + validates against the schema), and
->   tier-list added to the `remix_game` prompt-deck list. 838 tests, typecheck, build green;
->   re-verified at 97 players (0 overflow / 0 errors).
-> - **Known follow-ups:** deck-fed item IMAGES need a multi-row "column -> array" pool (mode-3,
->   per the decks roadmap) - v1 is manual items + per-item image. Pairwise/Elo for huge sets, a
->   2-axis alignment grid, and a host-driven item-by-item "panel" mode are separate primitives.
 
 > **LOAD TEST: 100 players in one room - PASSED (2026-06-26).** A new harness
 > `scripts/load-test.mjs` (run with the repo's `jiti`, since it imports the TS engine

@@ -58,7 +58,7 @@ const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameF
 provideDootRoom(room)
 // If the engine regenerates the code (a genuine collision on a fresh host), persist the
 // settled code so a later reload resumes the right room.
-watch(() => room.code.value, (c) => persistHostRoom(c))
+watch(() => room.code.value, (c) => persistHostRoom(sessionContext, c))
 
 // Precedence: an explicit config (a saved game) > the editor draft (if it's for
 // this game type) > a fresh pool sample (replayable flagships) > the default deck.
@@ -216,7 +216,7 @@ const playerCount = computed(() => room.players.value.length)
 const canNewRoom = computed(() => room.phase.value !== 'active')
 function newRoom() {
   if (room.phase.value === 'active') return
-  resetHostSession()
+  resetHostSession(sessionContext)
   if (typeof window !== 'undefined') window.location.reload()
 }
 </script>

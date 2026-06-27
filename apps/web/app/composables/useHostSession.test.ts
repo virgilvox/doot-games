@@ -30,12 +30,14 @@ describe('useHostSession', () => {
     vi.restoreAllMocks()
   })
 
-  it('mints a fresh code + token on first host, and persists them', () => {
+  const stored = (ctx: string) => JSON.parse(sessionStorage.getItem('doot-host-rooms') ?? '{}')[ctx]
+
+  it('mints a fresh code + token on first host, and persists them under the context', () => {
     const a = useHostSession({ context: 'g:1' })
     expect(a.room).toMatch(/^[A-Z2-9]{4}$/) // 4-char unambiguous code
     expect(a.token).toBeTruthy()
-    expect(sessionStorage.getItem('doot-host-room')).toBe(a.room)
-    expect(sessionStorage.getItem('doot-host-ctx')).toBe('g:1')
+    expect(stored('g:1').room).toBe(a.room)
+    expect(stored('g:1').token).toBe(a.token)
   })
 
   it('RESUMES the same room on a refresh of the same context (players stay)', () => {
@@ -46,12 +48,22 @@ describe('useHostSession', () => {
     expect(b.token).toBe(a.token)
   })
 
-  it('CYCLES the code when a different game is hosted in the same tab', () => {
+  it('gives a DIFFERENT game its own room (a new game never inherits the old code)', () => {
     const a = useHostSession({ context: 'g:1' })
     const b = useHostSession({ context: 'g:2' }) // a new game
     expect(b.room).not.toBe(a.room)
     expect(b.token).not.toBe(a.token)
-    expect(sessionStorage.getItem('doot-host-ctx')).toBe('g:2')
+  })
+
+  it('keeps EACH game its own room when alternating (detour-and-return does not strand it)', () => {
+    const a = useHostSession({ context: 'g:1' })
+    const b = useHostSession({ context: 'g:2' }) // detour to another game
+    now += 30_000
+    const backToA = useHostSession({ context: 'g:1' }) // return to the first game
+    expect(backToA.room).toBe(a.room) // resumed, not re-minted
+    expect(backToA.token).toBe(a.token)
+    // and g:2's room is still independently held
+    expect(useHostSession({ context: 'g:2' }).room).toBe(b.room)
   })
 
   it('CYCLES the code when the tab has been idle past the window', () => {
@@ -70,18 +82,30 @@ describe('useHostSession', () => {
     }
   })
 
-  it('resetHostSession() forces a brand-new room on the next mount', () => {
+  it('resetHostSession(context) forces a brand-new room for that game, leaving others', () => {
     const a = useHostSession({ context: 'g:1' })
-    resetHostSession()
+    const other = useHostSession({ context: 'g:2' })
+    resetHostSession('g:1')
     const b = useHostSession({ context: 'g:1' })
     expect(b.room).not.toBe(a.room)
     expect(b.token).not.toBe(a.token)
+    expect(useHostSession({ context: 'g:2' }).room).toBe(other.room) // untouched
   })
 
-  it('persistHostRoom updates the stored code (engine collision regen)', () => {
+  it('resetHostSession() with no arg forgets every room in the tab', () => {
+    const a = useHostSession({ context: 'g:1' })
+    const b = useHostSession({ context: 'g:2' })
+    resetHostSession()
+    expect(useHostSession({ context: 'g:1' }).room).not.toBe(a.room)
+    expect(useHostSession({ context: 'g:2' }).room).not.toBe(b.room)
+  })
+
+  it('persistHostRoom(context, code) updates only that context (engine collision regen)', () => {
     useHostSession({ context: 'g:1' })
-    persistHostRoom('ZZZZ')
-    expect(sessionStorage.getItem('doot-host-room')).toBe('ZZZZ')
+    const other = useHostSession({ context: 'g:2' })
+    persistHostRoom('g:1', 'ZZZZ')
+    expect(stored('g:1').room).toBe('ZZZZ')
+    expect(stored('g:2').room).toBe(other.room) // unaffected
     now += 30_000
     expect(useHostSession({ context: 'g:1' }).room).toBe('ZZZZ') // the regenerated code is resumed
   })

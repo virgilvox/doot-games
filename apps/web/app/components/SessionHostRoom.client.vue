@@ -45,7 +45,7 @@ const { room: roomCode, token: hostToken } = useHostSession({ context: sessionCo
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 provideDootRoom(room)
-watch(() => room.code.value, (c) => persistHostRoom(c))
+watch(() => room.code.value, (c) => persistHostRoom(sessionContext, c))
 
 const getPlayers = (): ScorePlayer[] =>
   room.runtime.recentPlayers().map((p) => ({ id: p.id, name: p.name, joinedAtIndex: p.joinedAtIndex, team: p.team }))
@@ -188,7 +188,7 @@ const playerCount = computed(() => room.players.value.length)
 const canNewRoom = computed(() => room.phase.value !== 'active')
 function newRoom() {
   if (room.phase.value === 'active') return
-  resetHostSession()
+  resetHostSession(sessionContext)
   if (typeof window !== 'undefined') window.location.reload()
 }
 </script>

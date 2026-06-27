@@ -134,6 +134,13 @@ const driverAction = computed<{ type: ControlAction; label: string } | null>(() 
   if (block.value?.display) {
     return { type: 'next', label: isLast.value ? 'Final results' : 'Next slide →' }
   }
+  // A solo block runs its OWN item-by-item show and drives its own lock/reveal; the
+  // driver must not lock/reveal it mid-show (that would cut the show short). They only
+  // step the round ON once the block has finished and parked it at 'reveal'.
+  if (block.value?.solo) {
+    if (state.value !== 'reveal') return null
+    return isLast.value ? { type: 'finish', label: 'Final results' } : { type: 'next', label: 'Next round' }
+  }
   switch (state.value) {
     case 'ready':
       return { type: 'open', label: isMakeRound.value ? 'Collect answers' : 'Open voting' }

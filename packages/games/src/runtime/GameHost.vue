@@ -503,6 +503,10 @@ watch(
     const a = cmd.action
     // A display round advances as one step regardless of the underlying state.
     if (isDisplay.value && a === 'next') return advanceDisplay()
+    // A solo block owns its own lock/reveal (it runs an internal item-by-item show held
+    // 'open' the whole time, so can('lock') stays true); a delegated driver must not cut
+    // it short. start/next/finish still flow for the normal round handoff.
+    if (isSolo.value && (a === 'lock' || a === 'reveal')) return
     if (a === 'start' && room.host.can('start')) room.host.start()
     else if (a === 'open' && room.host.can('open')) room.host.openVoting()
     else if (a === 'lock' && room.host.can('lock')) room.host.lock()
