@@ -181,6 +181,35 @@ function submit() {
   room.submit(value.value as never)
 }
 
+// ── Capture an un-locked pick when the round closes ─────────────────────────
+// Players select, then tap "Lock it in" to submit. If the round closes — the host
+// locks it, or the timer runs out — while a player has a complete selection they
+// never locked in, submit it for them so their pick still counts. The engine
+// accepts this late input (submit isn't gated on round state) and it lands before
+// the host's separate reveal step, so it's scored. `value` is reset on every state
+// change, so we mirror the latest OPEN-round pick into `pendingPick` while open.
+const pendingPick = ref<unknown>(null)
+watch([value, state, submitted], () => {
+  if (state.value === 'open' && !submitted.value) pendingPick.value = value.value
+})
+watch(index, () => {
+  pendingPick.value = null
+})
+watch(state, (s, prev) => {
+  // Fire once, as the round leaves 'open' for 'locked' (host lock or timer) or a
+  // collapsed 'reveal'. Skip solo/display blocks (they own their own submit / take
+  // no input) and anyone already in or not eligible.
+  if (prev !== 'open' || (s !== 'locked' && s !== 'reveal')) return
+  if (isSolo.value || block.value?.display) return
+  if (submitted.value || !eligible.value) return
+  const pick = pendingPick.value
+  const complete =
+    !!block.value &&
+    !!content.value &&
+    (block.value.isComplete ? block.value.isComplete(content.value, pick as never) : pick != null)
+  if (complete) room.submit(pick as never)
+})
+
 // One PERSISTENT status line for screen readers. The surface below swaps whole
 // subtrees per stage (v-if), which a live region cannot announce (the region
 // itself is unmounted, not mutated); this line always exists and only its TEXT

@@ -37,11 +37,11 @@ const DRAFT = {
   config: {
     title: 'Image Layout Check',
     rounds: [
-      { block: 'slide', content: { heading: 'Red Thread Quest', body: 'Two idiots kiss because an app on their phone tells them to.', image: PORTRAIT, layout: 'side' } },
+      { block: 'slide', content: { heading: 'Rate the buttholes of your favorite BL bottoms.', body: 'Rounds will start with WHO THAT HOLE? Participants will guess the character based on their butthole.\n\nAfter we do a brief overview of the story you will rate the presented hole on a scale of 1 to 10.\n\nAt the end we will reveal the top rated hole, and the participant who guessed the most correct holes will get a prize! There is a lot more text here to make sure the body overflows the stage so we can prove the control bar never sits on top of it and the content stays reachable by scrolling inside its own region.', image: PORTRAIT, layout: 'side' } },
       { block: 'slide', content: { heading: 'Yaoi Butt', body: 'sdjnflsdjfnsdlkfnsdlkfnsdlkfndslkfn', image: LANDSCAPE, layout: 'side' } },
-      { block: 'poll', content: { prompt: 'Have you read Roses and Champagne?', image: PORTRAIT, timer: 0, options: [{ label: 'Yes' }, { label: 'No' }, { label: "I started but haven't finished" }] } },
-      { block: 'poll', content: { prompt: 'Have you read Red Thread Quest?', image: SQUARE, timer: 0, options: [{ label: 'Yes' }, { label: 'No' }, { label: "I started but haven't finished" }] } },
-      { block: 'guess', content: { prompt: 'Who drew this?', image: LANDSCAPE, timer: 0, options: [{ label: 'Artist A' }, { label: 'Artist B' }, { label: 'Artist C' }], correct: 1, revealImage: SQUARE, showLetters: true } },
+      { block: 'poll', content: { prompt: 'Have you read Roses and Champagne?', image: PORTRAIT, timer: null, options: [{ label: 'Yes' }, { label: 'No' }, { label: "I started but haven't finished" }] } },
+      { block: 'poll', content: { prompt: 'Have you read Red Thread Quest?', image: SQUARE, timer: null, options: [{ label: 'Yes' }, { label: 'No' }, { label: "I started but haven't finished" }] } },
+      { block: 'guess', content: { prompt: 'Who drew this?', image: LANDSCAPE, timer: null, options: [{ label: 'Artist A' }, { label: 'Artist B' }, { label: 'Artist C' }], correct: 1, revealImage: SQUARE, showLetters: true } },
     ],
     settings: { autoAdvance: false },
   },
@@ -69,6 +69,24 @@ async function assertHugs(page, label, minH = 300) {
   if (drift > 0.02) throw new Error(`${label}: frame ratio ${rendered.toFixed(3)} != image ${natural.toFixed(3)} (letterbox gap)`)
   if (minH > 0 && r.ch < minH) throw new Error(`${label}: image too small (h=${r.ch}px) - not filling`)
   ok(`${label}: hugs (drift ${(drift * 100).toFixed(1)}%)${minH > 0 ? ` + fills (h=${r.ch}px)` : ''}`)
+}
+
+// The control bar must never overlap the round content and must be on-screen.
+// The scrollable content region ends at or above the bar's top, and the bar's
+// bottom is within the viewport.
+async function assertBarClear(page, label) {
+  const m = await page.evaluate(() => {
+    const content = document.querySelector('.stage-content')
+    const bar = document.querySelector('.stage-controlbar')
+    if (!content || !bar) return null
+    const c = content.getBoundingClientRect()
+    const b = bar.getBoundingClientRect()
+    return { cBottom: c.bottom, bTop: b.top, bBottom: b.bottom, vh: window.innerHeight, scroll: content.scrollHeight - content.clientHeight }
+  })
+  if (!m) throw new Error(`${label}: missing .stage-content or .stage-controlbar`)
+  if (m.cBottom > m.bTop + 1) throw new Error(`${label}: content (bottom ${Math.round(m.cBottom)}) overlaps the bar (top ${Math.round(m.bTop)})`)
+  if (m.bBottom > m.vh + 1) throw new Error(`${label}: bar bottom ${Math.round(m.bBottom)} below viewport ${m.vh}`)
+  ok(`${label}: bar clear of content (content ≤ ${Math.round(m.cBottom)} < bar ${Math.round(m.bTop)}), on-screen${m.scroll > 1 ? `, content scrolls ${Math.round(m.scroll)}px` : ''}`)
 }
 
 // Click through whatever advance state this round is in until it reaches the
@@ -121,6 +139,7 @@ async function run() {
     await host.waitForSelector('.slide.side .media-frame', { timeout: 40000 })
     await host.waitForTimeout(400)
     await assertHugs(host, 'slide portrait (side)')
+    await assertBarClear(host, 'long-text slide')
     await noOverflow(host, 'slide portrait')
     await host.screenshot({ path: `${SHOTS}/1-slide-portrait.png` })
     await host.click('button:has-text("Next")')
@@ -185,6 +204,7 @@ async function run() {
     if (!bar) throw new Error('reveal: no control bar')
     if (bar.bottom > bar.vh + 1) throw new Error(`reveal: control bar bottom ${Math.round(bar.bottom)} > viewport ${bar.vh} (pushed off-screen)`)
     ok(`reveal: control bar pinned in view (bottom=${Math.round(bar.bottom)} <= ${bar.vh})`)
+    await assertBarClear(host, 'guess reveal + standings')
     await noOverflow(host, 'guess reveal')
     await host.screenshot({ path: `${SHOTS}/5-guess-reveal-standings.png` })
 

@@ -713,6 +713,10 @@ watch(
 
   <!-- ACTIVE -->
   <div v-else-if="instance && block" class="stage">
+    <!-- Round content scrolls inside this region if it's taller than the stage, so
+         the control bar below stays a normal-flow sibling that is never overlapped
+         and never pushed off-screen (no sticky overlay, no magic offset). -->
+    <div class="stage-content">
     <!-- A solo block owns the whole stage AND its controls (item-by-item tier list). -->
     <div v-if="isSolo" class="stage-full">
       <component :is="block.HostDisplay" :key="index" :content="content" :inputs="room.inputsFor(index)" :state="state" :answer="answer" />
@@ -757,6 +761,7 @@ watch(
     <div v-if="driverName" class="driving-note">
       <span class="dn-label"><Icon name="mc" :size="16" /> {{ driverName }} is driving from their phone</span>
       <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
+    </div>
     </div>
 
     <!-- A solo block drives its own item flow during 'open' (its ControlBar is hidden),
@@ -946,15 +951,11 @@ watch(
   width: min(720px, 100%);
   margin-top: 12px;
 }
-/* Pin the control bar to the bottom of the viewport so the standings peek (or any
-   tall reveal content) can never shove it off-screen: the host's Next/Reveal
-   button is always reachable. The bar's own opaque panel background covers any
-   content scrolling beneath it. Belt-and-suspenders with the fill image, which
-   already shrinks to make room rather than growing the page. */
+/* The control bar is a normal-flow sibling below the scrollable content region,
+   so it is always on-screen at the bottom of the stage and never overlaps the
+   round content (which scrolls within .stage-content if it is too tall). */
 .stage-controlbar {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
+  flex: none;
 }
 .stage-audio {
   margin-top: 14px;
@@ -1028,14 +1029,30 @@ watch(
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* Bound the active stage to the viewport (minus the host bar + page padding) so
-     its flex children get real shrink pressure: when the standings peek appears on
-     a reveal, the round grid shrinks to make room instead of growing the page and
-     scrolling the control bar away. Active-only — the lobby (.lobby) and results
-     (.results-wrap) have their own roots and are free to scroll. The offset is
-     approximate; the sticky control bar is the backstop if a wrapped bar makes the
-     header taller than estimated. */
-  max-height: calc(100dvh - 116px);
+  /* Cap the active stage to the viewport (minus the host bar + page padding) so its
+     content region has a definite height to scroll within — without this the shell
+     (min-height:100vh) would grow to fit tall content and carry the bar below the
+     fold. Active-only: the lobby (.lobby) and results (.results-wrap) keep their own
+     roots and page-scroll as before. The offset is a deliberate ceiling for the host
+     big screen (a single-row bar); since the bar is normal-flow (not an overlay), an
+     under-estimate degrades to a small scroll, never to covering content. */
+  max-height: calc(100dvh - 104px);
+}
+/* The scrollable round-content region. flex:1 + min-height:0 means it takes the
+   space left after the control bar and, because its overflow is not visible, its
+   flexbox automatic minimum is 0 — so when content is taller than the stage it
+   SCROLLS here instead of growing the page. The control bar (a normal-flow sibling
+   below) is therefore never overlapped and never pushed off-screen, with no magic
+   offset: the flex chain measures the real header height itself. The small inset
+   keeps option-card shadows from being shaved at the scroll-box edge. */
+.stage-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px;
 }
 .stage-grid {
   flex: 1;

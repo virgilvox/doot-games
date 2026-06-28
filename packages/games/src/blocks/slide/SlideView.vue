@@ -57,8 +57,11 @@ const layout = computed(() => {
 <style scoped>
 .slide {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* "safe center" centers when the slide fits but falls back to the start edge
+     when the content is taller than the stage, so a long body scrolls from the
+     top (its first line reachable) instead of being centered out of view. */
+  align-items: safe center;
+  justify-content: safe center;
   gap: clamp(18px, 3vw, 44px);
   width: 100%;
   height: 100%;
