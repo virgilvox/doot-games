@@ -140,6 +140,15 @@ async function run() {
     await host.waitForTimeout(400)
     await assertHugs(host, 'slide portrait (side)')
     await assertBarClear(host, 'long-text slide')
+    // The slide must ADAPT to fit (no internal scroll), not scroll on the big screen.
+    {
+      const s = await host.evaluate(() => {
+        const c = document.querySelector('.stage-content')
+        return c ? c.scrollHeight - c.clientHeight : -1
+      })
+      if (s > 4) throw new Error(`long-text slide: scrolls ${s}px (should auto-fit, not scroll)`)
+      ok(`long-text slide: auto-fits without scrolling (overflow ${s}px)`)
+    }
     await noOverflow(host, 'slide portrait')
     await host.screenshot({ path: `${SHOTS}/1-slide-portrait.png` })
     await host.click('button:has-text("Next")')

@@ -8,7 +8,7 @@
  * Used as both the block's HostDisplay and PlayerInput; the extra props those
  * call sites pass (inputs/state/answer/modelValue) are ignored (inheritAttrs off).
  */
-import { MediaFrame } from '@doot-games/ui'
+import { MediaFrame, useFitScale } from '@doot-games/ui'
 import { computed, ref, watch } from 'vue'
 import type { SlideContent } from './block'
 
@@ -35,10 +35,16 @@ const layout = computed(() => {
   if (!hasText.value) return 'image-only'
   return authored.value === 'banner' ? 'banner' : 'side'
 })
+
+// Adapt the type size so the whole slide is visible at a glance on the big screen
+// (a display slide should fit, not scroll). Shrinks only when the content would
+// overflow; re-fits when the text/image/layout or the stage size changes.
+const slideRoot = ref<HTMLElement | null>(null)
+useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${layout.value}`, { min: 0.45 })
 </script>
 
 <template>
-  <div class="slide" :class="layout">
+  <div ref="slideRoot" class="slide" :class="layout">
     <MediaFrame
       v-if="showImage"
       class="slide-img"
@@ -62,7 +68,7 @@ const layout = computed(() => {
      top (its first line reachable) instead of being centered out of view. */
   align-items: safe center;
   justify-content: safe center;
-  gap: clamp(18px, 3vw, 44px);
+  gap: calc(clamp(18px, 3vw, 44px) * var(--fit, 1));
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -108,17 +114,19 @@ const layout = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 1.6vw, 18px);
+  gap: calc(clamp(10px, 1.6vw, 18px) * var(--fit, 1));
 }
+/* `--fit` (set by useFitScale) shrinks the type just enough to keep the whole
+   slide on screen, so a long body fits at a glance instead of scrolling. */
 .slide-heading {
   font-family: var(--font-display, inherit);
   font-weight: 800;
   line-height: 1.05;
-  font-size: clamp(28px, 5vw, 64px);
+  font-size: calc(clamp(28px, 5vw, 64px) * var(--fit, 1));
   overflow-wrap: anywhere;
 }
 .slide-body {
-  font-size: clamp(16px, 2.4vw, 30px);
+  font-size: calc(clamp(16px, 2.4vw, 30px) * var(--fit, 1));
   line-height: 1.45;
   color: var(--ink-soft);
   white-space: pre-wrap;

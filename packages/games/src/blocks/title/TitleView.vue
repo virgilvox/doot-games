@@ -7,7 +7,8 @@
  * Used as both the block's HostDisplay and PlayerInput; the extra props those call
  * sites pass are ignored (inheritAttrs off).
  */
-import { computed } from 'vue'
+import { useFitScale } from '@doot-games/ui'
+import { computed, ref } from 'vue'
 import type { TitleContent } from './block'
 
 defineOptions({ inheritAttrs: false })
@@ -16,10 +17,14 @@ defineEmits<{ 'update:modelValue': [value: unknown] }>()
 
 const title = computed(() => props.content?.title?.trim() ?? '')
 const subtitle = computed(() => props.content?.subtitle?.trim() ?? '')
+
+// Shrink a very long title/subtitle to fit the stage rather than overflow it.
+const cardRoot = ref<HTMLElement | null>(null)
+useFitScale(cardRoot, () => `${title.value}|${subtitle.value}`, { min: 0.4 })
 </script>
 
 <template>
-  <div class="titlecard">
+  <div ref="cardRoot" class="titlecard">
     <span v-if="subtitle" class="tc-kicker">{{ subtitle }}</span>
     <h1 class="tc-title">{{ title }}</h1>
   </div>
@@ -31,7 +36,7 @@ const subtitle = computed(() => props.content?.subtitle?.trim() ?? '')
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 2vw, 20px);
+  gap: calc(clamp(10px, 2vw, 20px) * var(--fit, 1));
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -42,14 +47,14 @@ const subtitle = computed(() => props.content?.subtitle?.trim() ?? '')
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--primary);
-  font-size: clamp(13px, 1.8vw, 22px);
+  font-size: calc(clamp(13px, 1.8vw, 22px) * var(--fit, 1));
   overflow-wrap: anywhere;
 }
 .tc-title {
   font-family: var(--font-display, inherit);
   font-weight: 900;
   line-height: 1.02;
-  font-size: clamp(36px, 8vw, 96px);
+  font-size: calc(clamp(36px, 8vw, 96px) * var(--fit, 1));
   overflow-wrap: anywhere;
 }
 </style>

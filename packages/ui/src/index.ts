@@ -39,6 +39,8 @@ export { default as MediaFrame } from './components/MediaFrame.vue'
 export { default as GameTypeIcon } from './components/GameTypeIcon.vue'
 export { default as SiteFooter } from './components/SiteFooter.vue'
 export { type GameVisual, type IconName, gameVisual, teamColor } from './visuals'
+// Shrink-to-fit for big-screen display content (slides, title cards).
+export { useFitScale } from './composables/useFitScale'
 
 // Image uploads (capability the app injects; ImageField falls back to URL)
 export { type ImageUploader, type ImageUploadContext, IMAGE_UPLOAD } from './upload'
