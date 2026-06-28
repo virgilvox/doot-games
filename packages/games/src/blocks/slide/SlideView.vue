@@ -40,7 +40,11 @@ const layout = computed(() => {
 // (a display slide should fit, not scroll). Shrinks only when the content would
 // overflow; re-fits when the text/image/layout or the stage size changes.
 const slideRoot = ref<HTMLElement | null>(null)
-useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${layout.value}`, { min: 0.45 })
+// Gentle safety only: with a sane reading width the text wraps and fits at full
+// size on normal/laptop windows, so this rarely engages; the high floor keeps it
+// from ever shrinking the type to "tiny" (e.g. on a very short window it bottoms
+// out and the stage-content scroll takes over instead).
+useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${layout.value}`, { min: 0.72 })
 </script>
 
 <template>
@@ -50,7 +54,7 @@ useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${la
       class="slide-img"
       :src="image"
       :fill="layout === 'side' || layout === 'image-only'"
-      :max-h="layout === 'banner' ? 'min(52vh, 480px)' : layout === 'image-only' ? '76vh' : '72vh'"
+      :max-h="layout === 'banner' ? 'min(48vh, 440px)' : layout === 'image-only' ? '74vh' : 'min(58vh, 620px)'"
       @error="failed = true"
     />
     <div v-if="hasText" class="slide-text">
@@ -80,6 +84,10 @@ useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${la
 }
 .slide.side .slide-text {
   text-align: left;
+  /* A sane reading measure so the heading/body WRAP at a reasonable size beside
+     the image instead of sprawling on one line (and looking small) on a wide
+     content area. */
+  max-width: 34rem;
 }
 /* Banner: image centered on top (full width), text centered below it. */
 .slide.banner {
@@ -121,13 +129,13 @@ useFitScale(slideRoot, () => `${heading.value}|${body.value}|${image.value}|${la
 .slide-heading {
   font-family: var(--font-display, inherit);
   font-weight: 800;
-  line-height: 1.05;
-  font-size: calc(clamp(28px, 5vw, 64px) * var(--fit, 1));
+  line-height: 1.08;
+  font-size: calc(clamp(26px, 3.4vw, 52px) * var(--fit, 1));
   overflow-wrap: anywhere;
 }
 .slide-body {
-  font-size: calc(clamp(16px, 2.4vw, 30px) * var(--fit, 1));
-  line-height: 1.45;
+  font-size: calc(clamp(16px, 1.9vw, 26px) * var(--fit, 1));
+  line-height: 1.5;
   color: var(--ink-soft);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
