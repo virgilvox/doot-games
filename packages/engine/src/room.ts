@@ -43,6 +43,11 @@ const PROBE_GET_TIMEOUT_MS = 700
 // as gone once its last ping is older than the window (a few missed beats).
 const HOST_HEARTBEAT_INTERVAL_MS = 5_000
 const HOST_PRESENCE_WINDOW_MS = 16_000
+// CLASP frames are length-prefixed with a uint16, so a single published value
+// can't exceed 65535 bytes. The game config is the one value that can grow (an
+// inline/pasted data-URL image bloats it), and if its publish throws mid-start()
+// the room is silently stranded in the lobby. Guard with headroom and fail loud.
+const MAX_CONFIG_BYTES = 60_000
 // How many times a host regenerates a colliding room code before giving up (each
 // try is one relay round-trip; with ~1M codes, even one collision is rare).
 const MAX_ROOM_CODE_TRIES = 5
@@ -109,6 +114,15 @@ export interface LoadedGame {
     index: number,
     inputsFor: (i: number) => Map<string, RelayValue>,
   ) => { perPlayer: Record<string, RelayValue>; answer?: RelayValue } | undefined
+  /**
+   * Whether a host reload may RESUME this game mid-play instead of resetting to
+   * the lobby. Safe only when every answer key is STATIC (derivable from the
+   * config), because runtime-derived/hidden-role answer keys live only in host
+   * memory and are never on the relay (the withholding invariant), so a reload
+   * can't reconstruct them. The app sets this true for games with no
+   * derive/assign/fromShares round. Defaults to false (always reset to lobby).
+   */
+  resumable?: boolean
 }
 
 export interface RoomRuntimeOptions {
@@ -253,6 +267,7 @@ export class RoomRuntime {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private hostHeartbeatTimer: ReturnType<typeof setInterval> | null = null
   private listeners = new Set<Listener>()
+  private pendingEmit = false
 
   constructor(opts: RoomRuntimeOptions) {
     this.relay = opts.relay
@@ -366,6 +381,11 @@ export class RoomRuntime {
       this.connected = true
       this.reconnecting = false
       this.error = null
+      // On a RE-connect, re-broadcast our presence immediately so the host's
+      // presence window doesn't drop us during the gap (the heartbeat timer
+      // survives a reconnect, but its next tick could be seconds away). A no-op
+      // on the first connect, where no heartbeat has started yet.
+      this.republishPresence()
       this.emit()
     })
     this.relay.onDisconnect(() => {
@@ -397,9 +417,12 @@ export class RoomRuntime {
     // which case the callback above never runs for this runtime.
     if (this.relay.connected) this.connected = true
     if (this.me.role === 'host') {
-      // The host is authoritative; publish the lobby phase so early joiners
-      // receive it on subscribe, and mark ourselves ready immediately.
-      this.publish(addr.phase(this.room), 'lobby')
+      // A host reload mid-game RESUMES from the relay's retained state (so players
+      // aren't yanked back to the lobby), when the game is safe to resume. Else the
+      // host is authoritative: publish the lobby phase so early joiners receive it
+      // on subscribe. Either way we mark ourselves ready immediately.
+      const resumed = await this.tryResumeMidGame()
+      if (!resumed) this.publish(addr.phase(this.room), 'lobby')
       this.ready = true
       // Publish meta now (if the game is already loaded) so lobby joiners learn
       // which game/theme is running and can render the waiting screen, without
@@ -412,6 +435,20 @@ export class RoomRuntime {
     // An audience member broadcasts its own liveness so the host can count watchers.
     if (this.me.role === 'audience') this.startAudienceHeartbeat()
     this.emit()
+  }
+
+  /** Re-broadcast this client's liveness now (used on reconnect). No-op until a
+   *  heartbeat has started, so it does nothing on the first connect. */
+  private republishPresence(): void {
+    const now = this.now()
+    if (!this.heartbeatTimer && !this.hostHeartbeatTimer) return
+    if (this.me.role === 'player' && this.heartbeatTimer) {
+      this.publish(addr.playerPing(this.room, this.me.id), now)
+    } else if (this.me.role === 'audience' && this.heartbeatTimer) {
+      this.publish(addr.audiencePing(this.room, this.me.id), now)
+    } else if (this.me.role === 'host' && this.hostHeartbeatTimer) {
+      this.publish(addr.hostPing(this.room), now)
+    }
   }
 
   private startAudienceHeartbeat(): void {
@@ -473,6 +510,61 @@ export class RoomRuntime {
     if (this.me.role !== 'host' || !this.game) return
     this.meta = this.game.meta
     this.publish(addr.meta(this.room), this.game.meta as unknown as RelayValue)
+  }
+
+  /**
+   * Host reload recovery: if a mid-game room is still live on the relay, RESEED
+   * local state from its retained values instead of resetting to the lobby, so a
+   * host who refreshed (or whose tab crashed) lands back in the running game and
+   * players are never yanked back to the waiting screen. Returns whether it
+   * resumed (false → caller publishes the lobby phase as before).
+   *
+   * Safe only for `resumable` games (no runtime-derived/hidden-role answer keys,
+   * which live only in host memory and are never on the relay). It READS retained
+   * state and never PUBLISHES phase/round/config/answers, so it can't re-leak an
+   * answer or reset live players. The static config + answer keys come from the
+   * freshly loaded game (deterministic), the roster + inputs re-subscribe from the
+   * relay, and the host heartbeat resumes right after this.
+   */
+  private async tryResumeMidGame(): Promise<boolean> {
+    if (this.me.role !== 'host' || !this.game || !this.game.resumable) return false
+    // Bound every read: a CLASP get on an ABSENT key hangs until the relay's own
+    // multi-second timeout, and the delegated-driver key is absent in the common
+    // (no MC) case. Race each against a short timeout so resume can never stall the
+    // host connect; a timed-out read just means "no resume this time" (clean lobby).
+    const get = (a: string): Promise<RelayValue | undefined> =>
+      Promise.race([
+        this.relay.get(a).catch(() => undefined),
+        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), PROBE_GET_TIMEOUT_MS)),
+      ])
+    const [phase, idx, rstate, deadline] = await Promise.all([
+      get(addr.phase(this.room)),
+      get(addr.roundIndex(this.room)),
+      get(addr.roundState(this.room)),
+      get(addr.roundDeadline(this.room)),
+    ])
+    // Only resume an ACTIVE (mid-round) game. 'lobby'/absent means a fresh start;
+    // 'results' means the game ended (and the host doesn't retain its own results
+    // summary), so a reload there just resets to the lobby as before.
+    if (phase !== 'active') return false
+    const index = Number(idx) | 0
+    // The freshly loaded config must actually contain this round (a guard against
+    // a stale/mismatched retained pointer); else fall back to a clean lobby.
+    if (index < 0 || index >= (this.game.rounds.length || 0)) return false
+    this.state = {
+      phase: phase as Phase,
+      round: {
+        index,
+        state: typeof rstate === 'string' ? (rstate as RoundState) : 'ready',
+        deadline: deadline == null ? null : Number(deadline),
+      },
+    }
+    // Restore the delegated driver (co-host/MC) if one is set. (Reveal summaries
+    // are not re-read: the host never reads its own roundReveals, players retain
+    // theirs, and probing absent ones would stall the connect.)
+    const driver = await get(addr.controlDriver(this.room))
+    if (typeof driver === 'string' && driver.length) this.driverPid = driver
+    return true
   }
 
   /** Tear down subscriptions and timers. Does not close the shared relay. */
@@ -701,6 +793,25 @@ export class RoomRuntime {
     this.relay.set(address, value, { ttl: this.ttlUs, absolute: true })
   }
 
+  /** Throw a clear, host-facing error if a config is too big to fit one relay
+   *  frame, BEFORE it half-publishes and strands the room. The usual cause is an
+   *  inline/pasted data-URL image; uploading it (a short URL) fixes it. */
+  private assertConfigBroadcastable(config: RelayValue): void {
+    let bytes = 0
+    try {
+      bytes = JSON.stringify(config)?.length ?? 0
+    } catch {
+      return // non-serializable: let the relay encode surface it
+    }
+    if (bytes > MAX_CONFIG_BYTES) {
+      const kb = Math.round(bytes / 1024)
+      const limit = Math.round(MAX_CONFIG_BYTES / 1024)
+      throw new Error(
+        `This game is too large to broadcast to players (${kb} KB, limit about ${limit} KB). An inline or pasted image is the usual cause. Upload the image or use an image URL instead.`,
+      )
+    }
+  }
+
   // ---- reads ---------------------------------------------------------------
 
   getSnapshot(): RoomSnapshot {
@@ -746,7 +857,17 @@ export class RoomRuntime {
   }
 
   private emit(): void {
-    for (const l of this.listeners) l()
+    // Coalesce bursts into one listener notification per microtask. A reconnect
+    // replays the whole retained snapshot (100+ params at party scale), each
+    // firing emit; without this that is 100+ full snapshot recomputes in one
+    // tick. The engine's own logic reads `this.state` synchronously, so only the
+    // reactive mirror is deferred, invisible to callers and tests.
+    if (this.pendingEmit) return
+    this.pendingEmit = true
+    queueMicrotask(() => {
+      this.pendingEmit = false
+      for (const l of this.listeners) l()
+    })
   }
 
   /**
@@ -1119,12 +1240,15 @@ export class RoomRuntime {
   start(): void {
     this.assertHost()
     if (!this.game) throw new Error('loadGame() must be called before start().')
-    this.meta = this.game.meta
     // The host keeps the full config locally (for scoring); the relay gets the
     // redacted one so spectators cannot read answers early.
+    const publishConfig = this.game.publishConfig ?? this.game.config
+    // Fail BEFORE any publish so an oversized config never half-starts the room.
+    this.assertConfigBroadcastable(publishConfig)
+    this.meta = this.game.meta
     this.config = this.game.config
     this.publish(addr.meta(this.room), this.game.meta as unknown as RelayValue)
-    this.publish(addr.config(this.room), this.game.publishConfig ?? this.game.config)
+    this.publish(addr.config(this.room), publishConfig)
     this.publish(addr.roundIndex(this.room), 0)
     this.publish(addr.roundState(this.room), 'ready')
     this.publish(addr.roundDeadline(this.room), null)
@@ -1261,6 +1385,8 @@ export class RoomRuntime {
    */
   nextGame(game: LoadedGame): void {
     this.assertHost()
+    // Fail before wiping the previous game if the next one is too large to broadcast.
+    this.assertConfigBroadcastable(game.publishConfig ?? game.config)
     const prevRounds = this.game?.rounds.length ?? 0
     const pids = this.recentPlayers().map((p) => p.id)
     for (let i = 0; i < prevRounds; i++) {

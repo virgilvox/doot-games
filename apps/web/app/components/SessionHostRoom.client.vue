@@ -27,7 +27,7 @@ import {
 } from '@doot-games/games'
 import type { GamePlugin, ScorePlayer, StandardResults } from '@doot-games/sdk'
 import { DootLogo, Stage } from '@doot-games/ui'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, reactive, ref, watch } from 'vue'
 
 // `gameIds`: a saved playlist's lineup (from /host/playlist/[id]); when given, the
 // picker is skipped and the session starts on that lineup.
@@ -44,6 +44,8 @@ const sessionContext = props.gameIds?.length ? `pl:${props.gameIds.join(',')}` :
 const { room: roomCode, token: hostToken } = useHostSession({ context: sessionContext })
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
+// Close the socket (and stop the reconnect supervisor) when this host unmounts.
+onScopeDispose(() => relay.close())
 provideDootRoom(room)
 watch(() => room.code.value, (c) => persistHostRoom(sessionContext, c))
 

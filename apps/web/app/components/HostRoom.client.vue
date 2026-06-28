@@ -16,6 +16,7 @@ import {
   type FilterTier,
   gameAnswerKeys,
   gameRounds,
+  getBlock,
   getPlugin,
   inlineDecks,
   maskDerivedPublish,
@@ -24,7 +25,7 @@ import {
   resolveComposition,
 } from '@doot-games/games'
 import { DootLogo, Stage } from '@doot-games/ui'
-import { computed, provide, reactive, ref, watch } from 'vue'
+import { computed, onScopeDispose, provide, reactive, ref, watch } from 'vue'
 
 import type { GameComposition, ScorePlayer } from '@doot-games/sdk'
 
@@ -52,9 +53,11 @@ const themeState = useState<string>('doot-theme', () => 'doot')
 // hosted, so opening a DIFFERENT game starts a fresh room (no inherited roster); a
 // refresh of THIS game resumes it. See useHostSession.
 const sessionContext = props.gameId ? `g:${props.gameId}` : `p:${props.pluginId}`
-const { room: roomCode, token: hostToken } = useHostSession({ context: sessionContext })
+const { room: roomCode, token: hostToken, lobby: savedLobby } = useHostSession({ context: sessionContext })
 const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
+// Close the socket (and stop the reconnect supervisor) when this host unmounts.
+onScopeDispose(() => relay.close())
 provideDootRoom(room)
 // If the engine regenerates the code (a genuine collision on a fresh host), persist the
 // settled code so a later reload resumes the right room.
@@ -118,6 +121,18 @@ provide('dootTimersOff', timersOff)
 const contentFilter = ref<FilterTier>('off')
 provide('dootContentFilter', contentFilter)
 
+// Restore the host's lobby choices from a prior load of THIS context BEFORE the
+// first load(), so a reload rebuilds the identical config (round count, timers,
+// filter) and the engine can resume the running game instead of resetting. Pure
+// seeding of the reactive choices; no effect if nothing was persisted.
+if (savedLobby) {
+  if (roundConfig && typeof savedLobby.roundCount === 'number') {
+    roundConfig.value = Math.min(Math.max(savedLobby.roundCount, roundConfig.min), roundConfig.max)
+  }
+  if (typeof savedLobby.timersOff === 'boolean') timersOff.value = savedLobby.timersOff
+  if (savedLobby.contentFilter) contentFilter.value = savedLobby.contentFilter as FilterTier
+}
+
 /** Null out every round's timer when the host turned timers off. */
 function applyTimers(config: GameComposition): GameComposition {
   if (!timersOff.value) return config
@@ -148,6 +163,14 @@ function load() {
   // Expand any deck-backed rounds (draw/bindings/pool) into plain rounds for play.
   // A no-op for games without decks, so existing games are unchanged.
   const config = resolveComposition(game, resolveConfig(), roomCode)
+  // A game is safe to RESUME on a host reload only when every answer key is static
+  // (derivable from the config). Runtime-derived (two-phase) / hidden-role / share-fed
+  // rounds compute their answer key in host memory and never put it on the relay, so a
+  // reload can't reconstruct them; those keep the clean lobby reset. See tryResumeMidGame.
+  const resumable = config.rounds.every((inst) => {
+    const b = getBlock(game, inst.block)
+    return !b?.derive && !b?.assignContent && !(inst as { fromShares?: unknown }).fromShares
+  })
   const baseDerive = buildDeriveContent(game, config, roomCode, getPlayers, (i) => room.answerKeyFor(i))
   const meta: RoomMeta = {
     pluginId: game.manifest.id,
@@ -160,6 +183,7 @@ function load() {
     config: config as unknown as RelayValue,
     publishConfig: redactGameConfig(game, config) as unknown as RelayValue,
     rounds: gameRounds(game, config),
+    resumable,
     // Dynamic deadlines: a derived judge round scales its window to the gallery
     // the room actually has to read (read-time scaling in the vote-family blocks).
     timerFor: buildTimerFor(game, config) as never,
@@ -206,6 +230,21 @@ if (props.gameId) {
     },
   )
 }
+
+// Persist the host's lobby choices the moment the game leaves the lobby, so a host
+// reload mid-game rebuilds the identical config and resumes (see tryResumeMidGame).
+watch(
+  () => room.phase.value,
+  (phase) => {
+    if (phase !== 'lobby') {
+      persistHostLobby(sessionContext, {
+        roundCount: roundConfig?.value,
+        timersOff: timersOff.value,
+        contentFilter: contentFilter.value,
+      })
+    }
+  },
+)
 
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)

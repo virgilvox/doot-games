@@ -1179,3 +1179,84 @@ describe('host kick', () => {
     expect(host.getSnapshot().driverPid).toBe(null) // driving revoked with the kick
   })
 })
+
+describe('host reload mid-game recovery', () => {
+  // Build a host that reuses the SAME code + token (what useHostSession persists),
+  // so its reload reads as its own room rather than regenerating the code.
+  const makeTokenHost = (hub: FakeHub, now: () => number, token: string) => {
+    const r = new RoomRuntime({
+      relay: new FakeRelayClient(hub),
+      room: 'ABCD',
+      role: 'host',
+      now,
+      hostToken: token,
+    })
+    cleanups.push(() => r.dispose())
+    return r
+  }
+  // Mirror the app's mount order: connect() is kicked off, then loadGame() runs
+  // synchronously before connect()'s async continuation reaches the resume step.
+  const connectThenLoad = async (host: RoomRuntime, game: typeof GAME) => {
+    const p = host.connect()
+    host.loadGame(game)
+    await p
+  }
+
+  it('RESUMES a resumable game mid-round instead of resetting to the lobby', async () => {
+    const hub = new FakeHub()
+    const now = () => 1_000
+    const game = { ...GAME, resumable: true }
+
+    const host1 = makeTokenHost(hub, now, 'tok1')
+    await host1.connect()
+    host1.loadGame(game)
+    host1.start()
+    host1.openVoting() // round 0 is now OPEN
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('active')
+    expect(hub.store.get(addr.roundState('ABCD'))).toBe('open')
+    host1.dispose()
+
+    // Reload: a fresh runtime on the same code + token + game.
+    const host2 = makeTokenHost(hub, now, 'tok1')
+    await connectThenLoad(host2, game)
+    const snap = host2.getSnapshot()
+    expect(snap.phase).toBe('active') // did NOT reset to lobby
+    expect(snap.round.index).toBe(0)
+    expect(snap.round.state).toBe('open')
+    // The relay's phase was never overwritten with 'lobby' (players stay in-game).
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('active')
+  })
+
+  it('does NOT resume a non-resumable (two-phase) game; resets to lobby', async () => {
+    const hub = new FakeHub()
+    const now = () => 1_000
+    const game = { ...GAME, resumable: false }
+
+    const host1 = makeTokenHost(hub, now, 'tok1')
+    await host1.connect()
+    host1.loadGame(game)
+    host1.start()
+    host1.openVoting()
+    host1.dispose()
+
+    const host2 = makeTokenHost(hub, now, 'tok1')
+    await connectThenLoad(host2, game)
+    expect(host2.getSnapshot().phase).toBe('lobby') // safe fallback
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('lobby')
+  })
+
+  it('does not resume when the room is still in the lobby (fresh start)', async () => {
+    const hub = new FakeHub()
+    const now = () => 1_000
+    const game = { ...GAME, resumable: true }
+
+    const host1 = makeTokenHost(hub, now, 'tok1')
+    await host1.connect()
+    host1.loadGame(game) // loaded but never started: phase stays 'lobby'
+    host1.dispose()
+
+    const host2 = makeTokenHost(hub, now, 'tok1')
+    await connectThenLoad(host2, game)
+    expect(host2.getSnapshot().phase).toBe('lobby')
+  })
+})

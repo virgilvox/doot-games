@@ -33,10 +33,20 @@ const STORE_KEY = 'doot-host-rooms'
 // value TTL, beyond which the old room is gone anyway.
 const MAX_IDLE_MS = 6 * 60 * 60 * 1000
 
+/** The host's lobby choices, persisted so a reload rebuilds the IDENTICAL config
+ *  (a pooled game re-samples deterministically off the room code + round count) and
+ *  can therefore resume mid-game instead of resetting. See HostRoom + tryResumeMidGame. */
+export interface HostLobby {
+  roundCount?: number
+  timersOff?: boolean
+  contentFilter?: string
+}
+
 interface Entry {
   room: string
   token: string
   ts: number
+  lobby?: HostLobby
 }
 
 function newToken(): string {
@@ -69,10 +79,15 @@ function prune(store: Record<string, Entry>, now: number): void {
  * a plugin id, or a playlist). The same context resumes its room across refreshes; a
  * different context gets its own room.
  */
-export function useHostSession(opts: { context?: string } = {}): { room: string; token: string } {
+export function useHostSession(opts: { context?: string } = {}): {
+  room: string
+  token: string
+  lobby: HostLobby | undefined
+} {
   const context = opts.context ?? ''
   const now = Date.now()
-  if (typeof sessionStorage === 'undefined') return { room: makeRoomCode(), token: newToken() }
+  if (typeof sessionStorage === 'undefined')
+    return { room: makeRoomCode(), token: newToken(), lobby: undefined }
 
   const store = readStore()
   prune(store, now)
@@ -81,7 +96,18 @@ export function useHostSession(opts: { context?: string } = {}): { room: string;
     : { room: makeRoomCode(), token: newToken(), ts: now } // first host of this context
   store[context] = entry
   writeStore(store)
-  return { room: entry.room, token: entry.token }
+  return { room: entry.room, token: entry.token, lobby: entry.lobby }
+}
+
+/** Persist the host's lobby choices for a context, so a reload rebuilds the same
+ *  config (and can resume mid-game). Merges; keeps room/token/other contexts. */
+export function persistHostLobby(context: string, lobby: HostLobby): void {
+  if (typeof sessionStorage === 'undefined') return
+  const store = readStore()
+  const entry = store[context]
+  if (!entry) return
+  store[context] = { ...entry, lobby: { ...entry.lobby, ...lobby }, ts: Date.now() }
+  writeStore(store)
 }
 
 /** Persist the settled code for a context, since the engine may regenerate it on a real

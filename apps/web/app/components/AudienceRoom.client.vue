@@ -52,7 +52,10 @@ watch(
     }
   },
 )
-onScopeDispose(() => clearTimeout(timer))
+onScopeDispose(() => {
+  clearTimeout(timer)
+  relay.close() // close the socket + stop the reconnect supervisor on unmount
+})
 </script>
 
 <template>

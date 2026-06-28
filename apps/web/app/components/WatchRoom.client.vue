@@ -57,7 +57,10 @@ onMounted(() => {
   // Wait a frame so the <video> is in the DOM, then connect.
   requestAnimationFrame(start)
 })
-onScopeDispose(() => viewer?.close())
+onScopeDispose(() => {
+  viewer?.close()
+  relay.close() // close the socket + stop the reconnect supervisor on unmount
+})
 
 const label = () => {
   if (!supported) return 'This browser has no WebRTC support.'

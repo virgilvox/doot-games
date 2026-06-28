@@ -142,6 +142,12 @@ export interface ResultsFragment {
 export interface RoundBlock<Content = unknown, Input = unknown> {
   kind: string
   name: string
+  /** One short, player-facing sentence on how this round earns points, e.g.
+   *  "Right answers score; faster correct answers score more." The renderer
+   *  composes the distinct lines across a game's blocks into a "How scoring
+   *  works" summary in the lobby. Omit for a block that scores nothing on its own
+   *  (a make round, a display card), so it drops out of the summary. */
+  scoring?: string
   /** An informational block with NO player input (a slide, a title card). The
    *  renderer shows its HostDisplay full-bleed on the big screen and mirrors it on
    *  phones with no submit button, and the host advances it with a single button
