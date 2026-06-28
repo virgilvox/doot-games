@@ -2,7 +2,7 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-27. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-28. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
 > **ROOM LIFECYCLE: resume vs play-again vs new room (2026-06-28).** The resume change made
@@ -154,7 +154,9 @@ prod via CI, no staging)._
 >   (`phase !== 'active'`): `resetHostSession(context)` + reload → brand-new code for THIS game,
 >   clean roster (other games' rooms untouched). The explicit "this game has ended" signal the
 >   owner asked for. A fresh code = fresh relay namespace = zero ghosts, without touching the
->   (correct) scoring roster.
+>   (correct) scoring roster. (UPDATED 2026-06-28: HostRoom now shows a confirmed **"End game"**
+>   in the bar DURING an active round where "New room" used to be hidden, and surfaces "New room"
+>   on the results screen next to "Play again" — see the ROOM LIFECYCLE entry at the top.)
 > - **Room conflict** is unchanged + already handled: on connect `ensureFreeRoomCode`/
 >   `roomCodeTaken` regenerate if a DIFFERENT live host holds the code (host-token match keeps
 >   your own on reload). Cycling mints a random code that still runs that collision check.
@@ -370,6 +372,12 @@ prod via CI, no staging)._
 >   the existing 4 collision tests green (799 tests total); `nuxi typecheck` + build; and a
 >   real-browser smoke `scripts/host-reload-smoke.mjs` (host reload keeps the code, the
 >   pre-reload player stays in the roster, not stranded) + the core-loop smoke (no regression).
+> - **[SHIPPED 2026-06-27, supersedes this "STILL TODO" item]** mid-game recovery now works
+>   for `resumable` games (no derive/assign/fromShares): `RoomRuntime.tryResumeMidGame` reseeds
+>   from retained relay state on a host reload instead of resetting to lobby, lobby choices are
+>   persisted so the config rebuilds identically, and two-phase/hidden-role games keep the clean
+>   lobby reset (their answer keys are host-only). See the POST-104 entry at the top. The
+>   original analysis is kept below for context.
 > - **STILL TODO (the other half) - mid-game recovery is a DESIGN effort, not a quick fix
 >   (mapped 2026-06-26, do not attempt naively):** on a host reload mid-GAME the engine
 >   re-publishes `lobby` on connect, so the game RESETS to the lobby (players stay, not
