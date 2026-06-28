@@ -5,6 +5,29 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-27. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **ROOM LIFECYCLE: resume vs play-again vs new room (2026-06-28).** The resume change made
+> "refresh = same game" the default (right for crash recovery), which made "start fresh" less
+> obvious and exposed that the old "Play again" just reloaded — reusing the sticky per-context
+> code and inheriting the previous game's retained roster/inputs (ghosts + score bleed).
+> Designed against Kahoot (reconnect resumes; restart mints a new PIN; rematch keeps the crowd)
+> and Jackbox (a new code per game). Three clearly-separated actions now; shipped to prod
+> (863 tests + typecheck + build + a real-browser `scripts/host-lifecycle-smoke.mjs`):
+> - **Refresh/reconnect = resume** (silent recovery; unchanged).
+> - **"Play again" (results) = keep this crowd, wipe scores, back to round 1.** Now calls
+>   `room.host.nextGame(rebuiltGame)` instead of `location.reload()`. `nextGame` already clears
+>   the previous game's inputs at every round address (no score bleed) and keeps the roster
+>   (unit-tested), so nobody re-scans the QR. HostRoom extracts `buildLoadedGame()` (shared by
+>   `load()` + play-again) and `provide()`s `dootPlayAgain`; GameHost injects it (falls back to
+>   reload if no host shell). Same code => same pooled content (rematch).
+> - **"New room" = fresh code for a new group.** `resetHostSession` + reload; `provide`d as
+>   `dootNewRoom`, surfaced on the results screen (next to Play again) AND in the lobby bar.
+> - **"End game" (mid-round) = bail a false start.** The host bar shows "End game" (confirmed,
+>   since it abandons the round) while `phase==='active'`, where "New room" used to be hidden,
+>   so a misconfigured game now has an escape. Same fresh-room reset under the hood.
+> - Results screen carries a one-line hint ("Play again keeps this crowd and resets scores;
+>   New room starts a fresh group"). SessionHostRoom (playlist) keeps its own flow; its
+>   New-room button is unchanged (no End-game variant there yet — follow-up).
+
 > **POST-104-PLAYER-GAME FIXES: relay resilience, host resume, UX (2026-06-27).** Fixes
 > from the first real 104-player game. All shipped to prod; 863 unit tests + typecheck +
 > build + three real-browser smokes green.

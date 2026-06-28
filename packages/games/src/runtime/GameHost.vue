@@ -397,10 +397,16 @@ const showStandings = computed(
     (standings.value?.leaderboard?.length ?? 0) > 0,
 )
 
-// Reload to host a fresh room of the same game (HostRoom re-resolves the config,
-// so a pooled flagship re-samples and a saved game re-loads its stored config).
-function playAgain() {
+// Results actions, provided by HostRoom (the shell that owns the game config):
+// "Play again" keeps this crowd and wipes the scores (nextGame); "New room" mints a
+// fresh code for a new group. Fall back to a plain reload if no host shell provided
+// them (e.g. a custom mount), preserving the old behavior.
+const hostPlayAgain = inject<() => void>('dootPlayAgain', () => {
   if (typeof window !== 'undefined') window.location.reload()
+})
+const hostNewRoom = inject<(() => void) | null>('dootNewRoom', null)
+function playAgain() {
+  hostPlayAgain()
 }
 
 // A "make" round is one a LATER round derives from (e.g. the quip/fill round
@@ -544,6 +550,13 @@ watch(
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 24px;
+}
+.results-hint {
+  flex-basis: 100%;
+  text-align: center;
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--mute);
 }
 </style>
 
@@ -726,8 +739,12 @@ watch(
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
     <div v-if="!sessionMode" class="results-next">
       <button type="button" class="btn btn-primary btn-lg" @click="playAgain">Play again</button>
+      <button v-if="hostNewRoom" type="button" class="btn btn-ghost btn-lg" @click="hostNewRoom">New room</button>
       <a class="btn btn-ghost btn-lg" href="/explore">Pick another game</a>
       <a class="btn btn-ghost btn-lg" href="/">Home</a>
+      <p v-if="hostNewRoom" class="results-hint">
+        <b>Play again</b> keeps this crowd and resets scores. <b>New room</b> starts a fresh group.
+      </p>
     </div>
   </div>
 

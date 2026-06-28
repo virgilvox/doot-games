@@ -159,7 +159,7 @@ function resolveConfig(): GameComposition {
   return applyTimers(game.defaultConfig)
 }
 
-function load() {
+function buildLoadedGame() {
   // Expand any deck-backed rounds (draw/bindings/pool) into plain rounds for play.
   // A no-op for games without decks, so existing games are unchanged.
   const config = resolveComposition(game, resolveConfig(), roomCode)
@@ -178,7 +178,7 @@ function load() {
     title: config.title || game.manifest.name,
     themeId,
   }
-  room.host.loadGame({
+  return {
     meta,
     config: config as unknown as RelayValue,
     publishConfig: redactGameConfig(game, config) as unknown as RelayValue,
@@ -207,9 +207,20 @@ function load() {
       // lobby toggle is current.
       (i) => (room.meta.value?.crowdCounts ? (room.audienceVotesFor(i) as Map<string, unknown>) : new Map()),
     ) as never,
-  })
+  }
+}
+function load() {
+  room.host.loadGame(buildLoadedGame())
 }
 load()
+// "Play again": keep this crowd (no re-scan), wipe the previous game's scores, and
+// restart at round 1. nextGame() clears the prior inputs at every round address (so
+// no score bleed) but keeps the room + roster. Same room code, same content (the
+// pooled sample is seeded by the code). For a fresh group, use "New room" instead.
+function playAgain() {
+  room.host.nextGame(buildLoadedGame())
+}
+provide('dootPlayAgain', playAgain)
 // Re-sample when the host changes the round count in the lobby (before start only).
 if (roundConfig) watch(() => roundConfig.value, () => { if (room.phase.value === 'lobby') load() })
 // Re-load with/without timers when the host toggles them (lobby only).
@@ -249,14 +260,23 @@ watch(
 const HostView = plugin.components?.Host ?? GameHost
 const playerCount = computed(() => room.players.value.length)
 
-// "New room": drop this tab's room and reload, so the host gets a brand-new code with a
-// clean roster. Only offered when NOT mid-game (lobby or the final results), so it can't
-// strand a room of players mid-round. The unambiguous "this session is over" signal.
-const canNewRoom = computed(() => room.phase.value !== 'active')
+// "New room": drop this tab's room and reload for a brand-new code + clean roster, so a
+// fresh GROUP joins from scratch. The unambiguous "new session" action — offered in the
+// lobby and on the results screen. (To replay with the SAME crowd, use Play again.)
 function newRoom() {
-  if (room.phase.value === 'active') return
   resetHostSession(sessionContext)
   if (typeof window !== 'undefined') window.location.reload()
+}
+provide('dootNewRoom', newRoom)
+// "End game": bail out of a game that's mid-round (e.g. a false start) and start fresh.
+// Confirmed, since it abandons the running round for everyone in it.
+function endGame() {
+  if (
+    typeof window !== 'undefined' &&
+    !window.confirm('End this game and start a fresh room? Everyone in the current round will be sent to a new lobby.')
+  )
+    return
+  newRoom()
 }
 </script>
 
@@ -270,7 +290,16 @@ function newRoom() {
           {{ room.connected.value ? 'connected' : 'connecting…' }}
         </span>
         <span class="code mono">{{ room.code.value }}</span>
-        <button v-if="canNewRoom" type="button" class="newroom" title="Start a fresh room with a new code" @click="newRoom">New room</button>
+        <button
+          v-if="room.phase.value === 'active'"
+          type="button"
+          class="newroom danger"
+          title="End this game and start a fresh room"
+          @click="endGame"
+        >
+          End game
+        </button>
+        <button v-else type="button" class="newroom" title="Start a fresh room with a new code" @click="newRoom">New room</button>
       </div>
     </template>
     <component :is="HostView" :plugin="plugin" />
@@ -335,5 +364,14 @@ function newRoom() {
 .newroom:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+.newroom.danger {
+  color: var(--danger, #d9534f);
+  border-color: color-mix(in srgb, var(--danger, #d9534f) 45%, transparent);
+}
+.newroom.danger:hover {
+  color: #fff;
+  background: var(--danger, #d9534f);
+  border-color: var(--danger, #d9534f);
 }
 </style>
