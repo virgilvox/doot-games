@@ -5,6 +5,59 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-27. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **POST-104-PLAYER-GAME FIXES: relay resilience, host resume, UX (2026-06-27).** Fixes
+> from the first real 104-player game. All shipped to prod; 863 unit tests + typecheck +
+> build + three real-browser smokes green.
+> - **RELAY RECONNECTION SUPERVISOR (the headline bug: "ratings fail to load at scale").**
+>   `@clasp-to/core` gives up permanently after 10 internal reconnect attempts and the engine
+>   did nothing after, so a blipped socket stayed dead until a manual refresh (which dropped
+>   the player to the name field). `createClaspRelay` (`packages/engine/src/relay.ts`) now OWNS
+>   reconnection: it forces the client's own `reconnect:false` and runs a supervisor that, on
+>   any drop, rebuilds the client + reconnects with jittered UNBOUNDED backoff + re-registers
+>   every subscription (a fresh SUBSCRIBE makes the relay replay retained snapshots, so room
+>   state re-hydrates in place, no reload). Engine listeners are preserved across rebuilds; a
+>   `reconnecting` in-flight guard prevents racing rebuilds; `close()` (now called from all 5
+>   room components on unmount) stops it + fixes a pre-existing socket leak. Injectable
+>   `makeClient` for tests. 6 unit tests.
+> - **Churn + payload hardening.** `emit()` (`room.ts`) is coalesced per-microtask, so a
+>   reconnect SNAPSHOT replaying 100+ retained params is one snapshot recompute, not 100+
+>   (the O(N) storm at party scale). Presence is re-broadcast immediately on reconnect so the
+>   host's window doesn't drop a returning phone. `assertConfigBroadcastable` fails `start()`/
+>   `nextGame()` loudly BEFORE any partial publish if a config exceeds ~60KB (CLASP's uint16
+>   frame cap); `ImageField` rejects a pasted data-URL over 32KB. (maxRate intentionally NOT
+>   applied to the ping wildcard: it would risk presence flapping; coalescing handles the CPU.)
+> - **HOST MID-GAME RESUME (host refresh restores the game, players stay).** A host reload now
+>   RESUMES an active game from retained relay state instead of resetting to the lobby
+>   (`RoomRuntime.tryResumeMidGame`): it READS the retained phase/round (every read bounded at
+>   700ms so an absent key can't stall connect) and reseeds local state, never publishing
+>   phase/config/answers (no re-leak, no reset of live players). GATED to `resumable` games
+>   (no `derive`/`assignContent`/`fromShares` round, so all answer keys are static + re-derivable);
+>   two-phase/hidden-role keep the clean lobby reset because their answer keys live only in host
+>   memory. Lobby choices (round count/timers/filter) are persisted per context in
+>   `useHostSession` so the config rebuilds IDENTICALLY on reload. Only 'active' resumes (not
+>   'results' — the host doesn't retain its own results summary). SessionHostRoom resume is a
+>   follow-up (it doesn't pass `resumable`, so it safely keeps the lobby reset). 3 unit tests +
+>   `scripts/host-resume-smoke.mjs` (real browser: host reload resumes Round 1/N, player not
+>   reset, code stable).
+> - **"Round X of N" excludes display rounds.** The counter used the raw engine pointer +
+>   full `rounds.length`, counting slide/title cards. GameHost/GamePlayer/GameAudience now count
+>   only PLAYABLE rounds (display excluded, solo still counts) for the DISPLAYED number; the
+>   engine's pointer is unchanged.
+> - **Scoring explanation in the lobby.** New `RoundBlock.scoring?` one-line blurb (sdk); 18
+>   scoring blocks seeded; `scoringSummary` composes the distinct lines for the actual game,
+>   rendered as a "How scoring works" `<details>` in the GameHost lobby. Custom-flow games
+>   (own Host.vue) don't show it yet (follow-up).
+> - **Name prefill + reconnect affordance.** The play page stashes the player name in
+>   localStorage (fails open where storage is blocked, per the identity invariant) so a refresh
+>   prefills it. `JoinForm`'s "It's me, reconnect" is now the big primary button (was a tiny
+>   link; "pick a different name" demoted).
+> - **Round triggers use NO CLASP param** (owner question): they are separate RETAINED pub/sub
+>   keys (phase/index/state/deadline), so reconnecting clients converge from the relay snapshot
+>   for free — the fix was socket resilience, not the trigger model.
+> - KNOWN GAPS: the supervisor's real-socket-drop reconnect is covered by unit tests + the
+>   strictly-better-than-before failure path, but not yet a real-browser forced-drop smoke; the
+>   64KB guard uses JSON length (UTF-16) as a byte proxy (headroom covers it).
+
 > **HOST-SCREEN LAYOUT + IMAGES + UNLOCKED PICKS (2026-06-27).** A pass on big-screen
 > image sizing, the control bar, slide fit, rating ties, and a player-input safety net.
 > All shipped to prod; verified by two new real-browser smokes + 850 unit tests + typecheck +
