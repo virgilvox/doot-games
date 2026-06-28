@@ -5,6 +5,59 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-27. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **HOST-SCREEN LAYOUT + IMAGES + UNLOCKED PICKS (2026-06-27).** A pass on big-screen
+> image sizing, the control bar, slide fit, rating ties, and a player-input safety net.
+> All shipped to prod; verified by two new real-browser smokes + 850 unit tests + typecheck +
+> build. Done in several commits; the net state:
+> - **`MediaFrame` (`packages/ui/src/components/MediaFrame.vue`), the one image primitive.**
+>   `fit="contain"` frames the `<img>` ITSELF (border/radius on the picture, not a wrapper
+>   box) so the card always HUGS the picture — a portrait/square in a wide slot has no
+>   letterbox gap and is never cropped. `fill` drives `height:100%` (capped by a viewport
+>   `maxH`) so the picture also scales UP to fill its space while still hugging. `fit="cover"`
+>   (ratio + 0..1 `focal` → object-position) exists for fixed-shape crop slots but isn't wired
+>   in yet (the focal-point editor UI is the obvious next step). Used for the host prompt image
+>   (`GameHost` split-grid), the slide/cover + title reveal, the guess answer-reveal, and the
+>   phone prompt image (`GamePlayer`). Fixed the gap/"image too small" complaints with zero
+>   per-image fiddling.
+> - **Host stage is a scroll-content + flow-footer shell now.** `GameHost`'s active `.stage`
+>   wraps the round content in `.stage-content { flex:1; min-height:0; overflow-y:auto }` and
+>   the `ControlBar` is a normal-flow sibling BELOW it (NOT sticky). So tall content scrolls
+>   inside its own region and the bar is never overlapped and never pushed off-screen. The
+>   active stage is viewport-capped (`max-height: calc(100dvh - 104px)`, active-only — lobby
+>   `.lobby` / results `.results-wrap` keep their own roots + page-scroll). KNOWN SMELL: that
+>   104px offset is a constant tuned for the host big screen (single-row bar); the bar being
+>   normal-flow means an under-estimate degrades to a small scroll, never an overlay. A fully
+>   measured app-shell (bound `Stage`'s `.stage-wrap` to `100dvh` + internal scroll on every
+>   phase) is the clean follow-up — `.stage-body` already got `min-height:0` toward it.
+> - **Slides/titles AUTO-FIT instead of scrolling** (`useFitScale`, `packages/ui/src/composables/`).
+>   A display slide should read at a glance, so `useFitScale` binary-searches a `--fit`
+>   multiplier on the type sizes until the content stops overflowing its BOUNDED PARENT (it
+>   measures the parent, not the node: a `height:100%` fill child reports its content height as
+>   its own scrollHeight — the flexbox percentage-height gotcha — so the parent cell carries the
+>   real budget; parent padding is subtracted). SlideView/TitleView multiply their font/gap
+>   clamps by `var(--fit,1)`. Important: the fit is a GENTLE safety (min 0.72), NOT the primary
+>   sizing — earlier it over-shrank the body to "tiny" on laptop-height windows because the side
+>   image's `72vh` cap exceeded the available cell (chrome+bar eat ~250px), making the IMAGE the
+>   constraint and the fit uselessly shrink the TEXT. Fixed in layout: side image capped at
+>   `min(58vh,620px)`, text `max-width: 34rem` so it WRAPS at a readable measure, reasonable type
+>   (heading `clamp(26px,3.4vw,52px)`, body `clamp(16px,1.9vw,26px)`). Now fits with `--fit≈1` and
+>   readable type at 820/900/1100 heights.
+> - **Rate ties: show EVERYONE tied** (`packages/games/src/blocks/rate/block.ts`). The
+>   "Top rated {category}" award kept only the first of a tie (`avg > prev.avg` dropped equals);
+>   it now keeps every subject within an epsilon of the best average and emits one award card
+>   each (with its own image). Combined-ranking tie check hardened with the same epsilon. +2 tests.
+> - **Capture an UNLOCKED pick when a round closes** (`GamePlayer`). If the round closes (host
+>   locks, or the timer runs out) while a player has a complete selection they never tapped
+>   "Lock it in" for, it's submitted for them so the pick still counts. `room.submit` isn't gated
+>   on round state, so the late input lands before the host's separate reveal and is scored. Kept
+>   in a `pendingPick` ref because `value` re-initialises on every state change. No-op for
+>   solo/display blocks, already-submitted, or ineligible players.
+> - **New smokes:** `scripts/image-layout-smoke.mjs` (hug/fill, bar-never-overlaps, slide
+>   auto-fits 0px, no h/v overflow at 1440x900; drives a `custom` draft via the editor→host
+>   `doot-game-draft` sessionStorage handoff) and `scripts/unlocked-pick-smoke.mjs` (select-but-
+>   don't-lock → host lock → the vote is counted). Gotcha baked into both: `timer: 0` is a
+>   0-second timer that auto-locks INSTANTLY; "off" is `timer: null`.
+
 > **ROOM-CODE LIFECYCLE: codes now cycle between games (2026-06-26).** Owner reported the
 > host code "always stays the same" and old players still show connected across games. Root
 > cause: `useHostSession` persisted code+token in sessionStorage and NOTHING ever cycled it
