@@ -68,6 +68,7 @@ export interface GuessInput {
 export const guessBlock = defineBlock<GuessContent, GuessInput>({
   kind: 'guess',
   name: 'Guess',
+  scoring: 'Each correct answer scores a point.',
   contentSchema: guessContentSchema,
   defaultContent: () => ({
     subject: '',

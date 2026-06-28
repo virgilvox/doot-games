@@ -115,6 +115,7 @@ function topSuspect(counts: Map<string, number>): string {
 export const accuseBlock = defineBlock<AccuseContent, AccuseInput>({
   kind: 'accuse',
   name: 'Accuse',
+  scoring: 'Spot the faker to score; the faker scores by staying hidden.',
   contentSchema: accuseContentSchema,
   // Built at runtime from the faker round; the editor hides these and explains.
   derivedFields: ['clues', 'category'],

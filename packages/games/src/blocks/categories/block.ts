@@ -55,6 +55,7 @@ export interface CategoriesRevealSummary {
 export const categoriesBlock = defineBlock<CategoriesContent, CategoriesInput>({
   kind: 'categories',
   name: 'Categories',
+  scoring: 'Each answer that is valid and unique scores a point.',
   contentSchema: categoriesContentSchema,
   defaultContent: () => ({
     prompt: 'Categories',

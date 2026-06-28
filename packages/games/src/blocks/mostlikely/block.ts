@@ -66,6 +66,7 @@ function tally(
 export const mostLikelyBlock = defineBlock<MostLikelyContent, MostLikelyInput>({
   kind: 'mostlikely',
   name: 'Most Likely To',
+  scoring: 'The most-nominated player gets crowned.',
   contentSchema: mostLikelyContentSchema,
   defaultContent: () => ({ prompt: 'Most likely to...', timer: 20 }),
   defaultTimer: 20,

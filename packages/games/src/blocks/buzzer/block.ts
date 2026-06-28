@@ -99,6 +99,7 @@ function firstCorrectPid(
 export const buzzerBlock = defineBlock<BuzzerContent, BuzzerInput>({
   kind: 'buzzer',
   name: 'Buzzer',
+  scoring: 'Right answers score, and faster correct buzzes score more.',
   contentSchema: buzzerContentSchema,
   defaultContent: () => ({
     subject: 'What, You Didn\'t Know That?',

@@ -92,6 +92,7 @@ export function hivemindShare(k: number, total: number): number {
 export const hivemindBlock = defineBlock<HivemindContent, HivemindInput>({
   kind: 'hivemind',
   name: 'Hivemind',
+  scoring: 'Score by matching the most popular answer in the room.',
   contentSchema: hivemindContentSchema,
   defaultContent: () => ({
     prompt: 'Name something you find in a kitchen.',

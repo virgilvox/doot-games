@@ -62,6 +62,7 @@ function boardOf(answer: unknown, content: SurveyContent): SurveyAnswer[] {
 export const surveyBlock = defineBlock<SurveyContent, SurveyInput>({
   kind: 'survey',
   name: 'Survey',
+  scoring: 'Name a hidden top answer to score its points.',
   contentSchema: surveyContentSchema,
   defaultContent: () => ({
     prompt: 'Name a popular pizza topping.',

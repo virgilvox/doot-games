@@ -44,6 +44,7 @@ export interface SpectrumRevealSummary {
 export const spectrumBlock = defineBlock<SpectrumContent, SpectrumInput>({
   kind: 'spectrum',
   name: 'Spectrum',
+  scoring: 'Score by how close your guess lands to the room average.',
   contentSchema: spectrumContentSchema,
   defaultContent: () => ({ prompt: 'Pineapple on pizza', leftLabel: 'Disgusting', rightLabel: 'Delicious', timer: 30 }),
   defaultTimer: 30,

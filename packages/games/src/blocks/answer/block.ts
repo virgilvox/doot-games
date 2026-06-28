@@ -76,6 +76,7 @@ function acceptedOf(answer: unknown): string[] {
 export const answerBlock = defineBlock<AnswerContent, AnswerInput>({
   kind: 'answer',
   name: 'Answer',
+  scoring: 'Type the answer; close enough counts, and each correct answer scores.',
   contentSchema: answerContentSchema,
   defaultContent: () => ({
     subject: '',

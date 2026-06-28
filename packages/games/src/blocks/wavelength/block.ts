@@ -92,6 +92,7 @@ function clueGiverFor(playerIds: string[], item: number): string {
 export const wavelengthBlock = defineBlock<WavelengthContent, WavelengthInput>({
   kind: 'wavelength',
   name: 'Wavelength',
+  scoring: 'Slide the dial close to the secret target to score.',
   contentSchema: wavelengthContentSchema,
   defaultContent: () => ({ phase: 'clue', leftLabel: 'Cold', rightLabel: 'Hot', target: 50, item: 0, timer: 45 }),
   defaultTimer: 45,

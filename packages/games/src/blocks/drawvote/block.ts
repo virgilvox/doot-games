@@ -83,6 +83,7 @@ function tally(
 export const drawVoteBlock = defineBlock<DrawVoteContent, DrawVoteInput>({
   kind: 'drawvote',
   name: 'Draw vote',
+  scoring: 'Score by how many players vote for your drawing.',
   contentSchema: drawVoteContentSchema,
   derivedFields: ['options'],
   defaultContent: () => ({

@@ -86,6 +86,7 @@ function tally(
 export const splitBlock = defineBlock<SplitContent, SplitInput>({
   kind: 'split',
   name: 'Split',
+  scoring: 'Score by splitting the room as evenly as you can.',
   contentSchema: splitContentSchema,
   // The scenarios are built at runtime from the previous round's answers, so the
   // editor hides the `scenarios` field instead of asking for placeholder text.

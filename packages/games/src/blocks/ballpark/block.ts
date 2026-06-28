@@ -113,6 +113,7 @@ export function ballparkBounds(answer: number, values: number[]): { lo: number; 
 export const ballparkBlock = defineBlock<BallparkContent, BallparkInput>({
   kind: 'ballpark',
   name: 'Ballpark',
+  scoring: 'The closest guess to the real number scores, with a bonus for nailing it.',
   contentSchema: ballparkContentSchema,
   defaultContent: () => ({ subject: '', prompt: 'How many?', image: '', unit: '', answer: 0, timer: 30 }),
   defaultTimer: 30,

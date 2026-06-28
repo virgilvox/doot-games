@@ -108,6 +108,7 @@ function placementsOf(inputs: Map<string, TierInput | null | undefined>): TierPl
 export const tierBlock = defineBlock<TierContent, TierInput>({
   kind: 'tier',
   name: 'Tier List',
+  scoring: 'Place items on the tier board; agreeing with the room scores.',
   // A solo block: it owns the whole round and runs the item-by-item show itself (the
   // board fills on the big screen, the room votes one item at a time), then advances.
   solo: true,

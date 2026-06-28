@@ -8,8 +8,31 @@
 import { computed, inject, ref } from 'vue'
 import { IMAGE_UPLOAD } from '../upload'
 
-defineProps<{ modelValue: string; label: string }>()
+const props = defineProps<{ modelValue: string; label: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+
+// A pasted data: URL is embedded inline in the game config, which the host
+// broadcasts in one relay frame (hard cap ~64 KB). A big inline image silently
+// breaks the whole round, so reject oversized ones here and steer to a URL/upload.
+const MAX_DATA_URL_BYTES = 32 * 1024
+const dataUrlError = ref('')
+
+function onInput(e: Event) {
+  const value = (e.target as HTMLInputElement).value
+  broken.value = false
+  if (value.startsWith('data:') && value.length > MAX_DATA_URL_BYTES) {
+    dataUrlError.value = `That pasted image is too large to send to players (over ${Math.round(
+      MAX_DATA_URL_BYTES / 1024,
+    )} KB). Upload it, or paste a hosted image URL instead.`
+    // Don't keep the oversized value: revert the input's visible text to the
+    // previous value too (re-emitting an unchanged modelValue won't reset the DOM).
+    ;(e.target as HTMLInputElement).value = props.modelValue
+    emit('update:modelValue', props.modelValue)
+    return
+  }
+  dataUrlError.value = ''
+  emit('update:modelValue', value)
+}
 
 const broken = ref(false)
 const uploadCtx = inject(IMAGE_UPLOAD, null)
@@ -49,7 +72,7 @@ async function onFile(e: Event) {
         inputmode="url"
         placeholder="https://… (paste an image URL)"
         :value="modelValue"
-        @input="broken = false; emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @input="onInput"
       />
       <label v-if="canUpload" class="if-upload" :class="{ busy: uploading }">
         <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" :disabled="uploading" @change="onFile" />
@@ -58,6 +81,7 @@ async function onFile(e: Event) {
     </div>
     <p v-if="uploadHint" class="sf-hint">{{ uploadHint }}</p>
     <p v-if="uploadError" class="sf-error">{{ uploadError }}</p>
+    <p v-if="dataUrlError" class="sf-error">{{ dataUrlError }}</p>
     <div v-if="modelValue" class="sf-image-preview">
       <img v-if="!broken" :src="modelValue" alt="Preview of the round image" @error="broken = true" />
       <span v-else class="sf-image-broken">Couldn't load that image URL.</span>

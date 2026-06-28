@@ -176,9 +176,9 @@ function onNameInput() {
       </button>
     </div>
     <div v-if="nameTaken" class="taken" role="alert">
-      <p class="taken-msg">That name is already in this room. Pick another, or reconnect if it's you.</p>
-      <DButton variant="primary" type="button" block @click="pickAnother">Pick a different name</DButton>
-      <button type="button" class="link-btn" @click="reconnect">That's me, reconnect</button>
+      <p class="taken-msg">That name is already in this room. Reconnect if it's you, or pick another.</p>
+      <DButton variant="primary" type="button" block @click="reconnect">It's me, reconnect</DButton>
+      <button type="button" class="link-btn" @click="pickAnother">Pick a different name</button>
     </div>
     <p v-if="error" class="err" role="alert">{{ error }}</p>
   </form>

@@ -119,6 +119,7 @@ function tally(
 export const fibBlock = defineBlock<FibContent, FibInput>({
   kind: 'fibvote',
   name: 'Fib vote',
+  scoring: 'Score for finding the truth and for fooling others with your fake.',
   contentSchema: fibContentSchema,
   derivedFields: ['options'],
   defaultContent: () => ({

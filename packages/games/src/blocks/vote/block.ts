@@ -110,6 +110,7 @@ function tally(
 export const voteBlock = defineBlock<VoteContent, VoteInput>({
   kind: 'vote',
   name: 'Vote',
+  scoring: 'Score by how many players vote for your submission.',
   contentSchema: voteContentSchema,
   // The options are built at runtime from the previous round's answers, so the
   // editor hides the `options` field instead of asking for placeholder ids/text.

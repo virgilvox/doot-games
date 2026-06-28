@@ -80,6 +80,7 @@ function tally(
 export const photoVoteBlock = defineBlock<PhotoVoteContent, PhotoVoteInput>({
   kind: 'photovote',
   name: 'Photo vote',
+  scoring: 'Score by how many players vote for your photo.',
   contentSchema: photoVoteContentSchema,
   derivedFields: ['options'],
   defaultContent: () => ({ prompt: 'Which photo wins?', options: [], timer: 30, hideUntilReveal: true }),

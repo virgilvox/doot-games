@@ -10,8 +10,31 @@ const name = ref('')
 const joined = ref(false)
 const watching = ref(false)
 
+// Remember the player's name so a refresh (e.g. after a reconnect) prefills the
+// field instead of making them retype it. A display name is the player's
+// identity across rooms, so key it globally. Storage is a convenience only:
+// identity is still derived from room + name, and every access fails open so the
+// play surface keeps working where storage is blocked (embeds) or on the server.
+const NAME_KEY = 'doot:player-name'
+function readSavedName(): string {
+  try {
+    return localStorage.getItem(NAME_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+function saveName(n: string): void {
+  try {
+    localStorage.setItem(NAME_KEY, n)
+  } catch {
+    /* storage blocked: ignore */
+  }
+}
+const savedName = ref(readSavedName())
+
 function onJoin(payload: { code: string; name: string }) {
   name.value = payload.name
+  saveName(payload.name)
   joined.value = true
 }
 
@@ -76,7 +99,7 @@ async function probeName(
         <div class="panel card">
           <DootLogo :size="48" />
           <p class="lead">Joining room <b class="mono">{{ roomCode }}</b></p>
-          <JoinForm :initial-code="roomCode" :probe="probeName" @join="onJoin" @watch="onWatch" />
+          <JoinForm :initial-code="roomCode" :initial-name="savedName" :probe="probeName" @join="onJoin" @watch="onWatch" />
         </div>
       </div>
       <template #fallback><div class="gate">Loading…</div></template>

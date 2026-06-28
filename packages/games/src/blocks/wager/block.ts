@@ -62,6 +62,7 @@ function cleanBet(bet: unknown): number {
 export const wagerBlock = defineBlock<WagerContent, WagerInput>({
   kind: 'wager',
   name: 'Wager',
+  scoring: 'Bet points each round; a correct pick wins your stake, a wrong one loses it.',
   contentSchema: wagerContentSchema,
   defaultContent: () => ({
     subject: '',

@@ -26,6 +26,13 @@ const index = computed(() => room.round.value.index)
 const state = computed(() => room.round.value.state)
 const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() => (instance.value ? getBlock(props.plugin, instance.value.block) : undefined))
+// "round X of N" counts only playable rounds (display cards are scene-setting),
+// matching GameHost/GamePlayer.
+const isPlayable = (r: { block: string }) => !getBlock(props.plugin, r.block)?.display
+const playableTotal = computed(() => rounds.value.filter(isPlayable).length)
+const playableNumber = computed(() =>
+  Math.max(rounds.value.slice(0, index.value + 1).filter(isPlayable).length, 1),
+)
 // The audience sees the shared content (authored or runtime-derived); never any
 // per-player secret (the engine never delivers one to a spectator).
 const content = computed(() => room.runtimeContentFor(index.value) ?? instance.value?.content ?? null)
@@ -113,7 +120,7 @@ const status = computed(() => {
     </template>
 
     <template v-else-if="instance && block">
-      <div class="watch-tag">Watching · round {{ index + 1 }} of {{ rounds.length }}</div>
+      <div class="watch-tag">Watching · round {{ playableNumber }} of {{ playableTotal }}</div>
       <div v-if="block.display && content" class="slide-mirror">
         <component :is="block.PlayerInput" :content="content" />
       </div>

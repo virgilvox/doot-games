@@ -13,6 +13,7 @@ import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, 
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
 import { type ScoreGameContext, getBlock, scoreGame } from './derive'
+import { scoringSummary } from './scoring-summary'
 import { standingsThrough } from './standings'
 
 // `sessionMode`: this game is one leg of a session (a "night of games"), so the
@@ -160,6 +161,19 @@ const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
+// The player-facing "Round X of N" counts only PLAYABLE rounds: display cards
+// (slide/title) are scene-setting, not rounds, so they're excluded from both the
+// number and the total. Solo rounds (tier) are real and still count. The engine's
+// own round pointer still spans every round, so only the displayed string changes.
+const isPlayable = (r: { block: string }) => !getBlock(props.plugin, r.block)?.display
+const playableTotal = computed(() => rounds.value.filter(isPlayable).length)
+// Player-facing "how scoring works" lines, composed from the game's blocks.
+const scoringLines = computed(() => scoringSummary(props.plugin, config.value))
+const playableNumber = computed(
+  () => rounds.value.slice(0, index.value + 1).filter(isPlayable).length,
+)
+// 0-based index for the ControlBar; clamp so a leading display card reads "Round 1".
+const playableIndex = computed(() => Math.max(playableNumber.value, 1) - 1)
 // A two-phase round's content is derived at runtime (the vote options built from
 // the prior round's submissions); overlay it on the authored content when present.
 const content = computed<Record<string, unknown> | null>(
@@ -543,6 +557,12 @@ watch(
       <div class="lobby-head">
         <h2 class="lobby-title">{{ plugin.manifest.name }}</h2>
         <p v-if="plugin.manifest.description" class="lobby-desc">{{ plugin.manifest.description }}</p>
+        <details v-if="scoringLines.length" class="lobby-scoring">
+          <summary>How scoring works</summary>
+          <ul>
+            <li v-for="(line, i) in scoringLines" :key="i">{{ line }}</li>
+          </ul>
+        </details>
       </div>
       <div class="roster-head">
         <div class="kicker">In the room</div>
@@ -770,8 +790,8 @@ watch(
     <ControlBar
       v-if="!isSolo || state === 'reveal'"
       class="stage-controlbar"
-      :round-index="index"
-      :round-count="rounds.length"
+      :round-index="playableIndex"
+      :round-count="playableTotal"
       :state-label="stateLabel"
       :locked-in="lockCount.locked"
       :total="answering ? lockCount.total : 0"
@@ -827,6 +847,37 @@ watch(
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.45;
+}
+.lobby-scoring {
+  margin-top: 10px;
+  font-size: 14px;
+}
+.lobby-scoring > summary {
+  cursor: pointer;
+  color: var(--mute);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  list-style: none;
+}
+.lobby-scoring > summary::-webkit-details-marker {
+  display: none;
+}
+.lobby-scoring > summary::before {
+  content: '▸ ';
+}
+.lobby-scoring[open] > summary::before {
+  content: '▾ ';
+}
+.lobby-scoring ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.lobby-scoring li {
+  margin: 2px 0;
 }
 .ticket-card {
   padding: 30px;

@@ -47,6 +47,14 @@ const instance = computed(() => rounds.value[index.value] ?? null)
 const block = computed(() =>
   instance.value ? getBlock(props.plugin, instance.value.block) : undefined,
 )
+// "Round X of N" counts only PLAYABLE rounds (display cards like slide/title are
+// scene-setting, not rounds); solo rounds still count. Matches GameHost so the
+// phone and the big screen agree.
+const isPlayable = (r: { block: string }) => !getBlock(props.plugin, r.block)?.display
+const playableTotal = computed(() => rounds.value.filter(isPlayable).length)
+const playableNumber = computed(() =>
+  Math.max(rounds.value.slice(0, index.value + 1).filter(isPlayable).length, 1),
+)
 // A solo block owns the whole active player view (it drives its own flow + submit);
 // the generic prompt/input/"Lock it in" scaffolding is suppressed for it.
 const isSolo = computed(() => !!block.value?.solo)
@@ -219,7 +227,7 @@ const stageStatus = computed(() => {
   if (!room.ready.value) return 'Joining the room.'
   if (room.phase.value === 'lobby') return "You're in. Waiting for the host to start."
   if (room.phase.value === 'results') return 'Final results are up.'
-  const r = rounds.value.length > 1 ? `Round ${index.value + 1} of ${rounds.value.length}: ` : ''
+  const r = playableTotal.value > 1 ? `Round ${playableNumber.value} of ${playableTotal.value}: ` : ''
   if (state.value === 'ready') return `${r}get ready.`
   if (state.value === 'open') return submitted.value ? `${r}locked in, waiting for everyone else.` : `${r}answers open.`
   if (state.value === 'locked') return `${r}answers are locked.`
@@ -244,7 +252,7 @@ function reloadPage() {
     <p class="sr-status" role="status">{{ stageStatus }}</p>
     <!-- MC controls: the host delegated driving to this player. -->
     <div v-if="driverAction" class="drive-bar">
-      <span class="drive-tag"><Icon name="mc" :size="15" /> You're the MC · {{ index + 1 }}/{{ rounds.length }}</span>
+      <span class="drive-tag"><Icon name="mc" :size="15" /> You're the MC · {{ playableNumber }}/{{ playableTotal }}</span>
       <button class="btn btn-primary drive-go" @click="room.sendControl(driverAction.type)">
         {{ driverAction.label }} →
       </button>
@@ -324,14 +332,14 @@ function reloadPage() {
     </div>
 
     <div v-else-if="state === 'ready'" class="big">
-      <div v-if="rounds.length > 1" class="round-progress">Round {{ index + 1 }} of {{ rounds.length }}</div>
+      <div v-if="playableTotal > 1" class="round-progress">Round {{ playableNumber }} of {{ playableTotal }}</div>
       <h2>{{ prompt || block.name }}</h2>
       <p>Get ready, this round opens in a moment.</p>
     </div>
 
     <template v-else-if="state === 'open' && !submitted && value != null">
       <div class="kicker-row">
-        <div class="kicker">{{ block.name }}<template v-if="rounds.length > 1"> · Round {{ index + 1 }} of {{ rounds.length }}</template></div>
+        <div class="kicker">{{ block.name }}<template v-if="playableTotal > 1"> · Round {{ playableNumber }} of {{ playableTotal }}</template></div>
         <CountdownRing v-if="countdown" :remaining="countdown.remaining" :total="countdown.total" class="player-cd" />
       </div>
       <h2 class="prompt">{{ prompt }}</h2>
