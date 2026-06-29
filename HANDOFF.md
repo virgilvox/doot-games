@@ -5,6 +5,101 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-06-28. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **CREATE/PUBLISH/EDITOR FUNNEL PASS: fix the locked block editor, clarify publishing
+> (2026-06-28).** A conversion-focused pass on creating + publishing, after a live audit of
+> doot.games. Aim: drive sign-ups and custom-game creation, and remove a real trap. Shipped to
+> prod (863 tests + typecheck + build + real-browser verification of every screen).
+> - **THE BUG: single-block editors were dead ends.** `/editor/guess` (and rate/poll/rank/
+>   draw/buzzer) built the Add Round palette from that ONE plugin's blocks (`singleBlocks =
+>   plugin.blocks.filter(...)`), so you could only ever add Guess rounds; mixing types meant
+>   restarting from Custom. The create page presented 7 such tiles as first-class starts. Fix:
+>   a quick-start SEED. `/editor/custom?seed=<kind>` opens the Custom builder (full ~18-type
+>   palette + recipes) pre-seeded with one round of that kind, so a "start from a round type"
+>   entry is never a dead end. `GameEditor` takes a `seed` prop (applied once at setup, only for
+>   a fresh game and a kind the plugin offers); `editor/[plugin].vue` reads `?seed` and keys the
+>   editor by `plugin:seed` so a query-only change remounts. Create + home "Create with blocks"
+>   route the 6 real block kinds to the seed; VoteBox/Custom open directly.
+> - **CREATE PAGE rearranged for conversion.** The Custom builder is now the headline card
+>   (it's the differentiator), with a sign-in value prop up top ("Hosting is free... sign in to
+>   save, share a link, and let Claude build for you"), quick-start round-type chips, then two
+>   supporting on-ramps (Remix a Game From Doot / Build with Claude), then the flagship remix
+>   grid. Fixed the "Two ways to start" copy (there were three). Dropped the per-block version
+>   chips (dev-facing noise).
+> - **PUBLISH is now a clear action, not a hidden dropdown.** The editor header's visibility
+>   `<select>` (defaulted to Private, easy to miss → "I shared the link but my friend gets a
+>   404") and the Remixable checkbox are gone. Save still writes a private draft; a new
+>   **Publish** button opens a modal with three plain-language radio cards (Private / Unlisted /
+>   Public) + "Let others remix it", saves with that choice, and shows the share link. Editable
+>   later: the button becomes "Share settings" on a saved game, and **Your Games** cards got an
+>   inline visibility selector (owner-only `PATCH /api/games/:id`, already existed).
+> - **ADD ROUND descriptions completed.** 7 single-round cards rendered with a blank blurb
+>   (title, slide, answer, categories, survey, spectrum, wager); all filled in.
+> - **CLAUDE CONNECT page is an either/or.** Step 1 stacked the claude.ai connector URL and the
+>   Claude Code command, so people thought they had to do both. Now a segmented chooser (Claude
+>   app vs Claude Code) shows only the chosen path; the command block wraps instead of clipping.
+> - **Self-audit caught a real reactivity bug.** The Your Games inline visibility change mutated
+>   the `useFetch` item in place, which didn't update the live counts/select (and a failed PATCH
+>   couldn't visually revert). Fixed with an immutable `data.value` reassignment (live + persisted,
+>   verified by reload). Also: the card's `<select>` was nested inside a `<NuxtLink>` (invalid
+>   interactive-in-anchor) → moved to the `.card-link`/`.card-stretch` stretched-link pattern;
+>   Escape now closes the Publish modal; removed dead `.ed-vis`/`.ed-remix` CSS; the connect
+>   chooser uses `aria-pressed` toggle buttons rather than an incomplete tab pattern.
+> - NOT touched, by request: the Support button and the cover art (all 30 covers serve 200 in
+>   prod; the gradients seen during the audit were just lazy-load timing).
+
+> **FULL UI/UX AUDIT SWEEP: 16-file polish pass (2026-06-28).** A whole-app host+phone
+> visual and functional audit (every game except retro-arcade and pit-party), driven by a
+> real-browser screenshot harness (two phones + host per game, captured at lobby / active /
+> reveal / results). Every finding below was reproduced in a screenshot, fixed, and
+> re-verified in a fresh screenshot. All green: 863 unit tests + typecheck. The harness
+> scripts were temporary and removed; the 16 fixes are the deliverable. No engine/relay or
+> scoring behaviour changed; this was presentation only.
+> - **HIGH - host standings clipped behind the control bar.** On scored games the
+>   `StandingsPeek` on the host stage overlapped the bottom control bar and its own
+>   `max-height: 30vh` (~270px at 900px) crushed three big rows. Moved StandingsPeek OUT of
+>   `.stage-content` to a normal-flow sibling above the control bar (GameHost.vue), and gave
+>   StandingsPeek a `maxHeight` prop (phones keep the 30vh default; host passes
+>   `min(52vh, 480px)`, which with `max=5` rows fits cleanly).
+> - **HIGH - survey "TOP ANSWER" rendered one letter per line.** The award had `subject`
+>   and `value` inverted, so the long prompt landed in the narrow uncapped `.av` slot and
+>   wrapped to a single-character column. Swapped the fields in `survey/block.ts` to match
+>   the rate-block convention (`value` = short highlighted winner, `subject` = context),
+>   e.g. "Name a color -> Blue".
+> - **HIGH - doodle-chain results ran off the TV.** A 7-step chain stacked as tall columns
+>   that scrolled off-screen. Host results now lay each chain out as a horizontal filmstrip
+>   (`DoodleChainResults.vue`), anchored to step 1 (`justify-content: flex-start`), thumbs
+>   capped at `min(30vh, 260px)`, so the whole chain fits one screen with the seed always
+>   visible.
+> - **MED - fake pre-vote state on aggregate hosts.** Rank showed a full #1-#5 ladder with
+>   "avg 5.0" before anyone ranked; spectrum showed a lone mono slashed-zero; wager showed
+>   the same. Each host now renders a neutral empty state until the first input lands
+>   ("Waiting for the first ranking / guess / bet...") instead of inventing data
+>   (`RankHost.vue`, `SpectrumHost.vue`, `WagerHost.vue`).
+> - **MED - "QUIP" leaked as the round label in non-Quip make games.** The quip block's
+>   `name` showed in the player eyebrow ("QUIP - Round 1") for Backronym and Fib Finder too.
+>   Renamed the block label to "Write" (no logic depends on the literal name).
+> - **MED - generic host wasted the stage on block-only rounds.** Games with no prompt
+>   column (e.g. wavelength) left the block pinned top-left. GameHost now detects no
+>   prompt/subject/media and renders the block full-width and centred
+>   (`hasPromptColumn` + `.stage-blockfull`).
+> - **MED - open-mic premise unreadable over the 3D robot.** Wrapped the premise in a
+>   blurred scrim card (`.write-panel`) so the prompt stays legible against the animated
+>   background.
+> - **MED - bingo phone cells broke mid-word + unscored stat strip was a narrow column.**
+>   Bingo Player switched to `overflow-wrap: break-word; hyphens: auto;` (with `lang="en"`
+>   added to the document in `nuxt.config.ts` so hyphenation works); GameResults gives the
+>   unscored stat cards a row width (`.cempty :deep(.statrow)`).
+> - **LOW - assorted.** Bingo host no longer duplicates the "Now calling" headline as a lone
+>   chip (`called.length > 1`); home hero "ENTER CODE" placeholder no longer clipped (wider
+>   input); confetti now falls behind the leaderboard text on results (z-index on `.rgrid`
+>   / `.ccarousel`); buzzer no-winner copy fixed to match the answer shown on screen
+>   ("Nobody buzzed in with the right answer."); mobile header no longer wraps to three rows
+>   (Support moves into the nav under 620px).
+> - **Known test debt (not a regression).** Five smoke scripts assert against stale
+>   flows/env and report false failures (controls moved into the "Adjust for tonight"
+>   `<details>`, End-game returns to a fresh lobby, tier-flow node resolution). Verified
+>   against source as stale, not behaviour bugs; refresh those scripts in a follow-up.
+
 > **ROOM LIFECYCLE: resume vs play-again vs new room (2026-06-28).** The resume change made
 > "refresh = same game" the default (right for crash recovery), which made "start fresh" less
 > obvious and exposed that the old "Play again" just reloaded — reusing the sticky per-context

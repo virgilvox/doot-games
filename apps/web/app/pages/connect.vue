@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 // "Connect with Claude": a user points their own Claude at Doot's MCP server and
 // Claude builds a game for them. Doot runs no inference and stores no keys, so it
 // stays free. The server lives at server/routes/mcp.ts.
 const endpoint = 'https://doot.games/mcp'
 const claudeCodeCmd = `claude mcp add --transport http doot ${endpoint}`
+// Step 1 has two ALTERNATIVE setups (the Claude app vs Claude Code). Showing both
+// stacked made people think they had to do both, so this is an explicit either/or:
+// pick how you use Claude and see only that one path.
+const kind = ref<'app' | 'code'>('app')
 
 useHead({ title: 'Connect with Claude' })
 </script>
@@ -25,10 +30,19 @@ useHead({ title: 'Connect with Claude' })
           <span class="step-n">1</span>
           <div class="step-b">
             <h3>Add Doot as a connector</h3>
-            <p>In <b>claude.ai</b>, open Settings, then Connectors, then Add custom connector, and paste this URL:</p>
-            <pre class="cmd">{{ endpoint }}</pre>
-            <p>In <b>Claude Code</b>, run this once instead:</p>
-            <pre class="cmd">{{ claudeCodeCmd }}</pre>
+            <p>Pick how you use Claude. You only need one.</p>
+            <div class="seg" role="group" aria-label="Which Claude are you using?">
+              <button type="button" :aria-pressed="kind === 'app'" :class="{ on: kind === 'app' }" @click="kind = 'app'">Claude app (claude.ai)</button>
+              <button type="button" :aria-pressed="kind === 'code'" :class="{ on: kind === 'code' }" @click="kind = 'code'">Claude Code (CLI)</button>
+            </div>
+            <template v-if="kind === 'app'">
+              <p>In <b>claude.ai</b> or the desktop app, open Settings, then Connectors, then Add custom connector, and paste this URL:</p>
+              <pre class="cmd">{{ endpoint }}</pre>
+            </template>
+            <template v-else>
+              <p>In a terminal, run this once:</p>
+              <pre class="cmd">{{ claudeCodeCmd }}</pre>
+            </template>
             <p>Claude opens Doot in your browser. Sign in and click <b>Allow</b>. That links your account, once.</p>
           </div>
         </li>
@@ -126,14 +140,38 @@ useHead({ title: 'Connect with Claude' })
   line-height: 1.55;
   margin: 8px 0;
 }
+.seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 4px 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: var(--bd) solid var(--line-soft);
+}
+.seg button {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: 700 13px/1 inherit;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.seg button.on {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
 .cmd {
   background: var(--surface-2);
   border: var(--bd) solid var(--line-soft);
   border-radius: 10px;
   padding: 10px 12px;
   font: 13px/1.4 ui-monospace, monospace;
-  overflow-x: auto;
-  white-space: pre;
+  /* Wrap long commands instead of clipping them off the right edge. */
+  white-space: pre-wrap;
+  word-break: break-all;
   color: var(--ink);
 }
 .note {

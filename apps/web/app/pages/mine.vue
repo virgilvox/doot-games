@@ -33,6 +33,27 @@ const filtered = computed(() =>
   filter.value === 'all' ? games.value : games.value.filter((g) => g.visibility === filter.value),
 )
 const filters = ['all', 'private', 'unlisted', 'public'] as const
+
+// Change a game's visibility (owner-only PATCH), so sharing can be edited without
+// opening the editor. Optimistic, with revert on failure. We reassign data.value
+// immutably rather than mutating the item in place: useFetch's data ref does not
+// reliably track a nested property mutation, so counts + the select must rebind off
+// a fresh array.
+function applyVisibility(id: string, visibility: SavedGameSummary['visibility']) {
+  if (!data.value) return
+  data.value = { games: data.value.games.map((x) => (x.id === id ? { ...x, visibility } : x)) }
+}
+async function setVisibility(g: SavedGameSummary, e: Event) {
+  const val = (e.target as HTMLSelectElement).value as SavedGameSummary['visibility']
+  if (val === g.visibility) return
+  const prev = g.visibility
+  applyVisibility(g.id, val)
+  try {
+    await $fetch(`/api/games/${g.id}`, { method: 'PATCH', body: { visibility: val } })
+  } catch {
+    applyVisibility(g.id, prev)
+  }
+}
 </script>
 
 <template>
@@ -56,17 +77,31 @@ const filters = ['all', 'private', 'unlisted', 'public'] as const
           </div>
 
           <div v-if="filtered.length" class="grid">
-            <NuxtLink v-for="g in filtered" :key="g.id" :to="`/g/${g.id}`" class="card">
+            <!-- Stretched-link card: the card body is a plain container with one
+                 full-bleed link to /g/<id>, so the inline visibility <select> can sit
+                 ABOVE it without nesting an interactive control inside an anchor. -->
+            <div v-for="g in filtered" :key="g.id" class="card card-link">
+              <NuxtLink :to="`/g/${g.id}`" class="card-stretch" :aria-label="`Manage ${g.title}`" />
               <GameCover :title="g.title" :type="g.pluginId" :image="g.coverImage" />
               <div class="card-body">
                 <div class="card-title">{{ g.title }}</div>
                 <div class="card-meta">
                   <span class="badge type">{{ typeName(g.pluginId) }}</span>
-                  <span class="badge" :class="`vis-${g.visibility}`">{{ visLabel[g.visibility] }}</span>
+                  <select
+                    class="vis-edit"
+                    :class="`vis-${g.visibility}`"
+                    :value="g.visibility"
+                    aria-label="Change who can see this game"
+                    @change="setVisibility(g, $event)"
+                  >
+                    <option value="private">Private</option>
+                    <option value="unlisted">Unlisted</option>
+                    <option value="public">Public</option>
+                  </select>
                 </div>
                 <span class="card-cta">Manage &amp; host &rarr;</span>
               </div>
-            </NuxtLink>
+            </div>
           </div>
           <p v-else class="empty">
             <template v-if="counts.all === 0">You have not saved any games yet. <NuxtLink to="/create" class="explore-link">Build your first one</NuxtLink>.</template>
@@ -118,6 +153,24 @@ const filters = ['all', 'private', 'unlisted', 'public'] as const
   font-size: 14px;
 }
 .badge.vis-public {
+  border-color: var(--c5);
+  color: var(--c5);
+}
+/* Inline visibility editor on each card. Styled like a small chip; @click.stop keeps
+   it from following the card link. */
+.vis-edit {
+  /* Sits above the full-bleed card-stretch link so it stays interactive. */
+  position: relative;
+  z-index: 2;
+  font: 700 12px/1 inherit;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.vis-edit.vis-public {
   border-color: var(--c5);
   color: var(--c5);
 }

@@ -26,7 +26,7 @@ interface EditableGame {
   config: GameComposition
 }
 
-const props = defineProps<{ pluginId?: string; initialGame?: EditableGame; canEdit?: boolean }>()
+const props = defineProps<{ pluginId?: string; initialGame?: EditableGame; canEdit?: boolean; seed?: string }>()
 const router = useRouter()
 const route = useRoute()
 const draft = useGameDraft()
@@ -97,6 +97,15 @@ provide(IMAGE_UPLOAD, { enabled: uploadsEnabled, upload: useImageUpload(), reaso
 // scores nothing by itself, so it is only offered inside a two-phase recipe.
 const MAKE_ONLY = new Set(['quip', 'fill', 'bars', 'faker', 'spotlight'])
 const singleBlocks = computed(() => plugin!.blocks.filter((b) => !b.derive && !MAKE_ONLY.has(b.kind)))
+// Quick-start seed: /editor/custom?seed=guess opens the builder with a single round
+// of that kind instead of the default sample rounds, so a "start from a round type"
+// entry on /create is never a dead end (you can still Add Round any other type). Only
+// applies to a fresh game (not a loaded/forked one) and only for a kind this plugin
+// actually offers as a standalone round.
+if (!source && props.seed && singleBlocks.value.some((b) => b.kind === props.seed)) {
+  const seedBlock = getBlock(plugin!, props.seed)
+  if (seedBlock) config.rounds.splice(0, config.rounds.length, { block: seedBlock.kind, content: seedBlock.defaultContent() })
+}
 // One-line "what is this" for each standalone block, shown on the Add cards.
 const SINGLE_DESC: Record<string, string> = {
   guess: 'Multiple choice with one right answer.',
@@ -110,6 +119,14 @@ const SINGLE_DESC: Record<string, string> = {
   ballpark: 'Closest numeric guess wins.',
   buzzer: 'First correct buzz takes the points.',
   collect: 'Everyone shares a photo (or a line); the screen fills with a gallery.',
+  // Display + solo blocks the Custom builder also offers as single rounds.
+  answer: 'Type-in trivia; close spelling is forgiven.',
+  wager: 'Bet on a multiple-choice answer; right grows your score, wrong shrinks it.',
+  categories: 'Race to fill categories for a letter; unique answers score.',
+  survey: 'Family-feud: name the top answers on the board.',
+  spectrum: 'Place a hot take on a dial; land near the room to score.',
+  title: 'A full-screen title card between rounds; no input.',
+  slide: 'A text or image slide to show the room; no input.',
 }
 function singleDesc(kind: string): string {
   return SINGLE_DESC[kind] ?? ''
@@ -387,6 +404,28 @@ function clearPreviews() {
 // icon, and "Remixable" as a checkbox next to the visibility picker.
 const showAdd = ref(false)
 const showCover = ref(false)
+// Publish/share: a clear modal that asks how to share (private/unlisted/public) and
+// whether to allow remixes, instead of a header dropdown that defaults to Private and
+// is easy to miss. Save still writes a private draft with no fuss; Publish chooses
+// visibility and saves. Visibility is editable later (reopen this, or from Your Games).
+const showPublish = ref(false)
+const VIS_OPTIONS = [
+  { id: 'private', name: 'Private', desc: 'Only you can open it. Good for drafts.' },
+  { id: 'unlisted', name: 'Unlisted', desc: 'Anyone with the link can play. Not listed anywhere.' },
+  { id: 'public', name: 'Public', desc: 'Listed on Explore for anyone to find and play.' },
+] as const
+const pendingVis = ref<'private' | 'unlisted' | 'public'>(visibility.value)
+const pendingForkable = ref(forkable.value)
+function openPublish() {
+  pendingVis.value = visibility.value
+  pendingForkable.value = forkable.value
+  showPublish.value = true
+}
+async function confirmPublish() {
+  visibility.value = pendingVis.value
+  forkable.value = pendingForkable.value
+  await saveGame() // sets savedId on success (the modal then shows the share link)
+}
 function addSingle(kind: string) {
   const block = getBlock(plugin!, kind)
   if (!block) return
@@ -782,7 +821,8 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 // standard dismissal a keyboard user expects from a modal.
 function onKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
-  if (showAdd.value) showAdd.value = false
+  if (showPublish.value) showPublish.value = false
+  else if (showAdd.value) showAdd.value = false
   else if (showImport.value) showImport.value = false
   else if (showCover.value) showCover.value = false
   else if (showPreviewDrawer.value) showPreviewDrawer.value = false
@@ -843,21 +883,15 @@ onScopeDispose(() => {
               @click="themeId = t.id"
             />
           </div>
-          <select v-model="visibility" class="sf-select ed-vis" aria-label="Visibility" :title="visibilityNote">
-            <option value="private">Private</option>
-            <option value="unlisted">Unlisted (link only)</option>
-            <option value="public">Public (listed)</option>
-          </select>
-          <label class="ed-remix" title="Let others remix (copy) this game to make their own version">
-            <input type="checkbox" v-model="forkable" />
-            <span>Remixable</span>
-          </label>
           <button type="button" class="ed-toggle" :class="{ on: showImport }" aria-label="Import a game from text" @click="showImport = true">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
             Import
           </button>
           <button class="btn btn-ghost" :disabled="!valid || saving" @click="saveGame">
             {{ saving ? 'Saving…' : !loggedIn ? 'Log in to save' : editId ? 'Save changes' : isFork ? 'Save copy' : 'Save' }}
+          </button>
+          <button v-if="loggedIn" type="button" class="btn btn-publish" :disabled="!valid" @click="openPublish">
+            {{ editId ? 'Share settings' : 'Publish' }}
           </button>
           <button class="btn btn-primary" :disabled="!valid" @click="hostGame">Host now →</button>
         </div>
@@ -1177,6 +1211,50 @@ onScopeDispose(() => {
       <!-- ── Overlays ──────────────────────────────────────────────────── -->
 
       <!-- Add panel: Single rounds + Two-phase recipes -->
+      <!-- Publish / share settings -->
+      <div v-if="showPublish" class="ed-overlay" @click.self="showPublish = false">
+        <div class="ed-sheet ed-sheet-sm" role="dialog" aria-label="Share settings" aria-modal="true">
+          <div class="ed-sheet-head">
+            <h2>{{ savedId ? 'Saved' : editId ? 'Sharing settings' : 'Publish your game' }}</h2>
+            <button type="button" class="ed-drawer-close" aria-label="Close" @click="showPublish = false">✕</button>
+          </div>
+          <div class="ed-sheet-body">
+            <template v-if="!savedId">
+              <p class="ed-pub-lead">Who can find and play it? You can change this any time.</p>
+              <div class="ed-vis-cards">
+                <label v-for="o in VIS_OPTIONS" :key="o.id" class="ed-vis-card" :class="{ on: pendingVis === o.id }">
+                  <input type="radio" name="ed-vis" :value="o.id" v-model="pendingVis" />
+                  <span class="ed-vis-name">{{ o.name }}</span>
+                  <span class="ed-vis-desc">{{ o.desc }}</span>
+                </label>
+              </div>
+              <label class="ed-remix-row">
+                <input type="checkbox" v-model="pendingForkable" />
+                <span><b>Let others remix it.</b> They can copy your game and change it to make their own version.</span>
+              </label>
+              <p v-if="saveError" class="ed-note ed-note--err" role="alert">{{ saveError }}</p>
+              <div class="ed-sheet-actions">
+                <button type="button" class="btn btn-ghost" @click="showPublish = false">Cancel</button>
+                <button type="button" class="btn btn-primary" :disabled="!valid || saving" @click="confirmPublish">
+                  {{ saving ? 'Saving…' : pendingVis === 'private' ? 'Save as private' : 'Save & get link' }}
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <p class="ed-pub-ok">{{ visibilityNote }}</p>
+              <div v-if="visibility !== 'private'" class="ed-pub-share">
+                <span>Share this link to host it from anywhere:</span>
+                <NuxtLink :to="shareUrl" class="ed-saved-link mono">{{ shareUrl }}</NuxtLink>
+              </div>
+              <div class="ed-sheet-actions">
+                <NuxtLink :to="`/host/g/${savedId}`" class="btn btn-primary">Host now →</NuxtLink>
+                <button type="button" class="btn btn-ghost" @click="showPublish = false">Done</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
       <div v-if="showAdd" class="ed-overlay" @click.self="showAdd = false">
         <div class="ed-sheet" role="dialog" aria-label="Add a round" aria-modal="true">
           <div class="ed-sheet-head">
@@ -1449,32 +1527,6 @@ onScopeDispose(() => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-.ed-vis {
-  width: auto;
-  min-width: 130px;
-}
-/* "Remixable" checkbox, sized to match the visibility picker next to it. */
-.ed-remix {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 40px;
-  padding: 0 13px;
-  border: var(--bd) solid var(--line-soft);
-  border-radius: 11px;
-  background: var(--surface);
-  color: var(--ink);
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.ed-remix input {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--primary);
 }
 .ed-swatches {
   display: flex;
@@ -2196,6 +2248,104 @@ onScopeDispose(() => {
   border: var(--bd) solid var(--line-soft);
   border-radius: 18px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+}
+.ed-sheet-sm {
+  width: min(480px, 100%);
+}
+/* Publish / share modal */
+.ed-pub-lead {
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.ed-vis-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ed-vis-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 2px solid var(--line-soft);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ed-vis-card:hover {
+  border-color: var(--line);
+}
+.ed-vis-card.on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+}
+.ed-vis-card input {
+  grid-row: 1 / 3;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+.ed-vis-name {
+  font-weight: 800;
+  font-size: 15px;
+}
+.ed-vis-desc {
+  grid-column: 2;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+.ed-remix-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 16px 0 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.ed-remix-row input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  flex: none;
+}
+.ed-remix-row b {
+  color: var(--ink);
+}
+.ed-sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.ed-pub-ok {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.ed-pub-share {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+/* "Publish" sits between the ghost Save and the orange Host now: a filled accent
+   that reads as a distinct, clear action without competing with Host. */
+.btn-publish {
+  background: var(--ink);
+  color: var(--bg);
+  border: var(--bd) solid var(--ink);
+}
+.btn-publish:hover {
+  transform: translateY(-1px);
 }
 .ed-sheet-head {
   display: flex;

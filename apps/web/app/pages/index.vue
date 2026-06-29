@@ -42,6 +42,10 @@ const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? i
 // blank-canvas starting points for a clean, uniform grid.
 const blockTypes = gameCatalog.filter((c) => !c.flagship)
 const vibes = [...blockTypes].sort((a, b) => (a.id === 'custom' ? -1 : b.id === 'custom' ? 1 : 0))
+// A single block kind opens the Custom builder seeded with that round (so any other
+// round type can still be added); Custom and the VoteBox composition open directly.
+const SEED_KINDS = new Set(['guess', 'rate', 'poll', 'rank', 'draw', 'buzzer'])
+const vibeTo = (id: string) => (SEED_KINDS.has(id) ? `/editor/custom?seed=${id}` : `/editor/${id}`)
 // Games From Doot: lead with the marquee flagships in a hand-picked order, then the
 // rest alphabetically for a predictable, scannable rail.
 const FLAGSHIP_LEAD = ['retro-arcade', 'circuit-cypher', 'quiz-or-die', 'quip-clash', 'open-mic']
@@ -200,7 +204,7 @@ useDootSeo({
           <NuxtLink class="more" to="/create">See all &rarr;</NuxtLink>
         </div>
         <div class="vibes">
-          <NuxtLink v-for="v in vibes" :key="v.id" :to="`/editor/${v.id}`" class="vibe">
+          <NuxtLink v-for="v in vibes" :key="v.id" :to="vibeTo(v.id)" class="vibe">
             <GameTypeIcon :type="v.id" :size="44" />
             <h4>{{ v.name }}</h4>
             <p>{{ v.description }}</p>
@@ -231,8 +235,9 @@ useDootSeo({
   background: transparent;
   font-family: var(--font-mono);
   font-size: 18px;
-  padding: 14px 8px 14px 22px;
-  width: 140px;
+  padding: 14px 8px 14px 20px;
+  /* Wide enough that the letter-spaced "ENTER CODE" placeholder is never clipped. */
+  width: 188px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink);

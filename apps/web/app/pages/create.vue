@@ -3,22 +3,24 @@ import { flagshipGames, templateGames } from '@doot-games/games/catalog'
 import { GameCover, GameTypeIcon } from '@doot-games/ui'
 import { computed } from 'vue'
 
-// Custom leads the blocks grid: it's the "mix any blocks" starting point (and the
-// home of the markdown importer), so it's the most useful first card. The rest keep
-// their catalog order (sort is stable).
-const blockTypes = computed(() =>
-  [...templateGames].sort((a, b) => (a.id === 'custom' ? -1 : b.id === 'custom' ? 1 : 0)),
-)
+// The Custom builder is the centerpiece: it's the one editor that can mix any round
+// type, so it's the headline action (and the home of the markdown importer). The
+// other on-ramps support it: remix a finished game, or have Claude write one.
 
-// Two on-ramps so you never start from nothing. Remix a ready-made game (it opens
-// in the editor with example rounds already in place), or build from a single block
-// and add your own content. Both route to /editor/{id}. The ready-made games use the
-// same GameCover art cards as the home/explore pages; the blocks keep their compact
-// icon cards (a clean, uniform grid for the primitives).
+// "Quick start a round type" chips. A real single block kind opens the CUSTOM builder
+// seeded with that round (so you can still add any other type, never a dead end);
+// VoteBox is a 2-block composition, so it opens its own editor. This is what fixes the
+// old trap where /editor/guess could only ever add Guess rounds.
+const SEED_KINDS = new Set(['guess', 'rate', 'poll', 'rank', 'draw', 'buzzer'])
+const quickTypes = computed(() =>
+  templateGames
+    .filter((t) => t.id !== 'custom')
+    .map((t) => ({ ...t, to: SEED_KINDS.has(t.id) ? `/editor/custom?seed=${t.id}` : `/editor/${t.id}` })),
+)
 
 useDootSeo({
   title: 'Create a game on Doot',
-  description: 'Remix a ready-made party game or build your own from blocks: trivia, polls, drawing, and more.',
+  description: 'Build a custom party game from any round types, remix a ready-made one, or let Claude write it for you.',
 })
 </script>
 
@@ -27,18 +29,45 @@ useDootSeo({
     <div class="wrap">
       <div class="create-head">
         <span class="kicker">Build something</span>
-        <h1>Create</h1>
-        <p class="lead">Two ways to start.</p>
+        <h1>Create a game</h1>
+        <p class="lead">
+          Hosting is always free and needs no account. <NuxtLink to="/login" class="lead-link">Sign in</NuxtLink> to save
+          your game, share a link, and let Claude build for you.
+        </p>
       </div>
 
-      <div class="paths">
+      <!-- Headline: the custom builder -->
+      <NuxtLink to="/editor/custom" class="cbuilder">
+        <div class="cb-text">
+          <span class="cb-eyebrow">The builder</span>
+          <h2>Build a custom game</h2>
+          <p>
+            Mix any round type into one game: trivia, polls, drawing, write-and-vote, and more. Around thirty round
+            types and two-phase recipes, or paste a spec and Doot builds the whole thing at once.
+          </p>
+          <span class="cb-cta">Open the builder &rarr;</span>
+        </div>
+        <div class="cb-vis" aria-hidden="true">
+          <GameTypeIcon v-for="k in ['guess', 'draw', 'poll', 'rank', 'buzzer', 'rate']" :key="k" :type="k" :size="40" />
+        </div>
+      </NuxtLink>
+
+      <!-- Quick starts: seed the builder with one round type -->
+      <div class="qstart">
+        <span class="qstart-label">Or start with one round type</span>
+        <div class="qrow">
+          <NuxtLink v-for="t in quickTypes" :key="t.id" :to="t.to" class="qchip" :title="t.description">
+            <GameTypeIcon :type="t.id" :size="22" />
+            <span>{{ t.name }}</span>
+          </NuxtLink>
+        </div>
+      </div>
+
+      <!-- Two supporting on-ramps -->
+      <div class="paths2">
         <a href="#ready" class="path path-ready">
-          <span class="path-t">Remix a ready-made game</span>
-          <span class="path-d">Open a finished Doot game and change the questions, prompts, and theme.</span>
-        </a>
-        <a href="#blocks" class="path">
-          <span class="path-t">Build from blocks</span>
-          <span class="path-d">Pick one round type and add your own content, or mix several in Custom.</span>
+          <span class="path-t">Remix a Game From Doot</span>
+          <span class="path-d">Start from a finished game and change the questions, prompts, and theme.</span>
         </a>
         <NuxtLink to="/connect" class="path">
           <span class="path-t">Build it with Claude</span>
@@ -48,8 +77,8 @@ useDootSeo({
 
       <section id="ready" class="cg-section">
         <div class="cg-shead">
-          <h2>Ready-made games</h2>
-          <p>These already have rounds in them. Open one, change what you want, and host it.</p>
+          <h2>Games From Doot</h2>
+          <p>Finished games with rounds already in them. Open one, change what you want, and host it.</p>
         </div>
         <div class="grid">
           <NuxtLink v-for="t in flagshipGames" :key="t.id" :to="`/editor/${t.id}`" class="card">
@@ -58,24 +87,6 @@ useDootSeo({
               <div class="card-title">{{ t.name }}</div>
               <p class="card-desc">{{ t.description }}</p>
               <span class="card-cta">Remix this &rarr;</span>
-            </div>
-          </NuxtLink>
-        </div>
-      </section>
-
-      <section id="blocks" class="cg-section">
-        <div class="cg-shead">
-          <h2>Blocks and Custom</h2>
-          <p>Pick a round type and add your own content. Custom mixes any blocks in one game, or paste a markdown spec to build a whole game at once.</p>
-        </div>
-        <div class="typegrid">
-          <NuxtLink v-for="t in blockTypes" :key="t.id" :to="`/editor/${t.id}`" class="typecard">
-            <GameTypeIcon :type="t.id" :size="48" />
-            <h3>{{ t.name }}</h3>
-            <p>{{ t.description }}</p>
-            <div class="tfoot">
-              <span class="cap mono">v{{ t.version }}</span>
-              <span class="btn btn-ghost btn-sm">Start building</span>
             </div>
           </NuxtLink>
         </div>
@@ -101,12 +112,107 @@ useDootSeo({
   font-size: 18px;
   color: var(--ink-soft);
   margin-top: 10px;
+  max-width: 60ch;
+  margin-inline: auto;
+  line-height: 1.5;
 }
-.paths {
+.lead-link {
+  color: var(--primary);
+  font-weight: 700;
+}
+/* Headline custom-builder card */
+.cbuilder {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+  margin: 26px 0 18px;
+  padding: 28px 30px;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--surface)), var(--surface));
+  border: 2px solid color-mix(in srgb, var(--primary) 40%, var(--line));
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.cbuilder:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.cb-eyebrow {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.cb-text h2 {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 6px 0 8px;
+}
+.cb-text p {
+  font-size: 15px;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0 0 14px;
+  max-width: 60ch;
+}
+.cb-cta {
+  display: inline-block;
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 15px;
+}
+.cb-vis {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 14px;
+  padding: 6px;
+}
+/* Quick-start chips */
+.qstart {
+  margin: 6px 0 26px;
+}
+.qstart-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.qrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.qchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px 9px 10px;
+  border-radius: 999px;
+  border: var(--bd) solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  transition: transform 0.1s, border-color 0.12s;
+}
+.qchip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+}
+/* Two supporting on-ramps */
+.paths2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
-  margin: 18px 0 30px;
+  margin: 0 0 30px;
 }
 .path {
   display: block;
@@ -156,7 +262,7 @@ useDootSeo({
   margin-top: 4px;
   max-width: 70ch;
 }
-/* card / card-body / card-title / grid are global (packages/ui styles); these two
+/* card / card-body / card-title / grid are global (packages/ui styles); these
    match the home and explore pages, which define them per-page. */
 .card-desc {
   font-size: 14px;
@@ -175,52 +281,6 @@ useDootSeo({
   font-weight: 800;
   font-size: 14px;
 }
-/* Blocks keep their compact icon cards (the primitives read best as a uniform,
-   art-free grid). */
-.typegrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  padding: 16px 0 32px;
-}
-.typecard {
-  background: var(--surface);
-  border: var(--bd) solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 22px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.12s, box-shadow 0.12s;
-  display: block;
-  text-decoration: none;
-  color: inherit;
-}
-.typecard:hover {
-  transform: translate(-2px, -3px);
-  box-shadow: var(--shadow);
-}
-.typecard h3 {
-  font-size: 23px;
-  font-weight: 800;
-  margin: 16px 0 7px;
-}
-.typecard p {
-  font-size: 14px;
-  color: var(--ink-soft);
-  line-height: 1.5;
-  margin-bottom: 18px;
-  min-height: 62px;
-}
-.tfoot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.tfoot .cap {
-  font-size: 11px;
-  color: var(--mute);
-  letter-spacing: 0.04em;
-}
 .foot-note {
   text-align: center;
   color: var(--mute);
@@ -228,8 +288,12 @@ useDootSeo({
   padding: 8px 0 40px;
 }
 @media (max-width: 640px) {
-  .paths {
+  .cbuilder {
     grid-template-columns: 1fr;
+  }
+  .cb-vis {
+    grid-template-columns: repeat(6, auto);
+    justify-content: start;
   }
 }
 </style>
