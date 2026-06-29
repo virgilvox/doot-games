@@ -1,22 +1,33 @@
 <script setup lang="ts">
-import { flagshipGames, templateGames } from '@doot-games/games/catalog'
+import { flagshipGames } from '@doot-games/games/catalog'
 import { GameCover, GameTypeIcon } from '@doot-games/ui'
-import { computed } from 'vue'
 
 // The Custom builder is the centerpiece: it's the one editor that can mix any round
 // type, so it's the headline action (and the home of the markdown importer). The
 // other on-ramps support it: remix a finished game, or have Claude write one.
 
-// "Quick start a round type" chips. A real single block kind opens the CUSTOM builder
-// seeded with that round (so you can still add any other type, never a dead end);
-// VoteBox is a 2-block composition, so it opens its own editor. This is what fixes the
-// old trap where /editor/guess could only ever add Guess rounds.
-const SEED_KINDS = new Set(['guess', 'rate', 'poll', 'rank', 'draw', 'buzzer'])
-const quickTypes = computed(() =>
-  templateGames
-    .filter((t) => t.id !== 'custom')
-    .map((t) => ({ ...t, to: SEED_KINDS.has(t.id) ? `/editor/custom?seed=${t.id}` : `/editor/${t.id}` })),
-)
+// "Start with one round type" chips: every single round type the builder offers.
+// Each opens the CUSTOM builder seeded with one round of that kind, so you can add
+// any other type afterwards (never a dead end). Mirrors the editor's "Single rounds"
+// list, minus the display-only Title/Slide cards; the most approachable lead.
+const ROUND_TYPES = [
+  { id: 'guess', name: 'Guess' },
+  { id: 'poll', name: 'Poll' },
+  { id: 'rate', name: 'Rate' },
+  { id: 'rank', name: 'Rank' },
+  { id: 'draw', name: 'Draw' },
+  { id: 'buzzer', name: 'Buzzer' },
+  { id: 'wager', name: 'Wager' },
+  { id: 'answer', name: 'Answer' },
+  { id: 'ballpark', name: 'Ballpark' },
+  { id: 'categories', name: 'Categories' },
+  { id: 'survey', name: 'Survey' },
+  { id: 'spectrum', name: 'Spectrum' },
+  { id: 'tier', name: 'Tier List' },
+  { id: 'hivemind', name: 'Hivemind' },
+  { id: 'mostlikely', name: 'Most Likely To' },
+  { id: 'collect', name: 'Share' },
+]
 
 useDootSeo({
   title: 'Create a game on Doot',
@@ -52,11 +63,12 @@ useDootSeo({
         </div>
       </NuxtLink>
 
-      <!-- Quick starts: seed the builder with one round type -->
+      <!-- Quick starts: seed the builder with one round type. All types in one row
+           that scrolls sideways, so the full range is browsable without wrapping. -->
       <div class="qstart">
         <span class="qstart-label">Or start with one round type</span>
         <div class="qrow">
-          <NuxtLink v-for="t in quickTypes" :key="t.id" :to="t.to" class="qchip" :title="t.description">
+          <NuxtLink v-for="t in ROUND_TYPES" :key="t.id" :to="`/editor/custom?seed=${t.id}`" class="qchip">
             <GameTypeIcon :type="t.id" :size="22" />
             <span>{{ t.name }}</span>
           </NuxtLink>
@@ -183,15 +195,21 @@ useDootSeo({
   color: var(--ink-soft);
   margin-bottom: 10px;
 }
+/* Single row of every round type; scrolls sideways rather than wrapping. */
 .qrow {
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
 .qchip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex: none;
+  scroll-snap-align: start;
   padding: 9px 14px 9px 10px;
   border-radius: 999px;
   border: var(--bd) solid var(--line);

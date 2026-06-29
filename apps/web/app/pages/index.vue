@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { flagshipGames, gameCatalog } from '@doot-games/games/catalog'
-import { GameCover, GameTypeIcon } from '@doot-games/ui'
+import { GameCover } from '@doot-games/ui'
 import { computed, ref } from 'vue'
 
 const code = ref('')
@@ -36,16 +36,6 @@ const fresh = computed(() =>
 )
 const typeName = (id: string) => gameCatalog.find((c) => c.id === id)?.name ?? id
 
-// "Create with blocks": Custom leads (mix any blocks or use a two-phase recipe),
-// then the core single-block primitives. The flagship "Games From Doot" are
-// remixable too but live in their own rail + on /create, so this row stays the
-// blank-canvas starting points for a clean, uniform grid.
-const blockTypes = gameCatalog.filter((c) => !c.flagship)
-const vibes = [...blockTypes].sort((a, b) => (a.id === 'custom' ? -1 : b.id === 'custom' ? 1 : 0))
-// A single block kind opens the Custom builder seeded with that round (so any other
-// round type can still be added); Custom and the VoteBox composition open directly.
-const SEED_KINDS = new Set(['guess', 'rate', 'poll', 'rank', 'draw', 'buzzer'])
-const vibeTo = (id: string) => (SEED_KINDS.has(id) ? `/editor/custom?seed=${id}` : `/editor/${id}`)
 // Games From Doot: lead with the marquee flagships in a hand-picked order, then the
 // rest alphabetically for a predictable, scannable rail.
 const FLAGSHIP_LEAD = ['retro-arcade', 'circuit-cypher', 'quiz-or-die', 'quip-clash', 'open-mic']
@@ -197,18 +187,34 @@ useDootSeo({
         </div>
       </section>
 
-      <!-- Create with blocks: pick a core building block to build from -->
+      <!-- Build a custom game: the differentiator, with a peek at the editor's rounds -->
       <section class="section">
         <div class="section-head">
-          <div><span class="kicker">Start from a block</span><h2>Create with blocks</h2></div>
-          <NuxtLink class="more" to="/create">See all &rarr;</NuxtLink>
+          <div><span class="kicker">Make your own</span><h2>Build a custom game</h2></div>
+          <NuxtLink class="more" to="/create">More ways to create &rarr;</NuxtLink>
         </div>
-        <div class="vibes">
-          <NuxtLink v-for="v in vibes" :key="v.id" :to="vibeTo(v.id)" class="vibe">
-            <GameTypeIcon :type="v.id" :size="44" />
-            <h4>{{ v.name }}</h4>
-            <p>{{ v.description }}</p>
-          </NuxtLink>
+        <div class="cbuild card-link">
+          <NuxtLink to="/editor/custom" class="card-stretch" aria-label="Open the custom game builder" />
+          <div class="cbuild-text">
+            <p class="cbuild-lead">
+              A game is a stack of rounds, and you pick the mix. Trivia, polls, drawing, write-and-vote,
+              hot takes, and more, all in one game. Choose a theme, drop in your content, and host it.
+              No account needed to host.
+            </p>
+            <div class="cbuild-actions">
+              <span class="btn btn-primary btn-lg">Open the builder &rarr;</span>
+              <NuxtLink to="/create" class="cbuild-sub">or start from a single round type &rarr;</NuxtLink>
+            </div>
+          </div>
+          <div class="cbuild-shot">
+            <img
+              src="/home-editor.jpg"
+              width="1600"
+              height="1295"
+              loading="lazy"
+              alt="The Doot builder editing a custom game: a rounds rail with poll, guess, hivemind, and survey rounds, the survey round open for editing, and a live phone preview beside it."
+            />
+          </div>
         </div>
       </section>
 
@@ -506,35 +512,63 @@ useDootSeo({
   font-weight: 800;
   font-size: 14px;
 }
-.vibes {
+/* Build-a-custom-game band: pitch on the left, a real screenshot of the builder on
+   the right (the full editor layout: rounds rail + the open round + phone preview). */
+.cbuild {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-}
-.vibe {
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 32px;
+  align-items: center;
+  padding: 30px 32px;
+  border-radius: var(--radius-lg);
+  /* Neutral panel; the screenshot inside carries the color. */
+  background: linear-gradient(135deg, var(--surface), var(--surface-2));
   border: var(--bd) solid var(--line);
-  border-radius: var(--radius);
-  padding: 18px;
-  background: var(--surface);
   box-shadow: var(--shadow-sm);
   transition: transform 0.12s, box-shadow 0.12s;
-  display: block;
-  text-decoration: none;
-  color: inherit;
 }
-.vibe:hover {
-  transform: translate(-2px, -2px);
+.cbuild:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow), var(--glow) color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.cbuild-lead {
+  font-size: 16px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  margin: 0 0 18px;
+  max-width: 56ch;
+}
+.cbuild-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.cbuild-sub {
+  position: relative;
+  z-index: 2;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+}
+/* Builder screenshot ------------------------------------------------------------- */
+.cbuild-shot {
+  min-width: 0;
+}
+.cbuild-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: var(--bd) solid var(--line);
   box-shadow: var(--shadow);
 }
-.vibe h4 {
-  font-size: 20px;
-  font-weight: 800;
-  margin: 12px 0 3px;
-}
-.vibe p {
-  font-size: 13px;
-  color: var(--ink-soft);
-  line-height: 1.45;
+/* On a narrow column the screenshot stacks below the pitch and scales the whole
+   layout down to fit, rather than dropping panes. */
+@media (max-width: 760px) {
+  .cbuild {
+    grid-template-columns: 1fr;
+  }
 }
 /* How Doot works: playful three-step flow */
 .how-steps {
