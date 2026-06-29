@@ -2,8 +2,26 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-28. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-06-29. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **HOME + CREATE CREATION ON-RAMP POLISH (2026-06-29).** Follow-on to the funnel pass,
+> same goal (drive sign-ups + custom-game creation). Shipped to prod (typecheck + real-browser
+> verification at desktop and phone widths).
+> - **HOME "Build a custom game" band now shows the real product.** Replaced the CSS faux
+>   3-pane editor render with an actual screenshot of the builder (`apps/web/public/home-editor.jpg`,
+>   1600x1295, ~240KB JPEG): rounds rail with a variety of kinds (Poll/Guess/Hivemind/Poll/Survey),
+>   the open Survey round, and the live phone preview. Captured logged-out, so the "Log in to save /
+>   Host now" toolbar reinforces the "no account needed to host" copy. On mobile (<=760px) the band
+>   stacks and the screenshot scales the whole layout down rather than dropping panes. Removed
+>   `mockRounds`, the `gameVisual`/`GameTypeIcon` imports, and ~200 lines of `.ess-*`/`.ed-shot*` CSS.
+>   Tradeoff: a static screenshot does NOT follow the home page's live theme switcher (the faux
+>   render did); accepted because it shows the real editor.
+> - **CREATE "start with one round type" is one side-scrolling row.** Was a wrapping grid of a
+>   few template games; now a single horizontal-scroll row (`.qrow`, scroll-snap) of every round
+>   type (16 chips: guess/poll/rate/rank/draw/buzzer/wager/answer/ballpark/categories/survey/
+>   spectrum/tier/hivemind/mostlikely/collect), each seeding the Custom builder via
+>   `/editor/custom?seed=<kind>`.
 
 > **CREATE/PUBLISH/EDITOR FUNNEL PASS: fix the locked block editor, clarify publishing
 > (2026-06-28).** A conversion-focused pass on creating + publishing, after a live audit of
