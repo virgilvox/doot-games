@@ -33,6 +33,9 @@ useDootSeo()
           <NuxtLink to="/decks" class="navlink">Decks</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/mine" class="navlink">Your Games</NuxtLink>
           <NuxtLink v-if="loggedIn" to="/saved" class="navlink">Saved</NuxtLink>
+          <!-- On phones the Support pill is dropped from the top row (it wraps to its
+               own line); surface it here in the nav row instead so it stays reachable. -->
+          <NuxtLink to="/support" class="navlink nav-support">Support</NuxtLink>
         </nav>
         <div class="bar-spacer" />
         <AccountMenu class="account" />
@@ -93,6 +96,10 @@ useDootSeo()
 .swatch.on {
   outline: 3px solid var(--ink);
   outline-offset: 1px;
+}
+/* The in-nav Support link is phone-only; the desktop header uses the pill below. */
+.nav-support {
+  display: none;
 }
 .support-btn {
   display: inline-flex;
@@ -174,8 +181,13 @@ useDootSeo()
   .account {
     margin-right: 0;
   }
+  /* Drop the standalone Support pill (it wraps to its own row at this width) and
+     show Support as a nav link in the full-width nav row instead. */
   .support-btn {
-    margin-left: 8px;
+    display: none;
+  }
+  .nav-support {
+    display: inline-flex;
   }
 }
 </style>

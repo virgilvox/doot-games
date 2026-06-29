@@ -284,6 +284,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
   align-items: start;
+  /* Sit above the confetti (z-index 50) so falling pieces never obscure the
+     leaderboard names/scores; confetti still plays over the header + background. */
+  position: relative;
+  z-index: 60;
 }
 .board,
 .awards,
@@ -319,6 +323,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  /* Above the confetti (z-index 50) so falling pieces never cover the board text. */
+  position: relative;
+  z-index: 60;
 }
 .cmain {
   min-height: 0;
@@ -399,6 +406,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   min-height: 0;
   display: grid;
   place-items: center;
+}
+/* Give the stat strip a definite width so its auto-fit grid lays the cards out in a
+   horizontal row across the big screen, instead of collapsing to a narrow centered
+   column (auto-fit + 1fr has no width to expand into when the grid item is centered). */
+.cempty :deep(.statrow) {
+  width: min(880px, 100%);
 }
 .slide-enter-active,
 .slide-leave-active {

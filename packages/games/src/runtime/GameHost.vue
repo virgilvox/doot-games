@@ -203,6 +203,13 @@ const audio = computed(() => (content.value?.audio as string | undefined) || '')
 // screen. Tracked per URL so a later round's valid image still renders.
 const failedImages = reactive(new Set<string>())
 const showImage = computed(() => !!image.value && !failedImages.has(image.value))
+// The left column of the split stage carries the prompt/subject/media. When a round
+// has none of those (e.g. a block that owns its own display like Wavelength's clue
+// phase), the split grid would leave the entire left half of the big screen blank, so
+// we give the block's display the full centered stage instead.
+const hasPromptColumn = computed(
+  () => !!(subject.value || prompt.value || showImage.value || audio.value),
+)
 // Only expose the answer at reveal, even on the host's own screen, so a block's
 // HostDisplay can never surface it early to the room watching the big screen. The
 // runtime key covers both static blocks (their authored answer) and derived
@@ -762,6 +769,18 @@ watch(
     <div v-else-if="isDisplay" class="stage-full">
       <component :is="block.HostDisplay" :key="index" :content="content" :state="state" />
     </div>
+    <!-- No prompt/media for this round: let the block's display own the full stage,
+         centered, instead of stranding it in the right half of a split grid. -->
+    <div v-else-if="!hasPromptColumn" class="stage-full stage-blockfull">
+      <component
+        :is="block.HostDisplay"
+        :key="index"
+        :content="content"
+        :inputs="room.inputsFor(index)"
+        :state="state"
+        :answer="answer"
+      />
+    </div>
     <div v-else class="stage-grid">
       <div class="left">
         <span v-if="subject" class="subject">{{ subject }}</span>
@@ -788,18 +807,23 @@ watch(
       </div>
     </div>
 
-    <StandingsPeek
-      v-if="showStandings && standings"
-      :results="standings"
-      :teams="teams"
-      class="host-standings"
-    />
-
     <div v-if="driverName" class="driving-note">
       <span class="dn-label"><Icon name="mc" :size="16" /> {{ driverName }} is driving from their phone</span>
       <button type="button" class="take-back" @click="room.host.setDriver(null)">Take back</button>
     </div>
     </div>
+
+    <!-- The running standings sit OUTSIDE the scrolling round-content region, as a
+         normal-flow sibling above the control bar, so the live score stays on screen
+         during the reveal beat (the round grid scrolls within .stage-content if it is
+         too tall) instead of being pushed past the scroll fold and clipped. -->
+    <StandingsPeek
+      v-if="showStandings && standings"
+      :results="standings"
+      :teams="teams"
+      max-height="min(52vh, 480px)"
+      class="host-standings"
+    />
 
     <!-- A solo block drives its own item flow during 'open' (its ControlBar is hidden),
          then locks+reveals when done so the standard Next round / Final results button
@@ -1136,6 +1160,14 @@ watch(
   min-height: 0;
   display: flex;
   padding: 8px 0;
+}
+/* A block that owns the full stage but renders compact content (no prompt column,
+   e.g. Wavelength's clue phase): center it so it sits in the middle of the big
+   screen instead of stranded in a corner. Full-bleed blocks (slides) are unaffected. */
+.stage-blockfull {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 /* Each column fills the stage height and centers its content. The prompt font
    scales down by length (see promptStyle) so even a paragraph-length question

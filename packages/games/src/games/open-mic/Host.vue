@@ -695,9 +695,11 @@ onUnmounted(() => {
       </div>
 
       <div v-show="!intro" class="write">
-        <div class="kicker">TONIGHT'S PREMISE</div>
-        <h1 class="premise">{{ premise }}</h1>
-        <div class="lockin mono">{{ lockCount.locked }}<span v-if="state === 'open'"> / {{ lockCount.total }}</span> {{ lockCount.locked === 1 ? 'bit' : 'bits' }} in</div>
+        <div class="write-panel">
+          <div class="kicker">TONIGHT'S PREMISE</div>
+          <h1 class="premise">{{ premise }}</h1>
+          <div class="lockin mono">{{ lockCount.locked }}<span v-if="state === 'open'"> / {{ lockCount.total }}</span> {{ lockCount.locked === 1 ? 'bit' : 'bits' }} in</div>
+        </div>
       </div>
 
       <div v-if="driverName" class="driving-note">
@@ -974,9 +976,22 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
   text-align: center;
   padding: 24px;
+}
+/* A scrim card behind the premise so it stays legible over the lit robot on stage,
+   matching the bit-text card treatment used during the set. */
+.write-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: min(900px, 92%);
+  padding: 26px 34px;
+  border-radius: 20px;
+  background: rgba(18, 9, 5, 0.66);
+  border: 2px solid rgba(255, 182, 72, 0.32);
+  backdrop-filter: blur(8px);
 }
 .write .kicker { font-size: clamp(13px, 3.2vw, 20px); letter-spacing: 3px; color: #ffb648; }
 .premise { font-weight: 900; font-size: clamp(28px, 5.5vw, 64px); line-height: 1.05; max-width: 22ch; text-shadow: 0 0 24px rgba(255, 182, 72, 0.35); }

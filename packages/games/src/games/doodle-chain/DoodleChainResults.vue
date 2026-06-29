@@ -69,8 +69,29 @@ const headline = computed(() => props.results?.headline ?? 'The chains are in')
   gap: 16px;
   grid-template-columns: 1fr;
 }
+/* Host big screen: each chain is a horizontal filmstrip (steps left-to-right in
+   travel order) and the chains stack, so a 7-step doodle chain fits one screen
+   without relying on page scroll, instead of tall columns that run off the TV. */
 .unspool:not(.compact) .threads {
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.unspool:not(.compact) .steps {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  align-items: flex-start;
+  /* Anchor to the start so step 1 (the chain's seed) is always on screen; a very
+     long chain scrolls its tail off the right rather than clipping both ends. */
+  justify-content: flex-start;
+  gap: 10px;
+}
+.unspool:not(.compact) .step {
+  flex: 0 0 clamp(104px, 11vw, 150px);
+}
+.unspool:not(.compact) .step :deep(.draw-thumb) {
+  max-height: min(30vh, 260px);
+  object-fit: contain;
 }
 .chain {
   border-radius: var(--radius);

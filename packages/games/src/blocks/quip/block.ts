@@ -40,7 +40,10 @@ export interface QuipInput {
 
 export const quipBlock = defineBlock<QuipContent, QuipInput>({
   kind: 'quip',
-  name: 'Quip',
+  // Display name = the round-TYPE label shown to players (e.g. the eyebrow
+  // "WRITE · Round 1 of 6"). Kept generic like Draw/Fill so games that reuse this
+  // make block (Backronym, Fib Finder, Open Mic, ...) don't leak "Quip" to players.
+  name: 'Write',
   contentSchema: quipContentSchema,
   defaultContent: () => ({
     prompt: 'The worst thing to say on a first date is ___',

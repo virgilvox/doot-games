@@ -33,11 +33,13 @@ const counts = computed(() => {
 <template>
   <div class="wager-host">
     <template v-if="!done">
-      <div class="big-count">
+      <!-- Only show the live count once a bet is in: a lone mono "0" renders as a
+           slashed zero that reads like a crossed-out mark, not "none yet". -->
+      <div v-if="locked > 0" class="big-count">
         <span class="num mono">{{ locked }}</span>
         <span class="lbl">bets placed</span>
       </div>
-      <p class="hint">Bet big on the ones you know…</p>
+      <p class="hint">{{ locked > 0 ? 'Bet big on the ones you know…' : 'Waiting for the first bet…' }}</p>
     </template>
     <template v-else>
       <p class="kicker">The answer</p>

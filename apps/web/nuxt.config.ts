@@ -23,7 +23,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Doot, put a game on the big screen',
-      htmlAttrs: { 'data-theme': 'doot' },
+      htmlAttrs: { 'data-theme': 'doot', lang: 'en' },
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },

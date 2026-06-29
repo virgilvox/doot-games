@@ -28,8 +28,18 @@ interface ResultsShape {
 }
 
 const props = withDefaults(
-  defineProps<{ results: ResultsShape; me?: string | null; teams?: string[]; max?: number; title?: string }>(),
-  { me: null, teams: () => [], max: 5, title: 'Standings so far' },
+  defineProps<{
+    results: ResultsShape
+    me?: string | null
+    teams?: string[]
+    max?: number
+    title?: string
+    /** Cap on the panel height (CSS length). Phones keep the compact 30vh; the host
+     *  big screen passes a taller value so a few full-size rows aren't clipped + made
+     *  to scroll (a TV can't scroll). It still caps for very large rooms. */
+    maxHeight?: string
+  }>(),
+  { me: null, teams: () => [], max: 5, title: 'Standings so far', maxHeight: '30vh' },
 )
 
 const teamRows = computed(() => props.results.teamLeaderboard ?? [])
@@ -40,7 +50,7 @@ function teamTint(team: string, rank: number): string {
 </script>
 
 <template>
-  <div class="peek">
+  <div class="peek" :style="{ maxHeight }">
     <p class="peek-title">{{ title }}</p>
     <div v-if="teamRows.length" class="peek-teams">
       <span
@@ -67,7 +77,7 @@ function teamTint(team: string, rank: number): string {
   flex-direction: column;
   gap: 8px;
   width: 100%;
-  max-height: 30vh;
+  /* max-height is set inline from the maxHeight prop (default 30vh). */
   overflow-y: auto;
 }
 .peek-title {

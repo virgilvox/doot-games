@@ -158,7 +158,7 @@ watch(() => setup.value?.pool.length, () => { claimed.value = false })
   border-radius: 10px; border: var(--bd) solid var(--line-soft); background: var(--surface-2);
   color: var(--ink); font-weight: 700; overflow: hidden; transition: background 0.18s, border-color 0.18s;
 }
-.cell-t { font-size: clamp(9px, 2.6vw, 13px); line-height: 1.1; text-align: center; word-break: break-word; }
+.cell-t { font-size: clamp(9px, 2.6vw, 13px); line-height: 1.1; text-align: center; overflow-wrap: break-word; hyphens: auto; }
 .cell.free { background: color-mix(in srgb, var(--c3) 22%, var(--surface-2)); border-color: var(--c3); font-weight: 900; }
 .cell.covered { background: var(--primary); color: var(--primary-ink); border-color: var(--line); }
 /* Non-color "marked" marker (a corner dot), so coverage is not signalled by color alone. */

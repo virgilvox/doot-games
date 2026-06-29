@@ -199,7 +199,9 @@ onMounted(() => {
       <h1 v-else class="big-call dim">Tap "Call the first item" to begin</h1>
     </div>
 
-    <div v-if="called.length" class="called-grid" aria-label="Items called so far">
+    <!-- Only show the history once a second item is called: with one call the chip
+         would just duplicate the big "Now calling" headline above it. -->
+    <div v-if="called.length > 1" class="called-grid" aria-label="Items called so far">
       <span v-for="(c, i) in called" :key="c + i" class="called-chip" :class="{ latest: i === called.length - 1 }">{{ c }}</span>
     </div>
 

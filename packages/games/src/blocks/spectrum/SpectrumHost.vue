@@ -38,11 +38,13 @@ const markValues = computed(() => result.value.marks.map((m) => m.value))
       />
     </div>
     <template v-if="!done">
-      <div class="big-count">
+      <!-- Only show the live count once someone has placed: a lone mono "0" renders as
+           a slashed zero that reads like a crossed-out mark, not "none yet". -->
+      <div v-if="count > 0" class="big-count">
         <span class="num mono">{{ count }}</span>
         <span class="lbl">placed</span>
       </div>
-      <p class="hint">Where does the room land?</p>
+      <p class="hint">{{ count > 0 ? 'Where does the room land?' : 'Waiting for the first guess…' }}</p>
     </template>
     <p v-else class="reveal-title">The room landed there.</p>
   </div>

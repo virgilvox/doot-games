@@ -109,7 +109,10 @@ export const surveyBlock = defineBlock<SurveyContent, SurveyInput>({
     totals.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     return {
       leaderboard: totals.map((t) => ({ id: t.id, name: t.name, score: t.score, detail: `${t.score} pts` })),
-      awards: topAnswer ? [{ label: 'Top answer', subject: topAnswer.text, value: topAnswer.prompt }] : [],
+      // The award card highlights `value` (the winning answer) and uses `subject`
+      // for context (the prompt) — matching the rate block, so a long prompt never
+      // squeezes the answer into a one-letter-per-line column.
+      awards: topAnswer ? [{ label: 'Top answer', subject: topAnswer.prompt, value: topAnswer.text }] : [],
       stats: [
         { label: 'Surveys', value: ctx.rounds.length },
         { label: 'Top score', value: totals[0]?.score ?? 0 },
