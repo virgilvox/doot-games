@@ -33,7 +33,7 @@ export function emptyDrawing(): DrawValue {
 export function strokePath(stroke: DrawStroke, yScale = 1): string {
   const p = stroke.points
   if (p.length < 2) return ''
-  let d = `M ${p[0]} ${p[1]! * yScale}`
-  for (let i = 2; i < p.length; i += 2) d += ` L ${p[i]} ${p[i + 1]! * yScale}`
+  let d = `M ${p[0]} ${(p[1] ?? 0) * yScale}`
+  for (let i = 2; i < p.length; i += 2) d += ` L ${p[i]} ${(p[i + 1] ?? 0) * yScale}`
   return d
 }

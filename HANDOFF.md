@@ -5,6 +5,49 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-07-02. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **DOODLE UX + DRAWING FIXES + RESUME HARDENING (2026-07-02, follow-ups to the offload work below).**
+> All shipped + deployed. Verified: 898 tests + full typecheck (incl. `nuxi`) + web build + real-browser
+> smokes (doodlechain, sketch = draw+drawvote, votebox reload-resume) + screenshots at 1440/390.
+> - **Doodle Chain results: three ways to see a chain** (`games/doodle-chain/DoodleChainResults.vue` +
+>   pure tested `show.ts`). Long chains overflowed and drawings were tiny. Now: SLIDESHOW (host default,
+>   the Gartic-style reveal, one step at a time with the drawing LARGE, Back / Play-Pause / Next rolling
+>   from one chain into the next, arrow keys + space); OVERVIEW toggle (every chain as a filmstrip, click
+>   a drawing to zoom); ZOOM lightbox (host + phone). Phone shows the browsable overview + tap-to-zoom. No
+>   engine/relay change (the recap is already on every client; the slideshow is local host UI). SMOKE
+>   NOTE: the host now DEFAULTS to the slideshow, so a test wanting the `.unspool .chain` grid must click
+>   the Overview toggle first (both doodle smokes updated to do this).
+> - **Color on drawings.** The base Draw game already had a color/size palette; DoodlePlayer did not.
+>   Extracted a shared `DrawToolbar` (`@doot-games/ui`) and added it to the doodle draw round; DrawPlayer
+>   refactored to use it too. Drawings already store per-stroke color, so the whole unspool renders in color.
+> - **Cropped-drawings fix (a coordinate bug, not CSS).** Drawing points are normalized 0..1 in BOTH axes,
+>   but `DrawThumb`'s SVG viewBox is `1 x aspect` (~0.7 tall) and `strokePath` plotted the RAW y, so
+>   anything a player drew below y=aspect fell outside the viewBox and was cropped (roughly the bottom
+>   30% of every drawing), and the visible part was squished. Fix: scale y by aspect at render
+>   (`strokePath(stroke, yScale)` + the dots), uniform with x so stroke width and round caps stay
+>   undistorted. Fixes drawings EVERYWHERE `DrawThumb` renders (doodle results, draw gallery, drawvote,
+>   sketch, reveals). The Pixi authoring canvas was always correct (it maps y to y*height); only the SVG
+>   display was wrong.
+> - **Blob-offload hardening** (follow-up to the offload entry below). (1) The anonymous upload route read
+>   the body with no memory bound: a chunked POST with no Content-Length could stream unbounded and OOM
+>   the droplet. Now a capped streaming read (`readCappedBody`): past the cap it drains and returns 413,
+>   so memory is bounded regardless of the client. (2) A blob RESOLVE failure was routed through the
+>   relay's connection-error path, wrongly showing "Lost the connection to the game relay" (even to a host
+>   that already has its results locally). Resolve failures now `console.warn` + leave prior state; the
+>   relay-error path is for real disconnects only. (3) Out-of-order resolves are dropped via a
+>   per-subscription per-address delivery token.
+> - **Reused-room auto-lock fix (RESUMABLE games only; NOT Doodle Chain).** Reported as "open voting is
+>   auto locking" after reusing a room. A host REUSING an old room code could resume a previous session's
+>   expired open round (the relay retains room state ~8h), and the tick then auto-locked it on the spot.
+>   `tryResumeMidGame` now resumes ONLY when the previous host pinged within `RESUME_STALE_MS` (90s = a
+>   genuine reload); an abandoned room starts fresh. A first attempt ALSO added an "expired-open" guard,
+>   but that reset the room to the LOBBY on a legit reload-after-a-round's-timer-expired and YANKED live
+>   players, so it was removed; the freshness check is the only stale guard (a genuine reload resumes and
+>   the tick locks + syncs any expired round). **IMPORTANT: this path only runs for `resumable` games**
+>   (single-block, no `derive`/`assignContent`/`fromShares`: Guess/Rate/Poll/Rank/VoteBox and similar).
+>   **Doodle Chain uses `assignContent`, so it is NON-resumable and already resets to the lobby on reload**
+>   (its Play again / New room reuse were already clean, and a doodle-chain auto-lock could not be
+>   reproduced). If a doodle-specific auto-lock resurfaces it is NOT this path; get exact repro steps.
+
 > **EPHEMERAL BLOB OFFLOAD (Claim-Check): fix "payload too large" on big results (2026-07-02).**
 > A player reported Doodle Chain crashing on the results screen with "payload too large". Root
 > cause (confirmed at the library source): CLASP frames are uint16 length-prefixed, so a single
