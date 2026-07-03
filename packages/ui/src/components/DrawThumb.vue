@@ -27,7 +27,7 @@ const lines = computed(() => props.value.strokes.filter((s) => s.points.length >
     <path
       v-for="(s, i) in lines"
       :key="`l${i}`"
-      :d="strokePath(s)"
+      :d="strokePath(s, aspect)"
       fill="none"
       :stroke="s.color"
       :stroke-width="s.size"
@@ -38,7 +38,7 @@ const lines = computed(() => props.value.strokes.filter((s) => s.points.length >
       v-for="(s, i) in dots"
       :key="`d${i}`"
       :cx="s.points[0]"
-      :cy="s.points[1]"
+      :cy="(s.points[1] ?? 0) * aspect"
       :r="s.size / 2"
       :fill="s.color"
     />
