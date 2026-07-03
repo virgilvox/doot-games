@@ -1262,4 +1262,46 @@ describe('host reload mid-game recovery', () => {
     await connectThenLoad(host2, game)
     expect(host2.getSnapshot().phase).toBe('lobby')
   })
+
+  it('does NOT resume a STALE abandoned room (reusing a code): starts fresh, no auto-lock', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const game = { ...GAME, resumable: true }
+
+    const host1 = makeTokenHost(hub, () => t, 'tok1')
+    await host1.connect()
+    host1.loadGame(game)
+    host1.start()
+    host1.openVoting() // round 0 OPEN, deadline in the future, host pinged at t=1000
+    expect(hub.store.get(addr.roundState('ABCD'))).toBe('open')
+    host1.dispose()
+
+    // The room is abandoned; a long time passes (past the deadline + heartbeat) and
+    // the host reuses the same code. It must NOT restore the expired open round (which
+    // would auto-lock on the next tick) but start fresh in the lobby.
+    t = 5_000_000
+    const host2 = makeTokenHost(hub, () => t, 'tok1')
+    await connectThenLoad(host2, game)
+    expect(host2.getSnapshot().phase).toBe('lobby')
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('lobby')
+  })
+
+  it('still resumes a genuine quick reload (recent ping, round not expired)', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const game = { ...GAME, resumable: true }
+
+    const host1 = makeTokenHost(hub, () => t, 'tok1')
+    await host1.connect()
+    host1.loadGame(game)
+    host1.start()
+    host1.openVoting() // deadline = 1000 + 20s = 21_000
+    host1.dispose()
+
+    t = 6_000 // reloaded 5s later: within the resume window and before the deadline
+    const host2 = makeTokenHost(hub, () => t, 'tok1')
+    await connectThenLoad(host2, game)
+    expect(host2.getSnapshot().phase).toBe('active')
+    expect(host2.getSnapshot().round.state).toBe('open')
+  })
 })
