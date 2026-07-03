@@ -1304,4 +1304,29 @@ describe('host reload mid-game recovery', () => {
     expect(host2.getSnapshot().phase).toBe('active')
     expect(host2.getSnapshot().round.state).toBe('open')
   })
+
+  it('resumes a (slow) reload even AFTER the round timer expired, not yanking players to lobby', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const game = { ...GAME, resumable: true }
+
+    const host1 = makeTokenHost(hub, () => t, 'tok1')
+    await host1.connect()
+    host1.loadGame(game)
+    host1.start()
+    host1.openVoting() // round 0 OPEN, deadline = 1000 + 20s = 21_000
+    host1.dispose()
+
+    // The host kept pinging until ~t=60_000, then reloaded at t=63_000: a recent ping
+    // (3s ago, a genuine reload) but the round's deadline (21_000) is already past. The
+    // room must RESUME (the tick will lock + sync the expired round), NOT reset to the
+    // lobby, which would yank every player off their screen.
+    hub.store.set(addr.hostPing('ABCD'), 60_000)
+    t = 63_000
+    const host2 = makeTokenHost(hub, () => t, 'tok1')
+    await connectThenLoad(host2, game)
+    expect(host2.getSnapshot().phase).toBe('active') // resumed, players not yanked
+    expect(host2.getSnapshot().round.index).toBe(0)
+    expect(hub.store.get(addr.phase('ABCD'))).toBe('active') // relay never flipped to lobby
+  })
 })

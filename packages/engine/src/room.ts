@@ -46,9 +46,11 @@ const HOST_PRESENCE_WINDOW_MS = 16_000
 // Mid-game resume only fires if the previous host pinged within this window. The
 // relay retains a room's state for hours, so without this a host REUSING an old
 // code would resume a stale/abandoned game (e.g. an expired open round that then
-// auto-locks). Generous enough to cover a slow reload, short enough that reusing a
-// room later starts fresh.
-const RESUME_STALE_MS = 30_000
+// auto-locks). Deliberately generous: it must comfortably exceed the worst-case
+// page-reload-plus-reconnect time, because treating a genuine reload as stale would
+// reset the room to the lobby and yank live players off their screens. Anything
+// longer than this means the host has actually been gone, so a reuse starts fresh.
+const RESUME_STALE_MS = 90_000
 // CLASP frames are length-prefixed with a uint16, so a single published value
 // can't exceed 65535 bytes. The game config is the one value that can grow (an
 // inline/pasted data-URL image bloats it), and if its publish throws mid-start()
@@ -556,25 +558,24 @@ export class RoomRuntime {
     if (phase !== 'active') return false
     // Don't resume a STALE room. The relay keeps a room's state for hours, so if the
     // previous host stopped its heartbeat a while ago this 'active' state is leftover;
-    // reusing the same code should start fresh, not restore it. A genuine reload
-    // pinged seconds ago. (This is the "reused a room and open voting auto-locked"
-    // fix: an abandoned open round's deadline is long past, and restoring it as open
-    // would auto-lock on the next tick.)
+    // reusing the same code should start fresh, not restore it (the "reused a room and
+    // open voting auto-locked" bug: an abandoned open round's deadline is long past, so
+    // restoring it would auto-lock on the next tick). This freshness check is the ONLY
+    // stale guard: a genuine reload pinged seconds ago and must resume normally, even
+    // if its round's timer expired during the reload (the tick then locks + syncs the
+    // round). Blocking that would reset live players to the lobby, which is worse than
+    // a brief auto-lock.
     if (ping == null || this.now() - Number(ping) >= RESUME_STALE_MS) return false
     const index = Number(idx) | 0
     // The freshly loaded config must actually contain this round (a guard against
     // a stale/mismatched retained pointer); else fall back to a clean lobby.
     if (index < 0 || index >= (this.game.rounds.length || 0)) return false
-    const dl = deadline == null ? null : Number(deadline)
-    // An 'open' round whose deadline already passed is expired: restoring it as open
-    // would instantly auto-lock (a jarring "open voting just locked"). Start fresh.
-    if (rstate === 'open' && dl != null && this.now() >= dl) return false
     this.state = {
       phase: phase as Phase,
       round: {
         index,
         state: typeof rstate === 'string' ? (rstate as RoundState) : 'ready',
-        deadline: dl,
+        deadline: deadline == null ? null : Number(deadline),
       },
     }
     // Restore the delegated driver (co-host/MC) if one is set. (Reveal summaries
