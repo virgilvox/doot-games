@@ -25,10 +25,16 @@ services:
       - SPACES_BUCKET=doot
       - SPACES_KEY=minioadmin
       - SPACES_SECRET=minioadmin
+      # Cover IMAGES are read directly by the browser via <img>, so their public URL
+      # must point at the host-published MinIO port (not the internal minio host).
+      # Ephemeral play blobs are private and proxied through the app, so they need
+      # no browser-reachable storage URL.
+      - SPACES_PUBLIC_URL=http://localhost:9000/doot
       - SESSION_PASSWORD=dev-only-change-me-please-32-chars
     depends_on:
       - db
       - minio
+      - minio-setup
 
   db:
     image: postgres:16-alpine
@@ -52,6 +58,23 @@ services:
       - '9001:9001'
     volumes:
       - doot-minio:/data
+
+  # One-shot: create the bucket and make ONLY the cover-image prefix anonymously
+  # downloadable (images load via <img>). Ephemeral play blobs stay PRIVATE (the app
+  # reads them with a signed GET) and backups/ stays private. Mirrors the existing
+  # DigitalOcean Spaces setup, so no new bucket config is needed in prod. The app's
+  # lifecycle plugin adds the ephemeral-expiry rule at startup.
+  minio-setup:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do echo 'waiting for minio'; sleep 1; done;
+      mc mb --ignore-existing local/doot;
+      mc anonymous set download local/doot/uploads;
+      echo 'minio bucket ready';
+      "
 
 volumes:
   doot-pgdata:

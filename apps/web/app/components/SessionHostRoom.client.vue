@@ -42,7 +42,7 @@ const themeId = themeState.value
 // picker uses a stable context so it resumes on refresh.
 const sessionContext = props.gameIds?.length ? `pl:${props.gameIds.join(',')}` : 'session'
 const { room: roomCode, token: hostToken } = useHostSession({ context: sessionContext })
-const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' })
+const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-session-host' }, { assets: createEphemeralAssets(roomCode) })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 // Close the socket (and stop the reconnect supervisor) when this host unmounts.
 onScopeDispose(() => relay.close())

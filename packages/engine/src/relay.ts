@@ -6,9 +6,20 @@
  * reconnection SUPERVISOR (see below).
  */
 import { Clasp, type ConnectOptions, type Unsubscribe, type Value } from '@clasp-to/core'
+import {
+  type AssetTransport,
+  OFFLOAD_THRESHOLD_BYTES,
+  BLOB_REF_KEY,
+  claspEncodedSize,
+  decodeValue,
+  encodeValue,
+  isBlobEnvelope,
+  tooLargeMessage,
+} from './blob'
 
 export type RelayValue = Value
 export type { Unsubscribe }
+export type { AssetTransport }
 
 export const DEFAULT_RELAY_URL = 'wss://relay.clasp.to'
 
@@ -30,7 +41,13 @@ export type RelayCallback = (value: RelayValue, address: string) => void
 export interface RelayClient {
   connect(): Promise<void>
   on(pattern: string, callback: RelayCallback, options?: { maxRate?: number }): Unsubscribe
-  set(address: string, value: RelayValue, options?: RelayPublishOptions): void
+  /**
+   * Publish a value. Small values go out synchronously (return `void`); an
+   * oversized value is offloaded to object storage first, so the return may be a
+   * promise a caller can await to guarantee the reference is on the relay before
+   * proceeding (e.g. results before the phase flips to `results`).
+   */
+  set(address: string, value: RelayValue, options?: RelayPublishOptions): void | Promise<void>
   cached(address: string): RelayValue | undefined
   get(address: string): Promise<RelayValue>
   onConnect(callback: () => void): void
@@ -73,6 +90,14 @@ export interface ClaspRelayOptions {
   reconnectMaxMs?: number
   /** Jitter source in [0,1) (tests). Defaults to Math.random. */
   jitter?: () => number
+  /**
+   * The Claim-Check store for oversized values. When present, a value whose JSON
+   * exceeds the offload threshold is uploaded here and replaced on the relay by a
+   * tiny reference; subscribers transparently resolve it back. When absent, an
+   * oversized value fails early with a friendly message instead of stranding the
+   * room. See {@link AssetTransport} and docs/ephemeral-blobs.md.
+   */
+  assets?: AssetTransport
 }
 
 /**
@@ -98,6 +123,7 @@ export function createClaspRelay(
   const baseMs = relayOptions.reconnectBaseMs ?? 1000
   const maxMs = relayOptions.reconnectMaxMs ?? 15000
   const jitter = relayOptions.jitter ?? Math.random
+  const assets = relayOptions.assets
 
   interface Sub {
     pattern: string
@@ -118,8 +144,56 @@ export function createClaspRelay(
   let retryTimer: ReturnType<typeof setTimeout> | null = null
   let attempt = 0
 
+  // Deliver a subscription value, resolving a Claim-Check reference back to the
+  // original value first so games and components never see an envelope. A resolve
+  // failure surfaces via onError and leaves prior state intact rather than
+  // delivering a bogus value (one retry covers a transient read-after-write blip).
+  const deliver = (s: Sub, value: RelayValue, address: string) => {
+    if (!assets || !isBlobEnvelope(value)) {
+      s.cb(value, address)
+      return
+    }
+    const url = value[BLOB_REF_KEY].url
+    const attempt = (retriesLeft: number): void => {
+      assets
+        .resolve(url)
+        .then((bytes) => s.cb(decodeValue(bytes), address))
+        .catch((error) => {
+          if (retriesLeft > 0) {
+            setTimeout(() => attempt(retriesLeft - 1), 200)
+            return
+          }
+          for (const cb of errorCbs) cb(error)
+        })
+    }
+    attempt(1)
+  }
+
   const bind = (s: Sub) => {
-    s.live = client.on(s.pattern, (value, address) => s.cb(value, address), s.opts)
+    s.live = client.on(s.pattern, (value, address) => deliver(s, value, address), s.opts)
+  }
+
+  // Publish a value, offloading it to the Claim-Check store if it is too big to
+  // fit a single CLASP frame. Returns a promise only on the offload path (which
+  // must await the durable upload before the reference goes on the relay).
+  const publishValue = (address: string, value: RelayValue, opts?: RelayPublishOptions): void | Promise<void> => {
+    // Gate on CLASP's true encoded size, not JSON length: number-heavy values
+    // (drawings) encode larger than their JSON form.
+    const size = claspEncodedSize(value)
+    if (size <= OFFLOAD_THRESHOLD_BYTES) {
+      client.set(address, value, opts)
+      return
+    }
+    if (!assets) {
+      // No store to offload to: fail loudly and early with a clear message rather
+      // than letting encodeFrame throw a raw, room-stranding error mid-publish.
+      throw new Error(tooLargeMessage(size))
+    }
+    return (async () => {
+      const bytes = encodeValue(value)
+      const url = await assets.upload(bytes, 'application/json')
+      client.set(address, { [BLOB_REF_KEY]: { url, n: bytes.length, ct: 'application/json' } }, opts)
+    })()
   }
 
   // Rebuild the client, reconnect, and re-register every subscription so the
@@ -215,9 +289,17 @@ export function createClaspRelay(
         subs.delete(s)
       }
     },
-    set: (address, value, opts) => client.set(address, value, opts),
-    cached: (address) => client.cached(address),
-    get: (address) => client.get(address),
+    set: (address, value, opts) => publishValue(address, value, opts),
+    // cached() is synchronous and cannot resolve a reference, so report a miss for
+    // an offloaded value and let the caller fall back to the async get().
+    cached: (address) => {
+      const v = client.cached(address)
+      return v !== undefined && isBlobEnvelope(v) ? undefined : v
+    },
+    get: async (address) => {
+      const v = await client.get(address)
+      return assets && isBlobEnvelope(v) ? decodeValue(await assets.resolve(v[BLOB_REF_KEY].url)) : v
+    },
     onConnect: (cb) => {
       connectCbs.push(cb)
     },

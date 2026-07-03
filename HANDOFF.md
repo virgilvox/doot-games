@@ -2,8 +2,61 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-06-29. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-07-02. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **EPHEMERAL BLOB OFFLOAD (Claim-Check): fix "payload too large" on big results (2026-07-02).**
+> A player reported Doodle Chain crashing on the results screen with "payload too large". Root
+> cause (confirmed at the library source): CLASP frames are uint16 length-prefixed, so a single
+> published value hard-caps at **65535 bytes** (`@clasp-to/core` `encodeFrame` throws
+> `Payload too large: N bytes (max 65535)` synchronously, in-band). A chain game's results
+> "unspool" bundles every player's drawing into one value and blows past it; `drawvote`/`photovote`
+> galleries do the same. Only `start()`/`nextGame()` had a size guard; `finish()`, derived content,
+> and reveal summaries did not. Fix = the **Claim-Check pattern** (Azure/EIP; what Pusher/Ably/tldraw
+> all do), implemented **transparently in the relay wrapper** so NO game/block/component changed:
+ a value whose ENCODED size (not JSON) exceeds ~58 KB is stored off-relay and replaced on the relay by
+> a tiny `{__dootBlob}` reference; subscribers resolve it back on read (incl. late-join snapshots + reconnect).
+> - **Engine** (`packages/engine/src/blob.ts` + `relay.ts`): `AssetTransport` (tldraw-shaped
+>   `upload`/`resolve`), offload-on-`set` / resolve-on-`on`/`get`, injected via the existing
+>   `makeClient` DI seam (`createClaspRelay(url, opts, { assets })`). `room.ts`: `finish()` is now
+>   async and awaits the offload (results reference lands before the phase flips; on failure it
+>   surfaces a friendly error and stays in play instead of stranding); other heavy publishes use
+>   `publishGuarded` (offload without gating, no unhandled rejections). Only `finish()` became async
+>   (terminal, no caller sequences after it), so no `startVote`/custom-flow ordering risk. **Audit fix:**
+>   the size gate uses `claspEncodedSize` (mirrors CLASP's `estimateValueSize`: numbers = 9 bytes), NOT
+>   JSON length, because point-heavy drawings encode LARGER than JSON and would else slip under the gate
+>   and still overflow the frame. `cached()` has zero source callers, so returning a miss for a ref is safe.
+> - **Server = the app PROXIES to storage (the production-safety redesign).** A deep DO Spaces audit
+>   (see below) killed the original direct-browser-upload plan. New routes: `POST /api/rooms/[code]/blobs`
+>   (browser POSTs raw bytes, app signs a PUT to a **private** object) + `GET /api/rooms/[code]/blobs/[id]`
+>   (app signs a GET, streams bytes back). Both **same-origin**, so zero browser->storage CORS, zero public
+>   objects, zero presigned POST. The app enforces the **size cap on the body** (the real control), a
+>   content-type allowlist, unguessable `ephemeral/<code>/<uuid>` keys, strict id validation (no traversal/
+>   S3-injection), private objects, and rate-limiting (`eph:` 120/min/IP). Uses ONLY the two Spaces paths
+>   already proven on the prod bucket (signed PUT = image re-host, signed GET = backups). `storage.ts` gained
+>   `putEphemeralObject`/`getEphemeralObject`/`ephemeralObjectKey`/`ensureEphemeralLifecycle` (idempotent
+>   lifecycle, merged so it never drops the backups rule). Client transport `app/utils/ephemeralAssets.ts`
+>   (POST bytes / GET url), wired into all 5 `createClaspRelay` call sites.
+> - **DO Spaces audit (why the redesign).** Cited research found presigned POST is undocumented + order-
+>   sensitive on Spaces, public-read ACL has a silently-private trap, and CDN CORS is stale-cache fragile.
+>   A cross-origin `fetch()` read would also need bucket CORS `GET` the prod bucket lacks, and I have **no
+>   prod bucket access** to add it. The app-proxy design needs **NO prod bucket config** at all.
+> - **Local == DO.** Both MinIO and Spaces support signed PUT/GET + lifecycle. `docker-compose` `minio-setup`
+>   just creates the bucket (ephemeral objects are private). A plain `pnpm dev` + MinIO on localhost needs no
+>   extra config. Prod's existing `SPACES_*` env is sufficient; the lifecycle rule self-applies at startup.
+> - **Verified:** 890 offline tests (blob unit vs CLASP's REAL `encodeFrame`; `claspEncodedSize` numbers-at-9;
+>   the exact 30-drawing bug fixed at `finish()` through the real wrapper; lifecycle-merge + key-sanitization)
+>   + full typecheck (incl. `nuxi`) + web build; opt-in `DOOT_S3=1` against real MinIO proving signed PUT
+>   stores a **private** object, signed GET reads it back, the object is **NOT anonymously readable**, and
+>   lifecycle is accepted + idempotent; the live upload+read routes curl'd through the running app (round-trip
+>   + 400s on bad code/type/id); `scripts/doodlechain-smoke.mjs` green (inline path); and
+>   **`scripts/doodlechain-offload-smoke.mjs` green** - a real 3-player Doodle Chain with dense drawings
+>   (6 x 16 KB, ~96 KB recap, over the ceiling) offloads END TO END in a real browser + real MinIO (host POSTs
+>   the results to the app instead of throwing; a phone GETs the app and renders all 6 drawings, 0 overflow).
+>   Design: [`docs/ephemeral-blobs.md`](./docs/ephemeral-blobs.md); PRD §13.2 reconciled.
+> - **Remaining validation:** `drawvote`/`photovote` galleries offload via the same transparent path (not
+>   separately smoke-tested at scale), and a real ON-DEVICE two-phone test is still unrun. The offload
+>   architecture itself is proven; and it uses only Spaces paths already working in prod, so low deploy risk.
 
 > **HOME + CREATE CREATION ON-RAMP POLISH (2026-06-29).** Follow-on to the funnel pass,
 > same goal (drive sign-ups + custom-game creation). Shipped to prod (typecheck + real-browser

@@ -15,7 +15,7 @@ import { computed, onScopeDispose, ref, watch } from 'vue'
 const props = defineProps<{ room: string }>()
 const runtime = useRuntimeConfig()
 
-const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-audience' })
+const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-audience' }, { assets: createEphemeralAssets(props.room) })
 const room = useDootRoom({ relay, room: props.room, role: 'audience', nameFilter: playerNameFilter })
 provideDootRoom(room)
 

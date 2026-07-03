@@ -54,7 +54,7 @@ const themeState = useState<string>('doot-theme', () => 'doot')
 // refresh of THIS game resumes it. See useHostSession.
 const sessionContext = props.gameId ? `g:${props.gameId}` : `p:${props.pluginId}`
 const { room: roomCode, token: hostToken, lobby: savedLobby } = useHostSession({ context: sessionContext })
-const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' })
+const relay = createClaspRelay(runtime.public.relayUrl as string, { name: 'doot-host' }, { assets: createEphemeralAssets(roomCode) })
 const room = useDootRoom({ relay, room: roomCode, role: 'host', hostToken, nameFilter: playerNameFilter })
 // Close the socket (and stop the reconnect supervisor) when this host unmounts.
 onScopeDispose(() => relay.close())

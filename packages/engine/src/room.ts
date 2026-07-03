@@ -789,8 +789,29 @@ export class RoomRuntime {
     }
   }
 
-  private publish(address: string, value: RelayValue): void {
-    this.relay.set(address, value, { ttl: this.ttlUs, absolute: true })
+  private publish(address: string, value: RelayValue): void | Promise<void> {
+    return this.relay.set(address, value, { ttl: this.ttlUs, absolute: true })
+  }
+
+  /**
+   * Publish without gating other state on it, but never let an offloaded value's
+   * upload failure become an unhandled rejection: surface it instead. Use for
+   * fire-and-forget publishes (a player's input, a custom channel, standings)
+   * whose ordering does not gate anything else. Ordering-critical publishes
+   * (results before the phase flip, derived content before the round advances)
+   * `await this.publish(...)` directly.
+   */
+  private publishGuarded(address: string, value: RelayValue): void {
+    const r = this.publish(address, value)
+    if (r && typeof (r as Promise<void>).then === 'function') {
+      ;(r as Promise<void>).catch((e) => this.reportError(e))
+    }
+  }
+
+  /** Surface a non-fatal error to the UI (the reactive snapshot renders it). */
+  private reportError(error: unknown): void {
+    this.error = error instanceof Error ? error.message : String(error)
+    this.emit()
   }
 
   /** Throw a clear, host-facing error if a config is too big to fit one relay
@@ -947,7 +968,9 @@ export class RoomRuntime {
     // input for a round they joined after (every block's scoring assumes this).
     if (!isEligible(this.myJoinedAtIndex, i)) return
     this.inputs.set(`${i}:${this.me.id}`, input)
-    this.publish(addr.input(this.room, i, this.me.id), input)
+    // A dense drawing can exceed one relay frame; publishGuarded offloads it and
+    // surfaces (never crashes on) an upload failure.
+    this.publishGuarded(addr.input(this.room, i, this.me.id), input)
     this.emit()
   }
 
@@ -1021,7 +1044,7 @@ export class RoomRuntime {
    * else. Any role may publish.
    */
   publishExtra(key: string, value: RelayValue): void {
-    this.publish(addr.extra(this.room, key), value)
+    this.publishGuarded(addr.extra(this.room, key), value)
   }
 
   /**
@@ -1269,7 +1292,11 @@ export class RoomRuntime {
     const derived = this.game.deriveContent(index, (i) => this.inputsFor(i))
     if (!derived) return
     this.runtimeContent.set(index, derived.publish)
-    this.publish(addr.roundContent(this.room, index), derived.publish)
+    // A derived gallery (all drawings/photos to vote on) can exceed one frame;
+    // publishGuarded offloads it and surfaces (never crashes on) an upload failure.
+    // The content arrives via its own subscription, so brief lateness just delays
+    // the options appearing, it does not desync the round.
+    this.publishGuarded(addr.roundContent(this.room, index), derived.publish)
     if (derived.answer !== undefined) this.derivedAnswers.set(index, derived.answer)
     this.emit()
   }
@@ -1288,8 +1315,10 @@ export class RoomRuntime {
     // past its reveal), so `inputsFor(i-1)` is complete.
     const assigned = this.game.assignContent(index, (i) => this.inputsFor(i))
     if (!assigned) return
+    // A per-player payload can carry a neighbor's full drawing (chain games); each
+    // offloads independently via publishGuarded (upload failures surface, never crash).
     for (const [pid, content] of Object.entries(assigned.perPlayer)) {
-      this.publish(addr.roundContentForPlayer(this.room, index, pid), content)
+      this.publishGuarded(addr.roundContentForPlayer(this.room, index, pid), content)
     }
     if (assigned.answer !== undefined) {
       this.derivedAnswers.set(index, assigned.answer)
@@ -1329,13 +1358,14 @@ export class RoomRuntime {
     // judge round that consumes it unmasks it at its own reveal. Publishing it here
     // would leak the role before the accusation. A normal answer key still publishes.
     const answer = this.assignedRounds.has(i) ? undefined : this.answerKeyFor(i)
-    if (answer !== undefined) this.publish(addr.roundAnswer(this.room, i), answer)
-    // Publish a public reveal summary (vote tallies, the winner) so phones can
-    // show personal feedback, not just the big screen.
+    if (answer !== undefined) this.publishGuarded(addr.roundAnswer(this.room, i), answer)
+    // Publish a public reveal summary (vote tallies, the winner) so phones can show
+    // personal feedback. A summary that embeds drawings (drawvote) can offload;
+    // publishGuarded handles that without gating the reveal, so play never stalls.
     const summary = this.game?.revealSummary?.(i, (j) => this.inputsFor(j))
     if (summary !== undefined) {
       this.roundReveals.set(i, summary)
-      this.publish(addr.roundReveal(this.room, i), summary)
+      this.publishGuarded(addr.roundReveal(this.room, i), summary)
     }
     this.publish(addr.roundState(this.room), 'reveal')
     this.transition({ type: 'reveal' })
@@ -1362,15 +1392,27 @@ export class RoomRuntime {
   publishStandings(summary: RelayValue): void {
     this.assertHost()
     this.standings = summary
-    this.publish(addr.standings(this.room), summary)
+    this.publishGuarded(addr.standings(this.room), summary)
     this.emit()
   }
 
-  /** End the game and publish the results summary the plugin computed. */
-  finish(summary: RelayValue): void {
+  /**
+   * End the game and publish the results summary the plugin computed. A rich
+   * results value (a chain game's whole filmstrip of drawings) can exceed one
+   * relay frame, so we await the publish: if it offloads, the reference is on the
+   * relay before the phase flips to `results`, so no client lands on an empty
+   * results screen. If it cannot be broadcast at all (oversized, no storage), we
+   * surface the friendly error and stay in play rather than stranding the room.
+   */
+  async finish(summary: RelayValue): Promise<void> {
     this.assertHost()
     this.results = summary
-    this.publish(addr.resultsSummary(this.room), summary)
+    try {
+      await this.publish(addr.resultsSummary(this.room), summary)
+    } catch (e) {
+      this.reportError(e)
+      return
+    }
     this.publish(addr.phase(this.room), 'results')
     this.transition({ type: 'finish' })
   }

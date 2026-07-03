@@ -15,7 +15,7 @@ const code = props.room
 const runtime = useRuntimeConfig()
 
 const supported = webrtcSupported()
-const relay = createClaspRelay(runtime.public.relayUrl as string, { name: `doot-watch:${props.room}` })
+const relay = createClaspRelay(runtime.public.relayUrl as string, { name: `doot-watch:${props.room}` }, { assets: createEphemeralAssets(props.room) })
 const room = useDootRoom({ relay, room: props.room, role: 'audience', name: 'spectator', nameFilter: playerNameFilter })
 provideDootRoom(room)
 

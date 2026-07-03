@@ -149,7 +149,10 @@ describe('RoomRuntime host actions', () => {
     expect(hub.store.get(addr.roundIndex('ABCD'))).toBe(1)
     expect(host.can('next')).toBe(false) // last round
 
-    host.finish({ winner: 'Robin' } as RelayValue)
+    // finish() is async: it awaits the results publish (which may offload a large
+    // value to object storage) before flipping the phase, so no client lands on an
+    // empty results screen.
+    await host.finish({ winner: 'Robin' } as RelayValue)
     expect(hub.store.get(addr.phase('ABCD'))).toBe('results')
     expect(hub.store.get(addr.resultsSummary('ABCD'))).toEqual({ winner: 'Robin' })
   })
@@ -374,7 +377,7 @@ describe('RoomRuntime sessions (nextGame)', () => {
     host.openVoting()
     host.lock()
     host.reveal()
-    host.finish({ winner: 'x' } as RelayValue)
+    await host.finish({ winner: 'x' } as RelayValue)
     expect(hub.store.get(addr.phase('ABCD'))).toBe('results')
 
     host.nextGame(GAME2)
