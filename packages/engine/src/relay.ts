@@ -130,6 +130,9 @@ export function createClaspRelay(
     cb: RelayCallback
     opts?: { maxRate?: number }
     live: Unsubscribe | null
+    /** Per-address delivery token, so a slow blob resolve that finishes after a
+     *  newer value arrived for the same address is dropped instead of clobbering it. */
+    seq: Map<string, number>
   }
   const subs = new Set<Sub>()
   const connectCbs: Array<() => void> = []
@@ -149,6 +152,10 @@ export function createClaspRelay(
   // failure surfaces via onError and leaves prior state intact rather than
   // delivering a bogus value (one retry covers a transient read-after-write blip).
   const deliver = (s: Sub, value: RelayValue, address: string) => {
+    // Stamp this delivery so a later value for the same address supersedes an
+    // in-flight resolve (inline values bump it too, so they win over a slow fetch).
+    const token = (s.seq.get(address) ?? 0) + 1
+    s.seq.set(address, token)
     if (!assets || !isBlobEnvelope(value)) {
       s.cb(value, address)
       return
@@ -157,13 +164,20 @@ export function createClaspRelay(
     const attempt = (retriesLeft: number): void => {
       assets
         .resolve(url)
-        .then((bytes) => s.cb(decodeValue(bytes), address))
+        .then((bytes) => {
+          if (s.seq.get(address) === token) s.cb(decodeValue(bytes), address)
+        })
         .catch((error) => {
           if (retriesLeft > 0) {
             setTimeout(() => attempt(retriesLeft - 1), 200)
             return
           }
-          for (const cb of errorCbs) cb(error)
+          // A blob fetch failure is NOT a relay disconnect: do not fire the
+          // connection-error path (that would wrongly show "lost the connection").
+          // Log and leave prior state; a viewer can retry / refresh.
+          if (s.seq.get(address) === token) {
+            console.warn(`[doot] could not resolve an offloaded value at ${address}:`, error)
+          }
         })
     }
     attempt(1)
@@ -277,7 +291,7 @@ export function createClaspRelay(
   return {
     connect: () => client.connect(),
     on: (pattern, callback, opts) => {
-      const s: Sub = { pattern, cb: callback, opts, live: null }
+      const s: Sub = { pattern, cb: callback, opts, live: null, seq: new Map() }
       subs.add(s)
       bind(s)
       return () => {

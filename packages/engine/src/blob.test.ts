@@ -1,5 +1,5 @@
 import { encodeFrame } from '@clasp-to/core'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   type AssetTransport,
   BLOB_REF_KEY,
@@ -236,18 +236,58 @@ describe('createClaspRelay Claim-Check', () => {
     expect(threw?.message).not.toMatch(/Payload too large/)
   })
 
-  it('surfaces a resolve failure via onError without delivering a bogus value', async () => {
+  it('logs a resolve failure WITHOUT firing the relay connection-error path or delivering a bogus value', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const assets = makeFakeAssets()
     const { relay } = await wired(assets)
     const value = { threads: bigValue(OVER_FRAME) }
     await relay.set('room/ABCD/results', value)
-    assets.objects.clear()
+    assets.objects.clear() // break the store so resolve fails on delivery
     const errors: unknown[] = []
     relay.onError((e) => errors.push(e))
     const seen: RelayValue[] = []
     relay.on('room/ABCD/results', (v) => seen.push(v))
     await flush(500)
-    expect(seen).toHaveLength(0)
-    expect(errors.length).toBeGreaterThan(0)
+    expect(seen).toHaveLength(0) // never delivered the envelope or a wrong value
+    expect(errors).toHaveLength(0) // NOT surfaced as "lost the connection to the relay"
+    expect(warn).toHaveBeenCalled() // logged instead
+    warn.mockRestore()
   })
+
+  it('drops a stale resolve when a newer value supersedes the same address', async () => {
+    // A gated resolve so the big value is still resolving when a newer value lands.
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => {
+      release = r
+    })
+    const objects = new Map<string, Uint8Array>()
+    const assets: AssetTransport = {
+      async upload(bytes) {
+        const url = `mem://${objects.size}`
+        objects.set(url, bytes)
+        return url
+      },
+      async resolve(url) {
+        await gate
+        const b = objects.get(url)
+        if (!b) throw new Error('missing')
+        return b
+      },
+    }
+    const { relay } = await wired(assets)
+    const seen: RelayValue[] = []
+    relay.on('room/ABCD/x', (v) => seen.push(v))
+
+    await relay.set('room/ABCD/x', bigValue(OVER_FRAME)) // offloaded; ref delivered, resolve gated
+    await relay.set('room/ABCD/x', { latest: true }) // newer inline value delivered synchronously
+    release() // now let the stale big resolve finish
+    await flush()
+
+    expect(seen.at(-1)).toEqual({ latest: true }) // the newer value wins
+    expect(seen.some((v) => typeof v === 'object' && v !== null && 'blob' in v)).toBe(false) // stale drop
+  })
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })

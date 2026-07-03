@@ -31,18 +31,60 @@ export default defineEventHandler(async (event) => {
   if (!(EPHEMERAL_CONTENT_TYPES as readonly string[]).includes(contentType)) {
     throw createError({ statusCode: 400, statusMessage: 'Unsupported blob type.' })
   }
-  // Reject before reading if the declared size is over the cap.
+  // Reject before reading if the DECLARED size is over the cap (fast path).
   const declared = Number(getHeader(event, 'content-length') || 0)
   if (declared > EPHEMERAL_MAX_BYTES) throw createError({ statusCode: 413, statusMessage: 'Blob is too large.' })
 
-  const raw = await readRawBody(event, false)
-  const body = raw ? new Uint8Array(raw) : null
-  if (!body || body.length === 0) throw createError({ statusCode: 400, statusMessage: 'Empty blob.' })
-  // Enforce the real size server-side (content-length can be omitted/spoofed).
-  if (body.length > EPHEMERAL_MAX_BYTES) throw createError({ statusCode: 413, statusMessage: 'Blob is too large.' })
+  // Read with a hard byte cap so a chunked body with no content-length cannot
+  // stream unbounded into memory (a DoS on a small droplet). Memory is bounded to
+  // the cap regardless of what the client sends.
+  const body = await readCappedBody(event, EPHEMERAL_MAX_BYTES)
+  if (body.length === 0) throw createError({ statusCode: 400, statusMessage: 'Empty blob.' })
 
   const id = `${randomUUID()}.${ephemeralExt(contentType as EphemeralContentType)}`
   await putEphemeralObject(ephemeralObjectKey(code, id), contentType, body)
   // The client stores this same-origin URL as the blob reference and GETs it to resolve.
   return { url: `/api/rooms/${code}/blobs/${id}` }
 })
+
+/**
+ * Read the request body into memory but never keep more than `max` bytes: once the
+ * running total exceeds the cap we stop accumulating and drain the rest to nowhere,
+ * so an unbounded chunked upload (no Content-Length) can't exhaust memory. Reads the
+ * Node request stream directly to avoid the web-stream reader's cancel/close pitfalls.
+ */
+function readCappedBody(event: { node: { req: NodeJS.ReadableStream } }, max: number): Promise<Uint8Array> {
+  const req = event.node.req
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let total = 0
+    let over = false
+    let settled = false
+    const finish = (err: unknown, buf?: Uint8Array) => {
+      if (settled) return
+      settled = true
+      req.removeListener('data', onData)
+      req.removeListener('end', onEnd)
+      req.removeListener('error', onErr)
+      if (err) reject(err)
+      else resolve(buf as Uint8Array)
+    }
+    const onData = (chunk: Buffer) => {
+      if (over) return // past the cap: keep draining but hold no more memory
+      total += chunk.length
+      if (total > max) {
+        over = true
+        return
+      }
+      chunks.push(chunk)
+    }
+    const onEnd = () => {
+      if (over) finish(createError({ statusCode: 413, statusMessage: 'Blob is too large.' }))
+      else finish(null, new Uint8Array(Buffer.concat(chunks)))
+    }
+    const onErr = (e: Error) => finish(e)
+    req.on('data', onData)
+    req.on('end', onEnd)
+    req.on('error', onErr)
+  })
+}
