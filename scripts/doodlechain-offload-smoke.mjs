@@ -154,6 +154,10 @@ async function run() {
 
     // The host renders its own (local) full results; the KEY end-to-end proof is that
     // the value was offloaded and a phone resolved it back into a full gallery.
+    await host.waitForSelector('.unspool', { timeout: 40000 })
+    // The host defaults to the slideshow; switch to Overview to see every chain.
+    if (await host.locator('.viewtoggle button', { hasText: 'Overview' }).count())
+      await host.locator('.viewtoggle button', { hasText: 'Overview' }).click()
     await host.waitForSelector('.unspool .chain', { timeout: 40000 })
     const hostThumbs = await host.locator('.unspool .draw-thumb').count()
     if (hostThumbs < 1) throw new Error('host unspool has no drawings')

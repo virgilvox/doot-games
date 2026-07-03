@@ -103,7 +103,11 @@ async function run() {
     if (!sawReceivedDrawing) throw new Error('a describe round never showed a received drawing (rotation of drawings failed)')
     ok('draw rounds submitted strokes; describe rounds received a neighbor drawing')
 
-    // The unspool: 3 chains, mixing text steps and drawing thumbnails.
+    // The unspool: 3 chains, mixing text steps and drawing thumbnails. The host
+    // defaults to the slideshow; switch to Overview to see every chain at once.
+    await host.waitForSelector('.unspool', { timeout: 40000 })
+    if (await host.locator('.viewtoggle button', { hasText: 'Overview' }).count())
+      await host.locator('.viewtoggle button', { hasText: 'Overview' }).click()
     await host.waitForSelector('.unspool .chain', { timeout: 40000 })
     const chains = await host.locator('.unspool .chain').count()
     const thumbs = await host.locator('.unspool .draw-thumb').count()

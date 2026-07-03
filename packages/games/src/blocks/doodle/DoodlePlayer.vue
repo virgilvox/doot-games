@@ -5,12 +5,22 @@
  * view: on a DRAW round, the neighbor's text to draw; on a DESCRIBE round, the
  * neighbor's drawing to name. You only ever see the ONE thing passed to you.
  */
-import { DrawCanvas, type DrawValue, DrawThumb } from '@doot-games/ui'
-import { computed } from 'vue'
+import { DrawCanvas, DrawToolbar, type DrawValue, DrawThumb } from '@doot-games/ui'
+import { computed, ref } from 'vue'
 import type { DoodleInput, DoodleSecret } from './block'
 
 const props = defineProps<{ content: DoodleSecret; modelValue: DoodleInput; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: DoodleInput] }>()
+
+// Brush color + size for the draw round (each stroke keeps its own color).
+const color = ref('#1f2430')
+const size = ref(0.014)
+function undo() {
+  emit('update:modelValue', { strokes: (props.modelValue?.strokes ?? []).slice(0, -1) })
+}
+function clearDrawing() {
+  emit('update:modelValue', { strokes: [] })
+}
 
 const isSeed = computed(() => props.content?.seed === true)
 const isDraw = computed(() => props.content?.mode === 'draw')
@@ -40,7 +50,23 @@ function onDraw(v: DrawValue) {
         <span class="badge">Draw this</span>
         <p class="received">{{ receivedText || '(no prompt reached you, draw anything)' }}</p>
       </div>
-      <DrawCanvas :model-value="drawValue" :aspect="aspect" :disabled="disabled" @update:model-value="onDraw" />
+      <DrawToolbar
+        :color="color"
+        :size="size"
+        :can-undo="drawValue.strokes.length > 0"
+        @update:color="color = $event"
+        @update:size="size = $event"
+        @undo="undo"
+        @clear="clearDrawing"
+      />
+      <DrawCanvas
+        :model-value="drawValue"
+        :color="color"
+        :size="size"
+        :aspect="aspect"
+        :disabled="disabled"
+        @update:model-value="onDraw"
+      />
     </template>
 
     <!-- DESCRIBE round (pass): show the drawing you were handed, then a text box. -->

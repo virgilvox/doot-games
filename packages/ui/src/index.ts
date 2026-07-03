@@ -80,6 +80,7 @@ export { default as ComedyStage } from './components/ComedyStage.vue'
 
 // Drawing (Pixi surface + SVG thumbnail + shared format)
 export { default as DrawCanvas } from './components/DrawCanvas.vue'
+export { default as DrawToolbar } from './components/DrawToolbar.vue'
 export { default as DrawThumb } from './components/DrawThumb.vue'
 export { type DrawStroke, type DrawValue, emptyDrawing, strokePath } from './draw'
 
