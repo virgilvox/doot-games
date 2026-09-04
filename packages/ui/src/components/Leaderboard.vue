@@ -16,15 +16,27 @@ const props = withDefaults(defineProps<{ entries: Entry[]; highlight?: string | 
 
 // Competition ranking so a tie shares a place: co-leaders all get rank 1 (★) and
 // the next entry is rank 3, not 2. Only crown (★) when the top score is above 0.
-const ranked = computed(() =>
-  props.entries
-    .map((e) => ({
-      ...e,
-      rank: 1 + props.entries.filter((o) => o.score > e.score).length,
-      leader: e.score > 0 && !props.entries.some((o) => o.score > e.score),
-    }))
-    .slice(0, props.max),
-)
+//
+// Counted from a tally of distinct scores rather than by re-scanning the list per
+// entry: the naive form is O(N^2), and a 200-player room pays that on every results
+// render. Same numbers, one pass plus a sort of the distinct scores.
+const ranked = computed(() => {
+  const counts = new Map<number, number>()
+  for (const e of props.entries) counts.set(e.score, (counts.get(e.score) ?? 0) + 1)
+  const descending = [...counts.keys()].sort((a, b) => b - a)
+  const above = new Map<number, number>()
+  let seen = 0
+  for (const score of descending) {
+    above.set(score, seen)
+    seen += counts.get(score) ?? 0
+  }
+  const top = descending[0]
+  return props.entries.slice(0, props.max).map((e) => ({
+    ...e,
+    rank: 1 + (above.get(e.score) ?? 0),
+    leader: e.score > 0 && top !== undefined && e.score >= top,
+  }))
+})
 </script>
 
 <template>

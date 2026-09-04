@@ -88,6 +88,29 @@ async function rosterCount(page) {
 
 const run = { roundSubmits: {}, t: {} }
 
+/**
+ * Presence instrumentation. Every non-audience client subscribes to the room-wide
+ * `player/*` wildcards, so at N players each client hears N heartbeats per beat.
+ * That fan-out (and the re-render it used to cause on every one) is the thing that
+ * decides whether 200 phones work, so measure it directly on ONE probe client:
+ * relay frames delivered, and how many of them actually moved the UI.
+ */
+function instrument(runtime, relay) {
+  const stats = { frames: 0, pingFrames: 0, renders: 0 }
+  const realOn = relay.on.bind(relay)
+  relay.on = (pattern, cb, opts) =>
+    realOn(
+      pattern,
+      (v, a) => {
+        stats.frames++
+        if (a.endsWith('/ping')) stats.pingFrames++
+        cb(v, a)
+      },
+      opts,
+    )
+  return { stats, start: () => runtime.onChange(() => stats.renders++) }
+}
+
 ;(async () => {
   log(`Load test: ${HEADLESS} headless + ${PHONES} phones + 1 host, relay ${RELAY}`)
   const { id: gameId, cookie } = await saveGame()
@@ -123,10 +146,18 @@ const run = { roundSubmits: {}, t: {} }
   const players = []
   const relays = []
   let connected = 0
+  let probe = null
   const spawn = async (name) => {
     const relay = createClaspRelay(RELAY)
     relays.push(relay)
+    // Instrument the FIRST player: it sees the same firehose every phone sees.
+    const inst = players.length === 0 ? instrument(null, relay) : null
     const p = createRoom({ relay, room: code, role: 'player', name })
+    if (inst) {
+      inst.start = () => p.onChange(() => inst.stats.renders++)
+      inst.start()
+      probe = inst
+    }
     const submitted = new Set()
     p.onChange(() => {
       const s = p.getSnapshot()
@@ -153,6 +184,29 @@ const run = { roundSubmits: {}, t: {} }
   run.t.connectMs = now() - tConnect
   await sleep(3000) // let profiles publish + roster settle
   const ready = players.filter((p) => p.getSnapshot().ready).length
+  // Measure the steady-state presence cost with the room fully joined and IDLE:
+  // nobody is playing, so everything counted here is pure heartbeat overhead.
+  if (probe) {
+    const before = { ...probe.stats }
+    const window = 15_000
+    await sleep(window)
+    const d = {
+      frames: probe.stats.frames - before.frames,
+      pings: probe.stats.pingFrames - before.pingFrames,
+      renders: probe.stats.renders - before.renders,
+    }
+    run.idle = {
+      seconds: window / 1000,
+      framesPerSec: +(d.frames / (window / 1000)).toFixed(1),
+      pingFramesPerSec: +(d.pings / (window / 1000)).toFixed(1),
+      rendersPerSec: +(d.renders / (window / 1000)).toFixed(2),
+    }
+    log(
+      `idle presence on one phone (${window / 1000}s, ${connected} players): ` +
+        `${run.idle.framesPerSec} relay frames/s (${run.idle.pingFramesPerSec} heartbeats), ` +
+        `${run.idle.rendersPerSec} re-renders/s`,
+    )
+  }
   log(`headless: connected=${connected}/${HEADLESS} ready=${ready} (in ${run.t.connectMs}ms, ${fails.length} spawn fails)`)
 
   // ── Phone players (real browsers) ──
@@ -284,7 +338,11 @@ const run = { roundSubmits: {}, t: {} }
   const headline = await host.evaluate(() => document.querySelector('.rhead h1')?.textContent?.trim() ?? '')
   log(`results headline: "${headline}"`)
   const resultsOv = await overflow(host)
-  log(`host RESULTS overflow: horizontal ${resultsOv.hx}px, vertical ${resultsOv.vy}px (should be ~0/0, fixed view)`)
+  // Horizontal must be 0. Vertical is EXPECTED to be non-zero here: only the active
+  // round stage is capped to the viewport (GameHost `.stage`); the lobby and the
+  // results keep their own roots and page-scroll by design, because the host has to
+  // reach the "Play again / New room" row below the board.
+  log(`host RESULTS overflow: horizontal ${resultsOv.hx}px (must be 0), vertical ${resultsOv.vy}px (results page-scroll by design)`)
   run.resultsOv = resultsOv
   // The leaderboard slide is the first carousel page when the game scored. Confirm it's
   // bounded (capped at 10 rows) and reachable.
@@ -300,6 +358,12 @@ const run = { roundSubmits: {}, t: {} }
   log(`submissions per round (headless): ${JSON.stringify(run.roundSubmits)}`)
   log(`host page errors: ${hostErrors.length}${hostErrors.length ? ' :: ' + hostErrors.slice(0, 3).join(' | ') : ''}`)
   log(`spawn/join fails: ${fails.length}${fails.length ? ' :: ' + fails.slice(0, 3).join(' | ') : ''}`)
+  if (run.idle) {
+    log(
+      `idle presence: ${run.idle.framesPerSec} frames/s inbound per phone, ` +
+        `${run.idle.rendersPerSec} re-renders/s (a heartbeat that changes nothing must not re-render)`,
+    )
+  }
 
   if (phones[0]) {
     await phones[0].bringToFront()

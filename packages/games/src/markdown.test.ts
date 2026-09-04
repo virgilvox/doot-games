@@ -414,6 +414,60 @@ describe('parseMarkdownGame', () => {
     for (const r of [...q.rounds, ...f.rounds]) expect(SCHEMAS[r.block]?.safeParse(r.content).success ?? true).toBe(true)
   })
 
+  it('gives a rank/tier item its own picture with `- Label | <url>`', () => {
+    const { rounds } = parseMarkdownGame(
+      '## rank\nprompt: Rank the snacks\n- Tacos | https://cdn.test/tacos.png\n- Pizza\n- Sushi | /uploads/sushi.jpg',
+    )
+    const c = rounds[0]!.content as { items: Array<{ label: string; image: string }> }
+    expect(c.items.map((i) => i.label)).toEqual(['Tacos', 'Pizza', 'Sushi'])
+    expect(c.items.map((i) => i.image)).toEqual(['https://cdn.test/tacos.png', '', '/uploads/sushi.jpg'])
+    expect(SCHEMAS.rank!.safeParse(c).success).toBe(true)
+
+    const t = parseMarkdownGame('## tier\nprompt: Tier them\n- Pizza | https://cdn.test/p.png\n- Kale')
+    const tc = t.rounds[0]!.content as { items: Array<{ label: string; image: string }> }
+    expect(tc.items.map((i) => [i.label, i.image])).toEqual([
+      ['Pizza', 'https://cdn.test/p.png'],
+      ['Kale', ''],
+    ])
+    expect(SCHEMAS.tier!.safeParse(tc).success).toBe(true)
+  })
+
+  it('keeps a pipe that is part of the label (only a real image URL becomes a picture)', () => {
+    const { rounds } = parseMarkdownGame(
+      '## rank\nprompt: P\n- Rock | Paper\n- Pricing page | /pricing\n- Ask me | later\n- Scissors',
+    )
+    const c = rounds[0]!.content as { items: Array<{ label: string; image: string }> }
+    // A bare site path with no file name reads as prose, not a picture.
+    expect(c.items.map((i) => i.label)).toEqual([
+      'Rock | Paper',
+      'Pricing page | /pricing',
+      'Ask me | later',
+      'Scissors',
+    ])
+    expect(c.items.every((i) => i.image === '')).toBe(true)
+  })
+
+  it('rejects the docs placeholder form, so a copied `<url>` is never taken as an image', () => {
+    const { rounds } = parseMarkdownGame('## rank\nprompt: P\n- Tacos | <url>\n- Pizza')
+    const c = rounds[0]!.content as { items: Array<{ label: string; image: string }> }
+    expect(c.items[0]).toMatchObject({ label: 'Tacos | <url>', image: '' })
+  })
+
+  it('leaves every OTHER block\'s list items alone, URL tail and all', () => {
+    // The picture syntax belongs to rank/tier. A guess option or a survey answer that
+    // happens to end in a URL must keep its full text, not be silently truncated.
+    const g = parseMarkdownGame('## guess\nprompt: Where?\n- See https://example.com/a (correct)\n- Nowhere')
+    const gc = g.rounds[0]!.content as { options: Array<{ label: string }> }
+    expect(gc.options.map((o) => o.label)).toEqual(['See https://example.com/a', 'Nowhere'])
+
+    const p = parseMarkdownGame('## poll\nprompt: P\n- Read the docs | https://example.com/docs\n- No')
+    const pc = p.rounds[0]!.content as { options: Array<{ label: string }> }
+    expect(pc.options[0]!.label).toBe('Read the docs | https://example.com/docs')
+
+    const s2 = parseMarkdownGame('## survey\nprompt: S\n- Pepperoni:35\n- Cheese:20')
+    expect(SCHEMAS.survey!.safeParse(s2.rounds[0]!.content).success).toBe(true)
+  })
+
   it('clamps a runaway prompt to PROMPT_MAX and warns, so the host stage cannot overflow', () => {
     const long = 'x'.repeat(900)
     const { rounds, warnings } = parseMarkdownGame(`## poll\nprompt: ${long}\n- A\n- B`)

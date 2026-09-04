@@ -7,8 +7,10 @@ fonts, and radii from the active theme's CSS custom properties.
 - Layout/system: `ThemeProvider`, `Stage`, `PhoneShell`, `ControlBar`, `DButton`,
   `DootLogo`, `QrCode`, `RoomTicket`.
 - Inputs: `OptionGrid`, `RatingStrip`, `RankList`, `JoinForm`.
-- Display/results: `VoteBars`, `Leaderboard`, `StatStrip`, `CountdownRing`,
-  `RosterChips`, `Avatar`, `ConfettiBurst` (CSS).
+- Display/results: `VoteBars`, `WinnerBoard` (an ordered result with the winner on
+  top, large and with its picture, and the whole rest of the order listed under it),
+  `Leaderboard`, `StatStrip`, `CountdownRing`, `RosterChips`, `Avatar`,
+  `ConfettiBurst` (CSS).
 - Catalog/discovery: `GameCover` (gradient cover + per-type motif), `GameTypeIcon`
   (colored type icon), `SiteFooter`, and the `gameVisual(type)` map (`visuals.ts`).
 - Drawing (Pixi 8, lazy-loaded): `DrawCanvas`, `DrawThumb` (SVG), `DrawValue` (type).

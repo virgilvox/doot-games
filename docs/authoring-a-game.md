@@ -173,6 +173,15 @@ Scoring helpers for these games are pure and tested in `blocks/scoring.ts`:
 | **per-player:** `assignContent(ctx)?` | build SECRET per-player content (a hidden role, OR a per-player slice of a prior round); returns `{ perPlayer: Record<pid, content>, answer? }`. `ctx.sources` carries earlier rounds' inputs + their withheld answer, so an assignment can derive from a PRIOR round (the P7 foundation), not just the roster |
 | `toVoteText(content, input)?` | render this block's submission to votable text for a later judge round |
 
+A results fragment's `distributions` are value bars by default. A block whose bars ARE
+an ordering (rank; a rate section's combined ranking) sets `layout: 'podium'` on the
+distribution instead: the results page then leads with the first bar as a large winner
+card and lists every other bar under it, in order. Give a bar an `image` and it shows
+that picture (full size when it leads a podium, as a thumbnail otherwise); an
+`AwardCard` takes an `image` too, for a highlight card of its own. Picture-bearing
+items are authored with a plain `image` field on the item, which is all the auto-form
+needs to render an uploader (see below).
+
 A block's `aggregate`/`derive`/`revealSummary` may also read `ctx.audienceVotesFor`/
 `ctx.audienceVotes` (P4B: spectator votes, supplied only when the host turns on "let
 the crowd's votes count"; the vote-tallying blocks fold them as a capped bloc) and a
@@ -217,7 +226,7 @@ field-name conventions get nicer controls for free:
 
 | Field name | Rendered as |
 | --- | --- |
-| `image` (string) | URL input + preview (with an Upload button when storage is configured) |
+| `image` (string) | URL input + preview (with an Upload button when storage is configured). Works INSIDE an array item too, so `items: [{ id, label, image }]` gets a picture per item with no editor code |
 | `prompt` (string) | multi-line textarea |
 | `timer` / any nullable number | a number with an on/off toggle |
 | `correct` (number, with a sibling `options` array) | a "mark correct" option select |
@@ -240,6 +249,16 @@ a make round above it), so the Custom editor (`/editor/custom`) can build every
 first-party two-phase pattern by hand, not just via markdown import. Recipes are
 filtered to the blocks a given game type composes, so a single-type editor shows
 only its own block.
+
+**Ordering rules (the rail).** Rounds are one flat list; a *section* is a run of
+CONSECUTIVE rounds sharing a `group` id, which is what makes it renderable as a box.
+Three things therefore move as a unit, by drag or by the step arrows: a whole section
+(grab its header), a make+judge pair (grab either half; separating them would leave
+the judge round nothing to build from), and anything else on its own. A drop is pulled
+to the nearest legal gap rather than being allowed to split one of those, and the
+absolute round indices a config carries (`from`, `fromShares.from`) are rewritten to
+follow the rounds they point at. The rules are pure and unit-tested in
+`apps/web/app/utils/rail.ts`; the editor component only wires events to them.
 
 From the editor you **Host now** (stows an in-memory draft and opens `/host/<type>`)
 or **Save** (POSTs to `/api/games`, returns a shareable `/g/<id>`). Saving needs an

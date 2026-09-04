@@ -162,11 +162,17 @@ prompt: Best pizza topping?
 
 ### `rank`: order items into a room-consensus ranking
 Fields: `prompt`, `image`, `timer` (default none). The items to order as `- `.
+Give an item its own picture by putting a pipe and the image URL after the label
+(`- Tacos | https://example.com/tacos.jpg`); the results lead with the room's #1 shown
+large with that picture, and list the rest of the order under it. Only a trailing
+`http(s)://…` or a site-root path naming a file (`/uploads/tacos.jpg`) counts, so an
+ordinary label keeps its pipe: both `Rock | Paper` and `Pricing page | /pricing` stay
+text.
 
 ```markdown
 ## rank
 prompt: Rank these from best to worst
-- Tacos
+- Tacos | https://example.com/tacos.jpg
 - Pizza
 - Sushi
 ```
@@ -175,7 +181,9 @@ prompt: Rank these from best to worst
 Fields: `prompt`, `image`, `timer` (default none), `tiers:` (pipe-separated band
 labels; default `S | A | B | C | D`), `scored: yes` (score players for matching the
 room), `hideboard: yes` (hide the forming consensus until the reveal). The items to
-place as `- `. Everyone tiers every item; the big screen shows the consensus board.
+place as `- ` (put a pipe and an image URL after a label for a per-item picture, e.g.
+`- Pizza | https://example.com/pizza.jpg`). Everyone tiers every item; the big screen
+shows the consensus board.
 
 ```markdown
 ## tier

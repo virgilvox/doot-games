@@ -293,6 +293,17 @@ function sourceIndexFor(i: number): number | null {
   const src = from && from.length ? from[from.length - 1]! : i - 1
   return src >= 0 && src < config.rounds.length ? src : null
 }
+/**
+ * Is this round glued to the one above it? A judge round with no explicit `from`
+ * builds its options from whatever sits immediately above it at play time, so
+ * separating the two silently breaks the pair. The rail's ordering rules take this
+ * as a predicate and keep such a pair together through every move.
+ */
+function boundToPrev(i: number): boolean {
+  const inst = config.rounds[i]
+  if (!inst || i === 0 || !isDerived(inst)) return false
+  return sourceIndexFor(i) === i - 1
+}
 /** The thing a derived block produces (its first derived field), e.g. "options". */
 function derivedNoun(inst: RoundInstance): string {
   return derivedFieldsOf(inst)[0] ?? 'options'
@@ -313,8 +324,16 @@ function roundError(inst: RoundInstance, i: number): string {
     return path ? `${path}: ${first?.message}` : (first?.message ?? 'Invalid')
   }
   // A judge round (Vote/Split) needs an earlier round to build its options from.
-  if (block.derive && sourceIndexFor(i) === null) {
-    return 'This round builds on the round before it. Add a writing round (Quip or Fill) above it.'
+  if (block.derive) {
+    const src = sourceIndexFor(i)
+    if (src === null) {
+      return 'This round builds on the round before it. Add a writing round (Quip or Fill) above it.'
+    }
+    // An explicit source that a reorder pushed BELOW this round can never feed it: the
+    // answers do not exist yet when this round runs.
+    if (src >= i) {
+      return 'This round builds on a round that now comes after it. Move it back above this round.'
+    }
   }
   return ''
 }
@@ -447,20 +466,39 @@ function addRecipe(recipe: Recipe) {
   showAdd.value = false
 }
 function removeRound(i: number) {
+  const before = [...config.rounds]
   config.rounds.splice(i, 1)
+  // `from` / `fromShares.from` are absolute round indices; without this they keep
+  // pointing at whatever slid into the removed round's slot.
+  remapRoundRefs(before, config.rounds)
   clearPreviews()
   if (selected.value >= config.rounds.length) selected.value = Math.max(0, config.rounds.length - 1)
   else if (selected.value > i) selected.value -= 1
 }
+/** Step a round (with the judge round bound to it, if any) one position. */
 function moveRound(i: number, dir: -1 | 1) {
-  const j = i + dir
-  if (j < 0 || j >= config.rounds.length) return
-  const [r] = config.rounds.splice(i, 1)
-  config.rounds.splice(j, 0, r!)
+  const run = boundRunAt(config.rounds, i, boundToPrev)
+  const gap = snapGap(config.rounds, dir === -1 ? run.start - 1 : run.start + run.count + 1, {
+    boundToPrev,
+    prefer: dir,
+  })
+  // Nothing to do at either end of the list (the only legal gaps left are the run's
+  // own edges), so the button is inert rather than churning the config.
+  if (gap >= run.start && gap <= run.start + run.count) return
+  const editing = config.rounds[selected.value]
+  const before = [...config.rounds]
+  const { rounds, start } = moveRun(config.rounds, run.start, run.count, gap)
+  config.rounds = rounds
+  remapRoundRefs(before, config.rounds)
+  // A step across a section's edge changes which section the run is in; without this
+  // it would keep a group it is no longer next to, and that section would draw as two
+  // boxes with the same name. Settled as ONE decision for the whole run, so a
+  // make+judge pair can never end up half in and half out of a section.
+  settleGroupAt(config.rounds, start, run.count)
+  pruneGroups()
   clearPreviews()
   // Keep the selection following the round the author just moved.
-  if (selected.value === i) selected.value = j
-  else if (selected.value === j) selected.value = i
+  if (editing) selected.value = Math.max(0, config.rounds.indexOf(editing))
 }
 
 // ── Drag to reorder + drag in/out of sections (native HTML5 DnD; arrows stay for
@@ -470,86 +508,160 @@ function moveRound(i: number, dir: -1 | 1) {
 const railEl = ref<HTMLElement | null>(null)
 function autoScroll(e: DragEvent) {
   const el = railEl.value
-  if (!el || dragIndex.value === null) return
+  if (!el || !isDragging.value) return
   const r = el.getBoundingClientRect()
   const edge = 56
   if (e.clientY < r.top + edge) el.scrollTop -= 14
   else if (e.clientY > r.bottom - edge) el.scrollTop += 14
 }
-const dragIndex = ref<number | null>(null)
+// What is being dragged: a run of consecutive rounds. A single round is a run of one;
+// a SECTION is its whole run, so grabbing a section's handle moves every round it
+// holds, together, instead of stranding the rest behind. `group` is the run's own
+// section id, which a section drag keeps (sections never nest). `section` records
+// which HANDLE started the drag, so a one-round section can still be dragged OUT of
+// its section by its row while its header still moves the section as a section.
+const dragRun = ref<{ from: number; count: number; group: string | null; section: boolean } | null>(null)
+// A section drag (as opposed to a make+judge pair, which is also a multi-round run):
+// only a section may not be dropped inside another section, and only a section keeps
+// its own group wherever it lands.
+const draggingSection = computed(() => dragRun.value?.section === true)
 // The insertion gap (0..rounds.length) the drop lands at, for the indicator line.
 const dropGap = ref<number | null>(null)
 // Which section the drop lands in: a group id (join that section) or null (loose, out
 // of every section). Set by whichever section box / rail gutter the cursor is over, so
-// the drop does exactly what the highlighted box shows. No hidden inference.
+// the drop does exactly what the highlighted box shows. No hidden inference. A section
+// drag never re-parents, so this is pinned to the dragged section's own id.
 const dropGroup = ref<string | null>(null)
-const isDragging = computed(() => dragIndex.value !== null)
-const dropTargetGroup = computed(() => dropGroup.value ?? undefined)
+const isDragging = computed(() => dragRun.value !== null)
+// A make+judge pair moving as one (not a whole section), so the hint can say so.
+const draggingPair = computed(() => (dragRun.value?.count ?? 0) > 1 && !draggingSection.value)
+const dropTargetGroup = computed(() => (draggingSection.value ? undefined : (dropGroup.value ?? undefined)))
 const dropTargetName = computed(() => groupById(dropGroup.value ?? undefined)?.name?.trim() || 'No section')
+// True for a round that is inside the section currently being dragged, so the whole
+// block dims as one thing rather than only the row under the cursor.
+function inDragRun(i: number): boolean {
+  const run = dragRun.value
+  return !!run && i >= run.from && i < run.from + run.count
+}
 
-function onDragStart(i: number, e: DragEvent) {
-  dragIndex.value = i
-  dropGroup.value = config.rounds[i]?.group ?? null
+function startDrag(from: number, count: number, group: string | null, section: boolean, e: DragEvent) {
+  dragRun.value = { from, count, group, section }
+  dropGroup.value = group
+  dropGap.value = null
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', String(i)) // Firefox needs data set to drag
+    e.dataTransfer.setData('text/plain', String(from)) // Firefox needs data set to drag
     e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 16, 16)
   }
+}
+function onDragStart(i: number, e: DragEvent) {
+  // A make round and the judge round built from it are one thing: dragging either
+  // takes both, so a Write & Vote pair can never be pulled apart by a reorder.
+  const run = boundRunAt(config.rounds, i, boundToPrev)
+  startDrag(run.start, run.count, config.rounds[run.start]?.group ?? null, false, e)
+}
+/** Drag a whole section by its header: the run moves as one block. */
+function onSectionDragStart(groupId: string, start: number, count: number, e: DragEvent) {
+  startDrag(start, count, groupId, true, e)
 }
 // Over a round: set the insertion position (top half -> before, bottom half -> after)
 // AND the drop target = the section of the round you're hovering (a loose round drops
 // loose). Reading the hovered round directly is robust: it never gets stuck on the
 // section you started in, so dragging OUT (onto a loose round) always works.
 function onDragOver(i: number, e: DragEvent) {
-  if (dragIndex.value === null) return
+  if (!isDragging.value) return
   e.preventDefault() // required so the drop fires
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  dropGap.value = e.clientY < rect.top + rect.height / 2 ? i : i + 1
-  dropGroup.value = config.rounds[i]?.group ?? null
+  setDropGap(e.clientY < rect.top + rect.height / 2 ? i : i + 1)
+  if (!draggingSection.value) dropGroup.value = config.rounds[i]?.group ?? null
 }
 // Over a section box but not on one of its rounds (the header / padding): still drop
 // INTO this section. No stopPropagation, so the round handlers above stay authoritative.
-function onSectionDragOver(groupId: string, e: DragEvent) {
-  if (dragIndex.value === null) return
+// A section being dragged keeps its own group, so it lands BESIDE this box, never in it.
+function onSectionDragOver(groupId: string, start: number, count: number, e: DragEvent) {
+  if (!isDragging.value) return
   e.preventDefault()
+  if (draggingSection.value) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setDropGap(e.clientY < rect.top + rect.height / 2 ? start : start + count)
+    return
+  }
   dropGroup.value = groupId
 }
 // The rail gutter only needs to allow a drop (so releasing between rows still lands);
 // it does NOT change the target, so it can't override a hovered round's section.
 function onRailDragOver(e: DragEvent) {
-  if (dragIndex.value === null) return
+  if (!isDragging.value) return
   e.preventDefault()
+}
+// Record where the drop lands, pulled to the nearest legal gap: never between a make
+// round and its judge round, and (for a whole-section drag) never inside another
+// section. A single round may still land inside a section, because that is how an
+// author joins one.
+function setDropGap(gap: number) {
+  dropGap.value = snapGap(config.rounds, gap, {
+    keepSections: draggingSection.value,
+    ...(dragRun.value?.group ? { ownGroup: dragRun.value.group } : {}),
+    boundToPrev,
+  })
 }
 function onDrop(e: DragEvent) {
   e.preventDefault()
   e.stopPropagation() // handle once (item drop), not again as it bubbles to box/rail
-  if (dragIndex.value !== null && dropGap.value !== null) moveRoundTo(dragIndex.value, dropGap.value, dropGroup.value)
+  const run = dragRun.value
+  if (run && dropGap.value !== null) moveRoundsTo(run.from, run.count, dropGap.value, dropGroup.value, run.section)
   endDrag()
 }
 function endDrag() {
-  dragIndex.value = null
+  dragRun.value = null
   dropGap.value = null
   dropGroup.value = null
 }
-// Move a round to the insertion gap and set its section to exactly where it was dropped
-// (a section box -> that group; the gutter -> loose). Selection follows the round you
-// were editing (by identity), not its index.
-function moveRoundTo(from: number, gap: number, group: string | null) {
+/**
+ * Move a run of rounds to the insertion gap and set its section to exactly where it
+ * was dropped (a section box -> that group; the gutter -> loose). A multi-round run is
+ * a whole section moving, so every round in it keeps the run's own group. Selection
+ * follows the round you were editing (by identity), not its index.
+ */
+function moveRoundsTo(from: number, count: number, gap: number, group: string | null, keepGroup = false) {
   const editing = config.rounds[selected.value]
-  let dest = gap > from ? gap - 1 : gap
-  dest = Math.max(0, Math.min(dest, config.rounds.length - 1))
-  if (dest !== from) {
-    const [r] = config.rounds.splice(from, 1)
-    config.rounds.splice(dest, 0, r!)
+  // "Drop into section X" must also land the round inside X's run, or X would draw as
+  // two boxes. That is JOINING only: a section moving ITSELF keeps its group wherever
+  // it lands, and clamping it back into its own slot would pin it in place.
+  const joined = keepGroup ? gap : clampGapIntoSection(config.rounds, gap, group)
+  // The join clamp can land back between a make round and its judge, so re-snap: a
+  // pair is never split, whichever step last moved the gap.
+  const target = snapGap(config.rounds, joined, { boundToPrev })
+  const before = [...config.rounds]
+  const { rounds, start } = moveRun(config.rounds, from, count, target)
+  config.rounds = rounds
+  // `from` / `fromShares.from` are absolute round indices, so a reorder has to carry
+  // them along or they silently point at the wrong round.
+  remapRoundRefs(before, config.rounds)
+  for (let i = start; i < start + count && i < config.rounds.length; i++) {
+    const moved = config.rounds[i]
+    if (!moved) continue
+    if (group) moved.group = group
+    else delete moved.group
   }
-  const moved = config.rounds[dest]
-  if (!moved) return
-  if (group) moved.group = group
-  else delete moved.group
   pruneGroups()
   clearPreviews()
   if (editing) selected.value = Math.max(0, config.rounds.indexOf(editing))
+}
+/** Step a whole rail row (a loose round, or an entire section) past its neighbour. */
+function moveRow(rowIndex: number, dir: -1 | 1) {
+  const rows = railRuns(config.rounds)
+  const row = rows[rowIndex]
+  const gap = rowStepGap(config.rounds, rowIndex, dir)
+  if (!row || gap === null) return
+  const target = snapGap(config.rounds, gap, {
+    keepSections: row.type === 'section',
+    ...(row.groupId ? { ownGroup: row.groupId } : {}),
+    boundToPrev,
+    prefer: dir,
+  })
+  moveRoundsTo(row.start, row.count, target, row.groupId ?? null, row.type === 'section')
 }
 
 // The rail as a list of loose rounds and section boxes (a contiguous run of rounds
@@ -559,26 +671,32 @@ interface RailLoose {
   type: 'loose'
   round: RoundInstance
   index: number
+  /** This row's position among rail ROWS (not rounds), for the whole-row arrows. */
+  row: number
 }
 interface RailSection {
   type: 'section'
   group: GroupDef
   items: Array<{ round: RoundInstance; index: number }>
+  start: number
+  count: number
+  row: number
 }
-const railRows = computed<Array<RailLoose | RailSection>>(() => {
-  const rows: Array<RailLoose | RailSection> = []
-  config.rounds.forEach((round, index) => {
-    const gid = round.group
-    if (gid) {
-      const last = rows[rows.length - 1]
-      if (last && last.type === 'section' && last.group.id === gid) last.items.push({ round, index })
-      else rows.push({ type: 'section', group: groupById(gid) ?? { id: gid, name: '' }, items: [{ round, index }] })
-    } else {
-      rows.push({ type: 'loose', round, index })
-    }
-  })
-  return rows
-})
+const railRows = computed<Array<RailLoose | RailSection>>(() =>
+  railRuns(config.rounds).map((run, row) =>
+    run.type === 'section'
+      ? {
+          type: 'section' as const,
+          group: groupById(run.groupId) ?? { id: run.groupId ?? '', name: '' },
+          items: run.items.map((round, k) => ({ round, index: run.start + k })),
+          start: run.start,
+          count: run.count,
+          row,
+        }
+      : { type: 'loose' as const, round: run.items[0] as RoundInstance, index: run.start, row },
+  ),
+)
+const railRowCount = computed(() => railRows.value.length)
 function dropAboveAt(i: number): boolean {
   return isDragging.value && dropGap.value === i
 }
@@ -697,7 +815,7 @@ Then one or more rounds. Each round is a "## type" heading, then "key: value" li
 
 ## guess  - multiple choice with ONE right answer. Fields: prompt, timer (seconds). List 2+ "- choice"; mark the correct one with "(correct)".
 ## poll   - opinion, no right answer. Fields: prompt. List 2+ "- choice".
-## rank   - players put items in order. Fields: prompt. List 2+ "- item".
+## rank   - players put items in order. Fields: prompt. List 2+ "- item". A picture per item: "- Tacos | https://example.com/tacos.jpg".
 ## rate   - score things on a scale. Fields: prompt, "categories: A, B, C", "scale: 1-5" (or letters like "F, D, C, B, A").
 ## draw   - players sketch it. Fields: prompt, timer. Add "vote: true" to make it draw-then-vote: the room draws, then votes on the gallery and the best drawing wins.
 
@@ -926,9 +1044,11 @@ onScopeDispose(() => {
               + Add section
             </button>
           </div>
-          <!-- While dragging, say exactly where the round will land. -->
+          <!-- While dragging, say exactly where the round (or the whole section) lands. -->
           <div v-if="isDragging" class="ed-drag-hint" :class="{ into: !!dropTargetGroup }">
-            <template v-if="dropTargetGroup">Drop into <strong>{{ dropTargetName }}</strong></template>
+            <template v-if="draggingSection">Moving <strong>{{ dropTargetName }}</strong> and its rounds</template>
+            <template v-else-if="draggingPair">Moving <strong>both rounds</strong> of this pair<template v-if="dropTargetGroup"> into {{ dropTargetName }}</template></template>
+            <template v-else-if="dropTargetGroup">Drop into <strong>{{ dropTargetName }}</strong></template>
             <template v-else>Drop here, <strong>no section</strong></template>
           </div>
           <div v-if="config.rounds.length" class="ed-rail-list" role="list" @dragover="onRailDragOver" @drop="onDrop">
@@ -945,7 +1065,7 @@ onScopeDispose(() => {
                 :total="config.rounds.length"
                 :selected="selected === row.index"
                 :error="errors[row.index]"
-                :dragging="dragIndex === row.index"
+                :dragging="inDragRun(row.index)"
                 :drop-above="dropAboveAt(row.index)"
                 :drop-below="dropBelowAt(row.index)"
                 @select="select(row.index)"
@@ -961,11 +1081,23 @@ onScopeDispose(() => {
               <div
                 v-else
                 class="ed-section"
-                :class="{ 'drop-into': isDragging && dropTargetGroup === row.group.id }"
-                @dragover="onSectionDragOver(row.group.id, $event)"
+                :class="{
+                  'drop-into': isDragging && dropTargetGroup === row.group.id,
+                  dragging: draggingSection && dragRun?.group === row.group.id,
+                }"
+                @dragover="onSectionDragOver(row.group.id, row.start, row.count, $event)"
                 @drop="onDrop"
               >
-                <div class="ed-section-head">
+                <!-- The header is the section's own drag handle: grabbing it moves the
+                     whole box, every round inside it, as one. The arrows do the same
+                     for keyboard and touch, where native HTML5 drag does not work. -->
+                <div
+                  class="ed-section-head"
+                  draggable="true"
+                  @dragstart="onSectionDragStart(row.group.id, row.start, row.count, $event)"
+                  @dragend="endDrag"
+                >
+                  <span class="ed-section-grip" aria-hidden="true" title="Drag to move this whole section">⠿</span>
                   <span class="ed-section-tag">Section</span>
                   <input
                     class="ed-section-input"
@@ -973,8 +1105,29 @@ onScopeDispose(() => {
                     aria-label="Section name"
                     maxlength="120"
                     placeholder="Name this section"
+                    draggable="false"
                     @input="renameGroup(row.group.id, ($event.target as HTMLInputElement).value)"
                   />
+                  <span class="ed-section-controls">
+                    <button
+                      type="button"
+                      class="sf-icon-btn"
+                      :disabled="row.row === 0"
+                      :aria-label="`Move ${row.group.name.trim() || 'this section'} up`"
+                      @click="moveRow(row.row, -1)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      class="sf-icon-btn"
+                      :disabled="row.row === railRowCount - 1"
+                      :aria-label="`Move ${row.group.name.trim() || 'this section'} down`"
+                      @click="moveRow(row.row, 1)"
+                    >
+                      ↓
+                    </button>
+                  </span>
                 </div>
                 <div class="ed-section-rounds">
                   <RailRound
@@ -989,7 +1142,7 @@ onScopeDispose(() => {
                     :total="config.rounds.length"
                     :selected="selected === item.index"
                     :error="errors[item.index]"
-                    :dragging="dragIndex === item.index"
+                    :dragging="inDragRun(item.index)"
                     :drop-above="dropAboveAt(item.index)"
                     :drop-below="dropBelowAt(item.index)"
                     @select="select(item.index)"
@@ -1362,7 +1515,7 @@ onScopeDispose(() => {
                 <ul>
                   <li><b>guess</b>: multiple choice with one right answer. Mark it <code>(correct)</code>. <code>timer:</code> in seconds.</li>
                   <li><b>poll</b>: opinion, no right answer. Just list the choices.</li>
-                  <li><b>rank</b>: players drag items into order. List the items.</li>
+                  <li><b>rank</b>: players drag items into order. List the items. Add a picture to one with <code>- Label | https://...</code>.</li>
                   <li><b>rate</b>: score on a scale. <code>categories: A, B</code> and <code>scale: 1-5</code> (or letters like <code>F, D, C, B, A</code>).</li>
                   <li><b>draw</b>: players sketch the prompt. Add <code>vote: true</code> to draw then vote on the gallery (best drawing wins).</li>
                 </ul>
@@ -1805,6 +1958,28 @@ onScopeDispose(() => {
   align-items: center;
   gap: 8px;
   padding: 2px 4px 0;
+  cursor: grab;
+}
+.ed-section-head:active {
+  cursor: grabbing;
+}
+/* The section's own grip, styled like a round row's so both read as "drag me"
+   (RailRound scopes its handle style, so this one stands on its own). */
+.ed-section-grip {
+  flex: none;
+  color: var(--primary);
+  font-size: 15px;
+  line-height: 1;
+  padding-left: 2px;
+  user-select: none;
+}
+.ed-section.dragging {
+  opacity: 0.4;
+}
+.ed-section-controls {
+  flex: none;
+  display: flex;
+  gap: 2px;
 }
 .ed-section-tag {
   flex: none;
@@ -1820,6 +1995,7 @@ onScopeDispose(() => {
 .ed-section-input {
   flex: 1;
   min-width: 0;
+  cursor: text;
   font: inherit;
   font-size: 13px;
   font-weight: 800;

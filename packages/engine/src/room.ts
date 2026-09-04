@@ -33,6 +33,40 @@ import type { Identity, Phase, Player, RoomMeta, RoomState, RoundState } from '.
 
 const PRESENCE_WINDOW_MS = 20_000
 const HEARTBEAT_INTERVAL_MS = 5_000
+// How coarsely the memoized roster re-evaluates the clock. Presence is measured in
+// tens of seconds, so a second's granularity is invisible and keeps the host's
+// four-times-a-second tick from rebuilding the roster every time.
+const PRESENCE_TICK_BUCKET_MS = 1_000
+// Presence is TIME-based: a phone that closes its tab sends nothing, it just stops
+// beating. Some local clock therefore has to notice. Players and viewers get that from
+// the composable's own refresh interval; the host has only its countdown tick, which
+// does not touch the snapshot, so the host sweeps for it on this cadence and emits
+// only when the present set actually changed.
+const PRESENCE_SWEEP_MS = 2_000
+// Presence is a room-wide broadcast: every non-audience client subscribes to
+// `player/*/ping`, so N players beating every 5s costs the relay N deliveries to each
+// of N clients per beat. That is nothing for a house party and is the single dominant
+// cost of a 200-phone room, so past this many players the beat slows down in
+// proportion (and the staleness window widens to match, so a phone still gets four
+// missed beats of grace before it reads as gone). A normal room never leaves the 5s
+// default: the first step is only crossed above ROSTER_STEP players.
+const ROSTER_STEP = 60
+// The cap is deliberately well UNDER `PRESENCE_WINDOW_MS`, because the pre-join name
+// probe (`probePresence`) reads a single retained ping and asks "is it fresher than the
+// base window". If the beat ever reached the window, a live player's last beat would be
+// up to a full window old and would read as ABSENT roughly half the time: the
+// duplicate-name warning would stop firing exactly in the big rooms this pacing exists
+// for, and two phones would silently share one identity. Keep beat << window.
+const MAX_HEARTBEAT_INTERVAL_MS = 12_000
+/** The beat a room of `n` players uses (5s until it is genuinely big). */
+export function heartbeatIntervalFor(n: number): number {
+  const steps = Math.max(1, Math.ceil(n / ROSTER_STEP))
+  return Math.min(HEARTBEAT_INTERVAL_MS * steps, MAX_HEARTBEAT_INTERVAL_MS)
+}
+/** How long a player stays "present" after their last beat, at that beat's cadence. */
+export function presenceWindowFor(intervalMs: number): number {
+  return Math.max(PRESENCE_WINDOW_MS, intervalMs * 4)
+}
 // A relay.get on a key that doesn't exist doesn't answer "absent" quickly, it
 // hangs until the relay's own multi-second get timeout. The pre-join name probe
 // reads keys that are usually ABSENT (a fresh, un-taken name), so it races each
@@ -228,6 +262,22 @@ export class RoomRuntime {
    *  votes never enter scoring. */
   private audienceVotes = new Map<string, RelayValue>()
   private inputs = new Map<string, RelayValue>() // key `${round}:${pid}`
+  /** Bumped whenever `inputs` or `ignoredPids` change. `inputsFor` walks the WHOLE
+   *  inputs map (all rounds x all players) and the host calls it straight from a
+   *  template, so at party scale it ran on every render; the version lets the result
+   *  be reused until something actually changes. */
+  private inputsVersion = 0
+  private inputsCache = new Map<number, { v: number; map: Map<string, RelayValue> }>()
+  /** Bumped whenever the roster changes in a way anyone can see (a name, a team, a
+   *  join). A heartbeat that only refreshes a timestamp does NOT bump it. */
+  private rosterVersion = 0
+  private rosterCache: { v: number; inputs: number; at: number; players: Player[] } | null = null
+  /** Host-only presence sweep (see PRESENCE_SWEEP_MS): when it last ran, and the
+   *  present set it last reported, so a quiet room costs nothing. */
+  private lastPresenceSweep = 0
+  private lastPresentKey: string | null = null
+  /** Memo for the beat (see heartbeatMs), on the roster's own clock bucket. */
+  private beatCache: { at: number; v: number; ms: number } | null = null
   /** Runtime-derived content per round (two-phase). Host fills it on publish;
    *  player/viewer fill it from the relay. Overrides authored content. */
   private runtimeContent = new Map<number, RelayValue>()
@@ -335,6 +385,10 @@ export class RoomRuntime {
       read(addr.playerProfile(room, id)),
     ])
     const hasProfile = prof != null
+    // The BASE window, not a big room's widened one: a wider window here would read a
+    // player who has actually left as still holding their name and block a genuine
+    // reconnect. Safe because MAX_HEARTBEAT_INTERVAL_MS keeps every room's beat well
+    // inside this window, so a live player's retained ping is always fresh enough.
     const present = ping != null && now() - Number(ping) < PRESENCE_WINDOW_MS
     return { id, present, hasProfile }
   }
@@ -365,8 +419,12 @@ export class RoomRuntime {
           /* ignore */
         }
         const t = now()
+        // The room's own beat depends on how many players it holds, and the pings
+        // just collected ARE that roster, so measure staleness against the window
+        // that roster actually uses (a big room beats slower).
+        const window = presenceWindowFor(heartbeatIntervalFor(pings.size))
         let n = 0
-        for (const ms of pings.values()) if (t - ms < PRESENCE_WINDOW_MS) n++
+        for (const ms of pings.values()) if (t - ms < window) n++
         resolve(n)
       }
       try {
@@ -692,7 +750,7 @@ export class RoomRuntime {
       if (!pid) return
       const prof = v as { name?: string; joinedAtIndex?: number }
       const prev = this.playersMap.get(pid)
-      this.playersMap.set(pid, {
+      const next: Player = {
         id: pid,
         name: prof?.name ?? prev?.name ?? 'Player',
         joinedAtIndex: prof?.joinedAtIndex ?? prev?.joinedAtIndex ?? 0,
@@ -701,21 +759,38 @@ export class RoomRuntime {
         // for the heartbeat). `?? this.now()` only fires on first sight.
         lastPing: prev?.lastPing ?? this.now(),
         team: prev?.team, // preserve a team that arrived before the profile
-      })
-      this.emit()
+      }
+      this.playersMap.set(pid, next)
+      // A reconnect replays every retained profile in the room; only the ones that
+      // actually change the roster are worth a re-render.
+      if (!prev || prev.name !== next.name || prev.joinedAtIndex !== next.joinedAtIndex) {
+        this.rosterVersion++
+        this.emit()
+      }
     })
     on(patterns.playerPing(r), (v, a) => {
       const pid = pidFromPlayerAddress(a)
       if (!pid) return
       const prev = this.playersMap.get(pid)
+      const lastPing = Number(v)
+      const window = this.presenceWindow()
+      const wasLive = prev?.lastPing != null && this.now() - prev.lastPing < window
       this.playersMap.set(pid, {
         id: pid,
         name: prev?.name ?? 'Player',
         joinedAtIndex: prev?.joinedAtIndex ?? 0,
-        lastPing: Number(v),
+        lastPing,
         team: prev?.team,
       })
-      this.emit()
+      // A heartbeat is a timestamp nobody reads: the ONLY visible thing it can change
+      // is whether that player counts as present. Every client hears every player's
+      // beat, so re-rendering the room for each one is what makes a 200-phone room
+      // crawl. Emit on a first sighting or a presence flip, and nothing else.
+      const nowLive = this.now() - lastPing < window
+      if (!prev || wasLive !== nowLive) {
+        this.rosterVersion++
+        this.emit()
+      }
     })
     // Teams (when on): every role tracks each player's team so the host roster and
     // the team board can group/colour by it. A player writes their own; the host
@@ -732,7 +807,10 @@ export class RoomRuntime {
         lastPing: prev?.lastPing ?? null,
         team,
       })
-      this.emit()
+      if (!prev || prev.team !== team) {
+        this.rosterVersion++
+        this.emit()
+      }
     })
     } // end roster (skipped for audience)
 
@@ -746,6 +824,7 @@ export class RoomRuntime {
         // a cleared input must read as "not submitted" (not as an empty submission).
         if (v == null) this.inputs.delete(key)
         else this.inputs.set(key, v)
+        this.inputsVersion++
         this.emit()
       })
       // This player's own SECRET per-round content (hidden-role games), delivered
@@ -768,6 +847,7 @@ export class RoomRuntime {
         const key = `${parsed.roundIndex}:${parsed.pid}`
         if (v == null) this.inputs.delete(key)
         else this.inputs.set(key, v)
+        this.inputsVersion++
         this.emit()
       })
       // Host/viewer also collect audience votes (P4B), kept separate from inputs so
@@ -911,12 +991,48 @@ export class RoomRuntime {
   }
 
   /**
+   * The beat this room is currently using, from the LIVE roster.
+   *
+   * Deliberately not `playersMap.size`: that map is never pruned, so it counts every
+   * player ever seen and a room that emptied out would keep a big room's slow beat
+   * forever. Counted against the widest window any pacing can produce, so this never
+   * depends on the beat it is computing, and memoized on the same coarse clock bucket
+   * as the roster since the ping handler asks for it on every inbound heartbeat.
+   */
+  private heartbeatMs(): number {
+    const bucket = Math.floor(this.now() / PRESENCE_TICK_BUCKET_MS)
+    if (this.beatCache?.at === bucket && this.beatCache.v === this.rosterVersion) return this.beatCache.ms
+    const cutoff = this.now() - presenceWindowFor(MAX_HEARTBEAT_INTERVAL_MS)
+    let live = 0
+    for (const p of this.playersMap.values()) if (p.lastPing != null && p.lastPing > cutoff) live++
+    const ms = heartbeatIntervalFor(live)
+    this.beatCache = { at: bucket, v: this.rosterVersion, ms }
+    return ms
+  }
+  /** How stale a player's last beat may be before they read as gone. Widens with the
+   *  beat, so a big room's slower heartbeat still gets four missed beats of grace. */
+  private presenceWindow(): number {
+    return presenceWindowFor(this.heartbeatMs())
+  }
+
+  /**
    * Players considered present: a recent heartbeat, or any submitted input.
    * Keeping players who have answered (even if their heartbeat lapsed) is
    * intentional so scoring counts everyone who played.
+   *
+   * Memoized: this allocates a Set over every input key plus a fresh Player per
+   * member, and `getSnapshot` calls it on EVERY snapshot read (the host ticks four
+   * times a second). Presence also depends on the clock, so the memo expires on a
+   * coarse time bucket as well as on roster/input changes.
    */
   recentPlayers(): Player[] {
     const now = this.now()
+    const bucket = Math.floor(now / PRESENCE_TICK_BUCKET_MS)
+    const cached = this.rosterCache
+    if (cached && cached.v === this.rosterVersion && cached.inputs === this.inputsVersion && cached.at === bucket) {
+      return cached.players
+    }
+    const window = this.presenceWindow()
     const pidsWithInput = new Set<string>()
     for (const key of this.inputs.keys()) {
       pidsWithInput.add(key.slice(key.indexOf(':') + 1))
@@ -924,9 +1040,10 @@ export class RoomRuntime {
     const out: Player[] = []
     for (const [pid, p] of this.playersMap) {
       if (this.ignoredPids.has(pid)) continue // host kicked them: drop from the roster
-      const live = p.lastPing != null && now - p.lastPing < PRESENCE_WINDOW_MS
+      const live = p.lastPing != null && now - p.lastPing < window
       if (live || pidsWithInput.has(pid)) out.push({ ...p, name: this.displayName(p.name) })
     }
+    this.rosterCache = { v: this.rosterVersion, inputs: this.inputsVersion, at: bucket, players: out }
     return out
   }
 
@@ -942,14 +1059,26 @@ export class RoomRuntime {
     return this.inputs.get(`${roundIndex}:${this.me.id}`)
   }
 
-  /** All submissions for a round, keyed by player id (host only). */
+  /**
+   * All submissions for a round, keyed by player id (host only).
+   *
+   * Memoized per round against `inputsVersion`: this walks the WHOLE inputs map
+   * (every round x every player) and the generic host renders it straight from a
+   * template, so without the memo a 200-player room rebuilt every round's map on
+   * every render. Callers only read the result, so the cached Map is shared.
+   */
   inputsFor(roundIndex: number): Map<string, RelayValue> {
+    const hit = this.inputsCache.get(roundIndex)
+    if (hit && hit.v === this.inputsVersion) return hit.map
     const out = new Map<string, RelayValue>()
+    const prefix = `${roundIndex}:`
     for (const [key, value] of this.inputs) {
-      const [idx, pid] = key.split(':')
+      if (!key.startsWith(prefix)) continue
+      const pid = key.slice(prefix.length)
       // A kicked player's submissions never reach the board, the derive, or scoring.
-      if (idx === String(roundIndex) && pid && !this.ignoredPids.has(pid)) out.set(pid, value)
+      if (pid && !this.ignoredPids.has(pid)) out.set(pid, value)
     }
+    this.inputsCache.set(roundIndex, { v: this.inputsVersion, map: out })
     return out
   }
 
@@ -987,6 +1116,7 @@ export class RoomRuntime {
     // input for a round they joined after (every block's scoring assumes this).
     if (!isEligible(this.myJoinedAtIndex, i)) return
     this.inputs.set(`${i}:${this.me.id}`, input)
+    this.inputsVersion++
     // A dense drawing can exceed one relay frame; publishGuarded offloads it and
     // surfaces (never crashes on) an upload failure.
     this.publishGuarded(addr.input(this.room, i, this.me.id), input)
@@ -1038,6 +1168,7 @@ export class RoomRuntime {
     if (this.me.role !== 'player') return
     const value = team && team.length ? team : ''
     const prev = this.playersMap.get(this.me.id)
+    this.rosterVersion++ // the memoized roster must see the new team at once
     this.playersMap.set(this.me.id, {
       id: this.me.id,
       name: prev?.name ?? this.me.name,
@@ -1173,11 +1304,27 @@ export class RoomRuntime {
     return this.myJoinedAtIndex
   }
 
+  /**
+   * Beat this client's presence, re-pacing as the room fills. Every beat costs one
+   * delivery to every other client, so a room that grows past a comfortable roster
+   * slows its beat (and widens its staleness window to match) instead of turning the
+   * relay into a heartbeat firehose. The cadence is re-checked on each beat, so a
+   * room that empties out speeds back up on its own.
+   */
   private startHeartbeat(): void {
     if (this.heartbeatTimer || this.me.role !== 'player') return
-    const beat = () => this.publish(addr.playerPing(this.room, this.me.id), this.now())
+    let paced = this.heartbeatMs()
+    const beat = () => {
+      this.publish(addr.playerPing(this.room, this.me.id), this.now())
+      const next = this.heartbeatMs()
+      if (next !== paced && this.heartbeatTimer) {
+        paced = next
+        clearInterval(this.heartbeatTimer)
+        this.heartbeatTimer = setInterval(beat, next)
+      }
+    }
     beat()
-    this.heartbeatTimer = setInterval(beat, HEARTBEAT_INTERVAL_MS)
+    this.heartbeatTimer = setInterval(beat, paced)
   }
 
   // ---- host actions --------------------------------------------------------
@@ -1216,6 +1363,7 @@ export class RoomRuntime {
     this.assertHost()
     if (!pid) return
     this.ignoredPids.add(pid)
+    this.inputsVersion++
     // If we kicked the delegated driver (co-host/MC), revoke their driving too, else a
     // kicked-but-still-connected client could keep sending drive commands.
     if (pid === this.driverPid) this.setDriver(null)
@@ -1225,7 +1373,10 @@ export class RoomRuntime {
   /** Reverse a kick (e.g. an accidental one): the player rejoins the roster/scoring. */
   unkickPlayer(pid: string): void {
     this.assertHost()
-    if (this.ignoredPids.delete(pid)) this.emit()
+    if (this.ignoredPids.delete(pid)) {
+      this.inputsVersion++
+      this.emit()
+    }
   }
 
   /** Delegate driving to a player (co-host/MC), or pass null to drive yourself.
@@ -1449,14 +1600,32 @@ export class RoomRuntime {
     // Fail before wiping the previous game if the next one is too large to broadcast.
     this.assertConfigBroadcastable(game.publishConfig ?? game.config)
     const prevRounds = this.game?.rounds.length ?? 0
-    const pids = this.recentPlayers().map((p) => p.id)
+    // Clear only what the previous game actually WROTE. The old form published a null
+    // for every (round x player) pair, which is R*(3+2N) frames in one synchronous
+    // loop: over 8,000 for a 20-round game with 200 phones, almost all of them for
+    // addresses that were never set. The host holds every input it has seen (it
+    // subscribes to `input/*/*`) and records which rounds it assigned per-player
+    // content to, so those two sets are exactly the addresses that need clearing.
     for (let i = 0; i < prevRounds; i++) {
       this.publish(addr.roundContent(this.room, i), null)
       this.publish(addr.roundReveal(this.room, i), null)
       this.publish(addr.roundAnswer(this.room, i), null)
-      for (const pid of pids) {
-        this.publish(addr.input(this.room, i, pid), null)
-        this.publish(addr.roundContentForPlayer(this.room, i, pid), null)
+    }
+    for (const key of this.inputs.keys()) {
+      const parsed = key.split(':')
+      const i = Number.parseInt(parsed[0] ?? '', 10)
+      const pid = parsed.slice(1).join(':')
+      if (!Number.isNaN(i) && pid) this.publish(addr.input(this.room, i, pid), null)
+    }
+    // Secret per-player content exists only for a game that declares `assignContent`,
+    // and NOTHING subscribes to another player's secret channel, so a host cannot read
+    // back what it (or a previous host instance, before a reload) published there.
+    // For those games the sweep therefore stays exhaustive; every other game skips it
+    // entirely, which is what takes the cost off the common path.
+    if (this.game?.assignContent) {
+      const pids = this.recentPlayers().map((p) => p.id)
+      for (let i = 0; i < prevRounds; i++) {
+        for (const pid of pids) this.publish(addr.roundContentForPlayer(this.room, i, pid), null)
       }
     }
     this.publish(addr.standings(this.room), null)
@@ -1466,6 +1635,7 @@ export class RoomRuntime {
     this.incomingCommand = null
     // Clear local ephemeral state for the previous game.
     this.inputs.clear()
+    this.inputsVersion++
     this.audienceVotes.clear()
     this.runtimeContent.clear()
     this.perPlayerContent.clear()
@@ -1497,10 +1667,27 @@ export class RoomRuntime {
     return canTransition(this.state, action)
   }
 
-  /** Drive the countdown and auto-lock when a timed round's deadline passes. */
+  /** Drive the countdown, auto-lock when a timed round's deadline passes, and notice
+   *  anyone who has gone quiet. */
   tick(now: number = this.now()): void {
     if (this.me.role !== 'host') return
     if (shouldAutoLock(this.state, now)) this.lock()
+    this.sweepPresence(now)
+  }
+
+  /**
+   * Notice a player (or spectator) who simply stopped beating. Nothing arrives on the
+   * relay when someone closes a tab, so without this the host roster would keep
+   * showing them until some unrelated message happened to land. Emits ONLY when the
+   * present set changed, so an idle room still does no work.
+   */
+  private sweepPresence(now: number): void {
+    if (now - this.lastPresenceSweep < PRESENCE_SWEEP_MS) return
+    this.lastPresenceSweep = now
+    const key = `${this.recentPlayers().map((p) => p.id).join(',')}|${this.audienceCount()}`
+    if (key === this.lastPresentKey) return
+    this.lastPresentKey = key
+    this.emit()
   }
 
   /** Apply a host action to local state and notify listeners. */

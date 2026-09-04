@@ -203,6 +203,144 @@ describe('rank block aggregate', () => {
     const firsts = new Set(Array.from({ length: 50 }, () => rankBlock.emptyInput(content).order[0]))
     expect(firsts.size).toBeGreaterThan(1)
   })
+
+  it('publishes the WHOLE order as a podium, winner first, carrying each picture', () => {
+    const content = {
+      ...rankBlock.defaultContent(),
+      prompt: 'Best snack',
+      items: [
+        { id: 'a', label: 'A', image: 'https://cdn.test/a.png' },
+        { id: 'b', label: 'B', image: '' },
+        { id: 'c', label: 'C', image: 'https://cdn.test/c.png' },
+      ],
+    }
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content }],
+      inputsFor: () =>
+        new Map([
+          ['p1', { order: ['c', 'a', 'b'] }],
+          ['p2', { order: ['c', 'b', 'a'] }],
+        ]),
+      answerFor: () => undefined,
+      players: [],
+    })
+    const dist = frag?.distributions?.[0]
+    // The podium layout is what makes the results page lead with the winner.
+    expect(dist?.layout).toBe('podium')
+    // EVERY item is present, in order, not just the winner.
+    expect(dist?.bars.map((b) => b.label)).toEqual(['C', 'A', 'B'])
+    expect(dist?.bars[0]).toMatchObject({ label: 'C', display: '#1', image: 'https://cdn.test/c.png' })
+    // The note is the average PLACE (1-based), not the raw 0-based position.
+    expect(dist?.bars[0]?.note).toBe('avg place 1.0')
+    expect(dist?.bars[1]?.note).toBe('avg place 2.5')
+    // A picture-less runner-up simply has no image key (nothing to render).
+    expect(dist?.bars.find((b) => b.label === 'B')?.image).toBeUndefined()
+  })
+
+  it('still works on a game SAVED BEFORE items had pictures (no `image` key at all)', () => {
+    // Persisted round content is a passthrough record; blocks receive it raw, so the
+    // schema default cannot be relied on to have filled anything in. Every rank path
+    // has to tolerate an item object with no `image` key.
+    const legacy = {
+      prompt: 'Rank',
+      image: '',
+      timer: null,
+      items: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
+    } as unknown as ReturnType<typeof rankBlock.defaultContent>
+    expect(rankBlock.contentSchema.safeParse(legacy).success).toBe(true)
+    const inputs = new Map([['p1', { order: ['b', 'a'] }]])
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content: legacy }],
+      inputsFor: () => inputs,
+      answerFor: () => undefined,
+      players: [],
+    })
+    expect(frag?.distributions?.[0]?.bars.map((b) => b.label)).toEqual(['B', 'A'])
+    expect(frag?.distributions?.[0]?.bars.every((b) => b.image === undefined)).toBe(true)
+    expect(frag?.awards).toBeUndefined() // nothing has a picture, so no card
+    const reveal = rankBlock.revealSummary?.({ content: legacy, inputs, answer: undefined, players: [] })
+    expect(reveal).toEqual({ order: [{ id: 'b', label: 'B' }, { id: 'a', label: 'A' }] })
+    expect(rankBlock.emptyInput(legacy).order).toHaveLength(2)
+  })
+
+  it('shows nothing for a round nobody answered, instead of crowning the authored first item', () => {
+    const content = {
+      ...rankBlock.defaultContent(),
+      prompt: 'Rank',
+      items: [
+        { id: 'a', label: 'A', image: 'https://cdn.test/a.png' },
+        { id: 'b', label: 'B', image: '' },
+      ],
+    }
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content }],
+      inputsFor: () => new Map(), // nobody ranked
+      answerFor: () => undefined,
+      players: [],
+    })
+    // consensus falls back to the AUTHORED order with no ballots, so publishing it
+    // would present the author's typing order as the room's verdict.
+    expect(frag?.distributions).toEqual([])
+    expect(frag?.awards).toBeUndefined()
+  })
+
+  it('shares a place for a dead heat, and crowns nobody', () => {
+    const content = {
+      ...rankBlock.defaultContent(),
+      prompt: 'Rank',
+      items: [
+        { id: 'a', label: 'A', image: 'https://cdn.test/a.png' },
+        { id: 'b', label: 'B', image: 'https://cdn.test/b.png' },
+        { id: 'c', label: 'C', image: '' },
+      ],
+    }
+    // One player puts A first, another puts B first: A and B end up exactly level.
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content }],
+      inputsFor: () =>
+        new Map([
+          ['p1', { order: ['a', 'b', 'c'] }],
+          ['p2', { order: ['b', 'a', 'c'] }],
+        ]),
+      answerFor: () => undefined,
+      players: [],
+    })
+    const bars = frag?.distributions?.[0]?.bars
+    expect(bars?.map((b) => b.place)).toEqual(['#1', '#1', '#3'])
+    // No single winner, so no "#1" card is invented for either of them.
+    expect(frag?.awards).toBeUndefined()
+  })
+
+  it('gives the room\'s #1 its own award card when that item has a picture', () => {
+    const withPic = {
+      ...rankBlock.defaultContent(),
+      prompt: 'Best snack',
+      items: [
+        { id: 'a', label: 'A', image: 'https://cdn.test/a.png' },
+        { id: 'b', label: 'B', image: '' },
+      ],
+    }
+    const inputs = () => new Map([['p1', { order: ['a', 'b'] }]])
+    const frag = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content: withPic }],
+      inputsFor: inputs,
+      answerFor: () => undefined,
+      players: [],
+    })
+    expect(frag?.awards).toEqual([
+      { label: 'Best snack', subject: 'A', value: '#1', image: 'https://cdn.test/a.png' },
+    ])
+
+    // A text-only winner already reads fine on the podium, so it gets no card.
+    const noPic = { ...withPic, items: [{ id: 'a', label: 'A', image: '' }, { id: 'b', label: 'B', image: '' }] }
+    const plain = rankBlock.aggregate?.({
+      rounds: [{ index: 0, content: noPic }],
+      inputsFor: inputs,
+      answerFor: () => undefined,
+      players: [],
+    })
+    expect(plain?.awards).toBeUndefined()
+  })
 })
 
 describe('distributionToBars (results rendering)', () => {

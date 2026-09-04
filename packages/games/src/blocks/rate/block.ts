@@ -215,13 +215,22 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
               catN++
             }
           }
-          return { label: name, overall: catN > 0 ? catSum / catN : 0, scale: content.scale }
+          return {
+            label: name,
+            image: content.image ?? '',
+            overall: catN > 0 ? catSum / catN : 0,
+            scale: content.scale,
+          }
         })
         .sort((a, b) => b.overall - a.overall)
       const top = scored[0]?.overall ?? 0
       const ceiling = Math.max(...groupRounds.map((r) => scaleMax(r.content.scale)), top)
       distributions.push({
         title: g.name || 'Combined ranking',
+        // A combined ranking IS an ordering, so it shows as a podium: the winner
+        // large with the picture of the thing that was rated, then everything else
+        // the section rated, in order. Each rate round already carries that picture.
+        layout: 'podium',
         bars: scored.map((s) => ({
           label: s.label,
           count: Math.round(s.overall * 10) / 10,
@@ -230,6 +239,10 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           // Mark every subject tied for the top (within epsilon), not just the first.
           correct: top > 0 && s.overall >= top - TIE_EPS,
           note: '',
+          // Subjects the room scored level share a place, so the podium never invents
+          // a 1st/2nd out of an exact tie.
+          place: `#${1 + scored.filter((o) => o.overall > s.overall + TIE_EPS).length}`,
+          ...(s.image ? { image: s.image } : {}),
         })),
       })
     }

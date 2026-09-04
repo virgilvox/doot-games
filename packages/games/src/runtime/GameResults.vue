@@ -10,7 +10,7 @@
  * games have no scored winner, so they open on the first breakdown.
  */
 import type { StandardResults } from '@doot-games/sdk'
-import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, teamColor } from '@doot-games/ui'
+import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, WinnerBoard, teamColor } from '@doot-games/ui'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { distributionToBars } from './derive'
 
@@ -31,6 +31,20 @@ const hasLeaderboard = computed(() => !!props.results.leaderboard && props.resul
 const hasTeams = computed(() => !!props.results.teamLeaderboard && props.results.teamLeaderboard.length > 0)
 const hasAwards = computed(() => !!props.results.awards && props.results.awards.length > 0)
 const hasStats = computed(() => !!props.results.stats && props.results.stats.length > 0)
+const AWARDS_LABEL = 'Highlights'
+// The awards panel was titled "Top rated", which is the rate block's own copy; rank and
+// tier put cards here too (a room's #1, a crowned tier), so a rank-only game read as
+// "Top rated". One neutral heading everywhere, matching the name the editor's results-
+// order list uses; each card still says what it is ("Top rated Overall", "#1").
+// A deleted upload must not leave a broken-image glyph on the big screen.
+const brokenAwards = ref(new Set<string>())
+function markAwardBroken(src?: string) {
+  if (!src) return
+  const next = new Set(brokenAwards.value)
+  next.add(src)
+  brokenAwards.value = next
+}
+const awardImage = (src?: string) => (src && !brokenAwards.value.has(src) ? src : '')
 
 // Colour a team by its index in the lobby team list (passed in), so the results
 // board matches the lobby roster colours. Falls back to its rank if unknown.
@@ -54,7 +68,7 @@ const rawSlides = computed<Slide[]>(() => {
   const out: Slide[] = []
   if (hasTeams.value) out.push({ kind: 'teams', label: 'Team scores' })
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
-  if (hasAwards.value) out.push({ kind: 'awards', label: 'Top rated' })
+  if (hasAwards.value) out.push({ kind: 'awards', label: AWARDS_LABEL })
   for (const d of props.results.distributions ?? [])
     out.push({ kind: 'dist', label: d.title ?? 'Breakdown', dist: d })
   return out
@@ -85,6 +99,27 @@ const currentSlide = computed(() => slides.value[current.value] ?? null)
 const currentKind = computed(() => currentSlide.value?.kind ?? null)
 const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? currentSlide.value.dist : null))
 const currentLabel = computed(() => currentSlide.value?.label ?? '')
+// A distribution whose bars ARE an ordering (rank) asks for the podium layout:
+// the winner large with its picture, the rest of the order listed under it.
+const isPodium = (d: Distribution) => d.layout === 'podium'
+function podiumEntries(d: Distribution) {
+  return d.bars.map((b, i) => {
+    // A block that can have TIES supplies the place itself, so entries the room placed
+    // level share one; otherwise the row's position is the place.
+    const place = b.place ?? `#${i + 1}`
+    // A bar whose `display` already IS its place (rank) has no separate score to show;
+    // one that carries a value (a rating's "8.5") shows both the place and the value.
+    const value = b.display && b.display !== place ? b.display : ''
+    return {
+      id: `${i}`,
+      label: b.label,
+      place,
+      ...(b.image ? { image: b.image } : {}),
+      ...(value ? { value } : {}),
+      ...(b.note ? { note: b.note } : {}),
+    }
+  })
+}
 // The "podium" payoff is the team board when teams are on, else the leaderboard.
 const onPodium = computed(() => currentKind.value === 'teams' || currentKind.value === 'leaderboard')
 
@@ -154,9 +189,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       </section>
 
       <section v-if="hasAwards" class="panel awards">
-        <h3>Top rated</h3>
+        <h3>{{ AWARDS_LABEL }}</h3>
         <div v-for="(a, i) in results.awards" :key="i" class="award">
-          <img v-if="a.image" class="award-img" :src="a.image" alt="" />
+          <img v-if="awardImage(a.image)" class="award-img" :src="awardImage(a.image)" alt="" @error="markAwardBroken(a.image)" />
           <div class="award-text">
             <div class="al">{{ a.label }}</div>
             <div class="as">{{ a.subject }}</div>
@@ -167,7 +202,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
       <section v-for="(d, i) in results.distributions ?? []" :key="`d${i}`" class="panel dist">
         <h3>{{ d.title }}</h3>
-        <VoteBars :bars="distributionToBars(d)" />
+        <WinnerBoard v-if="isPodium(d)" :entries="podiumEntries(d)" compact />
+        <VoteBars v-else :bars="distributionToBars(d)" />
       </section>
 
       <StatStrip v-if="hasStats" :stats="results.stats ?? []" />
@@ -218,7 +254,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 />
                 <template v-else-if="currentKind === 'awards'">
                   <div v-for="(a, i) in results.awards" :key="i" class="award host">
-                    <img v-if="a.image" class="award-img" :src="a.image" alt="" />
+                    <img v-if="awardImage(a.image)" class="award-img" :src="awardImage(a.image)" alt="" @error="markAwardBroken(a.image)" />
                     <div class="award-text">
                       <div class="al">{{ a.label }}</div>
                       <div class="as">{{ a.subject }}</div>
@@ -226,6 +262,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     <div v-if="a.value != null" class="av">{{ a.value }}</div>
                   </div>
                 </template>
+                <WinnerBoard
+                  v-else-if="currentDist && isPodium(currentDist)"
+                  :entries="podiumEntries(currentDist)"
+                />
                 <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" />
               </section>
             </Transition>

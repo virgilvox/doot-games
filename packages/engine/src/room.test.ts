@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addr } from './addresses'
 import { playerId } from './identity'
 import type { RelayCallback, RelayClient, RelayValue, Unsubscribe } from './relay'
-import { RoomRuntime } from './room'
+import { RoomRuntime, heartbeatIntervalFor, presenceWindowFor } from './room'
 
 /**
  * An in-memory relay shared by several clients: persists values, delivers a
@@ -415,6 +415,106 @@ describe('RoomRuntime sessions (nextGame)', () => {
     expect(ada.inputFor(0)).toBeUndefined()
     // The player is still in the room (presence persists across games).
     expect(host.recentPlayers().map((p) => p.name)).toContain('Ada')
+  })
+
+  it('clears only the addresses the previous game actually wrote', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.submit({ choice: 1 } as RelayValue)
+    host.finish({} as RelayValue)
+
+    // Count the wipe's writes: one null per address, no (round x player) cross product.
+    const wiped: string[] = []
+    const realSet = hub.set.bind(hub)
+    hub.set = (address: string, value: RelayValue) => {
+      if (value === null) wiped.push(address)
+      realSet(address, value)
+    }
+    host.nextGame(GAME2)
+
+    const pid = playerId('ABCD', 'Ada')
+    expect(wiped).toContain(addr.input('ABCD', 0, pid))
+    // GAME has rounds the player never answered; those input addresses were never
+    // set, so nothing is published to clear them.
+    const inputWipes = wiped.filter((a) => a.includes('/input/'))
+    expect(inputWipes).toEqual([addr.input('ABCD', 0, pid)])
+    // This game never assigned per-player content, so none is cleared either.
+    expect(wiped.filter((a) => a.includes('/content/'))).toEqual([])
+  })
+
+  it('clears a KICKED player\'s inputs too, so game 2 cannot inherit them', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+    host.openVoting()
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    ada.submit({ choice: 1 } as RelayValue)
+    const pid = playerId('ABCD', 'Ada')
+    host.kickPlayer(pid) // they drop off the roster, but their relay value remains
+    host.finish({} as RelayValue)
+    host.nextGame(GAME2)
+    expect(hub.store.get(addr.input('ABCD', 0, pid))).toBeNull()
+  })
+
+  it('sweeps per-player secret content for an assigning game, even after a host reload', async () => {
+    // A host cannot read back what it published to a player's secret channel (nothing
+    // subscribes there), so it cannot know what a PREVIOUS host instance wrote before a
+    // reload. For a game that assigns per-player content the sweep must therefore be
+    // exhaustive, or a hidden-role payload stays retained on a round index the next
+    // game reuses.
+    const hub = new FakeHub()
+    const now = () => 0
+    const ASSIGNING = {
+      meta: { pluginId: 'faker', pluginVersion: '0.0.0', title: 'Hidden role', themeId: 'doot' },
+      config: { title: 'Hidden role', rounds: [{}] } as RelayValue,
+      rounds: [{ timer: null }],
+      assignContent: () => undefined, // this host never published any itself
+    }
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(ASSIGNING)
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+    const pid = playerId('ABCD', 'Ada')
+    // A payload the PREVIOUS host instance published, which this one never saw.
+    hub.set(addr.roundContentForPlayer('ABCD', 0, pid), { word: 'Banana' })
+
+    host.nextGame(GAME2)
+    expect(hub.store.get(addr.roundContentForPlayer('ABCD', 0, pid))).toBeNull()
+  })
+
+  it('does NOT sweep per-player addresses for a game that never assigns any', async () => {
+    const hub = new FakeHub()
+    const now = () => 0
+    const host = makeHost(hub, now)
+    await host.connect()
+    host.loadGame(GAME) // no assignContent
+    const ada = makePlayer(hub, 'Ada', now)
+    await ada.connect()
+    await flush()
+
+    const wiped = []
+    const realSet = hub.set.bind(hub)
+    hub.set = (address: string, value: RelayValue) => {
+      if (value === null) wiped.push(address)
+      realSet(address, value)
+    }
+    host.nextGame(GAME2)
+    expect(wiped.filter((a) => a.includes('/content/'))).toEqual([])
   })
 
   it('clears the previous standings + results so game 2 does not show them', async () => {
@@ -1328,5 +1428,135 @@ describe('host reload mid-game recovery', () => {
     expect(host2.getSnapshot().phase).toBe('active') // resumed, players not yanked
     expect(host2.getSnapshot().round.index).toBe(0)
     expect(hub.store.get(addr.phase('ABCD'))).toBe('active') // relay never flipped to lobby
+  })
+})
+
+
+describe('RoomRuntime at party scale', () => {
+  it('paces the heartbeat by roster size, keeping four missed beats of grace', () => {
+    // A normal room is untouched: the same 5s beat and 20s window as before.
+    expect(heartbeatIntervalFor(0)).toBe(5_000)
+    expect(heartbeatIntervalFor(8)).toBe(5_000)
+    expect(heartbeatIntervalFor(60)).toBe(5_000)
+    expect(presenceWindowFor(heartbeatIntervalFor(60))).toBe(20_000)
+    // A big room slows down instead of flooding every phone with other people's beats.
+    expect(heartbeatIntervalFor(61)).toBe(10_000)
+    expect(heartbeatIntervalFor(200)).toBe(12_000)
+    // ...and is capped, so presence never becomes unusably stale.
+    expect(heartbeatIntervalFor(5_000)).toBe(12_000)
+    expect(presenceWindowFor(heartbeatIntervalFor(200))).toBe(48_000)
+    // The cap MUST stay well under the base window: the pre-join name probe reads one
+    // retained ping against that window, so a beat at (or near) the window would make a
+    // live player read as absent and the duplicate-name warning would stop firing.
+    for (const n of [0, 1, 60, 61, 200, 5_000]) {
+      expect(heartbeatIntervalFor(n) * 1.5).toBeLessThanOrEqual(20_000)
+    }
+  })
+
+  it('does not re-render the room for a heartbeat that changes nothing visible', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    const alice = playerId('ABCD', 'Alice')
+    hub.set(addr.playerProfile('ABCD', alice), { name: 'Alice', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', alice), t)
+    await Promise.resolve() // let the join's own coalesced emit fire first
+
+    let renders = 0
+    host.onChange(() => renders++)
+    // Ten more beats from a player who is already present and already named.
+    for (let i = 0; i < 10; i++) {
+      t += 5_000
+      hub.set(addr.playerPing('ABCD', alice), t)
+    }
+    await Promise.resolve()
+    expect(renders).toBe(0)
+    // The roster still reflects the latest beat: they are present, not aged out.
+    expect(host.recentPlayers().map((p) => p.name)).toEqual(['Alice'])
+  })
+
+  it('still re-renders when a heartbeat actually changes presence', async () => {
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    const bo = playerId('ABCD', 'Bo')
+    hub.set(addr.playerProfile('ABCD', bo), { name: 'Bo', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', bo), t)
+    await Promise.resolve()
+
+    let renders = 0
+    host.onChange(() => renders++)
+    t += 100_000 // Bo has gone quiet, well past the window
+    expect(host.recentPlayers()).toEqual([])
+    hub.set(addr.playerPing('ABCD', bo), t) // ...and comes back
+    await Promise.resolve()
+    expect(renders).toBe(1)
+    expect(host.recentPlayers().map((p) => p.name)).toEqual(['Bo'])
+  })
+
+  it('notices a player who went quiet, even though no relay message ever arrives', async () => {
+    // Nothing is published when a phone closes its tab: presence just goes stale. The
+    // host used to find out only because OTHER players' heartbeats happened to re-render
+    // it; now that those are suppressed, the host's own tick has to sweep for it.
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    const cy = playerId('ABCD', 'Cy')
+    hub.set(addr.playerProfile('ABCD', cy), { name: 'Cy', joinedAtIndex: 0 })
+    hub.set(addr.playerPing('ABCD', cy), t)
+    await Promise.resolve()
+    expect(host.recentPlayers().map((p) => p.name)).toEqual(['Cy'])
+
+    let renders = 0
+    host.onChange(() => renders++)
+    t += 100_000 // Cy closed the tab; nothing arrives on the relay
+    host.tick()
+    await Promise.resolve()
+    expect(renders).toBe(1)
+    expect(host.recentPlayers()).toEqual([])
+
+    // ...and a quiet room then costs nothing: repeated ticks with no change are silent.
+    for (let i = 0; i < 20; i++) {
+      t += 3_000
+      host.tick()
+    }
+    await Promise.resolve()
+    expect(renders).toBe(1)
+  })
+
+  it('reuses one inputs map per round until an input actually changes', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 1_000)
+    await host.connect()
+    const alice = playerId('ABCD', 'Alice')
+    hub.set(addr.input('ABCD', 0, alice), { choice: 1 })
+
+    const first = host.inputsFor(0)
+    expect(host.inputsFor(0)).toBe(first) // same object: no per-render rebuild
+    expect([...first.keys()]).toEqual([alice])
+
+    const bo = playerId('ABCD', 'Bo')
+    hub.set(addr.input('ABCD', 0, bo), { choice: 0 })
+    const second = host.inputsFor(0)
+    expect(second).not.toBe(first)
+    expect(second.size).toBe(2)
+
+    // A kick invalidates it too, so a removed player's answer leaves the board.
+    host.kickPlayer(bo)
+    expect(host.inputsFor(0).size).toBe(1)
+  })
+
+  it('keeps a player id that contains a colon out of the wrong round', async () => {
+    const hub = new FakeHub()
+    const host = makeHost(hub, () => 1_000)
+    await host.connect()
+    const pid = playerId('ABCD', 'Zed')
+    hub.set(addr.input('ABCD', 1, pid), { choice: 2 })
+    expect([...host.inputsFor(1).keys()]).toEqual([pid])
+    expect(host.inputsFor(0).size).toBe(0)
+    expect(host.inputsFor(11).size).toBe(0) // "1" must not prefix-match "11"
   })
 })

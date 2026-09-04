@@ -2,8 +2,69 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-07-02. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **RANK PODIUM + WHOLE-GROUP REORDER + 200-PLAYER PRESENCE (2026-09-04).**
+> Three pieces of player feedback: "have rank display all results with the winning one at top with
+> picture, the other results don't need picture but it would be nice to see"; "groups don't move
+> together in drag order when creating a game with the editor"; and "ensure it can handle 100-200
+> simultaneous players". All three shipped. Verified: 949 unit tests, full typecheck (incl. `nuxi
+> typecheck`), a new browser smoke (`scripts/rank-board-smoke.mjs`, all green), a hands-on pass through
+> the editor in a real browser, and a measured A/B 200-player load test.
+>
+> - **Rank results are a podium now, not a bar chart.** Rank items gained a per-item `image`
+>   (`blocks/rank/block.ts`); because the field is literally named `image`, the auto-generated editor
+>   form renders an uploader per item with no editor code (`SchemaField` keys off the name, and it
+>   already recursed into array items, which `guess` options proved). New shared
+>   `WinnerBoard` (`@doot-games/ui`): the room's #1 large with its picture, then EVERY other item listed
+>   under it in order, with a small thumbnail where one exists. Used on all three surfaces, the host big
+>   screen at the reveal (`RankHost`, chart while voting is still open, board at the reveal), the phone
+>   (`RankReveal`, with the player's own top pick highlighted), and the results page. The seam is generic:
+>   `Distribution.layout: 'podium'` + `DistributionBar.image` in the SDK, rendered by `GameResults`. The
+>   rate block's **"Combined ranking"** uses it too and now carries each rated thing's picture, which was
+>   the other surface in the product that says "ranking" and had no images at all. `VoteBars` gained an
+>   optional thumbnail for the plain-chart case, and `RankList` (the phone's ordering control) shows item
+>   thumbnails so a picture-led round is orderable on a phone, not only readable on the big screen.
+>   Markdown/MCP authoring gained `- Label | <url>` for a per-item picture (rank AND tier), guarded by a
+>   URL test so "Rock | Paper" stays a label. `avg 0.2` on a unanimous winner was a raw ZERO-based mean
+>   position; it now reads `avg place 1.0`.
+> - **Whole groups (and make+judge pairs) move as one.** Rounds are one flat list and a "section" is a
+>   run of CONSECUTIVE rounds sharing a `group` id, so ordering has a contiguity invariant. The rules are
+>   now pure and unit-tested in `apps/web/app/utils/rail.ts` (39 tests; `vitest.config.ts` includes
+>   `apps/web/app/utils`), and `GameEditor.client.vue` only wires events to them. A section header is a
+>   drag handle and has its own up/down arrows (touch + keyboard, where native HTML5 DnD does not fire);
+>   a make+judge pair drags as one from either half. A drop is pulled to the nearest LEGAL gap, never
+>   inside another section and never between a make round and its judge. **Also fixed while in here:**
+>   `from` / `fromShares.from` are ABSOLUTE round indices and nothing remapped them on a move or a
+>   remove, so a reorder silently re-pointed a round at the wrong source; `remapRoundRefs` follows them
+>   by identity (pinned by a test that runs the real Vue `reactive`, since the editor's rounds are
+>   proxies), and `roundError` now flags a source that a reorder pushed BELOW its judge round.
+> - **200 players, measured.** The dominant cost was presence: every non-audience client subscribes to
+>   the room-wide `player/*/ping` wildcard, so each 5s beat cost one delivery to every client AND a full
+>   re-render on each. Two changes: a heartbeat that changes nothing VISIBLE (the common case) no longer
+>   emits, and the beat re-paces with the LIVE roster size (5s until 60 players, capped at 12s, with the
+>   staleness window widening to match so a phone still gets four missed beats of grace). A normal room
+>   is untouched. The cap is deliberately well under the 20s presence window: the pre-join name probe
+>   reads ONE retained ping against that window, so a beat at the window would make a live player read
+>   as absent and the duplicate-name warning would stop firing exactly in the big rooms this exists for.
+>   The host also sweeps presence on its own tick (emitting only when the present set changed), because
+>   nothing arrives on the relay when a phone closes its tab and suppressing the heartbeat re-renders
+>   removed the host's only incidental refresh. Also: `inputsFor` and `recentPlayers` are memoized (the generic host called `inputsFor`
+>   straight from a template, rebuilding an O(rounds x players) Map on every render), `Leaderboard`'s
+>   competition ranking went from O(N^2) to one pass, and `nextGame` clears only the addresses the
+>   previous game actually WROTE instead of every (round x player) pair (that loop was ~8,000 synchronous
+>   publishes for a 20-round game at 200 players). The per-player secret sweep stays exhaustive for the
+>   games that declare `assignContent`, since nothing subscribes to another player's secret channel and
+>   a host cannot read back what a pre-reload instance wrote there.
+>   **Measured A/B at 200 players** (`scripts/load-test.mjs`, now instrumented; the same run on stashed
+>   engine code gave the before numbers): idle inbound relay frames per phone **41.8/s -> 16.2/s**, idle
+>   re-renders per phone **18/s -> 0.2/s**. 200/200 connected, all 200 submitted every round, no host
+>   page errors, roster exact (201/201), Start button in view.
+> - **Not a bug, checked:** the host RESULTS page scrolls vertically at any player count. Only the active
+>   round stage is capped to the viewport (`GameHost` `.stage`); the lobby and results keep their own
+>   roots and page-scroll by design, because the host has to reach "Play again / New room" below the
+>   board. The load-test log line that called this a failure was corrected rather than the layout.
 
 > **DOODLE UX + DRAWING FIXES + RESUME HARDENING (2026-07-02, follow-ups to the offload work below).**
 > All shipped + deployed. Verified: 898 tests + full typecheck (incl. `nuxi`) + web build + real-browser

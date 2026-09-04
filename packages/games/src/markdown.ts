@@ -106,6 +106,32 @@ function isTruthy(v: string | undefined): boolean {
   return v != null && /^(yes|true|on|1)$/i.test(v.trim())
 }
 
+/**
+ * A pasted picture reference: an absolute http(s) URL, or a site-root path that names
+ * a FILE (it has an extension). Deliberately narrow in both directions, so an ordinary
+ * label containing a pipe is never eaten: "Rock | Paper" keeps its text, and so does
+ * "Pricing page | /pricing", which reads as prose rather than a picture.
+ */
+function looksLikeUrl(s: string): boolean {
+  if (/\s/.test(s)) return false
+  return /^https?:\/\//i.test(s) || /^\/\S*\.[a-z0-9]{2,5}$/i.test(s)
+}
+
+/**
+ * Split `Label | https://…` into a label and that item's own picture, for the two
+ * blocks whose items carry one (rank, tier). Applied HERE and not in the shared item
+ * parser: every other block's list items are plain labels, and eating a trailing
+ * segment out of them would silently truncate a guess option or a survey answer.
+ * Only a tail that actually looks like a URL is taken, so "Rock | Paper" stays a label.
+ */
+function splitItemImage(label: string): { label: string; image: string } {
+  const at = label.lastIndexOf('|')
+  if (at <= 0) return { label, image: '' }
+  const tail = label.slice(at + 1).trim()
+  if (!looksLikeUrl(tail)) return { label, image: '' }
+  return { label: label.slice(0, at).trim(), image: tail }
+}
+
 /** Turn a blank id ("first_animal") into a default label ("First animal"). */
 function prettify(id: string): string {
   const s = id.replace(/[_-]+/g, ' ').trim()
@@ -234,7 +260,10 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
       ]
     }
     case 'rank': {
-      const items = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map((label, i) => ({ id: slugId(label, i), label }))
+      // `labels` is already blank-filtered, so the >= 2 fallback matches every other
+      // list block; the pipe split then gives each item its own optional picture.
+      const picked = (labels.length >= 2 ? labels : ['Option A', 'Option B']).map(splitItemImage)
+      const items = picked.map((it, i) => ({ id: slugId(it.label, i), label: it.label, image: it.image }))
       return [
         {
           block: 'rank',
@@ -248,10 +277,10 @@ function buildRound(raw: RawRound, warnings: string[]): RoundInstance[] {
       // long list validates + saves instead of producing invalid content.
       const itemLabels = labels.length >= 2 ? labels : ['Pizza', 'Tacos']
       if (itemLabels.length > 24) warnings.push(`A tier round takes at most 24 items; using the first 24 of ${itemLabels.length}.`)
-      const items = itemLabels.slice(0, 24).map((label, i) => ({
-        id: slugId(label, i),
-        label,
-        image: '',
+      const items = itemLabels.slice(0, 24).map(splitItemImage).map((it, i) => ({
+        id: slugId(it.label, i),
+        label: it.label,
+        image: it.image,
       }))
       const tierLabels = pipeList(p.tiers)
       const tiers =

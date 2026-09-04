@@ -17,6 +17,13 @@ phase/round state machine. Knows nothing about any game.
 - `addr` / `patterns` - the `/doot/<ROOM>/…` address scheme (incl. `roundContent`,
   `roundReveal`) + `parseRoundSubAddress`.
 - `playerId`, `computeJoinedAtIndex`, `isEligible`, `makeRoomCode`, `isValidRoomCode`.
+- `heartbeatIntervalFor(n)` / `presenceWindowFor(ms)` - the presence cadence a room
+  of `n` players uses. Every non-audience client subscribes to the room-wide
+  `player/*/ping` wildcard, so each beat costs one delivery to every client: past a
+  comfortable roster the beat slows (and its staleness window widens to match) so a
+  200-phone room does not turn the relay into a heartbeat firehose. A normal room
+  stays on the 5s default. The runtime also skips the re-render for a heartbeat that
+  changes nothing visible, so only a presence FLIP wakes the UI.
 - Types: `RoomMeta`, `Player`, `Phase`, `RoundState`, …
 
 Vue bindings (`useDootRoom`, `provideDootRoom`, `injectDootRoom`) are at

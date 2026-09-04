@@ -26,7 +26,7 @@ function set<K extends keyof GameSettings>(key: K, value: GameSettings[K] | null
 const RESULTS_SECTIONS: Array<{ id: ResultsSection; label: string }> = [
   { id: 'leaderboard', label: 'Leaderboard' },
   { id: 'teams', label: 'Team scores' },
-  { id: 'awards', label: 'Top rated' },
+  { id: 'awards', label: 'Highlights' },
   { id: 'breakdowns', label: 'Breakdowns' },
 ]
 // The effective order: the author's chosen list first, then any section they didn't

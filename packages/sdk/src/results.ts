@@ -39,11 +39,23 @@ export interface DistributionBar {
   display?: string
   /** Caption under the value; defaults to "N votes". */
   note?: string
+  /** Optional picture for this entry (a rank/tier item's own image). Rendered as a
+   *  thumbnail in the bar list, and full size when this entry leads a podium. */
+  image?: string
+  /** The place to show on a podium, e.g. "#1". Entries the room placed LEVEL share
+   *  one ("#1", "#1", "#3"), so a dead heat never reads as an order nobody chose.
+   *  Defaults to the row's position. */
+  place?: string
 }
 
 export interface Distribution {
   title?: string
   bars: DistributionBar[]
+  /** How to render the bars. `bars` (the default) is the value-bar chart; `podium`
+   *  leads with the first bar as a large winner card (its picture, if any) and lists
+   *  the rest of the order below. Blocks whose bars ARE an ordering (rank) ask for
+   *  `podium` so the room sees the whole result with the winner on top. */
+  layout?: 'bars' | 'podium'
 }
 
 export interface StatItem {

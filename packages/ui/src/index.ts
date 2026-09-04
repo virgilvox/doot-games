@@ -29,6 +29,9 @@ export { default as JoinForm } from './components/JoinForm.vue'
 // Display
 export { default as CountdownRing } from './components/CountdownRing.vue'
 export { default as VoteBars } from './components/VoteBars.vue'
+// An ordered result with the winner on top (its picture large) and the whole rest
+// of the order listed below. Used by rank on host, phone, and the results page.
+export { default as WinnerBoard } from './components/WinnerBoard.vue'
 export { default as RosterChips } from './components/RosterChips.vue'
 export { default as StandingsPeek } from './components/StandingsPeek.vue'
 export { default as AudioClip } from './components/AudioClip.vue'

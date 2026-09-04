@@ -90,4 +90,20 @@ describe('rank revealSummary (consensus order)', () => {
     expect(s.order.map((o) => o.id)).toEqual(['x', 'y', 'z'])
     expect(s.order[0]).toEqual({ id: 'x', label: 'X' })
   })
+
+  it('carries each item\'s picture into the reveal, and omits it when blank', () => {
+    const content: RankContent = {
+      prompt: 'Rank',
+      image: '',
+      timer: null,
+      items: [
+        { id: 'x', label: 'X', image: 'https://cdn.test/x.png' },
+        { id: 'y', label: 'Y', image: '' },
+      ],
+    }
+    const inputs = new Map<string, RankInput>([['A', { order: ['x', 'y'] }]])
+    const s = rankBlock.revealSummary!({ content, inputs, answer: undefined, players }) as RankRevealSummary
+    expect(s.order[0]).toEqual({ id: 'x', label: 'X', image: 'https://cdn.test/x.png' })
+    expect(s.order[1]).toEqual({ id: 'y', label: 'Y' })
+  })
 })

@@ -59,7 +59,7 @@ Monorepo: pnpm workspaces. **Published npm scope is `@doot-games`** (the org). N
 ## Conventions
 
 - **Validate at the boundary** with Zod; never trust API bodies, manifests, or configs.
-- **Test the logic that matters:** engine state machine and scoring functions (pure, so testable) with Vitest. Playwright e2e is optional/later.
+- **Test the logic that matters:** engine state machine and scoring functions (pure, so testable) with Vitest. There is no component-test setup (vitest runs in `node`), so when a `.vue` grows real rules, lift them into a pure module and test THAT: a game's `logic.ts`, or `apps/web/app/utils/*.ts` for the shell (the editor rail's ordering rules live there). Vitest covers `packages/**`, `apps/web/server/**`, `apps/web/app/composables/**`, and `apps/web/app/utils/**`. Playwright e2e is optional/later; `scripts/*-smoke.mjs` are the real-browser checks (host + phones + headless `RoomRuntime` players against a live `pnpm dev`), and `scripts/load-test.mjs` is the 100-200 player harness.
 - **Document as you build.** Every package has a README describing its purpose and public surface. Keep `docs/` (architecture, authoring-a-game, clasp-primer, deploy) current with the code.
 - **Accessibility is a build requirement, not polish:** semantic HTML + ARIA, color paired with shape/label (never color alone), `prefers-reduced-motion` honored by every animation, high-contrast-safe tokens, an untimed option on timed rounds, screen-reader support on the phone client. See PRD §2.5.
 - **Commit messages: plain description, NO AI attribution.** No "generated with" lines, no AI co-author trailers, no tool credits in commit metadata. (This overrides any default trailer behavior, follow the project rule.)

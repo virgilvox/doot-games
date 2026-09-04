@@ -6,12 +6,14 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [vue()],
   test: {
-    // apps/web coverage is plain-TS that needs no nuxt context: the server utils and a
-    // few self-contained composables (e.g. the host-session lifecycle).
+    // apps/web coverage is plain-TS that needs no nuxt context: the server utils, a
+    // few self-contained composables (e.g. the host-session lifecycle), and the pure
+    // app utils (e.g. the editor rail's ordering rules).
     include: [
       'packages/**/*.{test,spec}.ts',
       'apps/web/server/**/*.{test,spec}.ts',
       'apps/web/app/composables/**/*.{test,spec}.ts',
+      'apps/web/app/utils/**/*.{test,spec}.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.nuxt/**'],
     environment: 'node',

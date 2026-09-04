@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * Phone reveal for a Rank round: the room's consensus order, with the player's own
- * top pick called out (where did MY #1 land?). Second-screen payoff for a block
- * that otherwise only showed the chart on the big screen.
+ * Phone reveal for a Rank round: the room's consensus order with the winner on
+ * top (its picture, when the item has one), the whole rest of the order below,
+ * and the player's own top pick called out (where did MY #1 land?). Second-screen
+ * payoff for a block that otherwise only showed the chart on the big screen.
  */
+import { WinnerBoard } from '@doot-games/ui'
 import { computed } from 'vue'
 import type { RankContent, RankInput, RankRevealSummary } from './block'
 
@@ -23,17 +25,24 @@ const myTopRoomRank = computed(() => {
   const idx = order.value.findIndex((o) => o.id === myTopId.value)
   return idx >= 0 ? idx + 1 : 0
 })
+// The reveal carries each entry's picture, but fall back to the authored content
+// for a room that revealed before this phone had the newer summary shape.
+const imageFor = (id: string, fromReveal?: string) =>
+  fromReveal || props.content.items.find((i) => i.id === id)?.image || ''
+const board = computed(() =>
+  order.value.map((o, i) => ({
+    id: o.id,
+    label: o.label,
+    ...(imageFor(o.id, o.image) ? { image: imageFor(o.id, o.image) } : {}),
+    place: `#${i + 1}`,
+  })),
+)
 </script>
 
 <template>
   <div class="rank-reveal big" aria-live="polite">
     <h2>The room's ranking</h2>
-    <ol class="order">
-      <li v-for="(o, i) in order" :key="o.id" class="item" :class="{ mine: o.id === myTopId }">
-        <span class="rank mono">#{{ i + 1 }}</span>
-        <span class="label">{{ o.label }}</span>
-      </li>
-    </ol>
+    <WinnerBoard class="rank-board" :entries="board" compact :highlight-id="myTopId" kicker="" />
     <p v-if="myTopRoomRank" class="note">
       Your top pick <b>{{ myTopLabel }}</b> is the room's <b>#{{ myTopRoomRank }}</b>.
     </p>
@@ -51,20 +60,7 @@ const myTopRoomRank = computed(() => {
   gap: 12px;
 }
 .rank-reveal h2 { font-size: clamp(24px, 6vw, 34px); font-weight: 800; }
-.order { list-style: none; display: grid; gap: 6px; width: min(420px, 92%); }
-.item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: var(--surface-2);
-  border: var(--bd) solid var(--line-soft);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  text-align: left;
-}
-.item.mine { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); }
-.rank { font-weight: 800; color: var(--ink-soft); min-width: 2.2ch; }
-.label { font-weight: 700; overflow-wrap: anywhere; }
+.rank-board { width: min(420px, 92%); text-align: left; }
 .note { color: var(--ink-soft); max-width: 32ch; line-height: 1.45; }
 .note b { color: var(--ink); }
 </style>

@@ -49,13 +49,16 @@ export function seededShuffle(seed: string): <T>(items: T[]) => T[] {
   }
 }
 
-/** VoteBars-ready bar (label/value/max/display/note). */
+/** VoteBars-ready bar (label/value/max/display/note). `image` rides along for the
+ *  podium layout (and as a thumbnail in the bar chart) when a block's entries have
+ *  their own pictures. */
 export interface RenderBar {
   label: string
   value: number
   max: number
   display?: string
   note: string
+  image?: string
 }
 
 /**
@@ -72,6 +75,7 @@ export function distributionToBars(distribution: Distribution): RenderBar[] {
     max: b.max ?? total,
     display: b.display,
     note: b.note ?? `${b.count} vote${b.count === 1 ? '' : 's'}`,
+    ...(b.image ? { image: b.image } : {}),
   }))
 }
 

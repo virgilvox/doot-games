@@ -26,7 +26,15 @@ export const rankContentSchema = z.object({
     .default(null)
     .describe('Seconds to rank. Turn off for an untimed round.'),
   items: z
-    .array(z.object({ id: z.string().min(1).describe('Internal id (auto-filled).'), label: z.string().min(1) }))
+    .array(
+      z.object({
+        id: z.string().min(1).describe('Internal id (auto-filled).'),
+        label: z.string().min(1),
+        // Named `image` so the auto-generated editor form renders an uploader for it
+        // (SchemaField keys off the field name), exactly like a tier item's picture.
+        image: z.string().default('').describe('Optional picture for this item.'),
+      }),
+    )
     .min(2)
     .describe('The things players drag into order (at least two).'),
 })
@@ -35,9 +43,21 @@ export interface RankInput {
   /** Item ids in the player's chosen order. */
   order: string[]
 }
-/** The public per-round reveal phones read: the room's consensus order. */
+/** The public per-round reveal phones read: the room's consensus order. Each entry
+ *  carries its picture (when the author set one) so the phone can show the winner
+ *  the same way the big screen does. `image` is omitted when blank, keeping the
+ *  published value small. */
 export interface RankRevealSummary {
-  order: Array<{ id: string; label: string }>
+  order: Array<{ id: string; label: string; image?: string }>
+}
+
+/** Averages within this of each other are the same place: the room ranked them level,
+ *  and floating-point means two genuinely equal averages rarely compare exactly. */
+const TIE_EPS = 1e-9
+
+/** Competition place within a consensus order: everything level shares one. */
+export function place(ranked: Array<{ avg: number }>, of: { avg: number }): string {
+  return `#${1 + ranked.filter((o) => o.avg < of.avg - TIE_EPS).length}`
 }
 
 export const rankBlock = defineBlock<RankContent, RankInput>({
@@ -49,9 +69,9 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
     image: '',
     timer: null,
     items: [
-      { id: 'a', label: 'Option A' },
-      { id: 'b', label: 'Option B' },
-      { id: 'c', label: 'Option C' },
+      { id: 'a', label: 'Option A', image: '' },
+      { id: 'b', label: 'Option B', image: '' },
+      { id: 'c', label: 'Option C', image: '' },
     ],
   }),
   defaultTimer: null,
@@ -69,30 +89,76 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
   // No withheld answer; publish the room's consensus order so a phone can show
   // where the player's own ranking landed.
   revealSummary: (ctx: RevealContext<RankContent, RankInput>): RankRevealSummary => ({
-    order: consensus(ctx.content, ctx.inputs).map((r) => ({ id: r.id, label: r.label })),
+    order: consensus(ctx.content, ctx.inputs).map((r) => ({
+      id: r.id,
+      label: r.label,
+      ...(r.image ? { image: r.image } : {}),
+    })),
   }),
   aggregate: (ctx: BlockResultsContext<RankContent, RankInput>): ResultsFragment => {
-    const distributions = ctx.rounds.map(({ index, content }) => {
+    // Every round contributes the WHOLE order, not just its winner: the results page
+    // renders it as a podium (the room's #1 large, with its picture, then the rest of
+    // the order below), so nothing the room ranked is hidden.
+    // A round nobody answered has no ranking: `consensus` falls back to the AUTHORED
+    // order, and presenting that as the room's verdict would crown whichever item the
+    // author happened to type first. Skip those rounds entirely (the host screen makes
+    // the same call while voting is still open).
+    const answered = ctx.rounds.filter(({ index }) => ctx.inputsFor(index).size > 0)
+    const distributions = answered.map(({ index, content }) => {
       const ranked = consensus(content, ctx.inputsFor(index))
       const n = content.items.length
       return {
         title: content.prompt,
+        layout: 'podium' as const,
         bars: ranked.map((r, rank) => ({
           label: r.label,
           count: n - rank, // #1 gets the fullest bar
           max: n, // fill against item count, not a vote sum
-          display: `#${rank + 1}`,
-          note: `avg ${r.avg.toFixed(1)}`,
+          // Items the room placed level share a place, so a dead heat reads as one
+          // ("#1, #1, #3") instead of inventing an order the room never chose. For
+          // rank the place IS the bar's value, so `display` and `place` agree.
+          display: place(ranked, r),
+          place: place(ranked, r),
+          note: avgPlaceNote(r.avg, n),
+          ...(r.image ? { image: r.image } : {}),
         })),
       }
     })
+    // One award per round for the room's #1, so the winner also gets a card of its
+    // own (with its picture) on the results highlights page. Only when the author gave
+    // that item a picture (a text-only winner already reads fine on the podium) and
+    // only when the room's #1 is CLEAR: crowning one of several tied items would be
+    // making up a result.
+    const awards: NonNullable<ResultsFragment['awards']> = []
+    for (const { index, content } of answered) {
+      const ranked = consensus(content, ctx.inputsFor(index))
+      const top = ranked[0]
+      if (!top?.image) continue
+      if (ranked.some((o) => o !== top && o.avg <= top.avg + TIE_EPS)) continue // a tie, no single winner
+      awards.push({
+        label: content.prompt?.trim() || `Round ${index + 1}`,
+        subject: top.label,
+        value: '#1',
+        image: top.image,
+      })
+    }
     return {
       headline: 'The results are in',
+      ...(awards.length ? { awards } : {}),
       distributions,
       stats: [{ label: 'Rank rounds', value: ctx.rounds.length }],
     }
   },
 })
+
+/** `consensus` averages a ZERO-based position, which reads as nonsense on screen
+ *  ("avg 0.2" for a unanimous winner). Show the average PLACE the room gave it. */
+export function avgPlaceNote(avg: number, itemCount?: number): string {
+  // `consensus` parks an item nobody placed at `avg = n`, which would print a place
+  // one past the end of the list. Say what actually happened instead.
+  if (itemCount !== undefined && avg >= itemCount) return 'not ranked'
+  return `avg place ${(avg + 1).toFixed(1)}`
+}
 
 /** A per-player random order so a no-op submit doesn't bias toward the author's
  *  declared order. Uses Math.random by design (we want per-player variation). */
@@ -129,7 +195,7 @@ function consensus(content: RankContent, inputs: Map<string, RankInput>) {
       const t = totals.get(item.id)
       // Unranked items sort to the bottom; authored order breaks ties (stable sort).
       const avg = t && t.n > 0 ? t.sum / t.n : n
-      return { id: item.id, label: item.label, avg }
+      return { id: item.id, label: item.label, image: item.image ?? '', avg }
     })
     .sort((a, b) => a.avg - b.avg)
 }
