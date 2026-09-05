@@ -5,6 +5,38 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **THE SECTION DRAG NEVER WORKED (2026-09-04, reported by the user right after the deploy below).**
+> "I still can't drag sections/groups in the editor." Correct, and it had never worked once: the
+> whole-section drag added in `4160f67` started and was cancelled by Chrome in the same tick, in every
+> browser, from the day it was written.
+>
+> - **Root cause.** `startDrag` wrote its reactive state (`dragRun`/`dropGroup`/`dropGap`) inside the
+>   `dragstart` handler. That makes Vue patch the DOM on the microtask right after the handler
+>   returns, while Chrome is still setting the drag up, and Chrome answers by firing `dragend`
+>   immediately and cancelling. A round ROW survived the same write; only the section header died,
+>   which is exactly why it hid. Proved by bisection in a real browser: a byte-identical `cloneNode`
+>   of the header with no Vue listeners, in the same place, drags fine; the real header does not; and
+>   deferring every reactive write out of the `dragstart` tick fixes it. It is not the CSS, not the
+>   name `<input>` inside the header, not `setDragImage`, and not the `opacity` on the dragged box:
+>   each was ruled out by its own experiment.
+> - **The fix.** `startDrag` now parks the run in a plain, NON-reactive `pendingRun` and touches
+>   nothing else; `beginPendingDrag()` promotes it in every `dragover` handler. `dragover` can only
+>   fire once a drag is genuinely under way, so that is safe by construction and needs no timer to
+>   guess when Chrome is ready. The banner and the dimming appear on the first move instead of on
+>   mouse-down, which reads better anyway.
+> - **Why it shipped broken, and the fix for that.** The ordering RULES are unit-tested
+>   (`apps/web/app/utils/rail.test.ts`, 47 tests) and the arrow buttons are easy to drive, so both
+>   were green while the thing the feedback actually named, the DRAG, was never once exercised.
+>   **`scripts/editor-drag-smoke.mjs`** now does real drags and asserts the outcome: a section
+>   dragged down and back up carries its own rounds and stays one box, a round drags out of a
+>   section, and a loose round drags into one. It FAILS on the old code and passes on the new, which
+>   is the only reason to trust it.
+> - **Note for anyone writing a browser drag test:** Playwright's synthetic mouse cannot drive native
+>   HTML5 DnD. Chromium enters a nested drag loop and `page.mouse.*` blocks until it times out. The
+>   smoke speaks CDP instead: `Input.setInterceptDrags` hands you the payload at dragstart and
+>   `Input.dispatchDragEvent` delivers dragEnter/dragOver/drop. Re-measure the drop target AFTER the
+>   first dragover, because the "here's where it'll land" banner shifts every row down.
+
 > **DEPLOY AUDIT + FIXES (2026-09-04). SHIPPED + DEPLOYED, together with the two entries below,
 > as `cf31fe4..2355aea`.**
 > Brief: audit the two then-unpushed commits for degradations and say honestly whether they are safe

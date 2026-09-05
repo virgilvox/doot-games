@@ -500,6 +500,7 @@ function moveRound(i: number, dir: -1 | 1) {
 // round or another section below the fold) is reachable without letting go.
 const railEl = ref<HTMLElement | null>(null)
 function autoScroll(e: DragEvent) {
+  beginPendingDrag()
   const el = railEl.value
   if (!el || !isDragging.value) return
   const r = el.getBoundingClientRect()
@@ -537,15 +538,37 @@ function inDragRun(i: number): boolean {
   return !!run && i >= run.from && i < run.from + run.count
 }
 
+/**
+ * Held from `dragstart` until the first `dragover`, and NOT reactive.
+ *
+ * Writing the reactive drag state inside `dragstart` is what stopped a section from
+ * ever being dragged. The write makes Vue patch the DOM on the microtask right after
+ * the handler returns, while Chrome is still setting the drag up, and Chrome answers
+ * by firing `dragend` immediately and cancelling: the whole-section drag the feedback
+ * asked for silently did nothing, in every browser, since the day it was written.
+ * (A round row survived the same write, which is exactly why this hid: the arrows, the
+ * unit tests and the round drag all passed.)
+ *
+ * `dragover` only fires once a drag is genuinely under way, so applying the state
+ * there is safe by construction, and needs no timer to guess when Chrome is ready.
+ */
+let pendingRun: { from: number; count: number; group: string | null; section: boolean } | null = null
+
 function startDrag(from: number, count: number, group: string | null, section: boolean, e: DragEvent) {
-  dragRun.value = { from, count, group, section }
-  dropGroup.value = group
-  dropGap.value = null
+  pendingRun = { from, count, group, section }
   if (e.dataTransfer) {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(from)) // Firefox needs data set to drag
     e.dataTransfer.setDragImage(e.currentTarget as HTMLElement, 16, 16)
   }
+}
+/** Promote the pending drag into reactive state. Called from every dragover handler. */
+function beginPendingDrag(): void {
+  if (!pendingRun) return
+  dragRun.value = pendingRun
+  dropGroup.value = pendingRun.group
+  dropGap.value = null
+  pendingRun = null
 }
 function onDragStart(i: number, e: DragEvent) {
   // A make round and the judge round built from it are one thing: dragging either
@@ -562,6 +585,7 @@ function onSectionDragStart(groupId: string, start: number, count: number, e: Dr
 // loose). Reading the hovered round directly is robust: it never gets stuck on the
 // section you started in, so dragging OUT (onto a loose round) always works.
 function onDragOver(i: number, e: DragEvent) {
+  beginPendingDrag()
   if (!isDragging.value) return
   e.preventDefault() // required so the drop fires
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
@@ -573,6 +597,7 @@ function onDragOver(i: number, e: DragEvent) {
 // INTO this section. No stopPropagation, so the round handlers above stay authoritative.
 // A section being dragged keeps its own group, so it lands BESIDE this box, never in it.
 function onSectionDragOver(groupId: string, start: number, count: number, e: DragEvent) {
+  beginPendingDrag()
   if (!isDragging.value) return
   e.preventDefault()
   if (draggingSection.value) {
@@ -585,6 +610,7 @@ function onSectionDragOver(groupId: string, start: number, count: number, e: Dra
 // The rail gutter only needs to allow a drop (so releasing between rows still lands);
 // it does NOT change the target, so it can't override a hovered round's section.
 function onRailDragOver(e: DragEvent) {
+  beginPendingDrag()
   if (!isDragging.value) return
   e.preventDefault()
 }
@@ -607,6 +633,7 @@ function onDrop(e: DragEvent) {
   endDrag()
 }
 function endDrag() {
+  pendingRun = null
   dragRun.value = null
   dropGap.value = null
   dropGroup.value = null
