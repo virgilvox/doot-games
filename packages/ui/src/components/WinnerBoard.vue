@@ -38,12 +38,20 @@ const props = withDefaults(
     kicker?: string
     /** Highlight one entry (the viewer's own top pick) in the list. */
     highlightId?: string | null
+    /**
+     * Crown the first entry as THE winner (the hero card and its kicker). Turn it off
+     * when the top place is SHARED: the first entry is then just whichever of the tied
+     * items sorted first, and presenting it as "the room's #1" invents a result the
+     * room did not produce, while the row below carries the same place badge.
+     */
+    crown?: boolean
   }>(),
-  { compact: false, kicker: "The room's #1", highlightId: null },
+  { compact: false, kicker: "The room's #1", highlightId: null, crown: true },
 )
 
 const winner = computed<WinnerEntry | null>(() => props.entries[0] ?? null)
-const rest = computed(() => props.entries.slice(1))
+/** Rows below the hero, or every row when there is no single winner to crown. */
+const listed = computed(() => (props.crown ? props.entries.slice(1) : props.entries))
 
 // A picture that 404s (a deleted upload, a hotlinked URL that died) must not leave
 // a broken-image glyph on the big screen: drop it and fall back to type only.
@@ -58,12 +66,29 @@ function pictureOf(e: WinnerEntry | null): string {
   return src && !broken.value.has(src) ? src : ''
 }
 const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
+/**
+ * Lay the winner and the rest SIDE BY SIDE on a big screen. Stacked, the board is the
+ * hero (a picture plus display type) on top of the list, which is taller than the
+ * results carousel's slide on a 720p host: the runners-up all landed below the fold and
+ * the only way to read the room's ranking was to scroll a TV. A host screen is wide and
+ * short, so the two halves sit next to each other and the whole order is on screen.
+ * Only when there IS a hero and something to put beside it.
+ */
+const split = computed(() => !props.compact && props.crown && !!winner.value && listed.value.length > 0)
 </script>
 
 <template>
-  <div v-if="winner" class="wb" :class="{ compact }">
-    <!-- The winner: the payoff, so it gets the picture and the size. -->
-    <div class="wb-hero" :class="{ 'has-img': !!pictureOf(winner), mine: !!highlightId && winner.id === highlightId }">
+  <div v-if="winner" class="wb" :class="{ compact, split }">
+    <!-- One inner box, because a container cannot query ITSELF: `.wb` is the size
+         container and this is the box the query re-lays-out. -->
+    <div class="wb-in">
+    <!-- The winner: the payoff, so it gets the picture and the size. With a shared top
+         place there is no winner, so every entry is listed level instead. -->
+    <div
+      v-if="crown"
+      class="wb-hero"
+      :class="{ 'has-img': !!pictureOf(winner), mine: !!highlightId && winner.id === highlightId }"
+    >
       <MediaFrame
         v-if="pictureOf(winner)"
         class="wb-hero-img"
@@ -85,14 +110,14 @@ const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
     </div>
 
     <!-- Everything else, in order. Pictures are optional here on purpose. -->
-    <ol v-if="rest.length" class="wb-rest">
+    <ol v-if="listed.length" class="wb-rest">
       <li
-        v-for="(e, i) in rest"
+        v-for="(e, i) in listed"
         :key="e.id ?? e.label"
         class="wb-row"
         :class="{ mine: !!highlightId && e.id === highlightId }"
       >
-        <span class="wb-rank mono">{{ badge(e, i + 1) }}</span>
+        <span class="wb-rank mono">{{ badge(e, crown ? i + 1 : i) }}</span>
         <img
           v-if="pictureOf(e)"
           class="wb-thumb"
@@ -105,11 +130,22 @@ const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
         <span v-if="e.note" class="wb-rownote mono">{{ e.note }}</span>
       </li>
     </ol>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .wb {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* The board renders both in a full-width results slide AND in the narrow right-hand
+     column of the round stage, so "is there room for two columns" is a question about
+     THIS element's width, not the viewport's. */
+  container-type: inline-size;
+}
+.wb-in {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -149,6 +185,13 @@ const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
   flex-direction: column;
   gap: 4px;
 }
+/* The lines are `<p>`, so each carried the UA's `margin: 1em 0`, which SCALES with
+   font-size: the 44px place badge alone added 88px. That inflated the hero to nearly
+   400px on a 720p host, pushing the whole ranking off the results slide. `gap` above is
+   the spacing this was always meant to have. */
+.wb-hero-text > p {
+  margin: 0;
+}
 .wb-kicker {
   font-size: 12px;
   letter-spacing: 0.12em;
@@ -178,6 +221,29 @@ const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
 .wb-note {
   font-size: 13px;
   color: var(--ink-soft);
+}
+
+/* Wide enough for two columns: the winner on the left, the order beside it. Stacked,
+   the board is a picture plus display type ON TOP OF the whole list, which is taller
+   than the results carousel's slide on a 720p host: every runner-up landed below the
+   fold and the only way to read the room's ranking was to scroll a TV. Below the
+   threshold (the round stage's right-hand column) it stays stacked, where splitting
+   would halve an already narrow column and wrap labels a character at a time. */
+@container (min-width: 640px) {
+  .wb.split .wb-in {
+    flex-direction: row;
+    align-items: start;
+    gap: 16px;
+  }
+  .wb.split .wb-hero {
+    flex: 0 1 auto;
+    max-width: 52%;
+  }
+  .wb.split .wb-rest {
+    flex: 1 1 0;
+    min-width: 0;
+    align-self: stretch;
+  }
 }
 
 /* ── The rest of the order ────────────────────────────────────────────── */

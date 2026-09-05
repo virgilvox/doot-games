@@ -20,11 +20,16 @@ const myTopId = computed(() => props.myInput?.order?.[0] ?? null)
 const myTopLabel = computed(
   () => props.content.items.find((i) => i.id === myTopId.value)?.label ?? '',
 )
-const myTopRoomRank = computed(() => {
-  if (!myTopId.value) return 0
-  const idx = order.value.findIndex((o) => o.id === myTopId.value)
-  return idx >= 0 ? idx + 1 : 0
+/** The place the room gave this player's own top pick, as the room counts places. */
+const myTopRoomPlace = computed(() => {
+  if (!myTopId.value) return ''
+  const hit = order.value.find((o) => o.id === myTopId.value)
+  if (!hit) return ''
+  const i = order.value.indexOf(hit)
+  return hit.place ?? `#${i + 1}`
 })
+/** No single winner when the top place is shared, so nothing crowns one of them. */
+const tied = computed(() => props.reveal?.tied === true)
 // The reveal carries each entry's picture, but fall back to the authored content
 // for a room that revealed before this phone had the newer summary shape.
 const imageFor = (id: string, fromReveal?: string) =>
@@ -34,7 +39,9 @@ const board = computed(() =>
     id: o.id,
     label: o.label,
     ...(imageFor(o.id, o.image) ? { image: imageFor(o.id, o.image) } : {}),
-    place: `#${i + 1}`,
+    // The place the ROOM gave it, published with the reveal. Numbering by row here
+    // would read "#1, #2" for a dead heat the big screen shows as "#1, #1".
+    place: o.place ?? `#${i + 1}`,
   })),
 )
 </script>
@@ -42,9 +49,9 @@ const board = computed(() =>
 <template>
   <div class="rank-reveal big" aria-live="polite">
     <h2>The room's ranking</h2>
-    <WinnerBoard class="rank-board" :entries="board" compact :highlight-id="myTopId" kicker="" />
-    <p v-if="myTopRoomRank" class="note">
-      Your top pick <b>{{ myTopLabel }}</b> is the room's <b>#{{ myTopRoomRank }}</b>.
+    <WinnerBoard class="rank-board" :entries="board" compact :highlight-id="myTopId" kicker="" :crown="!tied" />
+    <p v-if="myTopRoomPlace" class="note">
+      Your top pick <b>{{ myTopLabel }}</b> is the room's <b>{{ myTopRoomPlace }}</b>.
     </p>
   </div>
 </template>

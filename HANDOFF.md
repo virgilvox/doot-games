@@ -5,6 +5,85 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **DEPLOY AUDIT + FIXES (2026-09-04, third pass over the two entries below, before pushing them).**
+> Brief: audit the two unpushed commits for degradations and say honestly whether they are safe to
+> deploy. A multi-agent audit raised 25 candidates; each was reproduced or refuted by hand rather than
+> taken on a vote. Six real defects were found and fixed, and six "failing" smokes turned out to be
+> five stale/flaky scripts and one cold-compile timeout, none of them regressions (each was re-run
+> against `cf31fe4` to prove it). Driving the real host page also turned up two results-page defects
+> that predate this work and that the earlier overflow checks missed, because they measured whether
+> the PAGE grew, not whether a slide's content was reachable inside it. Verified after the fixes:
+> **977 unit tests**, every package
+> typecheck including `nuxi typecheck`, a production build with `/dev/*` confirmed absent from
+> `.output`, a Docker image build, eight browser smokes and a **200-player load test** (roster
+> 200/200, 0 host page errors, host results 0px overflow on both axes, idle 18.5 relay frames/s and
+> 0.2 re-renders/s per phone).
+>
+> - **Presence: departure detection was widening to 48s.** The beat cap was 12s and the window was
+>   `4x` the beat, so a room over 60 players took up to 48 seconds to notice a phone that walked out,
+>   and that window is also how long "everyone has answered" waits on someone who has gone. Now a 10s
+>   cap and a `3x` window, so the worst case is 30s against the old fixed 20s. That 10s-vs-20s gap is
+>   the residual trade-off: `probePresence` (the duplicate-name check) reads ONE retained ping against
+>   the BASE 20s window, so in a big room two consecutive dropped beats, rather than four, can now let
+>   a second phone silently take a name that is still in use.
+> - **Roster flicker in a big room.** `heartbeatMs()` counted "live" players against the WIDEST window
+>   any pacing could produce, so the count included people who had already aged off the roster, which
+>   could hold a room at the slow beat and make the derived window oscillate. It now counts against the
+>   base window, which only ever falls as people leave. `probeLiveCount` (the pre-join cap check) had
+>   the mirror bug: it sized its window from every ping the relay still retains, and those live for the
+>   room's whole 8h TTL, so a room that churned through 60 names all evening kept counting people who
+>   had left against the host's player cap. It now takes a first pass at the base window to size the
+>   second.
+> - **`wager` was drowning every other block.** The chip bankroll starts at 1000 and a merged game
+>   total is a sum, so one wager round buried a whole night of trivia points, and a team total became
+>   a headcount. It now declares its board own-scale. The flag was also renamed
+>   `leaderboardIsTally` -> `leaderboardOwnScale`, because "tally" described only the first case.
+> - **The rank reveal crowned a tie.** The phone and the host both numbered rows `#1, #2, #3...` off
+>   the array index, so two items with the same average showed as a clear winner and a runner-up. The
+>   reveal summary now carries the real `place` per item (shared places repeat) plus a `tied` flag, and
+>   `WinnerBoard` gained a `crown` prop so nothing gets a crown when the top place is shared. The
+>   results podium does the same through `podiumHasWinner`.
+> - **The podium showed the winner and NOTHING else on a 720p host.** Measured on the real
+>   host page: the podium slide had 270px of room and 624px of content, so all three
+>   runners-up sat below the fold and the only way to read the room's ranking was to
+>   scroll a TV. Two causes. (1) `WinnerBoard`'s hero lines are `<p>`, so each carried
+>   the UA's `margin: 1em 0`, which SCALES with font-size: the 44px place badge alone
+>   added 88px and the hero came to 391px for 133px of text. (2) Stacked, a picture plus
+>   display type on top of the whole list is simply taller than a host slide, and a host
+>   screen is WIDE and short. The board now splits into winner-left / order-right, gated
+>   by a **container query** on the board's own width, not the viewport: the same
+>   component also renders in the narrow right-hand column of the round stage, where a
+>   viewport media query split it and wrapped labels one character per line. Result:
+>   354px clipped -> 2px, all three rows fully visible. `/dev/results` agrees across
+>   fixtures (rank 316px -> 0, rate's combined ranking 311px -> 23px, mixed bag 246px ->
+>   52px, nothing else moved).
+> - **Two award cards did not fit either.** Highlights stacked its cards, so the second
+>   already ran past the bottom (rate emits one per category, rank one per picture round,
+>   so two or more is the ordinary shape). They lay out in a grid now
+>   (`repeat(auto-fit, minmax(320px, 1fr))`): mixed bag 204px clipped -> 60px, rate 8px ->
+>   0. What remains below the fold in the gallery is a long leaderboard, which genuinely
+>   cannot all fit and scrolls in its own panel with a fade hint, by design.
+> - **A drop into a SPLIT section teleported the round.** A section's rounds are contiguous BY
+>   CONVENTION, but the round options let an author put a round in a non-adjacent section, which splits
+>   the run in two. `clampGapIntoSection` resolved the target by `railRuns(...).find(...)`, the FIRST
+>   run carrying that id, so a drop at the bottom of the rail jumped to the top half. It now clamps
+>   into the run NEAREST the drop.
+> - **Reordering was frozen for Wavelength.** `boundToPrev` glued a derived round to the one above it,
+>   and `isDerived` is per BLOCK: Wavelength is ONE derived block used for every round, so the whole
+>   game chained into a single run and every arrow and drag became a no-op. The rule (now
+>   `pairedWithPrev` in `rail.ts`, unit-tested, and no longer hand-rolled inside the `.vue`)
+>   additionally requires the two rounds to be DIFFERENT blocks, which every genuine make+judge pair is.
+> - **Smoke rot found and fixed, not regressions:** `teams`, `crowd-vote` and `split-crowd` had been
+>   failing since `3fae0ca` (56 commits back) moved the lobby's per-night settings behind an "Adjust
+>   for tonight" `<details>`; they now open it first. `answer-smoke` and `teams-smoke` also raced the
+>   auto-lock (everyone answering can turn "Lock voting" into "Reveal" mid-click) and now lock only if
+>   the button is still up, the pattern `load-test.mjs` already documented. `new-games-smoke` and
+>   `qod-smoke` both pass on a warm dev server; their sweep failures were a 60s cold-compile timeout.
+> - **Known, pre-existing, NOT introduced here:** the editor at a 900px viewport overflows the page by
+>   61px (`a.support-btn` in the global topbar, between the 980px and 620px breakpoints);
+>   `scripts/editor-audit.mjs` reports it identically on `cf31fe4`. Left alone deliberately, since
+>   touching the global topbar is not something to slip into a deploy audit.
+
 > **RESULTS PAGE OVERHAUL (2026-09-04, same day, follow-up to the rank work below).**
 > Brief: make the end-of-game board look good, read well and never break "for all the different game
 > types and combinations of blocks". Audited every shape it has to render, in the browser, at 1280x720
@@ -37,8 +116,8 @@ prod via CI, no staging)._
 > - **`scoreGame` was throwing away points.** It kept only the FIRST scoring block's leaderboard, so a
 >   Custom game mixing trivia with a quip+vote recipe silently discarded every vote point and crowned
 >   the trivia winner as the winner of the whole game. Boards are now summed per player. A board that is
->   a social TALLY rather than points (most-likely's nominations) sets `leaderboardIsTally` and stays out
->   of a scored game's total. Stats with the same label now collapse into one tile, and the redundant
+>   a social TALLY rather than points, or that runs on its own scale (most-likely's nominations,
+>   wager's chip bankroll), sets `leaderboardOwnScale` and stays out of a scored game's total. Stats with the same label now collapse into one tile, and the redundant
 >   "Top score" stat was dropped from six blocks (the leaderboard's first row already says it).
 > - **Also fixed while in there:** the carousel could WEDGE, showing the previous section under the new
 >   section's title, whenever a host paged fast (`mode="out-in"`, now a cross-fade in one grid cell);
@@ -86,8 +165,8 @@ prod via CI, no staging)._
 > - **200 players, measured.** The dominant cost was presence: every non-audience client subscribes to
 >   the room-wide `player/*/ping` wildcard, so each 5s beat cost one delivery to every client AND a full
 >   re-render on each. Two changes: a heartbeat that changes nothing VISIBLE (the common case) no longer
->   emits, and the beat re-paces with the LIVE roster size (5s until 60 players, capped at 12s, with the
->   staleness window widening to match so a phone still gets four missed beats of grace). A normal room
+>   emits, and the beat re-paces with the LIVE roster size (5s until 60 players, capped at 10s, with the
+>   staleness window widening to match so a phone still gets three missed beats of grace). A normal room
 >   is untouched. The cap is deliberately well under the 20s presence window: the pre-join name probe
 >   reads ONE retained ping against that window, so a beat at the window would make a live player read
 >   as absent and the duplicate-name warning would stop firing exactly in the big rooms this exists for.
@@ -104,7 +183,8 @@ prod via CI, no staging)._
 >   engine code gave the before numbers): idle inbound relay frames per phone **41.8/s -> 16.2/s**, idle
 >   re-renders per phone **18/s -> 0.2/s**. 200/200 connected, all 200 submitted every round, no host
 >   page errors, roster exact (201/201), Start button in view.
-> - **Not a bug, checked:** the host RESULTS page scrolls vertically at any player count. Only the active
+> - **~~Not a bug, checked~~ (WRONG, reversed by the results overhaul above):** the host RESULTS page
+>   scrolls vertically at any player count. Only the active
 >   round stage is capped to the viewport (`GameHost` `.stage`); the lobby and results keep their own
 >   roots and page-scroll by design, because the host has to reach "Play again / New room" below the
 >   board. The load-test log line that called this a failure was corrected rather than the layout.

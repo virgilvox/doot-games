@@ -129,13 +129,15 @@ export interface RevealContext<Content = unknown, Input = unknown> {
 export interface ResultsFragment {
   headline?: string
   leaderboard?: LeaderboardEntry[]
-  /** This board is a TALLY, not points: a count of something social (how many
-   *  nominations you got) that reads as a standing on its own but must not be added
-   *  to the game's score. `scoreGame` sums every scoring block's board so a mixed
-   *  game counts all of a player's points; a tally would otherwise let, say, being
-   *  voted "most likely to fall asleep" win the trivia night. Played alone the block
-   *  still gets its board, crown and all. */
-  leaderboardIsTally?: boolean
+  /** This board is in the BLOCK'S OWN UNITS, not the game's points: nominations
+   *  received, a bankroll, anything that reads as a standing on its own but cannot be
+   *  added to another block's score. `scoreGame` sums every scoring block's board so a
+   *  mixed game counts all of a player's points, and summing across units produces
+   *  nonsense: being voted "most likely to fall asleep" would win the trivia night,
+   *  and a 1000-chip bankroll would drown it entirely (and make a team's total a
+   *  function of its headcount). Such a board is left out of a mixed game's total, and
+   *  still stands alone, crown and all, when its block is the whole game. */
+  leaderboardOwnScale?: boolean
   awards?: Array<{ label: string; subject: string; value?: string | number; image?: string }>
   distributions?: Distribution[]
   stats?: StatItem[]

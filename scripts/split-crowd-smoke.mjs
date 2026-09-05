@@ -26,6 +26,8 @@ async function run() {
     await host.goto(`${BASE}/host/split-room`)
     await host.waitForSelector('.code', { timeout: 40000 })
     if (await host.locator('.round-opt').count()) await host.locator('.round-opt').first().click()
+    // The lobby's per-night settings live behind an "Adjust for tonight" disclosure.
+    await host.locator('summary.lobby-advanced-sum').click()
     await host.waitForSelector('.crowd-toggle', { timeout: 40000 })
     await host.locator('.crowd-toggle').check()
     if (!(await host.locator('.crowd-toggle').isChecked())) throw new Error('crowd toggle did not enable')

@@ -86,8 +86,11 @@ async function run() {
         await p.click('button:has-text("Lock it in")')
       }
 
-      await host.waitForSelector('button:has-text("Lock voting")', { timeout: 40000 })
-      await host.click('button:has-text("Lock voting")')
+      // Everyone answering can auto-lock the round, so "Lock voting" may already have
+      // become "Reveal" by the time we get here. Lock only if the button is still up.
+      await host.waitForSelector('button:has-text("Lock voting"), button:has-text("Reveal")', { timeout: 40000 })
+      const lockBtn = host.locator('button:has-text("Lock voting")')
+      if (await lockBtn.count()) await lockBtn.click({ timeout: 5000 }).catch(() => {})
       await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })
       await host.click('button:has-text("Reveal")')
       rounds++

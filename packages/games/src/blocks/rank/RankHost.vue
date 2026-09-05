@@ -19,6 +19,13 @@ const ranked = computed(() => consensus(props.content, props.inputs as unknown a
 // whole rest of the order underneath. While voting is still open it stays a chart,
 // which reads better as a thing that is still moving.
 const revealed = computed(() => props.state === 'reveal' && voted.value > 0)
+// `consensus` breaks a tie by the AUTHORED order, so with a shared top place there is
+// no winner to crown: heroing the item the author happened to type first would invent
+// a result, and the row below it would carry the same "#1" badge.
+const tied = computed(() => {
+  const top = ranked.value[0]
+  return !!top && ranked.value.some((o) => o !== top && o.avg <= top.avg + 1e-9)
+})
 
 const board = computed(() =>
   ranked.value.map((r) => ({
@@ -53,7 +60,7 @@ const bars = computed(() => {
 
 <template>
   <div class="rank-host">
-    <WinnerBoard v-if="revealed" :entries="board" />
+    <WinnerBoard v-if="revealed" :entries="board" :crown="!tied" />
     <VoteBars v-else :bars="bars" />
     <p class="voted mono">{{ voted === 0 ? 'Waiting for the first ranking…' : `${voted} ranked` }}</p>
   </div>

@@ -88,7 +88,30 @@ describe('rank revealSummary (consensus order)', () => {
     const ctx: RevealContext<RankContent, RankInput> = { content, inputs, answer: undefined, players }
     const s = rankBlock.revealSummary!(ctx) as RankRevealSummary
     expect(s.order.map((o) => o.id)).toEqual(['x', 'y', 'z'])
-    expect(s.order[0]).toEqual({ id: 'x', label: 'X' })
+    expect(s.order[0]).toEqual({ id: 'x', label: 'X', place: '#1' })
+    // Places, not row numbers: the reveal crowns #1 only when it is unshared.
+    expect(s.order.map((o) => o.place)).toEqual(['#1', '#2', '#3'])
+    expect(s.tied).toBe(false)
+  })
+
+  it('marks a SHARED top place so nothing gets crowned', () => {
+    const content: RankContent = {
+      prompt: 'Rank',
+      image: '',
+      timer: null,
+      items: [
+        { id: 'x', label: 'X' },
+        { id: 'y', label: 'Y' },
+      ],
+    }
+    // One voter each way: both items average the same place.
+    const inputs = new Map<string, RankInput>([
+      ['A', { order: ['x', 'y'] }],
+      ['B', { order: ['y', 'x'] }],
+    ])
+    const s = rankBlock.revealSummary!({ content, inputs, answer: undefined, players }) as RankRevealSummary
+    expect(s.order.map((o) => o.place)).toEqual(['#1', '#1'])
+    expect(s.tied).toBe(true)
   })
 
   it('carries each item\'s picture into the reveal, and omits it when blank', () => {
@@ -103,7 +126,7 @@ describe('rank revealSummary (consensus order)', () => {
     }
     const inputs = new Map<string, RankInput>([['A', { order: ['x', 'y'] }]])
     const s = rankBlock.revealSummary!({ content, inputs, answer: undefined, players }) as RankRevealSummary
-    expect(s.order[0]).toEqual({ id: 'x', label: 'X', image: 'https://cdn.test/x.png' })
-    expect(s.order[1]).toEqual({ id: 'y', label: 'Y' })
+    expect(s.order[0]).toEqual({ id: 'x', label: 'X', image: 'https://cdn.test/x.png', place: '#1' })
+    expect(s.order[1]).toEqual({ id: 'y', label: 'Y', place: '#2' })
   })
 })

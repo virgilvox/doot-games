@@ -293,16 +293,9 @@ function sourceIndexFor(i: number): number | null {
   const src = from && from.length ? from[from.length - 1]! : i - 1
   return src >= 0 && src < config.rounds.length ? src : null
 }
-/**
- * Is this round glued to the one above it? A judge round with no explicit `from`
- * builds its options from whatever sits immediately above it at play time, so
- * separating the two silently breaks the pair. The rail's ordering rules take this
- * as a predicate and keep such a pair together through every move.
- */
+/** Is this round glued to the one above it? See `pairedWithPrev` for the rule. */
 function boundToPrev(i: number): boolean {
-  const inst = config.rounds[i]
-  if (!inst || i === 0 || !isDerived(inst)) return false
-  return sourceIndexFor(i) === i - 1
+  return pairedWithPrev(config.rounds, i, isDerived, sourceIndexFor)
 }
 /** The thing a derived block produces (its first derived field), e.g. "options". */
 function derivedNoun(inst: RoundInstance): string {

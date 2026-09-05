@@ -58,6 +58,8 @@ async function run() {
     const code = (await host.textContent('.code')).trim()
     ok(`host room code = ${code}`)
 
+    // The lobby's per-night settings live behind an "Adjust for tonight" disclosure.
+    await host.locator('summary.lobby-advanced-sum').click()
     // Turn teams on (default 2: Red, Blue).
     await host.locator('.cap-row:has-text("Play in teams") input').check()
     await host.waitForSelector('button.round-opt:has-text("2").on', { timeout: 40000 })
@@ -100,8 +102,11 @@ async function run() {
         await p.fill('.answer-input', right ? correct : 'nope wrong answer')
         await p.click('button:has-text("Lock it in")')
       }
-      await host.waitForSelector('button:has-text("Lock voting")', { timeout: 40000 })
-      await host.click('button:has-text("Lock voting")')
+      // Everyone answering can auto-lock the round, so "Lock voting" may already have
+      // become "Reveal" by the time we get here. Lock only if the button is still up.
+      await host.waitForSelector('button:has-text("Lock voting"), button:has-text("Reveal")', { timeout: 40000 })
+      const lockBtn = host.locator('button:has-text("Lock voting")')
+      if (await lockBtn.count()) await lockBtn.click({ timeout: 5000 }).catch(() => {})
       await host.waitForSelector('button:has-text("Reveal")', { timeout: 40000 })
       await host.click('button:has-text("Reveal")')
       await host.waitForSelector('button:has-text("Next round"), button:has-text("Final results")', { timeout: 40000 })

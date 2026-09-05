@@ -109,6 +109,13 @@ const hasBars = (d: Distribution) => d.bars.length > 0
 // An author may clear a prompt, and a block titles its breakdown with that prompt,
 // so the title can be an empty string (`?? 'Breakdown'` only catches undefined).
 const distTitle = (d: Distribution) => d.title?.trim() || 'Breakdown'
+// A podium whose top place is SHARED has no single winner to hero: the first bar is
+// just whichever tied entry sorted first, so crowning it would invent a result.
+const podiumHasWinner = (d: Distribution) => {
+  const [first, second] = d.bars
+  if (!first) return false
+  return !second || (first.place ?? '') !== (second.place ?? '')
+}
 // One page per major section, in narration order: standings first (the payoff),
 // then highlights, then per-question breakdowns. Stats are NOT a page; they stay
 // pinned at the bottom so the run's tally is always in view.
@@ -312,7 +319,12 @@ onBeforeUnmount(() => {
         <section v-else-if="s.kind === 'dist'" class="panel dist">
           <h3>{{ distTitle(s.dist) }}</h3>
           <p v-if="!hasBars(s.dist)" class="nothing">Nothing to show for this one.</p>
-          <WinnerBoard v-else-if="isPodium(s.dist)" :entries="podiumEntries(s.dist)" compact />
+          <WinnerBoard
+            v-else-if="isPodium(s.dist)"
+            :entries="podiumEntries(s.dist)"
+            :crown="podiumHasWinner(s.dist)"
+            compact
+          />
           <VoteBars v-else :bars="distributionToBars(s.dist)" />
         </section>
       </template>
@@ -390,11 +402,11 @@ onBeforeUnmount(() => {
                   v-else-if="currentKind === 'leaderboard'"
                   :entries="results.leaderboard ?? []"
                   :highlight="me"
-                  :max="7"
+                  :max="8"
                   :columns="2"
                   show-rest
                 />
-                <template v-else-if="currentKind === 'awards'">
+                <div v-else-if="currentKind === 'awards'" class="award-grid">
                   <div v-for="(a, i) in results.awards" :key="i" class="award host">
                     <img v-if="awardImage(a.image)" class="award-img" :src="awardImage(a.image)" alt="" @error="markAwardBroken(a.image)" />
                     <div class="award-text">
@@ -403,13 +415,14 @@ onBeforeUnmount(() => {
                     </div>
                     <div v-if="a.value != null" class="av">{{ a.value }}</div>
                   </div>
-                </template>
+                </div>
                 <p v-else-if="currentDist && !hasBars(currentDist)" class="nothing">
                   Nothing to show for this one.
                 </p>
                 <WinnerBoard
                   v-else-if="currentDist && isPodium(currentDist)"
                   :entries="podiumEntries(currentDist)"
+                  :crown="podiumHasWinner(currentDist)"
                 />
                 <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" dense />
               </section>
@@ -864,6 +877,21 @@ onBeforeUnmount(() => {
   object-fit: cover;
   border: var(--bd) solid var(--line-soft);
 }
+/* A host screen is WIDE and short. Stacked, two award cards already ran past the
+   bottom of the slide (rate emits one per category, rank one per picture round, so two
+   or more is the common shape, not the stress case), and the host could only reach the
+   rest by scrolling a TV. Side by side they fit, and they wrap to a second row rather
+   than shrinking below a readable width. */
+.award-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+.award-grid .award.host {
+  margin-bottom: 0;
+}
+
 /* On the big screen the top-rated picture is the payoff, so show it large. */
 /* Sized so several cards fit a 720p big screen. At the old 160px a single award
    filled the slide and the second was clipped, which is the common shape: rate emits

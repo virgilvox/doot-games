@@ -203,10 +203,11 @@ export function crownHeadline(leaderboard?: Array<{ name: string; score: number 
 export function mergeLeaderboards(fragments: ResultsFragment[]): LeaderboardEntry[] | undefined {
   const withBoard = fragments.filter((f) => f.leaderboard?.length)
   if (!withBoard.length) return undefined
-  // A TALLY board (most-likely's nominations) is a standing in its own right but is
-  // not points, so it never adds to a scored game. It still stands alone when it is
-  // the only board there is, which is that block played as its own game.
-  const scoring = withBoard.filter((f) => !f.leaderboardIsTally)
+  // A board in its own units (most-likely's nominations, wager's bankroll) is a
+  // standing in its own right but is not points, so it never adds to a scored game.
+  // It still stands alone when it is the only board there is, which is that block
+  // played as its own game.
+  const scoring = withBoard.filter((f) => !f.leaderboardOwnScale)
   const boards = (scoring.length ? scoring : withBoard).map((f) => f.leaderboard as LeaderboardEntry[])
   if (boards.length === 1) return boards[0]
   const merged = new Map<string, { entry: LeaderboardEntry; details: string[] }>()

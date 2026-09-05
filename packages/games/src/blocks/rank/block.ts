@@ -48,7 +48,12 @@ export interface RankInput {
  *  the same way the big screen does. `image` is omitted when blank, keeping the
  *  published value small. */
 export interface RankRevealSummary {
-  order: Array<{ id: string; label: string; image?: string }>
+  /** In consensus order, each entry carrying the PLACE the room gave it. The place
+   *  has to come from here rather than the row's position, or a tie reads "#1, #2"
+   *  on the phone while the big screen reads "#1, #1" for the same result. */
+  order: Array<{ id: string; label: string; image?: string; place?: string }>
+  /** True when the top place is shared, so no surface crowns one of them. */
+  tied?: boolean
 }
 
 /** Averages within this of each other are the same place: the room ranked them level,
@@ -88,13 +93,19 @@ export const rankBlock = defineBlock<RankContent, RankInput>({
   PlayerReveal: RankReveal,
   // No withheld answer; publish the room's consensus order so a phone can show
   // where the player's own ranking landed.
-  revealSummary: (ctx: RevealContext<RankContent, RankInput>): RankRevealSummary => ({
-    order: consensus(ctx.content, ctx.inputs).map((r) => ({
-      id: r.id,
-      label: r.label,
-      ...(r.image ? { image: r.image } : {}),
-    })),
-  }),
+  revealSummary: (ctx: RevealContext<RankContent, RankInput>): RankRevealSummary => {
+    const ranked = consensus(ctx.content, ctx.inputs)
+    const top = ranked[0]
+    return {
+      order: ranked.map((r) => ({
+        id: r.id,
+        label: r.label,
+        place: place(ranked, r),
+        ...(r.image ? { image: r.image } : {}),
+      })),
+      tied: !!top && ranked.some((o) => o !== top && o.avg <= top.avg + TIE_EPS),
+    }
+  },
   aggregate: (ctx: BlockResultsContext<RankContent, RankInput>): ResultsFragment => {
     // Every round contributes the WHOLE order, not just its winner: the results page
     // renders it as a podium (the room's #1 large, with its picture, then the rest of

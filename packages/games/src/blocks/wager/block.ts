@@ -105,6 +105,10 @@ export const wagerBlock = defineBlock<WagerContent, WagerInput>({
     const topGain = [...board].sort((a, b) => b.net - a.net)[0]
     return {
       leaderboard: board.map((b) => ({ id: b.id, name: b.name, score: b.score, detail: `${b.score} bankroll` })),
+      // A bankroll, not points: everyone starts at BASE_BANKROLL, so adding it to
+      // another block's score would drown that block entirely and make a team's total
+      // a function of how many players it has. Wager alone still shows this board.
+      leaderboardOwnScale: true,
       awards: topGain && topGain.net > 0 ? [{ label: 'High roller', subject: topGain.name, value: `+${topGain.net}` }] : [],
       stats: [
         { label: 'Questions', value: ctx.rounds.length },

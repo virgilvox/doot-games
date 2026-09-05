@@ -259,7 +259,13 @@ describe('rank block aggregate', () => {
     expect(frag?.distributions?.[0]?.bars.every((b) => b.image === undefined)).toBe(true)
     expect(frag?.awards).toBeUndefined() // nothing has a picture, so no card
     const reveal = rankBlock.revealSummary?.({ content: legacy, inputs, answer: undefined, players: [] })
-    expect(reveal).toEqual({ order: [{ id: 'b', label: 'B' }, { id: 'a', label: 'A' }] })
+    expect(reveal).toEqual({
+      order: [
+        { id: 'b', label: 'B', place: '#1' },
+        { id: 'a', label: 'A', place: '#2' },
+      ],
+      tied: false,
+    })
     expect(rankBlock.emptyInput(legacy).order).toHaveLength(2)
   })
 

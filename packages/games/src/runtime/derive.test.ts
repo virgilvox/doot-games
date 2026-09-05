@@ -326,16 +326,31 @@ describe('mergeLeaderboards (every scoring block counts)', () => {
     expect(merged?.[0]).toEqual({ id: 'a', name: 'Ada', score: 3, detail: 'one · two' })
   })
 
-  it('keeps a TALLY board out of a scored game, but uses it when it is the only board', () => {
+  it('keeps an OWN-SCALE board out of a scored game, but uses it when it is the only board', () => {
     const trivia = { leaderboard: [{ id: 'a', name: 'Ada', score: 3, detail: '3 / 3' }] }
     const nods = {
       leaderboard: [{ id: 'b', name: 'Bo', score: 9, detail: '9 nods' }],
-      leaderboardIsTally: true,
+      leaderboardOwnScale: true,
     }
     // Mixed: being nominated nine times must not beat getting three answers right.
     expect(mergeLeaderboards([trivia, nods])).toEqual(trivia.leaderboard)
     // Alone (Most Likely To played as its own game): the tally IS the standing.
     expect(mergeLeaderboards([nods])).toEqual(nods.leaderboard)
+  })
+
+  it('keeps a BANKROLL out of a scored game: a 1000-chip base would drown real points', () => {
+    const trivia = { leaderboard: [{ id: 'a', name: 'Ada', score: 3, detail: '3 / 3' }] }
+    // Wager seeds everyone at 1000, so a player who never bet still "beats" a player
+    // who answered every question right, and a team's total becomes its headcount.
+    const bankroll = {
+      leaderboard: [
+        { id: 'a', name: 'Ada', score: 1000, detail: '1000 bankroll' },
+        { id: 'b', name: 'Bo', score: 1300, detail: '1300 bankroll' },
+      ],
+      leaderboardOwnScale: true,
+    }
+    expect(mergeLeaderboards([trivia, bankroll])).toEqual(trivia.leaderboard)
+    expect(mergeLeaderboards([bankroll])).toEqual(bankroll.leaderboard)
   })
 
   it('returns undefined when no block scored anything', () => {

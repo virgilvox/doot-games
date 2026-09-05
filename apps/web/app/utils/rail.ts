@@ -150,6 +150,36 @@ export function snapGap<T extends RailItem>(rounds: T[], gap: number, opts: GapO
   return clamped
 }
 
+/** What {@link pairedWithPrev} needs from a round on top of {@link RailItem}. */
+export interface PairItem extends RailItem {
+  block?: string
+}
+
+/**
+ * Is round `i` the judge half of a two-phase pair whose make half is the round
+ * directly above it? A judge round with no explicit `from` builds its options from
+ * whatever sits immediately above it at play time, so separating the two silently
+ * breaks the pair, and every move here keeps them together.
+ *
+ * The block check is load-bearing: a real make+judge pair is always two DIFFERENT
+ * blocks (quip -> vote, draw -> drawvote), while `isDerived` is per BLOCK. Without
+ * it, a game that uses one derived block for both halves (Wavelength alternates a
+ * clue round and a guess round of the same block) chains EVERY round into a single
+ * run, and reordering that game becomes a no-op in both the arrows and the drag.
+ */
+export function pairedWithPrev<T extends PairItem>(
+  rounds: T[],
+  i: number,
+  isDerived: (round: T) => boolean,
+  sourceIndexFor: (i: number) => number | null,
+): boolean {
+  const inst = rounds[i]
+  const prev = rounds[i - 1]
+  if (i <= 0 || !inst || !prev || !isDerived(inst)) return false
+  if (inst.block !== undefined && inst.block === prev.block) return false
+  return sourceIndexFor(i) === i - 1
+}
+
 /**
  * The run of rounds that has to move as ONE when `index` is dragged by itself: a
  * two-phase make+judge pair (in either direction, and through a longer chain), or
@@ -220,8 +250,17 @@ export function clampGapIntoSection<T extends RailItem>(
 ): number {
   const clamped = Math.max(0, Math.min(gap, rounds.length))
   if (!groupId) return clamped
-  const run = railRuns(rounds).find((x) => x.groupId === groupId)
-  if (!run) return clamped
+  // A group id CAN appear in more than one run: the round options let an author put a
+  // round in a section that is not adjacent to it, which splits the section in two.
+  // Clamp into the run NEAREST the drop, not the first one in the list, or a drop at
+  // the bottom of the rail would teleport the round up to the other half.
+  const runs = railRuns(rounds).filter((x) => x.groupId === groupId)
+  if (!runs.length) return clamped
+  const distance = (r: RailRun<T>) => {
+    const end = r.start + r.count
+    return clamped < r.start ? r.start - clamped : clamped > end ? clamped - end : 0
+  }
+  const run = runs.reduce((best, r) => (distance(r) < distance(best) ? r : best), runs[0] as RailRun<T>)
   const end = run.start + run.count
   return Math.max(run.start, Math.min(clamped, end))
 }

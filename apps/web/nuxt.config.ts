@@ -9,8 +9,11 @@ export default defineNuxtConfig({
   // `/dev/*` are visual-QA showcases (the controller kit, the results gallery), not
   // product surfaces. Drop their ROUTES from the production build so they neither
   // publish a page on doot.games nor pull the whole game registry into a client chunk.
-  // (`ignore` globs did not exclude them; removing the routes here does, and is
-  // verifiable: `NODE_ENV=production nuxi build` then grep .output for "/dev/".)
+  // (`ignore` globs did not exclude them; removing the routes here does.) `nuxi build`
+  // sets NODE_ENV=production itself before this runs, so it fires in CI/Docker even
+  // though the Dockerfile only sets NODE_ENV in its RUNTIME stage. Verifiable:
+  // `nuxi build` then grep .output/server for "/dev/" (must be empty), and `nuxi dev`
+  // must still serve /dev/results.
   hooks: {
     'pages:extend'(pages) {
       if (process.env.NODE_ENV !== 'production') return

@@ -57,15 +57,23 @@ const ROSTER_STEP = 60
 // up to a full window old and would read as ABSENT roughly half the time: the
 // duplicate-name warning would stop firing exactly in the big rooms this pacing exists
 // for, and two phones would silently share one identity. Keep beat << window.
-const MAX_HEARTBEAT_INTERVAL_MS = 12_000
+const MAX_HEARTBEAT_INTERVAL_MS = 10_000
 /** The beat a room of `n` players uses (5s until it is genuinely big). */
 export function heartbeatIntervalFor(n: number): number {
   const steps = Math.max(1, Math.ceil(n / ROSTER_STEP))
   return Math.min(HEARTBEAT_INTERVAL_MS * steps, MAX_HEARTBEAT_INTERVAL_MS)
 }
-/** How long a player stays "present" after their last beat, at that beat's cadence. */
+/**
+ * How long a player stays "present" after their last beat, at that beat's cadence.
+ *
+ * Three missed beats of grace, not four: this window is also how long the room waits
+ * on someone who has WALKED OUT before "everyone has answered" can fire and before
+ * they leave the roster, so every second of slack here is a second of dead air in a
+ * big room. Three beats still covers a dropped frame or a brief reconnect, and with
+ * the beat capped at 10s the widest this ever gets is 30s against the old fixed 20s.
+ */
 export function presenceWindowFor(intervalMs: number): number {
-  return Math.max(PRESENCE_WINDOW_MS, intervalMs * 4)
+  return Math.max(PRESENCE_WINDOW_MS, intervalMs * 3)
 }
 // A relay.get on a key that doesn't exist doesn't answer "absent" quickly, it
 // hangs until the relay's own multi-second get timeout. The pre-join name probe
@@ -419,10 +427,12 @@ export class RoomRuntime {
           /* ignore */
         }
         const t = now()
-        // The room's own beat depends on how many players it holds, and the pings
-        // just collected ARE that roster, so measure staleness against the window
-        // that roster actually uses (a big room beats slower).
-        const window = presenceWindowFor(heartbeatIntervalFor(pings.size))
+        // Size the window from the players who are live RIGHT NOW, not from every
+        // ping the relay still retains: those live for the room's whole TTL, so a
+        // room that churned through 60 names all evening would otherwise widen its
+        // own window and keep counting people who left against the host's cap.
+        const liveNow = [...pings.values()].filter((ms) => t - ms < PRESENCE_WINDOW_MS).length
+        const window = presenceWindowFor(heartbeatIntervalFor(liveNow))
         let n = 0
         for (const ms of pings.values()) if (t - ms < window) n++
         resolve(n)
@@ -1002,7 +1012,11 @@ export class RoomRuntime {
   private heartbeatMs(): number {
     const bucket = Math.floor(this.now() / PRESENCE_TICK_BUCKET_MS)
     if (this.beatCache?.at === bucket && this.beatCache.v === this.rosterVersion) return this.beatCache.ms
-    const cutoff = this.now() - presenceWindowFor(MAX_HEARTBEAT_INTERVAL_MS)
+    // Count against the BASE window, not the widest one. A live player always beats
+    // inside it (the cap keeps every beat under it), while a player who left drops
+    // out promptly - so the count only falls as people leave, and the window derived
+    // from it cannot widen again and resurrect names that had already aged off.
+    const cutoff = this.now() - PRESENCE_WINDOW_MS
     let live = 0
     for (const p of this.playersMap.values()) if (p.lastPing != null && p.lastPing > cutoff) live++
     const ms = heartbeatIntervalFor(live)

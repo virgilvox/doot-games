@@ -1441,10 +1441,13 @@ describe('RoomRuntime at party scale', () => {
     expect(presenceWindowFor(heartbeatIntervalFor(60))).toBe(20_000)
     // A big room slows down instead of flooding every phone with other people's beats.
     expect(heartbeatIntervalFor(61)).toBe(10_000)
-    expect(heartbeatIntervalFor(200)).toBe(12_000)
+    expect(heartbeatIntervalFor(200)).toBe(10_000)
     // ...and is capped, so presence never becomes unusably stale.
-    expect(heartbeatIntervalFor(5_000)).toBe(12_000)
-    expect(presenceWindowFor(heartbeatIntervalFor(200))).toBe(48_000)
+    expect(heartbeatIntervalFor(5_000)).toBe(10_000)
+    // The widest the room ever waits on someone who walked out: three missed beats.
+    // Every second here is dead air before "everyone has answered" can fire, so the
+    // worst case stays close to the fixed 20s this replaced.
+    expect(presenceWindowFor(heartbeatIntervalFor(200))).toBe(30_000)
     // The cap MUST stay well under the base window: the pre-join name probe reads one
     // retained ping against that window, so a beat at (or near) the window would make a
     // live player read as absent and the duplicate-name warning would stop firing.

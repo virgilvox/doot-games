@@ -4,6 +4,7 @@ import {
   boundRunAt,
   clampGapIntoSection,
   moveRun,
+  pairedWithPrev,
   railRuns,
   remapRoundRefs,
   rowStepGap,
@@ -141,6 +142,47 @@ describe('snapGap: a drop never splits something that must stay whole', () => {
   })
 })
 
+describe('pairedWithPrev', () => {
+  type P = { id: string; block: string; group?: string; from?: number[] }
+  const src = (rounds: P[]) => (i: number) => {
+    const f = rounds[i]?.from
+    const at = f && f.length ? f[f.length - 1]! : i - 1
+    return at >= 0 && at < rounds.length ? at : null
+  }
+
+  it('binds a real make+judge pair (two different blocks)', () => {
+    const rounds: P[] = [{ id: 'q', block: 'quip' }, { id: 'v', block: 'vote' }]
+    const derived = (x: P) => x.block === 'vote'
+    expect(pairedWithPrev(rounds, 1, derived, src(rounds))).toBe(true)
+    expect(pairedWithPrev(rounds, 0, derived, src(rounds))).toBe(false)
+  })
+
+  it('does NOT bind two rounds of the SAME derived block, so Wavelength can reorder', () => {
+    // Wavelength is one derived block used for every round. Binding on `isDerived`
+    // alone chained the whole game into a single run and froze reordering entirely.
+    const wave: P[] = [1, 2, 3, 4].map((n) => ({ id: `w${n}`, block: 'wavelength' }))
+    const derived = () => true
+    expect(wave.map((_, i) => pairedWithPrev(wave, i, derived, src(wave)))).toEqual([
+      false,
+      false,
+      false,
+      false,
+    ])
+    const bound = (i: number) => pairedWithPrev(wave, i, derived, src(wave))
+    expect(boundRunAt(wave, 2, bound)).toEqual({ start: 2, count: 1 })
+    expect(moveRun(wave, 2, 1, 0).rounds.map((x) => x.id)).toEqual(['w3', 'w1', 'w2', 'w4'])
+  })
+
+  it('does not bind a judge round that names a different source round', () => {
+    const rounds: P[] = [
+      { id: 'q', block: 'quip' },
+      { id: 'poll', block: 'poll' },
+      { id: 'v', block: 'vote', from: [0] },
+    ]
+    expect(pairedWithPrev(rounds, 2, (x) => x.block === 'vote', src(rounds))).toBe(false)
+  })
+})
+
 describe('boundRunAt: a make round and its judge round drag together', () => {
   const pairs = [r('q1'), r('v1'), r('poll'), r('q2'), r('v2')]
   const bound = (i: number) => i === 1 || i === 4
@@ -234,6 +276,15 @@ describe('clampGapIntoSection: joining a section lands you inside it', () => {
 
   it('leaves a gap that is already in (or on the edge of) the section', () => {
     for (const gap of [1, 2, 3]) expect(clampGapIntoSection(SAMPLE, gap, 'g1')).toBe(gap)
+  })
+
+  it('clamps into the NEAREST run when a section id appears twice (a split section)', () => {
+    // The round options let an author put a round into a non-adjacent section, which
+    // splits it. A drop at the bottom must not teleport the round to the top half.
+    const split: R[] = [r('a', 'g'), r('b'), r('c', 'g'), r('d')]
+    expect(railRuns(split)).toHaveLength(4)
+    expect(clampGapIntoSection(split, 4, 'g')).toBe(3) // nearest run is [c], ends at 3
+    expect(clampGapIntoSection(split, 0, 'g')).toBe(0) // nearest run is [a], starts at 0
   })
 
   it('does not move the gap when dropping loose, or onto an unknown section', () => {

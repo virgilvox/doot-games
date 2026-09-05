@@ -116,7 +116,7 @@ export const mostLikelyBlock = defineBlock<MostLikelyContent, MostLikelyInput>({
       leaderboard,
       // Nominations, not points: the crown is a joke about the room, so it must not
       // add to the score of a game that also has real scoring rounds in it.
-      leaderboardIsTally: true,
+      leaderboardOwnScale: true,
       distributions,
       stats: [{ label: 'Rounds', value: ctx.rounds.length }],
     }
