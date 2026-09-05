@@ -154,7 +154,6 @@ export const answerBlock = defineBlock<AnswerContent, AnswerInput>({
       })),
       stats: [
         { label: 'Answer rounds', value: ctx.rounds.length },
-        { label: 'Top score', value: tallies[0]?.correct ?? 0 },
       ],
     }
   },

@@ -546,17 +546,44 @@ watch(
 </script>
 
 <style scoped>
+/* Cap the results to the viewport, exactly like the active `.stage` above. The
+   board is a CAROUSEL: it exists so the host pages through sections instead of
+   scrolling a TV nobody can scroll. Without a bound here the slide's own
+   `max-height: 100%` had nothing to resolve against, so an ordinary six-player
+   leaderboard grew the page, pushed the paging arrows and the stat strip past the
+   fold, and put "Play again" out of reach. Bounded, a long section scrolls INSIDE
+   its own panel and the frame around it stays put. `min-height: 0` is the other
+   half: a flex item defaults to `auto` and would still refuse to shrink.
+
+   The offset is the shell above this: Stage's padding (18 top + 26 bottom) plus its
+   bar, measured at 108px for a single-row bar, with a few pixels of headroom so a
+   slightly taller bar still fits. Over-estimating costs a sliver of board height;
+   under-estimating puts the host's controls back below the fold, which is the whole
+   bug. `.stage` above uses the same shape for the active round. */
 .results-wrap {
   flex: 1;
+  min-height: 0;
+  max-height: calc(100dvh - 116px);
   display: flex;
   flex-direction: column;
 }
+/* The board itself takes the space left above the host's controls. The generic
+   carousel manages its own height inside this (it pages rather than scrolls); a
+   game's CUSTOM results view (a chain game's unspooled threads) was written when the
+   whole page scrolled, so it scrolls HERE instead - which keeps its content reachable
+   and, unlike page-scrolling, leaves "Play again" where the host can see it. */
+.results-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 .results-next {
+  flex: none;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 24px;
+  margin-top: 18px;
 }
 .results-hint {
   flex-basis: 100%;
@@ -741,7 +768,13 @@ watch(
 
   <!-- RESULTS -->
   <div v-else-if="room.phase.value === 'results' && room.results.value" class="results-wrap">
-    <component :is="ResultsView" :results="room.results.value as any" :teams="teams" :order="config?.settings?.resultsOrder ?? []" />
+    <component
+      :is="ResultsView"
+      class="results-view"
+      :results="room.results.value as any"
+      :teams="teams"
+      :order="config?.settings?.resultsOrder ?? []"
+    />
     <!-- What next (host controls). Plain links/reload so the engine package stays
          router-free; "Play again" reloads to spin up a fresh room of this game. -->
     <div v-if="!sessionMode" class="results-next">

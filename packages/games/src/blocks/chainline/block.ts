@@ -64,6 +64,11 @@ export interface ChainlineSecret extends ChainlineContent {
 /** One step of an unspooled thread, names resolved, for the Results view. */
 export interface ChainStepView {
   step: number
+  /** Who wrote it. The pid is what the results view matches "this line is yours"
+   *  against: a display name is not unique in a room, and the roster name it is built
+   *  from may have been masked by the profanity filter while the reader's own name
+   *  was not, so a name comparison silently stops matching. */
+  id: string
   name: string
   text: string
 }
@@ -127,6 +132,7 @@ export const chainlineBlock = defineBlock<ChainlineContent, ChainlineInput>({
       .map((thread) =>
         thread.map((s) => ({
           step: s.roundIndex + 1,
+          id: s.pid,
           name: nameOf.get(s.pid) ?? 'Someone',
           text: cleanLine((s.input as ChainlineInput | undefined)?.text ?? ''),
         })),

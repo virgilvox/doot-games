@@ -56,6 +56,9 @@ export interface DoodleSecret extends DoodleContent {
  *  for a drawn step. */
 export interface DoodleStepView {
   step: number
+  /** Who made it. Matched against the reader's own pid for the "this one is yours"
+   *  treatment: names are neither unique nor stable (the roster name can be masked). */
+  id: string
   name: string
   mode: 'draw' | 'describe'
   text: string
@@ -128,6 +131,7 @@ export const doodleBlock = defineBlock<DoodleContent, DoodleInput>({
           const mode = modeByRound[s.roundIndex] ?? 'describe'
           return {
             step: s.roundIndex + 1,
+            id: s.pid,
             name: nameOf.get(s.pid) ?? 'Someone',
             mode,
             text: cleanText(input?.text ?? ''),

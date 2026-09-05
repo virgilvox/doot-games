@@ -337,12 +337,34 @@ function instrument(runtime, relay) {
   // The win headline at scale (was a wall of 76 names before the cap).
   const headline = await host.evaluate(() => document.querySelector('.rhead h1')?.textContent?.trim() ?? '')
   log(`results headline: "${headline}"`)
+  // The results carousel exists so the host never has to scroll a TV. Measure that it
+  // actually holds: the page must not grow, the paging arrows and the stat strip must
+  // stay on screen, and "Play again" must be reachable without scrolling.
+  const fits = await host.evaluate(() => {
+    const inView = (sel) => {
+      const el = document.querySelector(sel)
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return r.top >= 0 && r.bottom <= window.innerHeight
+    }
+    return {
+      arrows: inView('.cside'),
+      stats: inView('.cstats') ?? inView('.statrow'),
+      playAgain: (() => {
+        const b = [...document.querySelectorAll('button')].find((x) => /play again/i.test(x.textContent || ''))
+        if (!b) return null
+        const r = b.getBoundingClientRect()
+        return r.bottom <= window.innerHeight && r.top >= 0
+      })(),
+    }
+  })
+  log(`host results fit: arrows ${fits.arrows}, stat strip ${fits.stats}, Play again ${fits.playAgain}`)
+  run.fits = fits
   const resultsOv = await overflow(host)
-  // Horizontal must be 0. Vertical is EXPECTED to be non-zero here: only the active
-  // round stage is capped to the viewport (GameHost `.stage`); the lobby and the
-  // results keep their own roots and page-scroll by design, because the host has to
-  // reach the "Play again / New room" row below the board.
-  log(`host RESULTS overflow: horizontal ${resultsOv.hx}px (must be 0), vertical ${resultsOv.vy}px (results page-scroll by design)`)
+  // Both must be 0: the results board is a CAROUSEL, capped to the viewport like the
+  // active stage, so a section taller than the screen scrolls inside its own panel
+  // and the arrows, the stat strip and "Play again" stay reachable on a TV.
+  log(`host RESULTS overflow: horizontal ${resultsOv.hx}px, vertical ${resultsOv.vy}px (both must be 0)`)
   run.resultsOv = resultsOv
   // The leaderboard slide is the first carousel page when the game scored. Confirm it's
   // bounded (capped at 10 rows) and reachable.
@@ -384,12 +406,29 @@ function instrument(runtime, relay) {
     log(`screenshots -> ${SHOT_DIR}`)
   }
 
+  // A phone must be able to answer "how did I do?", whatever the player placed.
+  if (phones[0]) {
+    await phones[0].bringToFront()
+    const mine = await phones[0].evaluate(() => {
+      const card = document.querySelector('.mine')
+      return card ? card.textContent.replace(/\s+/g, ' ').trim() : null
+    })
+    log(`phone own-result card: ${mine ?? 'MISSING'}`)
+    run.myResult = mine
+  }
+
   // Cleanup
   for (const p of players) try { p.dispose() } catch { /* */ }
   for (const r of relays) try { r.close() } catch { /* */ }
   await browser.close()
 
-  const ok = hostErrors.length === 0 && run.rosterSeen >= Math.floor(run.target * 0.85)
+  const fitsOk = run.fits ? run.fits.arrows !== false && run.fits.stats !== false && run.fits.playAgain !== false : true
+  const ok =
+    hostErrors.length === 0 &&
+    run.rosterSeen >= Math.floor(run.target * 0.85) &&
+    run.resultsOv.hx === 0 &&
+    run.resultsOv.vy === 0 &&
+    fitsOk
   log(ok ? '\nLOAD TEST OK' : '\nLOAD TEST: see warnings above')
   process.exit(ok ? 0 : 1)
 })().catch((e) => {

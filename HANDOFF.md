@@ -5,6 +5,49 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **RESULTS PAGE OVERHAUL (2026-09-04, same day, follow-up to the rank work below).**
+> Brief: make the end-of-game board look good, read well and never break "for all the different game
+> types and combinations of blocks". Audited every shape it has to render, in the browser, at 1280x720
+> and 390 wide. Verified: 971 unit tests, full typecheck (incl. `nuxi`), a production build, five
+> browser smokes (core loop, rank board, story chain, doodle chain, tier flow) and a 200-player load
+> test that now ASSERTS the results page fits.
+>
+> - **A new dev gallery: `/dev/results`** (visual QA only, like `/dev/controllers`; both are now dropped
+>   from the production build by a `pages:extend` hook, verified by grepping `.output`). It mounts the
+>   real `GameResults` against 15 fixture shapes taken from what the blocks actually emit, in a host
+>   frame that reproduces GameHost's real height chain, so a change to the board can be judged against
+>   every shape at once instead of by playing 38 games.
+> - **The host board did not fit the screen, in 10 of 14 shapes** including the most ordinary one
+>   (six players, three rounds: 181px past the fold). The carousel exists so a host never scrolls a TV,
+>   but `.results-wrap` had no height cap, so the paging arrows, the stat strip and "Play again" all sat
+>   below the fold. The cap now lives on `GameResults` itself, because SEVEN hosts mount that component
+>   (GameHost plus six custom-flow games with their own wrapper) and a fix applied to one ships broken
+>   on the other six; GameHost adds a tighter cap because it also has controls underneath. Page overflow
+>   is now **0 in every shape**, on the real host page as well as the gallery.
+> - **Density, so it fits rather than merely scrolls:** the leaderboard lays out in TWO columns on the
+>   big screen (wide screen, height-bound), the stat strip and `VoteBars` gained compact modes (a
+>   three-option poll, the commonest breakdown there is, did not fit before), and host award cards
+>   shrank from 160px images that fitted one card per screen.
+> - **A player could not find themselves.** The phone showed the room's top 8 and nothing else, so in a
+>   200-player room the other 192 got no rank, no score, nothing. The phone now LEADS with a "Your
+>   result" card (place, of how many, the board's own detail line, tie count) and pins the reader's own
+>   row below the cut, labelled "You". It refuses to crown anyone when nobody scored, matching the
+>   headline's own rule. Own-row matching moved from name to ID (names are neither unique nor stable,
+>   the profanity filter masks them), which also fixed the same latent bug in the two chain games.
+> - **`scoreGame` was throwing away points.** It kept only the FIRST scoring block's leaderboard, so a
+>   Custom game mixing trivia with a quip+vote recipe silently discarded every vote point and crowned
+>   the trivia winner as the winner of the whole game. Boards are now summed per player. A board that is
+>   a social TALLY rather than points (most-likely's nominations) sets `leaderboardIsTally` and stays out
+>   of a scored game's total. Stats with the same label now collapse into one tile, and the redundant
+>   "Top score" stat was dropped from six blocks (the leaderboard's first row already says it).
+> - **Also fixed while in there:** the carousel could WEDGE, showing the previous section under the new
+>   section's title, whenever a host paged fast (`mode="out-in"`, now a cross-fade in one grid cell);
+>   with a single slide the whole board rendered squeezed into the grid's narrow first column, which hit
+>   every custom-flow flagship; empty breakdowns and empty podiums drew titled empty boxes; an empty
+>   prompt gave an empty section title; player-written text (a quip, a rap verse, a survey answer) went
+>   onto the big screen unbounded; the results order an author sets in the editor reached only the host
+>   and was silently ignored on every phone; and the paging dots were 9px hit targets.
+>
 > **RANK PODIUM + WHOLE-GROUP REORDER + 200-PLAYER PRESENCE (2026-09-04).**
 > Three pieces of player feedback: "have rank display all results with the winning one at top with
 > picture, the other results don't need picture but it would be nice to see"; "groups don't move

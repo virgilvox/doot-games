@@ -191,7 +191,6 @@ export const ballparkBlock = defineBlock<BallparkContent, BallparkInput>({
       })),
       stats: [
         { label: 'Questions', value: ctx.rounds.length },
-        { label: 'Top score', value: totals[0]?.score ?? 0 },
       ],
     }
   },

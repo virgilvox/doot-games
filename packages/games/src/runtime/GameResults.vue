@@ -11,7 +11,7 @@
  */
 import type { StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, WinnerBoard, teamColor } from '@doot-games/ui'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { distributionToBars } from './derive'
 
 const props = withDefaults(
@@ -32,6 +32,45 @@ const hasTeams = computed(() => !!props.results.teamLeaderboard && props.results
 const hasAwards = computed(() => !!props.results.awards && props.results.awards.length > 0)
 const hasStats = computed(() => !!props.results.stats && props.results.stats.length > 0)
 const AWARDS_LABEL = 'Highlights'
+// Plenty of games keep no score (a drawing gallery, a poll night, a round of quips).
+// Their results page has no board and no breakdowns, and used to end on a headline
+// over a void. Say plainly that there was nothing to score, so the ending reads as
+// finished rather than as a page that failed to load.
+const nothingToShow = computed(
+  () => !hasTeams.value && !hasLeaderboard.value && !hasAwards.value && (props.results.distributions?.length ?? 0) === 0,
+)
+
+/**
+ * The viewing player's own line on the board: where they placed, out of how many,
+ * and what they scored. The room-level board answers "who won"; this answers "how
+ * did I do", which is the question the player holding the phone actually has, and
+ * which a top-8 list cannot answer for anybody outside the top 8. Null on the host
+ * (nobody is "me"), and for a game that scored nothing.
+ */
+const myResult = computed(() => {
+  const board = props.results.leaderboard ?? []
+  if (!props.me || !board.length) return null
+  const mine = board.find((e) => e.id === props.me || e.name === props.me)
+  if (!mine) return null
+  const scoreOf = (e: { score: number | string }) => (typeof e.score === 'number' ? e.score : 0)
+  const score = scoreOf(mine)
+  const top = Math.max(...board.map(scoreOf))
+  // Competition place, so everyone level shares one ("3rd" for both of a tie).
+  const place = 1 + board.filter((o) => scoreOf(o) > score).length
+  const sharedWith = board.filter((o) => scoreOf(o) === score).length - 1
+  // Nobody scored, so nobody placed: the headline deliberately refuses to crown a
+  // winner at zero (see `crownHeadline`), and telling all 26 players they came 1st
+  // would be the same lie told 26 times.
+  const ranked = top > 0
+  return { ...mine, score, place, of: board.length, sharedWith, ranked }
+})
+/** "1st", "2nd", "3rd", "11th"... */
+function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`
+  const suffix = { 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th'
+  return `${n}${suffix}`
+}
 // The awards panel was titled "Top rated", which is the rate block's own copy; rank and
 // tier put cards here too (a room's #1, a crowned tier), so a rank-only game read as
 // "Top rated". One neutral heading everywhere, matching the name the editor's results-
@@ -61,6 +100,15 @@ type Slide =
   | { kind: 'awards'; label: string }
   | { kind: 'dist'; label: string; dist: Distribution }
 
+// A distribution whose bars ARE an ordering (rank) asks for the podium layout:
+// the winner large with its picture, the rest of the order listed under it.
+const isPodium = (d: Distribution) => d.layout === 'podium'
+// A round nobody answered still contributes its breakdown, so a bar list can be
+// empty. Say so rather than drawing a titled, empty box.
+const hasBars = (d: Distribution) => d.bars.length > 0
+// An author may clear a prompt, and a block titles its breakdown with that prompt,
+// so the title can be an empty string (`?? 'Breakdown'` only catches undefined).
+const distTitle = (d: Distribution) => d.title?.trim() || 'Breakdown'
 // One page per major section, in narration order: standings first (the payoff),
 // then highlights, then per-question breakdowns. Stats are NOT a page; they stay
 // pinned at the bottom so the run's tally is always in view.
@@ -70,7 +118,7 @@ const rawSlides = computed<Slide[]>(() => {
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
   if (hasAwards.value) out.push({ kind: 'awards', label: AWARDS_LABEL })
   for (const d of props.results.distributions ?? [])
-    out.push({ kind: 'dist', label: d.title ?? 'Breakdown', dist: d })
+    out.push({ kind: 'dist', label: distTitle(d), dist: d })
   return out
 })
 // Apply the author's chosen section order (which to lead with). Listed kinds come
@@ -99,9 +147,6 @@ const currentSlide = computed(() => slides.value[current.value] ?? null)
 const currentKind = computed(() => currentSlide.value?.kind ?? null)
 const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? currentSlide.value.dist : null))
 const currentLabel = computed(() => currentSlide.value?.label ?? '')
-// A distribution whose bars ARE an ordering (rank) asks for the podium layout:
-// the winner large with its picture, the rest of the order listed under it.
-const isPodium = (d: Distribution) => d.layout === 'podium'
 function podiumEntries(d: Distribution) {
   return d.bars.map((b, i) => {
     // A block that can have TIES supplies the place itself, so entries the room placed
@@ -136,10 +181,30 @@ watch(
   { immediate: true },
 )
 
+// Whether the section on screen has more below the fold. Only then is the fade at the
+// bottom of the stage right: painted unconditionally it draws a page-coloured band
+// across a short panel's own bottom border.
+const stageEl = ref<HTMLElement | null>(null)
+const slideOverflows = ref(false)
+async function measureSlide() {
+  await nextTick()
+  const el = stageEl.value?.querySelector('.slide')
+  slideOverflows.value = !!el && el.scrollHeight - el.clientHeight > 2
+}
+watch(
+  () => [current.value, props.results] as const,
+  () => {
+    void measureSlide()
+  },
+)
+
 function go(delta: number) {
   const n = slides.value.length
   if (n === 0) return
   current.value = (current.value + delta + n) % n
+}
+function goTo(i: number) {
+  if (i >= 0 && i < slides.value.length) current.value = i
 }
 // The host often drives the big screen from a keyboard/remote: left/right page
 // the carousel. Ignored on the phone (compact), where the page just scrolls.
@@ -150,62 +215,111 @@ function onKey(e: KeyboardEvent) {
 }
 onMounted(() => {
   if (!props.compact) window.addEventListener('keydown', onKey)
+  void measureSlide()
+  if (!props.compact && typeof window !== 'undefined' && 'ResizeObserver' in window) {
+    // A theme swap or a late-loading award image changes the height under us.
+    observer = new ResizeObserver(() => {
+      void measureSlide()
+    })
+    if (stageEl.value) observer.observe(stageEl.value)
+  }
 })
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
+let observer: ResizeObserver | null = null
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
+  observer?.disconnect()
+})
 </script>
 
 <template>
-  <div class="results" :class="{ carousel: !compact }">
+  <div class="results" :class="compact ? 'compact' : 'carousel'">
     <ConfettiBurst v-if="showConfetti" />
     <header class="rhead">
       <div class="kicker">That is a wrap</div>
       <h1>{{ results.headline }}</h1>
     </header>
 
-    <!-- Phone: stacked, the page scrolls. -->
+    <!-- Phone: the same sections in the same order as the big screen, stacked, with
+         the page scrolling. Driven by `slides` rather than a hardcoded template order,
+         so an author who says "open on Highlights" gets that on every surface instead
+         of only on the host's. -->
     <div v-if="compact" class="rgrid">
-      <section v-if="hasTeams" class="panel board">
-        <h3>Team scores</h3>
-        <ol class="teamboard">
-          <li
-            v-for="(t, i) in results.teamLeaderboard"
-            :key="t.team"
-            class="team-row"
-            :class="{ win: t.score === topTeamScore && t.score > 0 }"
-            :style="{ '--team': teamTint(t.team, i) }"
-          >
-            <span class="team-rank mono">{{ i + 1 }}</span>
-            <span class="team-dot" aria-hidden="true" />
-            <span class="team-name">{{ t.team }}</span>
-            <span class="team-meta">{{ t.members }} player{{ t.members === 1 ? '' : 's' }}</span>
-            <span class="team-score mono">{{ t.score }}</span>
-          </li>
-        </ol>
+      <!-- The one thing this player came here to find out, before the room's board. -->
+      <section v-if="myResult" class="panel mine" :class="{ won: myResult.place === 1 }">
+        <p class="mine-kicker mono">Your result</p>
+        <p v-if="myResult.ranked" class="mine-place">
+          <span class="mine-ord">{{ ordinal(myResult.place) }}</span>
+          <span class="mine-of">of {{ myResult.of }}</span>
+        </p>
+        <p v-else class="mine-place">
+          <span class="mine-ord none">No score</span>
+        </p>
+        <!-- The board's own words for this player's line ("2 / 3", "4 votes",
+             "$1200 bankroll"): blocks score in their own units, so the card repeats
+             what the board says rather than asserting a unit of its own. -->
+        <p v-if="myResult.detail" class="mine-detail strong">{{ myResult.detail }}</p>
+        <p v-else-if="myResult.ranked" class="mine-detail strong">
+          {{ myResult.score }} {{ myResult.score === 1 ? 'point' : 'points' }}
+        </p>
+        <p v-if="myResult.ranked && myResult.sharedWith > 0" class="mine-detail">
+          Tied with {{ myResult.sharedWith }} other player{{ myResult.sharedWith === 1 ? '' : 's' }}.
+        </p>
+        <p v-if="!myResult.ranked" class="mine-detail">Nobody scored in this one.</p>
       </section>
+      <template v-for="(s, si) in slides" :key="si">
+        <section v-if="s.kind === 'teams'" class="panel board">
+          <h3>Team scores</h3>
+          <ol class="teamboard">
+            <li
+              v-for="(t, i) in results.teamLeaderboard"
+              :key="t.team"
+              class="team-row"
+              :class="{ win: t.score === topTeamScore && t.score > 0 }"
+              :style="{ '--team': teamTint(t.team, i) }"
+            >
+              <span class="team-rank mono">{{ i + 1 }}</span>
+              <span class="team-dot" aria-hidden="true" />
+              <span class="team-name">{{ t.team }}</span>
+              <span class="team-meta">{{ t.members }} player{{ t.members === 1 ? '' : 's' }}</span>
+              <span class="team-score mono">{{ t.score }}</span>
+            </li>
+          </ol>
+        </section>
 
-      <section v-if="hasLeaderboard" class="panel board">
-        <h3>Leaderboard</h3>
-        <Leaderboard :entries="results.leaderboard ?? []" :highlight="me" :max="8" />
-      </section>
+        <section v-else-if="s.kind === 'leaderboard'" class="panel board">
+          <h3>Leaderboard</h3>
+          <Leaderboard
+            :entries="results.leaderboard ?? []"
+            :highlight="me"
+            :max="8"
+            show-rest
+            pin-highlighted
+          />
+        </section>
 
-      <section v-if="hasAwards" class="panel awards">
-        <h3>{{ AWARDS_LABEL }}</h3>
-        <div v-for="(a, i) in results.awards" :key="i" class="award">
-          <img v-if="awardImage(a.image)" class="award-img" :src="awardImage(a.image)" alt="" @error="markAwardBroken(a.image)" />
-          <div class="award-text">
-            <div class="al">{{ a.label }}</div>
-            <div class="as">{{ a.subject }}</div>
+        <section v-else-if="s.kind === 'awards'" class="panel awards">
+          <h3>{{ AWARDS_LABEL }}</h3>
+          <div v-for="(a, i) in results.awards" :key="i" class="award">
+            <img v-if="awardImage(a.image)" class="award-img" :src="awardImage(a.image)" alt="" @error="markAwardBroken(a.image)" />
+            <div class="award-text">
+              <div class="al">{{ a.label }}</div>
+              <div class="as">{{ a.subject }}</div>
+            </div>
+            <div v-if="a.value != null" class="av">{{ a.value }}</div>
           </div>
-          <div v-if="a.value != null" class="av">{{ a.value }}</div>
-        </div>
-      </section>
+        </section>
 
-      <section v-for="(d, i) in results.distributions ?? []" :key="`d${i}`" class="panel dist">
-        <h3>{{ d.title }}</h3>
-        <WinnerBoard v-if="isPodium(d)" :entries="podiumEntries(d)" compact />
-        <VoteBars v-else :bars="distributionToBars(d)" />
-      </section>
+        <section v-else-if="s.kind === 'dist'" class="panel dist">
+          <h3>{{ distTitle(s.dist) }}</h3>
+          <p v-if="!hasBars(s.dist)" class="nothing">Nothing to show for this one.</p>
+          <WinnerBoard v-else-if="isPodium(s.dist)" :entries="podiumEntries(s.dist)" compact />
+          <VoteBars v-else :bars="distributionToBars(s.dist)" />
+        </section>
+      </template>
 
+      <p v-if="nothingToShow" class="nothing">
+        No scores in this one, just the run itself.
+      </p>
       <StatStrip v-if="hasStats" :stats="results.stats ?? []" />
     </div>
 
@@ -224,13 +338,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         </button>
 
         <div class="cmain">
-          <div class="cpill" aria-live="polite" aria-atomic="true">
+          <div id="results-section-title" class="cpill" aria-live="polite" aria-atomic="true">
             <span class="cpill-label">{{ currentLabel }}</span>
             <span v-if="slides.length > 1" class="cpos">{{ current + 1 }} / {{ slides.length }}</span>
           </div>
-          <div class="cstage">
-            <Transition name="slide" mode="out-in">
-              <section :key="current" class="panel slide">
+          <!-- Jump straight to a section. A long quiz is one breakdown per question,
+               and stepping to question 17 with the arrows is 17 presses; the dots make
+               every section one click, and show at a glance how many there are. -->
+          <nav v-if="slides.length > 1" class="cdots" aria-label="Results sections">
+            <button
+              v-for="(s, i) in slides"
+              :key="i"
+              type="button"
+              class="cdot"
+              :class="{ on: i === current }"
+              :aria-current="i === current ? 'true' : undefined"
+              :aria-label="`${s.label} (${i + 1} of ${slides.length})`"
+              @click="goTo(i)"
+            />
+          </nav>
+          <div ref="stageEl" class="cstage" :class="{ more: slideOverflows }">
+            <!-- A cross-fade, deliberately NOT `mode="out-in"`: that mode runs a
+                 leave-then-enter state machine, and a host paging fast (holding the
+                 arrow key, or clicking along the dots) could leave it wedged showing
+                 the previous section under the new section's title. Both slides share
+                 one grid cell instead, so which section is on screen never depends on
+                 a transition completing. -->
+            <Transition name="slide">
+              <section
+                :key="current"
+                class="panel slide"
+                role="group"
+                aria-labelledby="results-section-title"
+              >
                 <ol v-if="currentKind === 'teams'" class="teamboard host">
                   <li
                     v-for="(t, i) in results.teamLeaderboard"
@@ -250,7 +390,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                   v-else-if="currentKind === 'leaderboard'"
                   :entries="results.leaderboard ?? []"
                   :highlight="me"
-                  :max="10"
+                  :max="7"
+                  :columns="2"
+                  show-rest
                 />
                 <template v-else-if="currentKind === 'awards'">
                   <div v-for="(a, i) in results.awards" :key="i" class="award host">
@@ -262,11 +404,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                     <div v-if="a.value != null" class="av">{{ a.value }}</div>
                   </div>
                 </template>
+                <p v-else-if="currentDist && !hasBars(currentDist)" class="nothing">
+                  Nothing to show for this one.
+                </p>
                 <WinnerBoard
                   v-else-if="currentDist && isPodium(currentDist)"
                   :entries="podiumEntries(currentDist)"
                 />
-                <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" />
+                <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" dense />
               </section>
             </Transition>
           </div>
@@ -286,9 +431,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       <!-- A game with no scored sections (e.g. a plain Draw gallery) has only the
            run tally; center it so the stage is not a blank box. -->
       <div v-if="!slides.length" class="cempty">
+        <p class="nothing">No scores in this one, just the run itself.</p>
         <StatStrip v-if="hasStats" :stats="results.stats ?? []" />
       </div>
-      <StatStrip v-else-if="hasStats" :stats="results.stats ?? []" class="cstats" />
+      <StatStrip v-else-if="hasStats" :stats="results.stats ?? []" class="cstats" compact />
     </template>
   </div>
 </template>
@@ -301,10 +447,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   gap: 16px;
 }
 /* Fill the host stage and never grow past it, so the carousel pages instead of
-   pushing the screen taller. */
+   pushing the screen taller.
+
+   The cap lives HERE, on the board itself, not on the wrapper each host happens to
+   put it in: seven different hosts mount this component (GameHost plus six
+   custom-flow games with their own results wrapper), and a fix applied to one of
+   them ships broken on the other six. GameHost adds a tighter cap of its own because
+   it also has to leave room for the host's controls underneath. */
 .results.carousel {
   flex: 1;
   min-height: 0;
+  max-height: calc(100dvh - 116px);
 }
 .rhead {
   text-align: center;
@@ -318,6 +471,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* Phone rules key off the `compact` PROP, not a viewport width: `compact` is what
+   decides this is a phone surface, and a media query would style a landscape phone or
+   a tablet as if it were the big screen. */
+.results.compact .rhead h1 {
+  font-size: clamp(26px, 7vw, 34px);
+  /* Two lines here: the player's own result is the lead on a phone, and a four-line
+     room headline pushed it off the first screen. */
+  -webkit-line-clamp: 2;
+}
+.results.compact .kicker {
+  font-size: 11px;
 }
 .rgrid {
   display: grid;
@@ -333,6 +499,61 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .awards,
 .dist {
   padding: 22px;
+}
+/* "Your result": the player's own line, led with on the phone. Deliberately the
+   loudest card on the page, because it is the one the reader is looking for. */
+.mine {
+  padding: 14px 20px;
+  text-align: center;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line-soft));
+}
+.mine.won {
+  background: color-mix(in srgb, var(--c1) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--c1) 55%, var(--line-soft));
+}
+.mine-kicker {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.mine-place {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 2px;
+}
+.mine-ord {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(34px, 11vw, 46px);
+  line-height: 1.05;
+}
+.mine-of {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+.mine-ord.none {
+  font-size: clamp(24px, 7vw, 32px);
+  color: var(--ink-soft);
+}
+.mine-detail {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.mine-detail.strong {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.nothing {
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 18px 0;
 }
 /* Phone: use the width. Tighten panel padding so the names/scores get more room,
    and let the winner headline read large. */
@@ -368,6 +589,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   z-index: 60;
 }
 .cmain {
+  /* Always the MIDDLE column. The side arrows are `v-if`'d away when there is only one
+     section, and without an explicit placement the board then auto-placed into the
+     narrow `auto` first column: every single-slide game (the custom-flow flagships all
+     publish exactly one) rendered its board squeezed against the left edge with the
+     rest of the screen empty. */
+  grid-column: 2;
   min-height: 0;
   height: 100%;
   display: flex;
@@ -408,12 +635,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   padding: 2px 9px;
 }
 .cstage {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: grid;
   place-items: center;
 }
+/* A section taller than the screen scrolls inside its own panel rather than growing
+   the page (which would carry the paging arrows and the host's controls past the
+   fold). This fades the last few pixels so a clipped row reads as "there is more"
+   rather than as a broken layout. Painted on the STAGE, not on the scroller: a mask
+   over a scrolling list forces the whole list to composite on every frame, which at
+   party scale is enough to lock the tab up. */
+/* Only when there IS more below, and in the panel's own colour: the fade sits over
+   the bottom of the slide, so fading to the page background would paint a stripe
+   across the panel and swallow its border. */
+.cstage.more::after {
+  content: '';
+  position: absolute;
+  /* Exactly the panel's width, so the hint sits ON the panel instead of painting a
+     bar across the empty stage either side of it. */
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(900px, 100%);
+  bottom: 0;
+  height: 30px;
+  pointer-events: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: linear-gradient(to bottom, transparent, var(--surface));
+}
 .slide {
+  /* Both the leaving and the entering slide occupy this one cell, so the cross-fade
+     needs no absolute positioning and no transition bookkeeping. */
+  grid-area: 1 / 1;
   width: min(900px, 100%);
   max-height: 100%;
   overflow-y: auto;
@@ -438,14 +692,60 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   transform: translateY(-1px);
   box-shadow: var(--shadow);
 }
+/* A host driving the big screen from a keyboard needs to see where focus is; the UA
+   ring on a surface-coloured circle is nearly invisible in several themes. */
+.cside:focus-visible,
+.cdot:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+.cdots {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0;
+  margin: -8px 0;
+}
+/* The dot LOOKS 10px but is a 24px target: the visual is the content box (painted via
+   background-clip) inside transparent padding, so it meets the minimum touch/pointer
+   size without a row of chunky circles across the screen. */
+.cdot {
+  width: 24px;
+  height: 24px;
+  padding: 7px;
+  border: none;
+  background: var(--line);
+  background-clip: content-box;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s;
+}
+.cdot:hover {
+  background: color-mix(in srgb, var(--primary) 55%, var(--line));
+  background-clip: content-box;
+}
+.cdot.on {
+  background: var(--primary);
+  background-clip: content-box;
+  transform: scale(1.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cdot {
+    transition: none;
+  }
+}
 .cstats {
   flex: none;
 }
 .cempty {
   flex: 1;
   min-height: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
 }
 /* Give the stat strip a definite width so its auto-fit grid lays the cards out in a
    horizontal row across the big screen, instead of collapsing to a narrow centered
@@ -459,11 +759,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 }
 .slide-enter-from {
   opacity: 0;
-  transform: translateX(26px);
+  transform: translateX(18px);
 }
 .slide-leave-to {
   opacity: 0;
-  transform: translateX(-26px);
+  transform: translateX(-18px);
+}
+/* The one leaving must not catch clicks meant for the one arriving. */
+.slide-leave-active {
+  pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .slide-enter-active,
@@ -561,14 +865,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   border: var(--bd) solid var(--line-soft);
 }
 /* On the big screen the top-rated picture is the payoff, so show it large. */
+/* Sized so several cards fit a 720p big screen. At the old 160px a single award
+   filled the slide and the second was clipped, which is the common shape: rate emits
+   one card per category, rank one per picture round. */
 .award.host {
-  padding: 16px 18px;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
 }
 .award.host .award-img {
-  width: clamp(96px, 12vw, 160px);
-  height: clamp(96px, 12vw, 160px);
-  border-radius: 14px;
+  width: clamp(72px, 7vw, 96px);
+  height: clamp(72px, 7vw, 96px);
+  border-radius: 12px;
+}
+.award.host .al {
+  font-size: 12px;
+}
+.award.host .as {
+  font-size: 22px;
 }
 .al {
   font-size: 11px;
@@ -583,10 +896,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   font-size: 20px;
   overflow-wrap: anywhere;
 }
+/* An award's value is usually a short number, but some blocks put PLAYER TEXT here
+   (survey's top answer), so it needs the same wrapping and shrink permission as the
+   subject beside it or one long word pushes the card off the screen. */
 .av {
+  flex: none;
+  max-width: 40%;
+  min-width: 0;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 28px;
   color: var(--c2);
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 </style>

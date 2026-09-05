@@ -115,6 +115,27 @@ async function run() {
     if (thumbs < 1) throw new Error('the unspool gallery has no drawings')
     ok(`unspool shows ${chains} chains with ${thumbs} drawings on the big screen`)
 
+
+    // The host results area is capped to the viewport (GameHost `.results-wrap`), so a
+    // CUSTOM results view has to stay reachable inside it rather than being clipped:
+    // the recap scrolls in place and the host's controls stay on screen.
+    // The unspool's drawings play a short entrance animation; measure after it, or a
+    // mid-transform frame reads as a few pixels of overflow that never actually exist.
+    await host.waitForTimeout(900)
+    const hostFit = await host.evaluate(() => {
+      const view = document.querySelector('.results-view')
+      const again = [...document.querySelectorAll('button')].find((b) => /play again/i.test(b.textContent || ''))
+      const r = again?.getBoundingClientRect()
+      return {
+        pageGrew: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        viewScrollsInPlace: view ? view.scrollHeight > view.clientHeight : null,
+        playAgainInView: r ? r.bottom <= window.innerHeight && r.top >= 0 : null,
+      }
+    })
+    if (hostFit.pageGrew > 0) throw new Error(`host results grew the page by ${hostFit.pageGrew}px`)
+    if (hostFit.playAgainInView === false) throw new Error('host "Play again" is below the fold on the results page')
+    ok(`host results fit the screen (Play again in view, recap scrolls in place: ${hostFit.viewScrollsInPlace})`)
+
     const phone = players[0].page
     await phone.waitForSelector('.unspool .chain', { timeout: 40000 })
     await noOverflow(phone, 'results (phone)')

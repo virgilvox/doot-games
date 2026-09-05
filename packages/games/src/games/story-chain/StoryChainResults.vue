@@ -16,6 +16,9 @@ const props = withDefaults(
 
 const recap = computed(() => (props.results?.recap as ChainlineRecap | undefined) ?? { threads: [] })
 const threads = computed(() => recap.value.threads.filter((t) => t.some((s) => s.text.length > 0)))
+// `me` is the reader's player id. Fall back to the name so a recap published before
+// steps carried an id (a room still on the relay from an older build) still lights up.
+const isMe = (s: { id?: string; name: string }) => !!props.me && (s.id === props.me || s.name === props.me)
 const headline = computed(() => props.results?.headline ?? 'The stories are in')
 </script>
 
@@ -28,7 +31,7 @@ const headline = computed(() => props.results?.headline ?? 'The stories are in')
       <li v-for="(thread, ti) in threads" :key="ti" class="story">
         <div class="story-head">Story {{ ti + 1 }}</div>
         <ol class="lines">
-          <li v-for="(s, si) in thread" :key="si" class="line" :class="{ self: me && s.name === me }">
+          <li v-for="(s, si) in thread" :key="si" class="line" :class="{ self: isMe(s) }">
             <span class="who">{{ s.name }}</span>
             <span class="text">{{ s.text || '...' }}</span>
           </li>

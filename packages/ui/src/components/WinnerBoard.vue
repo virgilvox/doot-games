@@ -76,7 +76,9 @@ const badge = (e: WinnerEntry, i: number) => e.place ?? `#${i + 1}`
       <div class="wb-hero-text">
         <p v-if="kicker" class="wb-kicker mono">{{ kicker }}</p>
         <p class="wb-place mono">{{ badge(winner, 0) }}</p>
-        <h3 class="wb-name">{{ winner.label }}</h3>
+        <!-- Not a heading: this sits INSIDE a section that already has one, and a
+             second h3 there reads as a sibling section in the document outline. -->
+        <p class="wb-name">{{ winner.label }}</p>
         <p v-if="winner.value" class="wb-value">{{ winner.value }}</p>
         <p v-if="winner.note" class="wb-note mono">{{ winner.note }}</p>
       </div>

@@ -198,7 +198,9 @@ function finish() {
   const board = leaderboard(results, names, roster)
   const top = board[0]
   const summary: StandardResults = {
-    headline: top && top.score > 0 ? `${top.name} owned the room` : 'That is a wrap',
+    // Not "That is a wrap": the results page already prints that as its kicker, so
+    // this fallback stacked the same phrase twice.
+    headline: top && top.score > 0 ? `${top.name} owned the room` : 'Everyone survived',
     leaderboard: board.map((r) => ({ id: r.id, name: r.name, score: r.score })),
     stats: [
       { label: 'Turns', value: results.length },

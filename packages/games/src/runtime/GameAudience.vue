@@ -115,7 +115,15 @@ const status = computed(() => {
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <component :is="ResultsView" :results="room.results.value as any" :teams="teams" compact />
+      <!-- No `me`: a spectator has no row on the board. `order` still applies, so a
+           watcher sees the sections in the order the author chose, like everyone else. -->
+      <component
+        :is="ResultsView"
+        :results="room.results.value as any"
+        :teams="teams"
+        :order="config?.settings?.resultsOrder ?? []"
+        compact
+      />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 

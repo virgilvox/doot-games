@@ -115,7 +115,6 @@ export const surveyBlock = defineBlock<SurveyContent, SurveyInput>({
       awards: topAnswer ? [{ label: 'Top answer', subject: topAnswer.prompt, value: topAnswer.text }] : [],
       stats: [
         { label: 'Surveys', value: ctx.rounds.length },
-        { label: 'Top score', value: totals[0]?.score ?? 0 },
       ],
     }
   },

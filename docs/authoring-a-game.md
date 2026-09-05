@@ -163,7 +163,7 @@ Scoring helpers for these games are pure and tested in `blocks/scoring.ts`:
 | `isComplete(content, input)?` | gate the "Lock it in" button (default: always) |
 | `PlayerInput` | phone view. Props `{ content, modelValue, disabled }`; emits `update:modelValue` |
 | `HostDisplay` | big-screen view. Props `{ content, inputs: Map, state, answer }` |
-| `aggregate(ctx)?` | pure → results fragment (leaderboard / awards / distributions / stats) |
+| `aggregate(ctx)?` | pure → results fragment (leaderboard / awards / distributions / stats). Boards from every block are MERGED, so emit only what this block scored |
 | `redactContent(content)?` | strip answers before publish (deep-copy what you edit) |
 | `answerOf(content)?` | the answer key, revealed only at that round's reveal |
 | `PlayerReveal?` | phone reveal view. Props `{ content, myInput, reveal }` (the public per-round reveal payload). Falls back to a generic notice |
@@ -172,6 +172,13 @@ Scoring helpers for these games are pure and tested in `blocks/scoring.ts`:
 | **two-phase:** `derive(ctx)?` | build this round's SHARED content from earlier rounds' inputs (`ctx.sources`); returns `{ publish, answer? }` |
 | **per-player:** `assignContent(ctx)?` | build SECRET per-player content (a hidden role, OR a per-player slice of a prior round); returns `{ perPlayer: Record<pid, content>, answer? }`. `ctx.sources` carries earlier rounds' inputs + their withheld answer, so an assignment can derive from a PRIOR round (the P7 foundation), not just the roster |
 | `toVoteText(content, input)?` | render this block's submission to votable text for a later judge round |
+
+`scoreGame` MERGES the fragments: every scoring block's leaderboard is summed per
+player (so a game that mixes trivia rounds with a vote recipe counts both), repeated
+stat labels collapse into one tile, and awards and breakdowns are concatenated. A
+block whose board is a social TALLY rather than points (most-likely's nominations)
+sets `leaderboardIsTally: true`, which keeps it out of a scored game's total while
+still standing alone when that block is the whole game.
 
 A results fragment's `distributions` are value bars by default. A block whose bars ARE
 an ordering (rank; a rate section's combined ranking) sets `layout: 'podium'` on the

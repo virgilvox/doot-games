@@ -126,7 +126,7 @@ const amGhost = computed(() => me.value?.alive === false)
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <GameResults :results="room.results.value as any" :me="room.me.value.name" compact />
+      <GameResults :results="room.results.value as any" :me="room.me.value.id" compact />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
     </template>
 

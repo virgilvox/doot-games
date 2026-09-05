@@ -9,9 +9,11 @@ import type {
   Distribution,
   GameComposition,
   GamePlugin,
+  LeaderboardEntry,
   ResultsFragment,
   ScorePlayer,
   StandardResults,
+  StatItem,
   TeamScore,
 } from '@doot-games/sdk'
 import { type ShareInput, pickShare } from './shares'
@@ -184,6 +186,55 @@ export function crownHeadline(leaderboard?: Array<{ name: string; score: number 
 }
 
 /**
+ * Combine every scoring block's board into ONE per-player leaderboard.
+ *
+ * A game can mix scoring blocks freely (a Custom game of guess + buzzer rounds, a
+ * flagship of answer + wager). Each block scores its own rounds and hands back its
+ * own board, so the points a player earned are spread across several fragments and
+ * the game's real standing is their SUM. Keeping only the first board (what this
+ * used to do) silently threw away every other block's points and then crowned a
+ * winner from a fraction of the game.
+ *
+ * Merged by player id, falling back to name for a block that omits ids. `detail` is
+ * the per-block secondary line ("3 / 5", "2 buzz-ins"); the parts are joined so a
+ * row still says where its points came from, capped so a many-block game keeps one
+ * readable line. Sorted by score, then name, so the order is stable and testable.
+ */
+export function mergeLeaderboards(fragments: ResultsFragment[]): LeaderboardEntry[] | undefined {
+  const withBoard = fragments.filter((f) => f.leaderboard?.length)
+  if (!withBoard.length) return undefined
+  // A TALLY board (most-likely's nominations) is a standing in its own right but is
+  // not points, so it never adds to a scored game. It still stands alone when it is
+  // the only board there is, which is that block played as its own game.
+  const scoring = withBoard.filter((f) => !f.leaderboardIsTally)
+  const boards = (scoring.length ? scoring : withBoard).map((f) => f.leaderboard as LeaderboardEntry[])
+  if (boards.length === 1) return boards[0]
+  const merged = new Map<string, { entry: LeaderboardEntry; details: string[] }>()
+  for (const board of boards) {
+    for (const e of board) {
+      const key = e.id ?? `name:${e.name}`
+      const hit = merged.get(key)
+      const score = typeof e.score === 'number' ? e.score : 0
+      if (!hit) {
+        merged.set(key, { entry: { ...e, score }, details: e.detail ? [e.detail] : [] })
+        continue
+      }
+      hit.entry.score += score
+      if (e.detail) hit.details.push(e.detail)
+    }
+  }
+  return [...merged.values()]
+    .map(({ entry, details }) => {
+      // Two parts keep the line readable on a phone row; a block that scored this
+      // player nothing contributes nothing to say.
+      const detail = details.filter(Boolean).slice(0, 2).join(' · ')
+      return detail ? { ...entry, detail } : { ...entry, detail: undefined }
+    })
+    .map((e) => (e.detail === undefined ? (({ detail, ...rest }) => rest)(e) : e))
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+}
+
+/**
  * Roll the per-player leaderboard into team totals, when the game is played in
  * teams. Pure: sums each scored player's points into their team and counts every
  * teamed player as a member (even a zero-scorer). Returns undefined when no player
@@ -216,6 +267,29 @@ export function teamLeaderboard(
   return [...totals.entries()]
     .map(([team, t]) => ({ team, score: t.score, members: t.members }))
     .sort((a, b) => b.score - a.score || a.team.localeCompare(b.team))
+}
+
+/**
+ * Collapse repeated stat labels into one tile. Blocks name their tallies
+ * independently, so a mixed game emitted the same label more than once ("Questions"
+ * from every question-asking block) and the strip showed two tiles with one name.
+ * Every remaining shared label is a COUNT of something the game did, so the totals
+ * add; a non-numeric value keeps the first one rather than inventing an aggregate.
+ */
+export function mergeStats(stats: StatItem[]): StatItem[] {
+  const out: StatItem[] = []
+  const at = new Map<string, number>()
+  for (const s of stats) {
+    const seen = at.get(s.label)
+    if (seen === undefined) {
+      at.set(s.label, out.length)
+      out.push({ ...s })
+      continue
+    }
+    const prev = out[seen] as StatItem
+    if (typeof prev.value === 'number' && typeof s.value === 'number') prev.value += s.value
+  }
+  return out
 }
 
 /** The win headline for team play, co-crowning a tie ("Red wins", "Red & Blue
@@ -263,17 +337,14 @@ export function scoreGame(
     )
   }
 
-  const leaderboard = fragments.find((f) => f.leaderboard)?.leaderboard
+  const leaderboard = mergeLeaderboards(fragments)
   // A custom-Results payload (e.g. a chain game's unspooled threads): pass the first
   // block that produced one through to the published results. The generic GameResults
   // ignores it; a game's `components.Results` reads it.
   const recap = fragments.find((f) => f.recap !== undefined)?.recap
   const awards = fragments.flatMap((f) => f.awards ?? [])
   const distributions = fragments.flatMap((f) => f.distributions ?? [])
-  const stats = [
-    { label: 'Players', value: ctx.players.length },
-    ...fragments.flatMap((f) => f.stats ?? []),
-  ]
+  const stats = mergeStats([{ label: 'Players', value: ctx.players.length }, ...fragments.flatMap((f) => f.stats ?? [])])
   // Teams (when on): roll the per-player board into team totals. The per-player
   // board is kept too (the MVP is still per player); the headline crowns the team.
   const teams = teamLeaderboard(leaderboard ?? [], ctx.players)

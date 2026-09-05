@@ -77,7 +77,6 @@ export const spectrumBlock = defineBlock<SpectrumContent, SpectrumInput>({
       leaderboard: totals.map((t) => ({ id: t.id, name: t.name, score: t.score, detail: `${t.score} pts` })),
       stats: [
         { label: 'Spectrums', value: ctx.rounds.length },
-        { label: 'Top score', value: totals[0]?.score ?? 0 },
       ],
     }
   },

@@ -9,6 +9,8 @@ import {
   buildDeriveContent,
   buildRevealSummary,
   crownHeadline,
+  mergeLeaderboards,
+  mergeStats,
   ownMakeText,
   seededShuffle,
 } from './derive'
@@ -261,5 +263,114 @@ describe('buildAssignContent (per-player content from a prior round: the chain)'
   it('returns undefined for a round whose block has no assignContent', () => {
     const assign = buildAssignContent(chainPlugin, chainConfig, 'seed', trio)
     expect(assign(0, () => new Map())).toBeUndefined() // the quip make round
+  })
+})
+
+
+describe('mergeLeaderboards (every scoring block counts)', () => {
+  it('sums a player\'s points across blocks instead of keeping only the first board', () => {
+    // A Custom game of trivia rounds plus a quip+vote recipe: guess scores one board,
+    // vote scores another. Keeping only the first threw the vote points away and then
+    // crowned the trivia winner as the winner of the whole game.
+    const merged = mergeLeaderboards([
+      {
+        leaderboard: [
+          { id: 'a', name: 'Ada', score: 3, detail: '3 / 3' },
+          { id: 'b', name: 'Bo', score: 1, detail: '1 / 3' },
+        ],
+      },
+      {
+        leaderboard: [
+          { id: 'a', name: 'Ada', score: 1, detail: '1 vote' },
+          { id: 'b', name: 'Bo', score: 4, detail: '4 votes' },
+        ],
+      },
+    ])
+    expect(merged).toEqual([
+      { id: 'b', name: 'Bo', score: 5, detail: '1 / 3 · 4 votes' },
+      { id: 'a', name: 'Ada', score: 4, detail: '3 / 3 · 1 vote' },
+    ])
+  })
+
+  it('keeps a single board untouched (the common case, no detail rewriting)', () => {
+    const only = [{ id: 'a', name: 'Ada', score: 3, detail: '3 / 3' }]
+    expect(mergeLeaderboards([{ leaderboard: only }, { stats: [] }])).toBe(only)
+  })
+
+  it('carries a player who only appears on one of the boards', () => {
+    const merged = mergeLeaderboards([
+      { leaderboard: [{ id: 'a', name: 'Ada', score: 2 }] },
+      { leaderboard: [{ id: 'z', name: 'Zed', score: 5 }] },
+    ])
+    expect(merged).toEqual([
+      { id: 'z', name: 'Zed', score: 5 },
+      { id: 'a', name: 'Ada', score: 2 },
+    ])
+  })
+
+  it('falls back to the name when a block omits ids, and never invents a detail', () => {
+    const merged = mergeLeaderboards([
+      { leaderboard: [{ name: 'Ada', score: 2 }] },
+      { leaderboard: [{ name: 'Ada', score: 3 }] },
+    ])
+    expect(merged).toEqual([{ name: 'Ada', score: 5 }])
+    expect(merged?.[0]).not.toHaveProperty('detail')
+  })
+
+  it('caps the joined detail so a many-block game keeps one readable line', () => {
+    const merged = mergeLeaderboards([
+      { leaderboard: [{ id: 'a', name: 'Ada', score: 1, detail: 'one' }] },
+      { leaderboard: [{ id: 'a', name: 'Ada', score: 1, detail: 'two' }] },
+      { leaderboard: [{ id: 'a', name: 'Ada', score: 1, detail: 'three' }] },
+    ])
+    expect(merged?.[0]).toEqual({ id: 'a', name: 'Ada', score: 3, detail: 'one · two' })
+  })
+
+  it('keeps a TALLY board out of a scored game, but uses it when it is the only board', () => {
+    const trivia = { leaderboard: [{ id: 'a', name: 'Ada', score: 3, detail: '3 / 3' }] }
+    const nods = {
+      leaderboard: [{ id: 'b', name: 'Bo', score: 9, detail: '9 nods' }],
+      leaderboardIsTally: true,
+    }
+    // Mixed: being nominated nine times must not beat getting three answers right.
+    expect(mergeLeaderboards([trivia, nods])).toEqual(trivia.leaderboard)
+    // Alone (Most Likely To played as its own game): the tally IS the standing.
+    expect(mergeLeaderboards([nods])).toEqual(nods.leaderboard)
+  })
+
+  it('returns undefined when no block scored anything', () => {
+    expect(mergeLeaderboards([{ stats: [] }, { distributions: [] }])).toBeUndefined()
+    expect(mergeLeaderboards([{ leaderboard: [] }])).toBeUndefined()
+  })
+})
+
+describe('mergeStats (one tile per label)', () => {
+  it('adds up a label several blocks emit, instead of showing it twice', () => {
+    expect(
+      mergeStats([
+        { label: 'Players', value: 8 },
+        { label: 'Questions', value: 5 },
+        { label: 'Buzz-ins', value: 4 },
+        { label: 'Questions', value: 3 },
+      ]),
+    ).toEqual([
+      { label: 'Players', value: 8 },
+      { label: 'Questions', value: 8 },
+      { label: 'Buzz-ins', value: 4 },
+    ])
+  })
+
+  it('keeps the first of a non-numeric duplicate rather than inventing a total', () => {
+    expect(
+      mergeStats([
+        { label: 'Best round', value: 'Round 3' },
+        { label: 'Best round', value: 'Round 7' },
+      ]),
+    ).toEqual([{ label: 'Best round', value: 'Round 3' }])
+  })
+
+  it('leaves a strip with no duplicates alone', () => {
+    const strip = [{ label: 'Players', value: 3 }, { label: 'Drawings', value: 3 }]
+    expect(mergeStats(strip)).toEqual(strip)
   })
 })

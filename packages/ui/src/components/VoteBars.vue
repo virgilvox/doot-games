@@ -16,7 +16,18 @@ interface Bar {
    *  thumbnail beside the label so a picture-led round still reads as itself here. */
   image?: string
 }
-withDefaults(defineProps<{ bars: Bar[]; unit?: string }>(), { unit: '' })
+withDefaults(
+  defineProps<{
+    bars: Bar[]
+    unit?: string
+    /** Tighter rows for the host big screen, where the whole chart has to fit one
+     *  screen: the caption moves up beside the label instead of taking its own line,
+     *  and the value shrinks. Three options is the commonest breakdown there is and
+     *  it did not fit at the roomy phone size. */
+    dense?: boolean
+  }>(),
+  { unit: '', dense: false },
+)
 // A picture that 404s must not leave a broken-image glyph on the big screen.
 const broken = ref(new Set<string>())
 function markBroken(src: string) {
@@ -35,17 +46,18 @@ const shown = (b: Bar) => b.display ?? fmt(b.value)
 </script>
 
 <template>
-  <div class="bars">
+  <div class="bars" :class="{ dense }">
     <div v-for="(b, i) in bars" :key="i" class="bar-row">
       <div class="btop">
         <img v-if="thumb(b)" class="bthumb" :src="thumb(b)" alt="" @error="markBroken(b.image ?? '')" />
         <span class="blabel">{{ b.label }}</span>
+        <span v-if="dense && b.note" class="bnote inline mono">{{ b.note }}</span>
         <span class="bval">{{ shown(b) }}<small v-if="unit"> {{ unit }}</small></span>
       </div>
       <div class="track">
         <span class="fill" :style="{ width: `${pct(b)}%` }" />
       </div>
-      <span v-if="b.note" class="bnote mono">{{ b.note }}</span>
+      <span v-if="!dense && b.note" class="bnote mono">{{ b.note }}</span>
     </div>
   </div>
 </template>
@@ -77,9 +89,17 @@ const shown = (b: Bar) => b.display ?? fmt(b.value)
   border: var(--bd) solid var(--line-soft);
   background: var(--surface);
 }
+/* A bar label can be text a PLAYER wrote (a quip, a rap verse, a survey answer) with
+   no length limit worth relying on, so it wraps and is clamped instead of pushing the
+   value off the row. Three lines is enough to read a punchline. */
 .blabel {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -113,10 +133,44 @@ const shown = (b: Bar) => b.display ?? fmt(b.value)
   background: linear-gradient(90deg, var(--c2), color-mix(in srgb, var(--c2) 70%, transparent));
   transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
 .bnote {
   display: block;
   margin-top: 6px;
   font-size: 12px;
   color: var(--ink-soft);
+}
+/* Inline caption. Blocks put very different things here: a short "82% agree", a
+   player's name, and hivemind's whole round PROMPT (up to 400 characters), so it has
+   to be allowed to shrink and truncate rather than shoving the label and the value
+   out of the row. */
+.bnote.inline {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  margin-top: 0;
+  align-self: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Dense: one text row + the track. Saves roughly a third of each row's height, which
+   is what lets a three- or four-option breakdown fit the big screen without a scroll. */
+.bars.dense {
+  gap: 9px;
+}
+.bars.dense .bar-row {
+  padding: 9px 14px;
+}
+.bars.dense .bval {
+  font-size: 24px;
+}
+.bars.dense .track {
+  height: 12px;
+  margin-top: 6px;
 }
 </style>

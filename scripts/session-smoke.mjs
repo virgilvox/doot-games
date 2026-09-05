@@ -84,6 +84,19 @@ async function run() {
 
     // The session bar offers the next game; the running standings show.
     await host.waitForSelector('.session-bar button:has-text("Next game")', { timeout: 40000 })
+    // In a session the "Next game" bar is a SIBLING of GameHost, below its capped
+    // results area, so it has to be budgeted for too: if the host cannot see it, the
+    // session cannot be advanced from the big screen at all.
+    const barFit = await host.evaluate(() => {
+      const bar = document.querySelector('.session-bar')
+      const r = bar?.getBoundingClientRect()
+      return {
+        pageGrew: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        barInView: r ? r.bottom <= window.innerHeight && r.top >= 0 : null,
+      }
+    })
+    if (!barFit.barInView) throw new Error(`session "Next game" bar is below the fold (page grew ${barFit.pageGrew}px)`)
+    ok('session bar stays on screen at results')
     await host.click('.session-bar button:has-text("Next game")')
     ok('advanced to game 2 via the session bar')
 

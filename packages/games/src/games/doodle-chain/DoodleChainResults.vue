@@ -40,7 +40,9 @@ const current = computed(() => slides.value[cursor.value])
 const atStart = computed(() => cursor.value <= 0)
 const atEnd = computed(() => cursor.value >= slides.value.length - 1)
 
-const isMe = (s: DoodleStepView) => !!props.me && s.name === props.me
+// `me` is the reader's player id. The name fallback keeps a recap published before
+// steps carried an id (a room still on the relay from an older build) working.
+const isMe = (s: DoodleStepView) => !!props.me && (s.id === props.me || s.name === props.me)
 const verb = (s: DoodleSlide) => stepVerb(s)
 
 function next() {

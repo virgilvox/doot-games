@@ -135,7 +135,6 @@ export const guessBlock = defineBlock<GuessContent, GuessInput>({
       })),
       stats: [
         { label: 'Guess rounds', value: ctx.rounds.length },
-        { label: 'Top score', value: tallies[0]?.correct ?? 0 },
       ],
     }
   },

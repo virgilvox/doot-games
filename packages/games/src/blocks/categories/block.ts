@@ -117,7 +117,6 @@ export const categoriesBlock = defineBlock<CategoriesContent, CategoriesInput>({
       awards: topAnswer ? [{ label: 'Original thinker', subject: topAnswer.text, value: topAnswer.cat }] : [],
       stats: [
         { label: 'Rounds', value: ctx.rounds.length },
-        { label: 'Top score', value: totals[0]?.score ?? 0 },
       ],
     }
   },

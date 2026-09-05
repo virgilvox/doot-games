@@ -6,6 +6,20 @@ export default defineNuxtConfig({
   future: { compatibilityVersion: 4 },
   devtools: { enabled: false },
 
+  // `/dev/*` are visual-QA showcases (the controller kit, the results gallery), not
+  // product surfaces. Drop their ROUTES from the production build so they neither
+  // publish a page on doot.games nor pull the whole game registry into a client chunk.
+  // (`ignore` globs did not exclude them; removing the routes here does, and is
+  // verifiable: `NODE_ENV=production nuxi build` then grep .output for "/dev/".)
+  hooks: {
+    'pages:extend'(pages) {
+      if (process.env.NODE_ENV !== 'production') return
+      for (let i = pages.length - 1; i >= 0; i--) {
+        if (pages[i]?.path.startsWith('/dev')) pages.splice(i, 1)
+      }
+    },
+  },
+
 
   // Workspace packages ship TypeScript/SFC source; let Nuxt transpile them.
   build: {

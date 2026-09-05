@@ -287,7 +287,17 @@ function reloadPage() {
     </div>
 
     <template v-else-if="room.phase.value === 'results' && room.results.value">
-      <component :is="ResultsView" :results="room.results.value as any" :me="room.me.value.name" :teams="teams" compact />
+      <!-- The player's ID, not their name: names are not unique in a room and the
+           roster name can be masked by the profanity filter, either of which would
+           stop a player from being shown their own row. -->
+      <component
+        :is="ResultsView"
+        :results="room.results.value as any"
+        :me="room.me.value.id"
+        :teams="teams"
+        :order="config?.settings?.resultsOrder ?? []"
+        compact
+      />
       <a class="btn btn-ghost btn-block" href="/">Back to start</a>
       <ReportButton
         class="results-report"
