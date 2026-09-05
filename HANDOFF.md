@@ -5,10 +5,13 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **THE SECTION DRAG NEVER WORKED (2026-09-04, reported by the user right after the deploy below).**
+> **THE SECTION DRAG NEVER WORKED (2026-09-04, reported by the user right after the deploy below).
+> FIXED, SHIPPED + DEPLOYED as `2659403`.**
 > "I still can't drag sections/groups in the editor." Correct, and it had never worked once: the
 > whole-section drag added in `4160f67` started and was cancelled by Chrome in the same tick, in every
-> browser, from the day it was written.
+> browser, from the day it was written. So of the three pieces of feedback that started all of this,
+> two shipped working (the rank podium, the 200-player room) and this one shipped dead, with the
+> arrows as the only way to reorder a section.
 >
 > - **Root cause.** `startDrag` wrote its reactive state (`dragRun`/`dropGroup`/`dropGap`) inside the
 >   `dragstart` handler. That makes Vue patch the DOM on the microtask right after the handler
@@ -36,6 +39,12 @@ prod via CI, no staging)._
 >   smoke speaks CDP instead: `Input.setInterceptDrags` hands you the payload at dragstart and
 >   `Input.dispatchDragEvent` delivers dragEnter/dragOver/drop. Re-measure the drop target AFTER the
 >   first dragover, because the "here's where it'll land" banner shifts every row down.
+> - **Verified, then deployed** (CI run `33948926165`, green in 4m51s). Before the push: 977 unit
+>   tests, every package typecheck, a production build, the new drag smoke, and the rank-board,
+>   doodle-chain and editor-audit runs. After it, on the LIVE site: a section on
+>   `doot.games/editor/custom` starts a native drag and moves (`SECTION | round` -> `round | SECTION`)
+>   with 0 page errors. That route is the throwaway unsaved editor, so the check wrote nothing to the
+>   production database.
 
 > **DEPLOY AUDIT + FIXES (2026-09-04). SHIPPED + DEPLOYED, together with the two entries below,
 > as `cf31fe4..2355aea`.**
@@ -205,7 +214,8 @@ prod via CI, no staging)._
 >   run of CONSECUTIVE rounds sharing a `group` id, so ordering has a contiguity invariant. The rules are
 >   now pure and unit-tested in `apps/web/app/utils/rail.ts` (39 tests; `vitest.config.ts` includes
 >   `apps/web/app/utils`), and `GameEditor.client.vue` only wires events to them. A section header is a
->   drag handle and has its own up/down arrows (touch + keyboard, where native HTML5 DnD does not fire);
+>   drag handle (WRONG when written: that drag was dead until `2659403`, see the top entry) and has its
+>   own up/down arrows (touch + keyboard, where native HTML5 DnD does not fire);
 >   a make+judge pair drags as one from either half. A drop is pulled to the nearest LEGAL gap, never
 >   inside another section and never between a make round and its judge. **Also fixed while in here:**
 >   `from` / `fromShares.from` are ABSOLUTE round indices and nothing remapped them on a move or a
@@ -3168,6 +3178,14 @@ DOOT_LIVE=1 pnpm vitest run packages/games/src/relay.live.test.ts
 # Real-browser playtest (needs a running dev server + Chromium):
 npx playwright install chromium   # once
 node scripts/playtest.mjs          # host+player loop, Draw canvas, auth→save
+
+# The other real-browser checks all take BASE_URL and run against a live dev server,
+# via jiti (they are .mjs but import workspace TS):
+BASE_URL=http://localhost:3000 node_modules/.bin/jiti scripts/<name>-smoke.mjs
+#   editor-drag-smoke   sections and rounds dragged FOR REAL (CDP, not page.mouse)
+#   editor-audit        editor layout at 1440/900/390
+#   rank-board-smoke    the rank podium on host + phone + results
+#   load-test           HEADLESS=195 PHONES=5 for the 200-player room
 ```
 
 Author a game: open `/create`, pick a type → `/editor/<type>`, edit the rounds, then **Host now** or **Save** (→ shareable `/g/<id>`). Or exercise a default deck directly: host a type (e.g. `/host/votebox`) on one screen, open `/play/<CODE>` on another.
@@ -3263,6 +3281,11 @@ Still deferred (low value): the dead per-round answer publish (a write-only rela
 6. **A two-phone playtest on real devices** (not just a headless browser) hasn't been run, `scripts/playtest.mjs` drives two Chromium contexts through the full UI, but touch/QR-join on actual phones is unverified.
 
 ## Known gaps / things to check first
+
+- **Unit-testing a rule is not testing the feature.** The editor's whole-section drag shipped
+  completely dead while `rail.test.ts` (47 tests over the ordering rules) and the arrow buttons were
+  both green, because nothing ever performed a drag. `scripts/editor-drag-smoke.mjs` exists for that
+  now. When a change is about a gesture, drive the gesture.
 
 - **The editor overflows the page by 61px at a 900px viewport** (`a.support-btn` in the global topbar, between its 980px and 620px breakpoints). `scripts/editor-audit.mjs` reproduces it and reports it identically on `cf31fe4`, so it is not from the 2026-09-04 work; it was left alone rather than changing the global topbar inside a deploy audit. Smallest obvious next fix.
 - **A long results section still scrolls inside its own panel** on the host (a leaderboard past 8 rows, an awards grid past two rows). That is by design (the panel fades its last few pixels rather than growing the page), but it means a page-overflow check reports 0 while the host can only read the top. Measure `slide.scrollHeight - slide.clientHeight` in `/dev/results`, not `documentElement.scrollWidth`.
