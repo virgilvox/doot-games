@@ -5,9 +5,10 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
-> **DEPLOY AUDIT + FIXES (2026-09-04, third pass over the two entries below, before pushing them).**
-> Brief: audit the two unpushed commits for degradations and say honestly whether they are safe to
-> deploy. A multi-agent audit raised 25 candidates; each was reproduced or refuted by hand rather than
+> **DEPLOY AUDIT + FIXES (2026-09-04). SHIPPED + DEPLOYED, together with the two entries below,
+> as `cf31fe4..2355aea`.**
+> Brief: audit the two then-unpushed commits for degradations and say honestly whether they are safe
+> to deploy. A multi-agent audit raised 25 candidates; each was reproduced or refuted by hand rather than
 > taken on a vote. Six real defects were found and fixed, and six "failing" smokes turned out to be
 > five stale/flaky scripts and one cold-compile timeout, none of them regressions (each was re-run
 > against `cf31fe4` to prove it). Driving the real host page also turned up two results-page defects
@@ -18,6 +19,21 @@ prod via CI, no staging)._
 > `.output`, a Docker image build, eight browser smokes and a **200-player load test** (roster
 > 200/200, 0 host page errors, host results 0px overflow on both axes, idle 18.5 relay frames/s and
 > 0.2 re-renders/s per phone).
+>
+> **After the push** (CI run `33945614773`, green in 4m56s: tests, typecheck, image build, droplet
+> rollout, and the workflow's own core-loop smoke against prod), prod was re-checked directly:
+> `doot.games` and `/host/rank` both 200 and the rank lobby boots with a room code and 0 page errors;
+> `/dev/results` returns **404**, so the `pages:extend` strip does fire in the real production build,
+> not only in a local one; and the Wavelength reorder moves on the LIVE editor, so the freeze
+> `4160f67` introduced is gone from prod.
+>
+> **The two residual trade-offs are now live, deliberately.** Departure detection is up to 30s in a
+> room over 60 players (against a fixed 20s before) in exchange for roughly half the relay frames,
+> and the duplicate-name probe tolerates two dropped beats rather than four. **Known and NOT fixed:**
+> the editor overflows the page by 61px at a 900px viewport (`a.support-btn` in the global topbar,
+> between the 980px and 620px breakpoints); `scripts/editor-audit.mjs` reports it identically on
+> `cf31fe4`, so it predates all of this. Left alone on purpose rather than changing the global topbar
+> inside a deploy audit; it is the obvious next small fix.
 >
 > - **Presence: departure detection was widening to 48s.** The beat cap was 12s and the window was
 >   `4x` the beat, so a room over 60 players took up to 48 seconds to notice a phone that walked out,
@@ -84,7 +100,8 @@ prod via CI, no staging)._
 >   `scripts/editor-audit.mjs` reports it identically on `cf31fe4`. Left alone deliberately, since
 >   touching the global topbar is not something to slip into a deploy audit.
 
-> **RESULTS PAGE OVERHAUL (2026-09-04, same day, follow-up to the rank work below).**
+> **RESULTS PAGE OVERHAUL (2026-09-04, same day, follow-up to the rank work below). SHIPPED +
+> DEPLOYED in the same push as the audit above, which corrects several of the numbers here.**
 > Brief: make the end-of-game board look good, read well and never break "for all the different game
 > types and combinations of blocks". Audited every shape it has to render, in the browser, at 1280x720
 > and 390 wide. Verified: 971 unit tests, full typecheck (incl. `nuxi`), a production build, five
@@ -127,7 +144,8 @@ prod via CI, no staging)._
 >   onto the big screen unbounded; the results order an author sets in the editor reached only the host
 >   and was silently ignored on every phone; and the paging dots were 9px hit targets.
 >
-> **RANK PODIUM + WHOLE-GROUP REORDER + 200-PLAYER PRESENCE (2026-09-04).**
+> **RANK PODIUM + WHOLE-GROUP REORDER + 200-PLAYER PRESENCE (2026-09-04). SHIPPED + DEPLOYED in the
+> same push as the audit above, which corrects several of the numbers here.**
 > Three pieces of player feedback: "have rank display all results with the winning one at top with
 > picture, the other results don't need picture but it would be nice to see"; "groups don't move
 > together in drag order when creating a game with the editor"; and "ensure it can handle 100-200
@@ -3075,7 +3093,7 @@ prod via CI, no staging)._
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **~141 tests pass (+2 opt-in live tests), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** The core play loop and the **two-phase (make→judge) loop** are **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + players through full games incl. all three flagships, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable; a markdown importer builds whole games from an LLM spec. Many audit rounds ran (security/correctness, a flagship-code audit, a docs audit); findings are fixed. The UI is mobile-responsive (no overflow at 360/390px) and free of em dashes.
+A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **977 tests pass (+ opt-in live tests), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** Current shape: **38 games** in `registry.ts` and **36 blocks** in `blocks/` (this section's older per-package rows still say "ten games"; they are a historical snapshot, the registry is the authority). The core play loop and the **two-phase (make→judge) loop** are **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + players through full games incl. all three flagships, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable; a markdown importer builds whole games from an LLM spec. Many audit rounds ran (security/correctness, a flagship-code audit, a docs audit); findings are fixed. The UI is mobile-responsive (no overflow at 360/390px) and free of em dashes.
 
 **Shipped to date:** the **runtime-derived-content** engine primitive; **twelve games** including **five flagship "Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?") built on the two-phase / buzzer patterns with content pools; blocks guess/rate/poll/rank/draw/quip/vote/fill/split/**bars**/**buzzer**; UI extras `RobotRapper` (animated CSS robot) + a client-only audio layer (`speakLines` TTS, `playDing` SFX) + the ControlBar lock-in count; the **catalog IA** (Explore = public + Games From Doot, Create = templates with per-type icons, **Your Games** `/mine` with a visibility filter, Home with a Games-From-Doot rail / Browse-by-vibe / Trending+Fresh gated to ≥5); `GameCover`/`GameTypeIcon`/`SiteFooter` + a `gameVisual` map; the `flagship` manifest flag + surfaced `manifest.version`; **end-of-game navigation** (Play again / Pick another / Home); a `/support` page + top-right Support button + footer Ko-fi/Patreon/hack.build + a Sign-up CTA; the editor's gradient theme swatches; the **make→judge host flow fix** (Collect→Lock→Start the vote) and a **host-pickable round count** for pooled games; and a docs overhaul + `examples/` (all authoring paths) + a **deep external-plugin design** (`docs/external-plugins.md`) with a standalone dev harness (`examples/external-plugin/`).
 
@@ -3214,6 +3232,8 @@ Still deferred (low value): the dead per-round answer publish (a write-only rela
 
 ## Known gaps / things to check first
 
+- **The editor overflows the page by 61px at a 900px viewport** (`a.support-btn` in the global topbar, between its 980px and 620px breakpoints). `scripts/editor-audit.mjs` reproduces it and reports it identically on `cf31fe4`, so it is not from the 2026-09-04 work; it was left alone rather than changing the global topbar inside a deploy audit. Smallest obvious next fix.
+- **A long results section still scrolls inside its own panel** on the host (a leaderboard past 8 rows, an awards grid past two rows). That is by design (the panel fades its last few pixels rather than growing the page), but it means a page-overflow check reports 0 while the host can only read the top. Measure `slide.scrollHeight - slide.clientHeight` in `/dev/results`, not `documentElement.scrollWidth`.
 - `apps/web` typecheck via `nuxi typecheck` is heavier than the library `tsc` checks (it applies `noUncheckedIndexedAccess` to imported package source). It is **green now**, a latent guarded-index hole in `poll/block.ts` it surfaced was fixed, so keep `pnpm -r typecheck` clean. The production build remains the fast signal that everything integrates.
 - **DB driver**: only the libSQL/SQLite path is implemented; a `postgres://` `DATABASE_URL` silently falls back to the local file (with a console warning). Don't assume Postgres works in prod yet.
 - **Set `SESSION_PASSWORD`** (32+ chars) in production, it's better-auth's `secret`. The code now fails closed unless `NODE_ENV=development`, so a prod image without it won't boot (intended). Also set `PUBLIC_BASE_URL` so better-auth's Origin/CSRF check trusts your domain.
