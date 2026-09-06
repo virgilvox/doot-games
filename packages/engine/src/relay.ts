@@ -48,6 +48,17 @@ export interface RelayClient {
    * proceeding (e.g. results before the phase flips to `results`).
    */
   set(address: string, value: RelayValue, options?: RelayPublishOptions): void | Promise<void>
+  /**
+   * Fire a one-shot EVENT. Unlike `set`, nothing is stored: it reaches whoever is
+   * subscribed at that moment and is then forgotten, so a later subscriber gets
+   * no replay and `get` reports it absent.
+   *
+   * This is the right shape for a heartbeat. Storing beats as state is what made
+   * presence a clock comparison between two machines (and left 147 dead ping
+   * addresses on the public relay after one party). As an event, ARRIVAL is the
+   * signal: no timestamp in the payload, nothing to skew, nothing to expire.
+   */
+  emit(address: string, payload?: RelayValue): void
   cached(address: string): RelayValue | undefined
   get(address: string): Promise<RelayValue>
   onConnect(callback: () => void): void
@@ -72,6 +83,7 @@ export interface ClaspLike {
     options?: { maxRate?: number },
   ): Unsubscribe
   set(address: string, value: Value, options?: RelayPublishOptions): void
+  emit(address: string, payload?: Value): void
   get(address: string): Promise<Value>
   cached(address: string): Value | undefined
   onConnect(cb: () => void): void
@@ -304,6 +316,16 @@ export function createClaspRelay(
       }
     },
     set: (address, value, opts) => publishValue(address, value, opts),
+    // Fire-and-forget: an event that misses (socket down mid-beat) is simply the
+    // next beat's problem, which is exactly how a heartbeat should behave. Never
+    // offloaded -- an event payload that big would be a bug in the caller.
+    emit: (address, payload) => {
+      try {
+        client.emit(address, payload as Value)
+      } catch {
+        /* a dropped beat is not an error worth surfacing */
+      }
+    },
     // cached() is synchronous and cannot resolve a reference, so report a miss for
     // an offloaded value and let the caller fall back to the async get().
     cached: (address) => {

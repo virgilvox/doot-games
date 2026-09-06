@@ -31,7 +31,7 @@ apps/web          @doot-games/web     Nuxt shell: home, explore, create, editor,
 - `eligibility.ts`, late-joiner `joinedAtIndex`.
 - `addresses.ts`, the relay address scheme.
 - `relay.ts`, the `RelayClient` interface + `createClaspRelay` (wraps `@clasp-to/core`).
-- `room.ts`, `RoomRuntime`: subscriptions, host actions, roster/presence, heartbeat, host auto-lock, **answer withholding** (publishes a redacted config; reveals each answer only at that round's reveal).
+- `room.ts`, `RoomRuntime`: subscriptions, host actions, roster/presence, heartbeat, host auto-lock, **answer withholding** (publishes a redacted config; reveals each answer only at that round's reveal). Heartbeats are relay EVENTS, not stored values, and presence is measured from local arrival time only, so no two machines' clocks are ever compared. The host is the single writer of the roster everyone else reads. See `docs/clasp-primer.md`.
 - `vue/index.ts`, `useDootRoom` (reactive surface) + `provideDootRoom`/`injectDootRoom`.
 
 The runtime is framework-agnostic and is exercised by an in-memory fake relay in `room.test.ts` (host + player end to end).

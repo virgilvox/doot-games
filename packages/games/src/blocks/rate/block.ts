@@ -185,16 +185,11 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
       })),
     )
 
-    // Combined-group rankings: for each group the author marked "combine ratings",
-    // roll its rate rounds into ONE ranking by overall score (the mean of each
-    // round's category averages). This is the "combine the ratings of several
-    // rounds into a combined score" view.
-    const distributions: Distribution[] = []
-    for (const g of ctx.groups ?? []) {
-      if (!g.combineRatings) continue
-      const groupRounds = ctx.rounds.filter((r) => r.group === g.id)
-      if (groupRounds.length < 2) continue
-      const scored = groupRounds
+    // Roll a set of rate rounds into ONE ranking by overall score (the mean of each
+    // round's category averages), rendered as a podium.
+    const rankingOf = (title: string, rounds: typeof ctx.rounds): Distribution | null => {
+      if (rounds.length < 2) return null
+      const scored = rounds
         .map(({ index, content }) => {
           const name = content.subject?.trim() || content.prompt?.trim() || `Round ${index + 1}`
           const inputs = ctx.inputsFor(index)
@@ -223,10 +218,12 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           }
         })
         .sort((a, b) => b.overall - a.overall)
+      // Nothing was rated at all: a podium of zeroes says less than no podium.
+      if (!scored.some((s) => s.overall > 0)) return null
       const top = scored[0]?.overall ?? 0
-      const ceiling = Math.max(...groupRounds.map((r) => scaleMax(r.content.scale)), top)
-      distributions.push({
-        title: g.name || 'Combined ranking',
+      const ceiling = Math.max(...rounds.map((r) => scaleMax(r.content.scale)), top)
+      return {
+        title,
         // A combined ranking IS an ordering, so it shows as a podium: the winner
         // large with the picture of the thing that was rated, then everything else
         // the section rated, in order. Each rate round already carries that picture.
@@ -244,7 +241,23 @@ export const rateBlock = defineBlock<RateContent, RateInput>({
           place: `#${1 + scored.filter((o) => o.overall > s.overall + TIE_EPS).length}`,
           ...(s.image ? { image: s.image } : {}),
         })),
-      })
+      }
+    }
+
+    // Combined-group rankings: one per group the author marked "combine ratings".
+    const distributions: Distribution[] = []
+    for (const g of ctx.groups ?? []) {
+      if (!g.combineRatings) continue
+      const d = rankingOf(g.name || 'Combined ranking', ctx.rounds.filter((r) => r.group === g.id))
+      if (d) distributions.push(d)
+    }
+    // A rating game with no groups used to show its ratings NOWHERE: just one
+    // "Top rated" award card, and fourteen rounds of scoring vanished. If nothing
+    // above produced a ranking, rank every rate round together, which is what a
+    // player who just spent the night scoring things expects to see.
+    if (distributions.length === 0) {
+      const d = rankingOf(ctx.rounds.length > 1 ? 'How the room rated them' : '', ctx.rounds)
+      if (d) distributions.push(d)
     }
 
     return {

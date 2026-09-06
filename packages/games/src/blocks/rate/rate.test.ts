@@ -107,3 +107,65 @@ describe('rate aggregate', () => {
     expect(frag.distributions ?? []).toHaveLength(0)
   })
 })
+
+describe('rate results always show what the room rated', () => {
+  const round = (subject: string, ratings: number[]) => ({
+    subject,
+    ratings,
+  })
+  /** Build an aggregate ctx for N ungrouped rate rounds. */
+  function ctxFor(rounds: Array<{ subject: string; ratings: number[] }>) {
+    const content = (subject: string) => ({
+      ...rateBlock.defaultContent(),
+      subject,
+      categories: [{ id: 'c1', label: 'Hotness' }],
+      scale: { kind: 'numeric' as const, min: 1, max: 10, step: 1 },
+    })
+    return {
+      rounds: rounds.map((r, index) => ({ index, content: content(r.subject) })),
+      inputsFor: (i: number) =>
+        new Map(rounds[i]!.ratings.map((v, n) => [`p${n}`, { ratings: { c1: v } }])),
+      answerFor: () => undefined,
+      players: [],
+      groups: undefined, // <- no groups: the shape room Z2CP actually ran
+    }
+  }
+
+  it('ranks every rate round when the author never grouped them', () => {
+    // 14 ungrouped rate rounds used to produce a single award card and no
+    // ranking at all, so a night of scoring vanished off the results page.
+    const frag = rateBlock.aggregate?.(
+      ctxFor([round('Low Tide', [7, 7, 6, 7]), round('Unsleep', [6, 6, 7]), round('Soft Night', [5, 5, 5])]) as never,
+    )
+    const dist = frag?.distributions?.[0]
+    expect(dist).toBeDefined()
+    expect(dist?.title).toBe('How the room rated them')
+    expect(dist?.layout).toBe('podium')
+    expect(dist?.bars.map((b) => b.label)).toEqual(['Low Tide', 'Unsleep', 'Soft Night'])
+    expect(dist?.bars[0]?.place).toBe('#1')
+    expect(dist?.bars[0]?.correct).toBe(true)
+  })
+
+  it('still shows the award as well, so the headline result is not lost', () => {
+    const frag = rateBlock.aggregate?.(ctxFor([round('A', [9]), round('B', [2])]) as never)
+    expect(frag?.awards?.[0]?.label).toBe('Top rated Hotness')
+    expect(frag?.awards?.[0]?.subject).toBe('A')
+  })
+
+  it('shows nothing rather than a podium of zeroes when nobody rated anything', () => {
+    const frag = rateBlock.aggregate?.(ctxFor([round('A', []), round('B', [])]) as never)
+    expect(frag?.distributions ?? []).toEqual([])
+  })
+
+  it('does not add a fallback when a group already produced a ranking', () => {
+    const base = ctxFor([round('A', [9]), round('B', [2])]) as never as {
+      rounds: Array<{ index: number; content: unknown; group?: string }>
+      groups?: unknown
+    }
+    for (const r of base.rounds) r.group = 'g1'
+    base.groups = [{ id: 'g1', name: 'Season 1', combineRatings: true }]
+    const frag = rateBlock.aggregate?.(base as never)
+    expect(frag?.distributions?.length).toBe(1)
+    expect(frag?.distributions?.[0]?.title).toBe('Season 1')
+  })
+})

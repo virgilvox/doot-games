@@ -12,7 +12,7 @@ import type { StandardResults } from '@doot-games/sdk'
 import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, ref, shallowRef, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
-import { type ScoreGameContext, getBlock, scoreGame } from './derive'
+import { type ScoreGameContext, getBlock, roundsMissingAnswerKey, scoreGame } from './derive'
 import { scoringSummary } from './scoring-summary'
 import { standingsThrough } from './standings'
 
@@ -169,6 +169,14 @@ const isPlayable = (r: { block: string }) => !getBlock(props.plugin, r.block)?.d
 const playableTotal = computed(() => rounds.value.filter(isPlayable).length)
 // Player-facing "how scoring works" lines, composed from the game's blocks.
 const scoringLines = computed(() => scoringSummary(props.plugin, config.value))
+// Rounds that will score nothing because their answer key is missing. Hosting a
+// saved game you do NOT own is the usual cause: the API strips every answer key
+// before serving it, including to the host, so the room plays a full quiz and
+// every single answer grades as wrong. It used to fail completely silently, which
+// is how room Z2CP got to the results screen with 14 questions and no winner.
+const unscorable = computed(() =>
+  config.value ? roundsMissingAnswerKey(props.plugin, config.value) : [],
+)
 const playableNumber = computed(
   () => rounds.value.slice(0, index.value + 1).filter(isPlayable).length,
 )
@@ -604,6 +612,16 @@ watch(
       <div class="lobby-head">
         <h2 class="lobby-title">{{ plugin.manifest.name }}</h2>
         <p v-if="plugin.manifest.description" class="lobby-desc">{{ plugin.manifest.description }}</p>
+        <p v-if="unscorable.length" class="lobby-warn" role="alert">
+          <Icon name="flag" :size="16" />
+          <span>
+            <b>{{ unscorable.length }} scored round{{ unscorable.length === 1 ? '' : 's' }} {{ unscorable.length === 1 ? 'has' : 'have' }} no answer key.</b>
+            Everyone will be marked wrong and the final board will read 0. This
+            usually means you're signed in as someone other than the game's owner,
+            answers aren't sent to anyone else. Sign in as the owner, or make your
+            own copy, then host again.
+          </span>
+        </p>
         <details v-if="scoringLines.length" class="lobby-scoring">
           <summary>How scoring works</summary>
           <ul>
@@ -921,6 +939,20 @@ watch(
   color: var(--ink-soft);
   font-size: 14px;
   line-height: 1.45;
+}
+.lobby-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border: var(--bd) solid var(--c3, var(--line));
+  border-radius: var(--radius-sm, 8px);
+  background: color-mix(in srgb, var(--c3, var(--ink)) 12%, var(--surface));
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
 }
 .lobby-scoring {
   margin-top: 10px;

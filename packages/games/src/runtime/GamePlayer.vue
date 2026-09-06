@@ -12,6 +12,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import GameResults from './GameResults.vue'
 import ReportButton from './ReportButton.vue'
 import { getBlock, ownMakeText } from './derive'
+import { canSubmitInput, inputNeedsRebuild } from './submit'
 
 const props = defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -178,12 +179,27 @@ watch(
   },
   { immediate: true },
 )
-const canSubmit = computed(() => {
-  if (!block.value || !content.value) return false
-  // Don't accept a submission while the host is gone, it can't be tallied.
-  if (!room.hostPresent.value) return false
-  return block.value.isComplete ? block.value.isComplete(content.value, value.value) : true
+// Content can change shape UNDER the player mid-round: a hidden-role round
+// delivers secret per-player content to its own address, and it arrives after
+// the shared content. Blocks that branch `emptyInput` on that (doodle on mode,
+// wavelength on phase) would otherwise be left holding an input of the wrong
+// shape, whose isComplete never passes -- another permanently greyed button.
+// Keys-only comparison, so a redelivered value never wipes work in progress.
+watch([content, block], () => {
+  if (inputNeedsRebuild(block.value, content.value, value.value)) {
+    value.value = block.value && content.value ? block.value.emptyInput(content.value) : null
+  }
 })
+// Whether "Lock it in" is tappable. Deliberately NOT gated on host presence: an
+// input is a publish the relay retains, so the host reads it whenever it next
+// looks. Gating it here disagreed with the close-round fallback below (which
+// submits with no such check) and greyed the button out for a whole room the one
+// time a venue laptop's clock drifted. See runtime/submit.ts.
+const canSubmit = computed(() => canSubmitInput(block.value, content.value, value.value))
+// The host screen being away is still worth telling the player about, since the
+// big screen will not advance until it is back. It just does not stop them
+// answering.
+const hostAway = computed(() => room.ready.value && !room.hostPresent.value)
 function submit() {
   if (!canSubmit.value) return
   room.submit(value.value as never)
@@ -364,6 +380,9 @@ function reloadPage() {
       <button class="btn btn-primary btn-block btn-lg" :disabled="!canSubmit" @click="submit">
         Lock it in
       </button>
+      <p v-if="hostAway" class="host-away" role="status">
+        The big screen isn't responding. Your answer is still saved.
+      </p>
     </template>
 
     <div v-else-if="state === 'open' && submitted" class="big">
@@ -398,6 +417,13 @@ function reloadPage() {
 </template>
 
 <style scoped>
+.host-away {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 /* Prompt kicker + the countdown sit on one row, so a timed round shows its clock
    on the phone without pushing the input down. */
 .kicker-row {

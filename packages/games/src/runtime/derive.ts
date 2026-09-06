@@ -17,6 +17,7 @@ import type {
   TeamScore,
 } from '@doot-games/sdk'
 import { type ShareInput, pickShare } from './shares'
+import { REDACTION_RULES } from '../catalog'
 
 /** A 32-bit hash of a string seed (xfnv1a), to seed the PRNG below. */
 function hashSeed(seed: string): number {
@@ -552,4 +553,39 @@ export function buildRevealSummary(
       audienceVotes: audienceVotesFor?.(index),
     })
   }
+}
+
+/**
+ * Rounds that will score NOTHING because their answer key is missing.
+ *
+ * The usual cause is hosting a saved game you do not own: the API strips every
+ * answer field before serving it (`redactConfigForViewer`), and it does that on
+ * the host read too, so the host loads `correct: -1` on every question and grades
+ * a whole room against it. Room Z2CP played 14 questions that way -- every player
+ * was told they were wrong, every board read `0 / 14`, and nothing anywhere said
+ * why. A deck whose answer column never resolved lands in the same place.
+ *
+ * Detected generically rather than by asking "am I the owner": build the key from
+ * the round's content, then build it again from content with the block's own
+ * redaction applied. If the two match, the content carries no more answer than a
+ * redacted copy would, so the round cannot be scored. Pure.
+ */
+export function roundsMissingAnswerKey(plugin: GamePlugin, config: GameComposition): number[] {
+  const out: number[] = []
+  config.rounds.forEach((inst, index) => {
+    const block = getBlock(plugin, inst.block)
+    if (!block?.answerOf || !block.aggregate) return
+    const rule = REDACTION_RULES[inst.block]
+    if (!rule) return
+    let real: unknown
+    let blank: unknown
+    try {
+      real = block.answerOf(inst.content as never)
+      blank = block.answerOf({ ...(inst.content as object), ...rule } as never)
+    } catch {
+      return // a block that can't read its own content is not this check's problem
+    }
+    if (JSON.stringify(real) === JSON.stringify(blank)) out.push(index)
+  })
+  return out
 }

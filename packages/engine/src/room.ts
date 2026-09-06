@@ -83,8 +83,19 @@ export function presenceWindowFor(intervalMs: number): number {
 const PROBE_GET_TIMEOUT_MS = 700
 // The host republishes a liveness ping on this cadence; players treat the host
 // as gone once its last ping is older than the window (a few missed beats).
-const HOST_HEARTBEAT_INTERVAL_MS = 5_000
-const HOST_PRESENCE_WINDOW_MS = 16_000
+export const HOST_HEARTBEAT_INTERVAL_MS = 5_000
+/**
+ * How stale the host's liveness may get before the room says it went away.
+ *
+ * Three missed beats (16s) was too tight for a real venue: a host tab that is
+ * not the frontmost tab gets its `setInterval` clamped by the browser, and the
+ * room would flip to "the host's screen went away" for most of every minute.
+ * Since presence is now measured on the receiver's own clock, this window is
+ * pure throttling margin, so it buys the room a full minute of browser
+ * misbehaviour before it says anything. A host that has genuinely closed its
+ * tab is still noticed inside a minute, and nothing about play is gated on it.
+ */
+export const HOST_PRESENCE_WINDOW_MS = 60_000
 // Mid-game resume only fires if the previous host pinged within this window. The
 // relay retains a room's state for hours, so without this a host REUSING an old
 // code would resume a stale/abandoned game (e.g. an expired open round that then
@@ -101,6 +112,13 @@ const MAX_CONFIG_BYTES = 60_000
 // How many times a host regenerates a colliding room code before giving up (each
 // try is one relay round-trip; with ~1M codes, even one collision is rare).
 const MAX_ROOM_CODE_TRIES = 5
+
+/** The retained claim on a room code: which host instance owns it, and when that
+ *  host last said so (by its own clock, read back only by itself). */
+interface HostSession {
+  token: string
+  at: number
+}
 
 /** Minimal per-round timing the runtime needs (the plugin derives the rest). */
 export interface RoundTiming {
@@ -317,8 +335,22 @@ export class RoomRuntime {
   private ready = false
   private profilePublished = false
   private myJoinedAtIndex = 0
-  /** Last host-ping timestamp seen (player/viewer only). */
-  private lastHostPing: number | null = null
+  /** When we LOCALLY last received a host heartbeat event. Beats carry no
+   *  timestamp at all now, so this is the only time value involved and it is ours.
+   *  See hostIsPresent. */
+  private lastHostPingAt: number | null = null
+  /** Removes the visibility listener that re-beats when a backgrounded tab returns. */
+  private stopVisibilityWatch: (() => void) | null = null
+  /** Host only: the room-code claim as it stood BEFORE we wrote our own, captured
+   *  during the collision check. Resume has to read the previous instance's record,
+   *  not the fresh one this connect is about to publish. */
+  private priorSession: HostSession | null = null
+  /** Non-host: the roster exactly as the host published it. Everyone downstream of
+   *  the host reads this instead of tracking 150 heartbeats themselves. */
+  private publishedRoster: Player[] | null = null
+  /** Host only: signature of the roster we last published, so an unchanged room
+   *  costs nothing. */
+  private lastRosterKey: string | null = null
   /** The delegated driver's pid (everyone tracks it), or null for host-driven. */
   private driverPid: string | null = null
   /** Host: the latest validated drive intent for the host UI to apply. */
@@ -375,7 +407,7 @@ export class RoomRuntime {
     relay: RelayClient,
     room: string,
     name: string,
-    now: () => number = Date.now,
+    _now: () => number = Date.now,
     timeoutMs: number = PROBE_GET_TIMEOUT_MS,
   ): Promise<{ id: string; present: boolean; hasProfile: boolean }> {
     const id = playerId(room, name)
@@ -388,16 +420,19 @@ export class RoomRuntime {
         relay.get(address).catch(() => undefined),
         new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs)),
       ])
-    const [ping, prof] = await Promise.all([
-      read(addr.playerPing(room, id)),
+    const [roster, prof] = await Promise.all([
+      read(addr.roster(room)),
       read(addr.playerProfile(room, id)),
     ])
+    // `hasProfile` is "this name has been used in this room" (so a reconnect can be
+    // offered); profiles are retained for the room's life, which is what we want.
     const hasProfile = prof != null
-    // The BASE window, not a big room's widened one: a wider window here would read a
-    // player who has actually left as still holding their name and block a genuine
-    // reconnect. Safe because MAX_HEARTBEAT_INTERVAL_MS keeps every room's beat well
-    // inside this window, so a live player's retained ping is always fresh enough.
-    const present = ping != null && now() - Number(ping) < PRESENCE_WINDOW_MS
+    // Whether someone is on that name RIGHT NOW comes from the host's roster. The
+    // host is the only client that hears every heartbeat, so it is the only one
+    // that can answer this -- and reading its answer means no clock comparison and
+    // no waiting a beat interval to find out.
+    const live = Array.isArray(roster) ? (roster as Array<{ id?: string }>) : []
+    const present = live.some((p) => p?.id === id)
     return { id, present, hasProfile }
   }
 
@@ -408,46 +443,25 @@ export class RoomRuntime {
    * then resolves the count. Fail-open: resolves 0 on any error, so a flaky relay
    * never wrongly turns a player away.
    */
-  static probeLiveCount(
+  static async probeLiveCount(
     relay: RelayClient,
     room: string,
-    now: () => number = Date.now,
-    windowMs = 600,
+    _now: () => number = Date.now,
+    timeoutMs = PROBE_GET_TIMEOUT_MS,
   ): Promise<number> {
-    return new Promise((resolve) => {
-      const pings = new Map<string, number>()
-      let unsub: Unsubscribe | null = null
-      let settled = false
-      const finish = () => {
-        if (settled) return
-        settled = true
-        try {
-          unsub?.()
-        } catch {
-          /* ignore */
-        }
-        const t = now()
-        // Size the window from the players who are live RIGHT NOW, not from every
-        // ping the relay still retains: those live for the room's whole TTL, so a
-        // room that churned through 60 names all evening would otherwise widen its
-        // own window and keep counting people who left against the host's cap.
-        const liveNow = [...pings.values()].filter((ms) => t - ms < PRESENCE_WINDOW_MS).length
-        const window = presenceWindowFor(heartbeatIntervalFor(liveNow))
-        let n = 0
-        for (const ms of pings.values()) if (t - ms < window) n++
-        resolve(n)
-      }
-      try {
-        unsub = relay.on(patterns.playerPing(room), (v, a) => {
-          const pid = pidFromPlayerAddress(a)
-          if (pid) pings.set(pid, Number(v))
-        })
-      } catch {
-        resolve(0)
-        return
-      }
-      setTimeout(finish, windowMs)
-    })
+    // One retained read of the host's roster, instead of subscribing to every
+    // phone's heartbeat and counting what lands inside an arbitrary window.
+    // Fail-open: 0 on any error or timeout, so a flaky relay never wrongly turns
+    // a player away at the door.
+    try {
+      const roster = await Promise.race([
+        relay.get(addr.roster(room)).catch(() => undefined),
+        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs)),
+      ])
+      return Array.isArray(roster) ? roster.length : 0
+    } catch {
+      return 0
+    }
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -483,9 +497,8 @@ export class RoomRuntime {
     // someone else's room. Players/audience keep the exact code they were given.
     if (this.me.role === 'host') {
       await this.ensureFreeRoomCode()
-      // Publish our token on the (now settled) code so a later reload of THIS host
-      // recognizes its own room and a colliding host sees a different token.
-      if (this.hostToken) this.publish(addr.hostToken(this.room), this.hostToken)
+      // The claim itself is written after tryResumeMidGame below, which has to read
+      // the PREVIOUS instance's claim before we overwrite it.
     }
     this.subscribe()
     // Seed connection state from the synchronous truth: onConnect may have
@@ -498,6 +511,10 @@ export class RoomRuntime {
       // host is authoritative: publish the lobby phase so early joiners receive it
       // on subscribe. Either way we mark ourselves ready immediately.
       const resumed = await this.tryResumeMidGame()
+      // Claim the code now, not before: `tryResumeMidGame` has to read the claim
+      // the PREVIOUS instance left, and writing ours first would overwrite the
+      // very timestamp it uses to tell a reload from an abandoned room.
+      this.publishHostSession()
       if (!resumed) this.publish(addr.phase(this.room), 'lobby')
       this.ready = true
       // Publish meta now (if the game is already loaded) so lobby joiners learn
@@ -513,23 +530,43 @@ export class RoomRuntime {
     this.emit()
   }
 
+  /**
+   * Beat again the moment a backgrounded tab comes back.
+   *
+   * Browsers throttle `setInterval` in a hidden tab hard: Chrome clamps to about
+   * once a minute after five minutes hidden, and mobile Safari suspends it
+   * outright when the screen locks. A 5s beat against a 16s window does not
+   * survive that, so a host who switched tabs, or a phone whose screen locked,
+   * reads as gone until the next tick that the browser deigns to run. Firing on
+   * `visibilitychange` closes that gap on the way back in; the widened window
+   * covers the way out.
+   */
+  private watchVisibility(): void {
+    if (typeof document === 'undefined' || this.stopVisibilityWatch) return
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') this.republishPresence()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    this.stopVisibilityWatch = () => document.removeEventListener('visibilitychange', onVisible)
+  }
+
   /** Re-broadcast this client's liveness now (used on reconnect). No-op until a
    *  heartbeat has started, so it does nothing on the first connect. */
   private republishPresence(): void {
-    const now = this.now()
     if (!this.heartbeatTimer && !this.hostHeartbeatTimer) return
     if (this.me.role === 'player' && this.heartbeatTimer) {
-      this.publish(addr.playerPing(this.room, this.me.id), now)
+      this.relay.emit(addr.playerPing(this.room, this.me.id))
     } else if (this.me.role === 'audience' && this.heartbeatTimer) {
-      this.publish(addr.audiencePing(this.room, this.me.id), now)
+      this.relay.emit(addr.audiencePing(this.room, this.me.id))
     } else if (this.me.role === 'host' && this.hostHeartbeatTimer) {
-      this.publish(addr.hostPing(this.room), now)
+      this.relay.emit(addr.hostPing(this.room))
     }
   }
 
   private startAudienceHeartbeat(): void {
     if (this.heartbeatTimer || this.me.role !== 'audience') return
-    const beat = () => this.publish(addr.audiencePing(this.room, this.me.id), this.now())
+    this.watchVisibility()
+    const beat = () => this.relay.emit(addr.audiencePing(this.room, this.me.id))
     beat()
     this.heartbeatTimer = setInterval(beat, HEARTBEAT_INTERVAL_MS)
   }
@@ -545,25 +582,35 @@ export class RoomRuntime {
 
   private startHostHeartbeat(): void {
     if (this.me.role !== 'host' || this.hostHeartbeatTimer) return
-    const beat = () => this.publish(addr.hostPing(this.room), this.now())
+    this.watchVisibility()
+    const beat = () => {
+      this.relay.emit(addr.hostPing(this.room))
+      this.publishHostSession()
+    }
     beat()
     this.hostHeartbeatTimer = setInterval(beat, HOST_HEARTBEAT_INTERVAL_MS)
   }
 
-  /** Whether a LIVE room already holds `code` (a host heartbeat within the presence
-   *  window). A stale/expired ping (or none) reads as free, so codes recycle. A relay
-   *  hiccup reads as free too, so a transient error never blocks hosting. */
+  /**
+   * Whether this room code already belongs to another host.
+   *
+   * Deliberately not a liveness question, because liveness across machines cannot
+   * be answered without comparing their clocks, and getting it wrong here means
+   * two hosts silently driving one room. Ownership can be answered exactly: a
+   * retained session record with a token that is not ours means the code is
+   * someone else's, so we pick another. A code stays claimed for the room's TTL
+   * rather than being recycled the moment a host goes quiet, which costs us
+   * nothing against a million codes and removes the hijack entirely.
+   *
+   * A relay hiccup reads as free, so a transient error never blocks hosting.
+   */
   private async roomCodeTaken(code: string): Promise<boolean> {
     try {
-      const ping = await this.relay.get(addr.hostPing(code))
-      const live = ping != null && this.now() - Number(ping) < HOST_PRESENCE_WINDOW_MS
-      if (!live) return false
-      // A live ping holds the code. If it carries OUR token (a reload of this same
-      // host instance), the code is still ours: keep it so the players aren't stranded.
-      // A different host (or a tokenless legacy host) reads as taken and regenerates.
-      if (!this.hostToken) return true
-      const token = await this.relay.get(addr.hostToken(code))
-      return token !== this.hostToken
+      const session = (await this.relay.get(addr.hostSession(code))) as unknown as HostSession | undefined
+      const owner = typeof session?.token === 'string' ? session.token : null
+      if (code === this.room) this.priorSession = owner ? session ?? null : null
+      if (!owner) return false // nobody has claimed it
+      return owner !== this.hostToken // ours (a reload) -> keep it; anyone else's -> move on
     } catch {
       return false
     }
@@ -579,6 +626,18 @@ export class RoomRuntime {
     }
     // After many collisions (astronomically unlikely) keep the last code rather than
     // loop forever; a duplicate is far less likely than the relay being unreachable.
+  }
+
+  /**
+   * Claim this room code and stamp when we last held it. Refreshed on the host's
+   * beat so a reload can tell "I was driving this a moment ago" from "this is a
+   * code I used at a party last night". `at` is only ever read back by a host
+   * whose token matches, i.e. by this same machine, so it is never a cross-clock
+   * comparison.
+   */
+  private publishHostSession(): void {
+    if (this.me.role !== 'host' || !this.hostToken) return
+    this.publish(addr.hostSession(this.room), { token: this.hostToken, at: this.now() })
   }
 
   /** Publish room meta (game id, title, theme) so players can render the lobby. */
@@ -613,12 +672,11 @@ export class RoomRuntime {
         this.relay.get(a).catch(() => undefined),
         new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), PROBE_GET_TIMEOUT_MS)),
       ])
-    const [phase, idx, rstate, deadline, ping] = await Promise.all([
+    const [phase, idx, rstate, deadline] = await Promise.all([
       get(addr.phase(this.room)),
       get(addr.roundIndex(this.room)),
       get(addr.roundState(this.room)),
       get(addr.roundDeadline(this.room)),
-      get(addr.hostPing(this.room)),
     ])
     // Only resume an ACTIVE (mid-round) game. 'lobby'/absent means a fresh start;
     // 'results' means the game ended (and the host doesn't retain its own results
@@ -633,7 +691,11 @@ export class RoomRuntime {
     // if its round's timer expired during the reload (the tick then locks + syncs the
     // round). Blocking that would reset live players to the lobby, which is worse than
     // a brief auto-lock.
-    if (ping == null || this.now() - Number(ping) >= RESUME_STALE_MS) return false
+    const prev = this.priorSession
+    // Only OUR OWN room resumes, and the staleness check reads a timestamp this
+    // machine wrote itself, so neither test involves another machine's clock.
+    if (!this.hostToken || prev?.token !== this.hostToken) return false
+    if (typeof prev.at !== 'number' || this.now() - prev.at >= RESUME_STALE_MS) return false
     const index = Number(idx) | 0
     // The freshly loaded config must actually contain this round (a guard against
     // a stale/mismatched retained pointer); else fall back to a clean lobby.
@@ -668,6 +730,8 @@ export class RoomRuntime {
     this.heartbeatTimer = null
     if (this.hostHeartbeatTimer) clearInterval(this.hostHeartbeatTimer)
     this.hostHeartbeatTimer = null
+    this.stopVisibilityWatch?.()
+    this.stopVisibilityWatch = null
     this.listeners.clear()
   }
 
@@ -719,8 +783,11 @@ export class RoomRuntime {
         this.standings = v
         this.emit()
       })
-      on(addr.hostPing(r), (v) => {
-        this.lastHostPing = Number(v)
+      on(addr.hostPing(r), () => {
+        // A heartbeat is an EVENT: it is never stored and never replayed, so the
+        // fact that one arrived is the whole signal. No timestamp is sent, so
+        // there is nothing to compare against our clock and nothing to go stale.
+        this.lastHostPingAt = this.now()
         this.emit()
       })
       // Who (if anyone) the host has delegated driving to. Players read this to
@@ -747,14 +814,25 @@ export class RoomRuntime {
       })
     }
 
-    // Roster: host/player/viewer track who is in the room (public names + presence).
-    // This is deliberately NOT player inputs, those stay host/viewer-only below, so a
-    // player can never read another player's answers (the withholding invariant).
-    // Players need the roster for roster games like Most Likely To (you vote for
-    // another player) and Truth or Share (the picker chooses a target). An AUDIENCE
-    // member skips the roster (and every input below): a spectator reads only the
-    // display state, which keeps their bandwidth low and never deanonymizes inputs.
-    if (this.me.role !== 'audience') {
+    // Everyone except the audience needs to know who is in the room: roster games
+    // like Most Likely To let you vote for another player. They READ it from the
+    // host rather than working it out themselves.
+    //
+    // Only the HOST subscribes to the per-player profile/ping/team firehose. Every
+    // client used to, which made presence cost N deliveries per beat to each of N
+    // clients: at the 145-phone party that was ~2,100 relay deliveries a second, and
+    // the code already called it the dominant cost of a big room. One writer, one
+    // roster value, N readers makes it linear -- and it matches how phase, round and
+    // config already work, so presence stops being the one thing 145 devices each
+    // compute a slightly different answer to.
+    if (this.me.role !== 'host' && this.me.role !== 'audience') {
+      on(addr.roster(r), (v) => {
+        this.publishedRoster = Array.isArray(v) ? (v as unknown as Player[]) : null
+        this.rosterVersion++
+        this.emit()
+      })
+    }
+    if (this.me.role === 'host') {
     on(patterns.playerProfile(r), (v, a) => {
       const pid = pidFromPlayerAddress(a)
       if (!pid) return
@@ -775,14 +853,21 @@ export class RoomRuntime {
       // actually change the roster are worth a re-render.
       if (!prev || prev.name !== next.name || prev.joinedAtIndex !== next.joinedAtIndex) {
         this.rosterVersion++
+        // Publish straight away rather than waiting for the presence sweep: a
+        // player who has just joined wants to see their name on the big screen now.
+        this.maybePublishRoster()
         this.emit()
       }
     })
-    on(patterns.playerPing(r), (v, a) => {
+    on(patterns.playerPing(r), (_v, a) => {
       const pid = pidFromPlayerAddress(a)
       if (!pid) return
       const prev = this.playersMap.get(pid)
-      const lastPing = Number(v)
+      // Stamp OUR clock, not the phone's. A room is 150 devices whose clocks agree
+      // only by luck; measuring their liveness by their own timestamps drops the
+      // fast ones off the roster (and out of "everyone has answered") while they
+      // are sitting there beating.
+      const lastPing = this.now()
       const window = this.presenceWindow()
       const wasLive = prev?.lastPing != null && this.now() - prev.lastPing < window
       this.playersMap.set(pid, {
@@ -802,9 +887,9 @@ export class RoomRuntime {
         this.emit()
       }
     })
-    // Teams (when on): every role tracks each player's team so the host roster and
-    // the team board can group/colour by it. A player writes their own; the host
-    // may write any player's (assign / auto-balance). '' clears it.
+    // Teams (when on): the host folds each player's team into the roster it
+    // publishes, so the team board and colours reach everyone from there. A player
+    // writes their own; the host may write any player's (assign / auto-balance).
     on(patterns.playerTeam(r), (v, a) => {
       const pid = pidFromPlayerAddress(a)
       if (!pid) return
@@ -819,10 +904,11 @@ export class RoomRuntime {
       })
       if (!prev || prev.team !== team) {
         this.rosterVersion++
+        this.maybePublishRoster()
         this.emit()
       }
     })
-    } // end roster (skipped for audience)
+    } // end host-only roster inputs
 
     if (this.me.role === 'player') {
       // A player only needs its own inputs back (reconnect restore + private score).
@@ -846,7 +932,8 @@ export class RoomRuntime {
         else this.perPlayerContent.set(parsed.roundIndex, v)
         this.emit()
       })
-    } else if (this.me.role === 'host' || this.me.role === 'viewer') {
+    }
+    if (this.me.role === 'host' || this.me.role === 'viewer') {
       // Host/viewer also receive every player's inputs (for tallying + the big
       // screen). A player never subscribes here, so it can't read others' answers,
       // and an AUDIENCE member never subscribes here either (spectators must not be
@@ -889,9 +976,11 @@ export class RoomRuntime {
         })
         // Track audience heartbeats so the host can show "N watching". A spectator's
         // id is unique per tab, so distinct live pings = the audience size.
-        on(patterns.audiencePing(r), (v, a) => {
+        on(patterns.audiencePing(r), (_v, a) => {
           const id = a.split('/')[4]
-          if (id) this.audiencePings.set(id, Number(v))
+          // Our clock, for the same reason as playerPing: a spectator's device
+          // clock is not evidence about when we heard from them.
+          if (id) this.audiencePings.set(id, this.now())
           this.emit()
         })
       }
@@ -971,14 +1060,19 @@ export class RoomRuntime {
   /**
    * Whether the host is currently live. The host is always "present" to itself.
    * Before any ping arrives we assume present, so the join screen doesn't flash
-   * a false "host gone" (a truly dead room is caught by the join timeout). Once
-   * a ping has been seen, presence is whether the latest one is within the
-   * window, so a host that closed its tab is detected within a few seconds.
+   * a false "host gone" (a truly dead room is caught by the join timeout).
+   *
+   * Measured entirely on OUR clock: `lastHostPingAt` is when this device saw the
+   * host beat, not what the host's clock said at the time. Comparing the host's
+   * timestamp to ours (what this used to do) meant any device more than a window
+   * out of sync declared a perfectly healthy host gone -- and since `canSubmit`
+   * hung off this flag, that greyed out "Lock it in" for as long as the drift
+   * lasted. Clocks disagree; arrival times do not.
    */
   private hostIsPresent(): boolean {
     if (this.me.role === 'host') return true
-    if (this.lastHostPing == null) return true
-    return this.now() - this.lastHostPing < HOST_PRESENCE_WINDOW_MS
+    if (this.lastHostPingAt == null) return true
+    return this.now() - this.lastHostPingAt < HOST_PRESENCE_WINDOW_MS
   }
 
   onChange(listener: Listener): Unsubscribe {
@@ -1040,6 +1134,10 @@ export class RoomRuntime {
    * coarse time bucket as well as on roster/input changes.
    */
   recentPlayers(): Player[] {
+    // Everyone but the host reads the roster the host published. It is the same
+    // answer, arrived at once instead of 150 times, and it is authoritative: the
+    // host is the only client that hears every heartbeat.
+    if (this.me.role !== 'host') return this.publishedRoster ?? []
     const now = this.now()
     const bucket = Math.floor(now / PRESENCE_TICK_BUCKET_MS)
     const cached = this.rosterCache
@@ -1196,7 +1294,12 @@ export class RoomRuntime {
 
   /** This player's own team, or null (for the lobby picker's selected state). */
   get myTeam(): string | null {
-    return this.playersMap.get(this.me.id)?.team ?? null
+    // A player keeps its own pick locally (set the moment they tap, so the button
+    // responds without a relay round trip) and otherwise reads the host's roster,
+    // which is what carries a team the HOST assigned during an auto-balance.
+    const mine = this.playersMap.get(this.me.id)?.team
+    if (mine !== undefined) return mine ?? null
+    return this.recentPlayers().find((p) => p.id === this.me.id)?.team ?? null
   }
 
   // ---- custom channels (for custom-flow games) -----------------------------
@@ -1327,9 +1430,10 @@ export class RoomRuntime {
    */
   private startHeartbeat(): void {
     if (this.heartbeatTimer || this.me.role !== 'player') return
+    this.watchVisibility()
     let paced = this.heartbeatMs()
     const beat = () => {
-      this.publish(addr.playerPing(this.room, this.me.id), this.now())
+      this.relay.emit(addr.playerPing(this.room, this.me.id))
       const next = this.heartbeatMs()
       if (next !== paced && this.heartbeatTimer) {
         paced = next
@@ -1690,6 +1794,34 @@ export class RoomRuntime {
   }
 
   /**
+   * Publish the roster, but only when it has actually changed.
+   *
+   * The host is the single writer here, the same as phase/round/config. The
+   * signature covers everything a reader can see (who, their name, team, join
+   * point, and whether they are live), so a room where nothing changed publishes
+   * nothing at all -- which mid-game is almost every tick.
+   */
+  private maybePublishRoster(): void {
+    if (this.me.role !== 'host') return
+    const roster = this.recentPlayers()
+    const key = roster.map((p) => `${p.id}:${p.name}:${p.team ?? ''}:${p.joinedAtIndex}`).join('|')
+    if (key === this.lastRosterKey) return
+    this.lastRosterKey = key
+    // `lastPing` is deliberately dropped: it is a local arrival time on THIS
+    // machine and would mean nothing to anyone else. Presence is already baked
+    // into which players are in the list at all.
+    this.publish(
+      addr.roster(this.room),
+      roster.map((p) => ({
+        id: p.id,
+        name: p.name,
+        joinedAtIndex: p.joinedAtIndex,
+        ...(p.team ? { team: p.team } : {}),
+      })) as unknown as RelayValue,
+    )
+  }
+
+  /**
    * Notice a player (or spectator) who simply stopped beating. Nothing arrives on the
    * relay when someone closes a tab, so without this the host roster would keep
    * showing them until some unrelated message happened to land. Emits ONLY when the
@@ -1699,6 +1831,7 @@ export class RoomRuntime {
     if (now - this.lastPresenceSweep < PRESENCE_SWEEP_MS) return
     this.lastPresenceSweep = now
     const key = `${this.recentPlayers().map((p) => p.id).join(',')}|${this.audienceCount()}`
+    this.maybePublishRoster()
     if (key === this.lastPresentKey) return
     this.lastPresentKey = key
     this.emit()

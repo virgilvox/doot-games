@@ -18,6 +18,7 @@ export { default as RoomTicket } from './components/RoomTicket.vue'
 // Layout
 export { default as Stage } from './components/Stage.vue'
 export { default as PhoneShell } from './components/PhoneShell.vue'
+export { default as DimToggle } from './components/DimToggle.vue'
 export { default as ControlBar } from './components/ControlBar.vue'
 
 // Inputs
@@ -171,3 +172,6 @@ export {
   sliderValueFromPointer,
   foldGamepad,
 } from './controllers/math'
+
+// Phone screen dimming (host themes are mostly light; a dark venue is not).
+export { DIM_LEVELS, type DimLevel, clampDim, dimLabel, loadDim, nextDim, saveDim } from './dim'

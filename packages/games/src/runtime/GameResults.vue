@@ -98,7 +98,7 @@ type Slide =
   | { kind: 'teams'; label: string }
   | { kind: 'leaderboard'; label: string }
   | { kind: 'awards'; label: string }
-  | { kind: 'dist'; label: string; dist: Distribution }
+  | { kind: 'dist'; label: string; dist: Distribution; crown: boolean }
 
 // A distribution whose bars ARE an ordering (rank) asks for the podium layout:
 // the winner large with its picture, the rest of the order listed under it.
@@ -116,6 +116,51 @@ const podiumHasWinner = (d: Distribution) => {
   if (!first) return false
   return !second || (first.place ?? '') !== (second.place ?? '')
 }
+// A podium taller than this does not fit the host frame, so it is PAGED rather
+// than clipped. Six is the hero card plus the five rows that fit beside it at
+// 1280x720, measured in /dev/results rather than guessed; the phone stacks and
+// scrolls, so only the big screen is constrained by it.
+const PODIUM_PER_PAGE = 6
+
+/**
+ * One slide per distribution, EXCEPT a long podium, which becomes several.
+ *
+ * A section that does not fit is the one thing this board must never produce:
+ * the host frame is fixed and it pages, it does not scroll a TV. A 14-subject
+ * rating ranking (a whole night of "rate this") used to render its hero, six
+ * rows, and then a seventh sliced through the middle, with the remaining seven
+ * subjects simply gone and no page to reach them.
+ *
+ * Only the FIRST page crowns: the winner is the top of the whole ranking, not
+ * the top of whatever chunk you happen to be looking at.
+ */
+function distSlides(d: Distribution): Slide[] {
+  const title = distTitle(d)
+  if (!isPodium(d) || d.bars.length <= PODIUM_PER_PAGE) {
+    return [{ kind: 'dist', label: title, dist: d, crown: podiumHasWinner(d) }]
+  }
+  const pages: Slide[] = []
+  for (let i = 0; i < d.bars.length; i += PODIUM_PER_PAGE) {
+    const first = i === 0
+    pages.push({
+      kind: 'dist',
+      label: first ? title : `${title}, continued`,
+      dist: {
+        ...d,
+        // Stamp the absolute place before slicing. `podiumEntries` falls back to
+        // the row's index for a block that does not supply one, which inside a
+        // chunk would restart the numbering at #1 on every page.
+        bars: d.bars.slice(i, i + PODIUM_PER_PAGE).map((b, n) => ({
+          ...b,
+          place: b.place ?? `#${i + n + 1}`,
+        })),
+      },
+      crown: first && podiumHasWinner(d),
+    })
+  }
+  return pages
+}
+
 // One page per major section, in narration order: standings first (the payoff),
 // then highlights, then per-question breakdowns. Stats are NOT a page; they stay
 // pinned at the bottom so the run's tally is always in view.
@@ -124,8 +169,7 @@ const rawSlides = computed<Slide[]>(() => {
   if (hasTeams.value) out.push({ kind: 'teams', label: 'Team scores' })
   if (hasLeaderboard.value) out.push({ kind: 'leaderboard', label: 'Leaderboard' })
   if (hasAwards.value) out.push({ kind: 'awards', label: AWARDS_LABEL })
-  for (const d of props.results.distributions ?? [])
-    out.push({ kind: 'dist', label: distTitle(d), dist: d })
+  for (const d of props.results.distributions ?? []) out.push(...distSlides(d))
   return out
 })
 // Apply the author's chosen section order (which to lead with). Listed kinds come
@@ -317,12 +361,14 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-else-if="s.kind === 'dist'" class="panel dist">
-          <h3>{{ distTitle(s.dist) }}</h3>
+          <!-- The slide's label, not the raw title: a long podium is split across
+               several sections and they must not all claim the same heading. -->
+          <h3>{{ s.label }}</h3>
           <p v-if="!hasBars(s.dist)" class="nothing">Nothing to show for this one.</p>
           <WinnerBoard
             v-else-if="isPodium(s.dist)"
             :entries="podiumEntries(s.dist)"
-            :crown="podiumHasWinner(s.dist)"
+            :crown="s.crown"
             compact
           />
           <VoteBars v-else :bars="distributionToBars(s.dist)" />
@@ -422,7 +468,7 @@ onBeforeUnmount(() => {
                 <WinnerBoard
                   v-else-if="currentDist && isPodium(currentDist)"
                   :entries="podiumEntries(currentDist)"
-                  :crown="podiumHasWinner(currentDist)"
+                  :crown="currentSlide?.kind === 'dist' && currentSlide.crown"
                 />
                 <VoteBars v-else-if="currentDist" :bars="distributionToBars(currentDist)" dense />
               </section>

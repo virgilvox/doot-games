@@ -17,6 +17,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { type BarsContent, type BarsInput, barsBlock } from '../../blocks/bars/block'
 import { type BattleState, scaffoldIndex } from './logic'
 import GameResults from '../../runtime/GameResults.vue'
+import { canSubmitInput } from '../../runtime/submit'
 
 defineProps<{ plugin: GamePlugin }>()
 const room = injectDootRoom()
@@ -79,11 +80,10 @@ watch(
   { immediate: true },
 )
 const submitted = computed(() => room.inputFor(0) !== undefined)
-const canSubmit = computed(() => {
-  if (!myContent.value || !value.value) return false
-  if (!room.hostPresent.value) return false
-  return barsBlock.isComplete ? barsBlock.isComplete(myContent.value, value.value) : true
-})
+// Not gated on host presence, for the same reason as the generic player surface:
+// an input is a retained publish, so the host picks it up whenever it looks. See
+// runtime/submit.ts.
+const canSubmit = computed(() => !!value.value && canSubmitInput(barsBlock, myContent.value, value.value))
 function submit() {
   if (canSubmit.value && value.value) room.submit(value.value as never)
 }

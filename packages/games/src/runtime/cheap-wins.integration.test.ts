@@ -37,6 +37,11 @@ class FakeHub {
     this.store.set(address, value)
     for (const s of this.subs) if (matches(s.pattern, address)) s.cb(value, address)
   }
+
+  /** One-shot event: delivered to whoever is subscribed NOW, never stored. */
+  emit(address: string, value: RelayValue = 1) {
+    for (const s of this.subs) if (matches(s.pattern, address)) s.cb(value, address)
+  }
   subscribe(pattern: string, cb: RelayCallback): Unsubscribe {
     const entry = { pattern, cb }
     this.subs.add(entry)
@@ -63,6 +68,9 @@ class FakeRelay implements RelayClient {
   }
   set(a: string, v: RelayValue) {
     this.hub.set(a, v)
+  }
+  emit(a: string, v?: RelayValue) {
+    this.hub.emit(a, v ?? 1)
   }
   cached(a: string) {
     return this.hub.store.get(a)

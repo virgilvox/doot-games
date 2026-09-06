@@ -20,6 +20,11 @@ class FakeHub {
     }
   }
 
+  /** One-shot event: delivered to whoever is subscribed NOW, never stored. */
+  emit(address: string, value: RelayValue = 1) {
+    for (const s of this.subs) if (matches(s.pattern, address)) s.cb(value, address)
+  }
+
   subscribe(pattern: string, cb: RelayCallback): Unsubscribe {
     const entry = { pattern, cb }
     this.subs.add(entry)
@@ -52,6 +57,9 @@ class FakeRelayClient implements RelayClient {
   }
   set(address: string, value: RelayValue) {
     this.hub.set(address, value)
+  }
+  emit(address: string, payload?: RelayValue) {
+    this.hub.emit(address, payload ?? 1)
   }
   cached(address: string) {
     return this.hub.store.get(address)
@@ -269,23 +277,24 @@ describe('RoomRuntime.probePresence (A5)', () => {
     expect(res.id).toBe(playerId('ABCD', 'Newbie'))
   })
 
-  it('reports not present for a profile with a stale ping (a genuine reconnect)', async () => {
+  it('reports not present for a name whose player has left (a genuine reconnect)', async () => {
     const hub = new FakeHub()
     const pid = playerId('ABCD', 'Sam')
+    // The profile is retained for the room's life, so the name is recognised...
     hub.set(addr.playerProfile('ABCD', pid), { name: 'Sam', joinedAtIndex: 0 })
-    hub.set(addr.playerPing('ABCD', pid), 1_000)
+    // ...but the host's roster no longer lists them, so nobody is on it now.
+    hub.set(addr.roster('ABCD'), [])
     const relay = new FakeRelayClient(hub)
-    // now is well past the presence window since the last ping.
     const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Sam', () => 1_000 + 60_000)
     expect(res.present).toBe(false)
     expect(res.hasProfile).toBe(true)
   })
 
-  it('reports present for a profile with a fresh ping (a live collision)', async () => {
+  it('reports present when the host roster still lists that name (a live collision)', async () => {
     const hub = new FakeHub()
     const pid = playerId('ABCD', 'Sam')
     hub.set(addr.playerProfile('ABCD', pid), { name: 'Sam', joinedAtIndex: 0 })
-    hub.set(addr.playerPing('ABCD', pid), 9_000)
+    hub.set(addr.roster('ABCD'), [{ id: pid, name: 'Sam', joinedAtIndex: 0 }])
     const relay = new FakeRelayClient(hub)
     const res = await RoomRuntime.probePresence(relay, 'ABCD', 'Sam', () => 10_000)
     expect(res.present).toBe(true)
@@ -295,7 +304,7 @@ describe('RoomRuntime.probePresence (A5)', () => {
     const hub = new FakeHub()
     const pid = playerId('ABCD', 'Robin')
     hub.set(addr.playerProfile('ABCD', pid), { name: 'Robin', joinedAtIndex: 0 })
-    hub.set(addr.playerPing('ABCD', pid), 9_500)
+    hub.set(addr.roster('ABCD'), [{ id: pid, name: 'Robin', joinedAtIndex: 0 }])
     const relay = new FakeRelayClient(hub)
     const res = await RoomRuntime.probePresence(relay, 'ABCD', '  robin ', () => 10_000)
     expect(res.id).toBe(pid)
@@ -338,23 +347,30 @@ describe('RoomRuntime player cap (A8)', () => {
     expect((hub.store.get(addr.meta('ABCD')) as { playerCap?: number }).playerCap).toBeUndefined()
   })
 
-  it('counts only live players for the soft-cap join probe, ignoring stale pings', async () => {
+  it('counts the host roster for the soft-cap join probe', async () => {
     const hub = new FakeHub()
-    const t = 30_000
-    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Live1')), 30_000)
-    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Live2')), 29_000)
-    hub.set(addr.playerPing('ABCD', playerId('ABCD', 'Gone')), 1_000) // older than the window
+    // The host has already filtered out anyone who stopped beating, so the cap
+    // check is one read of an authoritative list rather than a timing guess.
+    hub.set(addr.roster('ABCD'), [
+      { id: playerId('ABCD', 'Live1'), name: 'Live1', joinedAtIndex: 0 },
+      { id: playerId('ABCD', 'Live2'), name: 'Live2', joinedAtIndex: 0 },
+    ])
     const relay = new FakeRelayClient(hub)
-    const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => t, 5)
+    const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => 30_000, 5)
     expect(count).toBe(2)
   })
 
-  it('probeLiveCount resolves 0 when subscribing throws (fail-open)', async () => {
+  it('probeLiveCount resolves 0 for a room with no roster yet (fail-open)', async () => {
     const hub = new FakeHub()
     const relay = new FakeRelayClient(hub)
-    relay.on = () => {
-      throw new Error('relay down')
-    }
+    const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => 1_000, 5)
+    expect(count).toBe(0)
+  })
+
+  it('probeLiveCount resolves 0 when the relay rejects, never turning a player away', async () => {
+    const hub = new FakeHub()
+    const relay = new FakeRelayClient(hub)
+    relay.get = () => Promise.reject(new Error('relay down'))
     const count = await RoomRuntime.probeLiveCount(relay, 'ABCD', () => 1_000, 5)
     expect(count).toBe(0)
   })
@@ -897,17 +913,20 @@ describe('RoomRuntime host presence', () => {
     await host.connect()
     host.loadGame(GAME)
     host.start()
-    // The host broadcasts a liveness ping (the latest value is its timestamp).
-    expect(hub.store.get(addr.hostPing('ABCD'))).toBe(1_000)
+    // Liveness is an EVENT, so nothing is left on the relay to read back.
+    expect(hub.store.has(addr.hostPing('ABCD'))).toBe(false)
 
     const player = makePlayer(hub, 'Robin', () => t)
     await player.connect()
     await flush()
-    // Fresh in a live room: the host reads as present.
+    // Before any beat is heard the host is assumed present, so joining never
+    // flashes "host gone"; the next beat confirms it.
+    expect(player.getSnapshot().hostPresent).toBe(true)
+    hub.emit(addr.hostPing('ABCD'))
     expect(player.getSnapshot().hostPresent).toBe(true)
 
-    // Time advances past the presence window with no new ping (host tab gone).
-    t = 1_000 + 17_000
+    // Time advances past the presence window with no new beat (host tab gone).
+    t = 1_000 + 61_000
     expect(player.getSnapshot().hostPresent).toBe(false)
 
     // The host always sees itself as present.
@@ -1145,8 +1164,8 @@ describe('room code collision', () => {
   it('regenerates a colliding code on connect, never hijacking a live room', async () => {
     const hub = new FakeHub()
     const now = () => 1000
-    // A live room already holds ABCD (a recent host heartbeat).
-    hub.store.set(addr.hostPing('ABCD'), now())
+    // Another host already CLAIMED ABCD (its session record is on the relay).
+    hub.store.set(addr.hostSession('ABCD'), { token: 'someone-else', at: now() })
     const host = makeHost(hub, now)
     await host.connect()
     expect(host.room).not.toBe('ABCD')
@@ -1155,25 +1174,28 @@ describe('room code collision', () => {
     expect(hub.store.get(addr.phase(host.room))).toBe('lobby')
   })
 
-  it('keeps a free code (no live heartbeat there)', async () => {
+  it('keeps a free code (nobody has claimed it)', async () => {
     const hub = new FakeHub()
     const host = makeHost(hub, () => 1000)
     await host.connect()
     expect(host.room).toBe('ABCD')
   })
 
-  it('treats a stale heartbeat as free, so codes recycle', async () => {
+  it('leaves a claim alone even when it is old, rather than risking a hijack', async () => {
+    // Recycling a code the moment a host goes quiet is what made this a liveness
+    // question, and liveness across machines needs a clock comparison we refuse to
+    // make. A claim holds for the room's TTL; against a million codes that is free.
     const hub = new FakeHub()
-    hub.store.set(addr.hostPing('ABCD'), 1000) // old beat
-    const host = makeHost(hub, () => 1_000_000) // long after the presence window
+    hub.store.set(addr.hostSession('ABCD'), { token: 'someone-else', at: 1000 })
+    const host = makeHost(hub, () => 1_000_000)
     await host.connect()
-    expect(host.room).toBe('ABCD')
+    expect(host.room).not.toBe('ABCD')
   })
 
   it('does not regenerate for players (they keep the exact code given)', async () => {
     const hub = new FakeHub()
     const now = () => 1000
-    hub.store.set(addr.hostPing('ABCD'), now())
+    hub.store.set(addr.hostSession('ABCD'), { token: 'tok-1', at: now() })
     const player = makePlayer(hub, 'Robin', now)
     await player.connect()
     expect(player.room).toBe('ABCD')
@@ -1182,9 +1204,8 @@ describe('room code collision', () => {
   it('keeps its OWN live code on reload (matching host token), so players are not stranded', async () => {
     const hub = new FakeHub()
     const now = () => 1000
-    // A live room holds ABCD, carrying THIS host's token (the pre-reload heartbeat).
-    hub.store.set(addr.hostPing('ABCD'), now())
-    hub.store.set(addr.hostToken('ABCD'), 'tok-1')
+    // ABCD is claimed, and the claim carries THIS host's token (its pre-reload self).
+    hub.store.set(addr.hostSession('ABCD'), { token: 'tok-1', at: now() })
     const host = new RoomRuntime({ relay: new FakeRelayClient(hub), room: 'ABCD', role: 'host', now, hostToken: 'tok-1' })
     cleanups.push(() => host.dispose())
     await host.connect()
@@ -1194,8 +1215,7 @@ describe('room code collision', () => {
   it('still regenerates when a DIFFERENT host holds the live code (different token)', async () => {
     const hub = new FakeHub()
     const now = () => 1000
-    hub.store.set(addr.hostPing('ABCD'), now())
-    hub.store.set(addr.hostToken('ABCD'), 'tok-1') // someone else's host instance
+    hub.store.set(addr.hostSession('ABCD'), { token: 'tok-1', at: now() }) // someone else's
     const host = new RoomRuntime({ relay: new FakeRelayClient(hub), room: 'ABCD', role: 'host', now, hostToken: 'tok-2' })
     cleanups.push(() => host.dispose())
     await host.connect()

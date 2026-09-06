@@ -18,12 +18,20 @@ export const addr = {
   roundIndex: (room: string) => `${roomBase(room)}/round/index`,
   roundState: (room: string) => `${roomBase(room)}/round/state`,
   roundDeadline: (room: string) => `${roomBase(room)}/round/deadline`,
-  /** Host liveness heartbeat; players watch it to detect a vanished host. */
+  /** Host liveness heartbeat. An EVENT, never stored: arrival is the signal, so
+   *  there is no timestamp to compare between machines and nothing left behind. */
   hostPing: (room: string) => `${roomBase(room)}/host/ping`,
-  /** A per-host-instance token (stable across a host's own reload). The collision
-   *  check reads it to tell the host's OWN live code from a different host's, so a
-   *  reload keeps the code (players stay) while a genuine collision still regenerates. */
-  hostToken: (room: string) => `${roomBase(room)}/host/token`,
+  /**
+   * Who owns this room code: `{ token, at }`, retained. The token is per-host-instance
+   * and survives that host's own reload (sessionStorage), so:
+   *  - a DIFFERENT token means the code belongs to someone else, full stop, with no
+   *    clock involved: the new host just picks another code.
+   *  - a MATCHING token means this is our own reload, and only then is `at` read,
+   *    which compares our clock against a value our own machine wrote earlier.
+   * Every liveness question about a room code is answered without ever comparing
+   * two machines' clocks.
+   */
+  hostSession: (room: string) => `${roomBase(room)}/host/session`,
   /** The delegated driver (co-host/MC): a player's pid, or '' for none. Host writes. */
   controlDriver: (room: string) => `${roomBase(room)}/control/driver`,
   /** A drive intent from the delegated player (advance the round). They write it;
@@ -62,6 +70,14 @@ export const addr = {
    *  writes their own; the host may write any player's (assign / auto-balance).
    *  Retained + TTL-scoped, so a reconnecting player keeps their team. */
   playerTeam: (room: string, pid: string) => `${roomBase(room)}/player/${pid}/team`,
+  /**
+   * The host-published roster: the one authoritative list of who is in the room.
+   * The host hears every heartbeat and writes this; everyone else READS it rather
+   * than each of 150 phones independently tracking 150 heartbeats (which cost the
+   * relay N deliveries per beat per client, the dominant cost of a big room).
+   * Single-writer, exactly like phase/round/config.
+   */
+  roster: (room: string) => `${roomBase(room)}/roster`,
   /** A player's submission for round `i`. */
   input: (room: string, i: number, pid: string) => `${roomBase(room)}/input/${i}/${pid}`,
   /** An audience member's vote for round `i` (P4B). A separate namespace from player
