@@ -1796,6 +1796,16 @@ export class RoomRuntime {
   /**
    * Publish the roster, but only when it has actually changed.
    *
+   * COST NOTE: this is one value carrying the whole room, so each publish costs its
+   * full size to every client (~10KB at 145 players, ~14KB at 200 -- comfortably
+   * under the 58KB offload threshold, so it never hits object storage). A lobby
+   * filling up therefore republishes a growing list once per join: ~111MB of
+   * fan-out at 145 players, against ~511MB of heartbeat fan-out that the old
+   * per-client presence cost over a 45-minute game, so it is a net win with a
+   * higher peak. A 1s coalescing window was measured and REMOVED: joins arrive
+   * about one a second, so it saved 10-17% and did not pay for its own complexity.
+   * If rooms outgrow this, publish a DELTA rather than shortening the window.
+   *
    * The host is the single writer here, the same as phase/round/config. The
    * signature covers everything a reader can see (who, their name, team, join
    * point, and whether they are live), so a room where nothing changed publishes

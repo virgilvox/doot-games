@@ -13,6 +13,7 @@ import type { StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, WinnerBoard, teamColor } from '@doot-games/ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { distributionToBars } from './derive'
+import { type Slide, distSlides, hasBars, isPodium, podiumEntries } from './slides'
 
 const props = withDefaults(
   defineProps<{
@@ -93,74 +94,6 @@ function teamTint(team: string, rank: number): string {
 }
 const topTeamScore = computed(() => props.results.teamLeaderboard?.[0]?.score ?? 0)
 
-type Distribution = NonNullable<StandardResults['distributions']>[number]
-type Slide =
-  | { kind: 'teams'; label: string }
-  | { kind: 'leaderboard'; label: string }
-  | { kind: 'awards'; label: string }
-  | { kind: 'dist'; label: string; dist: Distribution; crown: boolean }
-
-// A distribution whose bars ARE an ordering (rank) asks for the podium layout:
-// the winner large with its picture, the rest of the order listed under it.
-const isPodium = (d: Distribution) => d.layout === 'podium'
-// A round nobody answered still contributes its breakdown, so a bar list can be
-// empty. Say so rather than drawing a titled, empty box.
-const hasBars = (d: Distribution) => d.bars.length > 0
-// An author may clear a prompt, and a block titles its breakdown with that prompt,
-// so the title can be an empty string (`?? 'Breakdown'` only catches undefined).
-const distTitle = (d: Distribution) => d.title?.trim() || 'Breakdown'
-// A podium whose top place is SHARED has no single winner to hero: the first bar is
-// just whichever tied entry sorted first, so crowning it would invent a result.
-const podiumHasWinner = (d: Distribution) => {
-  const [first, second] = d.bars
-  if (!first) return false
-  return !second || (first.place ?? '') !== (second.place ?? '')
-}
-// A podium taller than this does not fit the host frame, so it is PAGED rather
-// than clipped. Six is the hero card plus the five rows that fit beside it at
-// 1280x720, measured in /dev/results rather than guessed; the phone stacks and
-// scrolls, so only the big screen is constrained by it.
-const PODIUM_PER_PAGE = 6
-
-/**
- * One slide per distribution, EXCEPT a long podium, which becomes several.
- *
- * A section that does not fit is the one thing this board must never produce:
- * the host frame is fixed and it pages, it does not scroll a TV. A 14-subject
- * rating ranking (a whole night of "rate this") used to render its hero, six
- * rows, and then a seventh sliced through the middle, with the remaining seven
- * subjects simply gone and no page to reach them.
- *
- * Only the FIRST page crowns: the winner is the top of the whole ranking, not
- * the top of whatever chunk you happen to be looking at.
- */
-function distSlides(d: Distribution): Slide[] {
-  const title = distTitle(d)
-  if (!isPodium(d) || d.bars.length <= PODIUM_PER_PAGE) {
-    return [{ kind: 'dist', label: title, dist: d, crown: podiumHasWinner(d) }]
-  }
-  const pages: Slide[] = []
-  for (let i = 0; i < d.bars.length; i += PODIUM_PER_PAGE) {
-    const first = i === 0
-    pages.push({
-      kind: 'dist',
-      label: first ? title : `${title}, continued`,
-      dist: {
-        ...d,
-        // Stamp the absolute place before slicing. `podiumEntries` falls back to
-        // the row's index for a block that does not supply one, which inside a
-        // chunk would restart the numbering at #1 on every page.
-        bars: d.bars.slice(i, i + PODIUM_PER_PAGE).map((b, n) => ({
-          ...b,
-          place: b.place ?? `#${i + n + 1}`,
-        })),
-      },
-      crown: first && podiumHasWinner(d),
-    })
-  }
-  return pages
-}
-
 // One page per major section, in narration order: standings first (the payoff),
 // then highlights, then per-question breakdowns. Stats are NOT a page; they stay
 // pinned at the bottom so the run's tally is always in view.
@@ -198,24 +131,6 @@ const currentSlide = computed(() => slides.value[current.value] ?? null)
 const currentKind = computed(() => currentSlide.value?.kind ?? null)
 const currentDist = computed(() => (currentSlide.value?.kind === 'dist' ? currentSlide.value.dist : null))
 const currentLabel = computed(() => currentSlide.value?.label ?? '')
-function podiumEntries(d: Distribution) {
-  return d.bars.map((b, i) => {
-    // A block that can have TIES supplies the place itself, so entries the room placed
-    // level share one; otherwise the row's position is the place.
-    const place = b.place ?? `#${i + 1}`
-    // A bar whose `display` already IS its place (rank) has no separate score to show;
-    // one that carries a value (a rating's "8.5") shows both the place and the value.
-    const value = b.display && b.display !== place ? b.display : ''
-    return {
-      id: `${i}`,
-      label: b.label,
-      place,
-      ...(b.image ? { image: b.image } : {}),
-      ...(value ? { value } : {}),
-      ...(b.note ? { note: b.note } : {}),
-    }
-  })
-}
 // The "podium" payoff is the team board when teams are on, else the leaderboard.
 const onPodium = computed(() => currentKind.value === 'teams' || currentKind.value === 'leaderboard')
 

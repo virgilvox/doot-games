@@ -2,8 +2,111 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-09-04. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-09-06. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
+
+> **THE YAOI BUTTHOLE GAME SCORED NOBODY, AND PRESENCE WAS WHY (2026-09-06, reported live
+> during the event). SHIPPED + DEPLOYED as `7150b76` (CI `34066147229`, all four jobs green).**
+> A 145-phone room played 44 rounds and the final board read `0 / 14` for all 93 players, with
+> people who had picked the right answer told "Not quite" and "Lock it in" greyed out on phones
+> whose timer was switched off. TWO independent faults, neither of which the test suite could
+> see, because both were architecture rather than logic.
+>
+> - **Fault 1: presence compared two machines' clocks.** A heartbeat was stored as relay STATE
+>   carrying the sender's `Date.now()`, so every presence question became "is this timestamp,
+>   written by someone else's clock, recent by mine?". `canSubmit` hung off that flag, so a host
+>   whose clock ran slow greyed out the button for the entire room at once. Worse, the gate
+>   DISAGREED with the rest of the runtime: when a round closes, `GamePlayer` submits an
+>   un-locked pick with no host-presence check at all, which is exactly why the user saw
+>   "answers collected even though the button is greyed". A gate half the code ignores is not a
+>   gate. **Heartbeats are now relay EVENTS** (`relay.emit`, `packages/engine/src/relay.ts`):
+>   never stored, never replayed, carrying no payload at all, so arrival IS the signal and no
+>   clock is compared anywhere. Submitting is no longer gated on presence; the host being away
+>   is a notice under the button instead.
+> - **Three relay facts, measured against `wss://relay.clasp.to` rather than assumed**, because
+>   two plausible designs died on them: short TTLs are NOT honoured (4s and 5s values, with and
+>   without `absolute`, still readable at 14s), no tombstone is delivered on expiry, and
+>   `Clasp.set()` in 4.3.2 does not expose the wire protocol's `lock`. The relay cannot arbitrate
+>   presence; the client has to.
+> - **Fault 2: hosting a game you do not own strips the answer key.** `/api/games/[id].get.ts`
+>   redacts answers for non-owners, and it does that on the HOST read (`?for=play`) too, silently.
+>   The host loaded `correct: -1` on all 14 questions and graded the room against it. Confirmed
+>   on the live relay: every `/doot/Z2CP/round/*/answer` held `{"correct": -1}`.
+>   `roundsMissingAnswerKey()` now detects this generically (it also catches a deck column that
+>   never resolved) and the host lobby says so before a question is asked. The server rule was
+>   deliberately NOT loosened; whether a non-owner should be able to host a scored game at all is
+>   a product decision, not a bug fix.
+> - **The room was re-scored from the relay and a real winner announced.** `scripts/` was not the
+>   tool; the inputs were pulled straight off CLASP (78 of an expected ~1,300 had landed, which is
+>   itself the measure of the damage) and replayed through `scoreGame` with the real key read from
+>   the prod SQLite: `"The results are in"` / everyone 0 became
+>   `"10-way tie: Allison, chodejeans, edgar butthole & 7 more"`.
+>
+> **The presence redesign (same commit).** The user's reply to the first round of patches was
+> "there has to be a better way to do presence that doesnt break things", which was correct: the
+> patches stopped it breaking without fixing the shape.
+> - **The host is the single writer of the roster**, like phase/round/config already were. ONLY
+>   the host subscribes to `player/*/ping`; everyone else reads one `/roster` value. Presence was
+>   the one thing 145 devices each computed a slightly different answer to, at a cost of N
+>   deliveries per beat to each of N clients (~2,100/sec at that party, which the code itself
+>   called the dominant cost of a big room). `packages/engine/src/roster.test.ts` MEASURES
+>   deliveries-per-beat and asserts it stays flat at 1 as the room grows, so a regression is a
+>   number, not a judgement.
+> - **Room codes are claimed, not sensed.** `host/session` holds `{token, at}`. A different token
+>   means the code belongs to someone else, full stop, with no clock involved, which removes a
+>   latent hijack where a host with a fast clock could read a LIVE room as stale and seize it. A
+>   matching token is our own reload, and only then is `at` read, against a value this same
+>   machine wrote. Codes now hold for the room TTL instead of recycling on silence: free against
+>   ~1M codes.
+> - **Accepted trade-off, stated plainly:** the roster is now host-dependent, so a dead host
+>   freezes every phone's roster at last-known-good. That is fine (`hostPresent` already says the
+>   host is gone, and a frozen name list is harmless), but it is a new dependency and the next
+>   person should know it was a choice.
+>
+> **Also in that deploy:** ratings finally appear in results (14 ungrouped rate rounds used to
+> produce one award card and no ranking, so a whole night of scoring vanished); a long podium
+> PAGES instead of clipping; a per-player screen dimmer on the phone (the host picks the theme and
+> five of the six are light, which is unpleasant to hold in a dark venue for an hour); and late
+> secret per-player content no longer leaves the input in the wrong shape, which was another
+> permanently greyed button on doodle/wavelength rounds.
+>
+> **A bug I introduced and caught before shipping, which is the useful part.** The rate fix can
+> emit a 14-entry podium, and `GameResults` did not page a long distribution, it clipped it: hero,
+> six rows, a seventh sliced through the middle, seven subjects unreachable, pager saying 2/2.
+> Every unit test was green. It was only found by putting the real shape into `/dev/results` and
+> LOOKING at it, which is what that page is for. `PODIUM_PER_PAGE` is 6, measured rather than
+> guessed.
+>
+> **Post-deploy audit (2026-09-06, after the push). Fixes below are NOT yet deployed.**
+> - **FIXED, and it was my own convention violation:** `distSlides` shipped as branching index
+>   arithmetic inside `GameResults.vue`, which has no test setup, in a repo whose rule is "when a
+>   `.vue` grows real rules, lift them into a pure module and test THAT". It is exactly where I
+>   had already made a bug that day (a chunked podium restarted its numbering at #1 on every page,
+>   found by reading the DOM, not by a test). Now `packages/games/src/runtime/slides.ts` + 15
+>   tests covering absolute places across pages, crown-only-on-the-first-page, no-crown on a
+>   shared top place, nothing lost or duplicated, and blocks that supply no `place` at all.
+> - **Verified, not assumed:** the podium page size clears the host frame in ALL SIX themes,
+>   measured as pixel overflow rather than eyeballed (`doot` -34px, `playful` -30px, `cyber`
+>   -42px, `bubblegum` -34px, `retro`/`zine` -54px). Bubblegum is the theme the event actually
+>   used. Tightest margin is about two thirds of a row.
+> - **Verified the roster change against the game most likely to break from it:** Most Likely To,
+>   where you vote FOR another player, so the phone must show the room's names. Three phones, all
+>   see each other. Also re-checked duplicate-name detection (it moved from "a fresh retained
+>   ping" to "in the host's published roster") and sessions (the crowd carries across `nextGame`).
+>   `viewer` is dead code, instantiated nowhere, so that path carried no risk.
+> - **MEASURED, DOCUMENTED, DELIBERATELY NOT FIXED:** the roster is one value carrying the whole
+>   room (~10KB at 145 players, ~14KB at 200, comfortably under the 58KB offload threshold so it
+>   never touches object storage). A lobby filling up therefore republishes a growing list once
+>   per join: ~111MB of fan-out at 145 players, against the ~511MB of heartbeat fan-out the old
+>   design cost over a 45-minute game. Net win, higher peak. A 1s coalescing window was built,
+>   measured at **10-17%** (joins arrive about one a second, so the window catches almost
+>   nothing), and REVERTED rather than shipped: it added state and a `force` flag and broke six
+>   tests to buy nothing. If rooms outgrow this, publish a DELTA, do not lengthen the window.
+> - **Still open, and it is a real one:** auto-advance's denominator comes from presence, so a
+>   phone that locks its screen SHRINKS `total` and can make a round lock EARLY, cutting off
+>   people who are still reading. The bias is backwards; it should never cut anyone off. Left
+>   deliberately: it is a pacing judgement about how long to wait on someone who may have walked
+>   out, and the host always has a manual Lock.
 
 > **THE SECTION DRAG NEVER WORKED (2026-09-04, reported by the user right after the deploy below).
 > FIXED, SHIPPED + DEPLOYED as `2659403`.**
