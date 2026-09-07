@@ -43,20 +43,25 @@ const PRESENCE_TICK_BUCKET_MS = 1_000
 // does not touch the snapshot, so the host sweeps for it on this cadence and emits
 // only when the present set actually changed.
 const PRESENCE_SWEEP_MS = 2_000
-// Presence is a room-wide broadcast: every non-audience client subscribes to
-// `player/*/ping`, so N players beating every 5s costs the relay N deliveries to each
-// of N clients per beat. That is nothing for a house party and is the single dominant
-// cost of a 200-phone room, so past this many players the beat slows down in
-// proportion (and the staleness window widens to match, so a phone still gets four
-// missed beats of grace before it reads as gone). A normal room never leaves the 5s
-// default: the first step is only crossed above ROSTER_STEP players.
+// VESTIGIAL, and deliberately left in place. This pacing exists because presence used
+// to be a room-wide broadcast: every non-audience client subscribed to `player/*/ping`,
+// so N players beating cost the relay N deliveries to each of N clients, which was the
+// dominant cost of a 200-phone room. Only the HOST subscribes now (it publishes one
+// `/roster` value the rest read), so that cost is N, not N squared: measured at 0.2
+// heartbeat frames/s on a phone in a 70-player room, which is the host's own beat and
+// nothing else. Slowing the beat therefore buys nothing any more, and it costs a little
+// responsiveness, since `presenceWindowFor` widens the staleness window to 3x the beat
+// and the host notices someone leaving that much later. Removing it is a timing change
+// across every room, so it is a deliberate decision rather than a tidy-up: see HANDOFF.
 const ROSTER_STEP = 60
-// The cap is deliberately well UNDER `PRESENCE_WINDOW_MS`, because the pre-join name
-// probe (`probePresence`) reads a single retained ping and asks "is it fresher than the
-// base window". If the beat ever reached the window, a live player's last beat would be
-// up to a full window old and would read as ABSENT roughly half the time: the
-// duplicate-name warning would stop firing exactly in the big rooms this pacing exists
-// for, and two phones would silently share one identity. Keep beat << window.
+// The cap on that pacing. Its ORIGINAL reason is gone: it had to stay well under
+// `PRESENCE_WINDOW_MS` because the pre-join name probe read a single retained ping and
+// asked whether it was fresher than the base window, so a beat near the window made a
+// live player read as absent and two phones could silently share one identity.
+// `probePresence` reads the host's published roster now and no longer compares any
+// timestamp, so that failure cannot happen. What still argues for a cap is duller: the
+// staleness window is 3x the beat, and it is also how long the room waits on someone who
+// walked out before the host stops expecting them, so an uncapped beat means dead air.
 const MAX_HEARTBEAT_INTERVAL_MS = 10_000
 /** The beat a room of `n` players uses (5s until it is genuinely big). */
 export function heartbeatIntervalFor(n: number): number {

@@ -5,6 +5,40 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-07. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUDIT ROUND FOUR: WHAT THE PRESENCE REWORK LEFT BEHIND (2026-09-07).**
+> Asked directly whether the work introduced bugs or left anything incomplete. Two real
+> defects found, both mine, both in the same place; one genuine piece of unfinished business.
+>
+> - **Two comments were left asserting things the rework had made false**, which is worse
+>   than no comment because they are the stated RATIONALE for two constants. `ROSTER_STEP`
+>   said "every non-audience client subscribes to `player/*/ping`, so N players beating costs
+>   N deliveries to each of N clients" -- only the host subscribes now. And
+>   `MAX_HEARTBEAT_INTERVAL_MS` justified its cap by "the pre-join name probe reads a single
+>   retained ping and asks if it is fresher than the base window" -- `probePresence` reads the
+>   host's roster now and compares no timestamps at all. Someone could have relaxed either
+>   constant on a premise that no longer holds. Both corrected.
+> - **UNFINISHED, and a deliberate decision rather than a tidy-up: the beat pacing is now
+>   vestigial.** `ROSTER_STEP` / `heartbeatIntervalFor` / `MAX_HEARTBEAT_INTERVAL_MS` /
+>   `presenceWindowFor` exist to mitigate the N-squared heartbeat fan-out. That fan-out is
+>   gone (measured: 0.2 heartbeat frames/s on a phone in a 70-player room, which is the
+>   host's own beat and nothing else). Slowing the beat in a big room now buys nothing and
+>   costs a little responsiveness, because `presenceWindowFor` widens the staleness window to
+>   3x the beat and that window is also how long the room waits on someone who walked out.
+>   Deleting it is a timing change in every room, so it was left alone at the end of a long
+>   session rather than shipped unsoaked. A constant 5s beat and 20s window is the simpler
+>   end state if someone wants it.
+> - **Checked and CLEAN, listed because they were the plausible ways to have broken
+>   something:** no dead references from the rework (`lastHostPing` gone,
+>   `HOST_PRESENCE_WINDOW_MS` used only by `hostIsPresent`); the phone dimmer's veil
+>   (`z-index: 9999`) sits under nothing on a player surface, the only 10000 in the repo
+>   being a toast on the arcade HOST page, which `PhoneShell` never wraps; the dim toggle
+>   adds no horizontal overflow at 390px (top bar 354px, scrollWidth == clientWidth) and its
+>   veil is `pointer-events: none`, so it cannot eat a tap; and the "no answer key" lobby
+>   warning does NOT false-fire on a normal owned game, which was worth proving since a
+>   false positive would show on every lobby.
+> - **The headline fix verified on PROD, not just dev:** the auto-lock smoke against
+>   https://doot.games reads `ANSWERS OPEN 2 / 3 locked in` with a sleeping phone.
+
 > **AUDIT ROUND THREE: I WAS WRONG ABOUT THE KICK, AND THE ROSTER CLAIM IS NOW MEASURED
 > (2026-09-06). SHIPPED + DEPLOYED as `6b9aeae` (CI `34070887976`, all four jobs green).**
 > Three things this pass: the untested paths got tested, a claim I had made twice turned out
