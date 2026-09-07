@@ -2,11 +2,11 @@
 
 Snapshot of where Doot stands, for the next session or contributor. Pair with [`Doot-PRD.md`](./Doot-PRD.md) (the spec), [`CLAUDE.md`](./CLAUDE.md) (conventions), and [`docs/`](./docs).
 
-_Last updated: 2026-09-06. The default branch is `main` (every push to `main` deploys to
+_Last updated: 2026-09-07. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
 > **AUDIT ROUND THREE: I WAS WRONG ABOUT THE KICK, AND THE ROSTER CLAIM IS NOW MEASURED
-> (2026-09-06). NOT YET DEPLOYED.**
+> (2026-09-06). SHIPPED + DEPLOYED as `6b9aeae` (CI `34070887976`, all four jobs green).**
 > Three things this pass: the untested paths got tested, a claim I had made twice turned out
 > to be about a scenario the UI cannot reach, and the headline justification for the whole
 > presence rework finally got measured instead of argued.
@@ -47,7 +47,8 @@ prod via CI, no staging)._
 >   it would have dropped to `0 / 2`. Both were re-run because the data structure changed
 >   underneath them; a pass from before the redesign would have proved nothing.
 
-> **AUDIT OF THE AUTO-ADVANCE FIX ITSELF (2026-09-06, straight after shipping it).**
+> **AUDIT OF THE AUTO-ADVANCE FIX ITSELF (2026-09-06, straight after shipping it).
+> SHIPPED + DEPLOYED as `61bc4a2` (CI `34069673091`, all four jobs green).**
 > The fix below landed in `9ebc692`. Auditing it found the same bug in a second place, plus
 > two flaws in the fix itself. Both were found by looking rather than by assuming, which is
 > the only reason they were found at all.
@@ -86,7 +87,8 @@ prod via CI, no staging)._
 >   resolution error that has nothing to do with the code under test.
 
 > **AUTO-ADVANCE COULD CLOSE A ROUND ON A LIVE PLAYER, AND TWO MORE SECTIONS WERE
-> CLIPPING (2026-09-06, the last open items from the deploy below).**
+> CLIPPING (2026-09-06, the last open items from the deploy below).
+> SHIPPED + DEPLOYED as `9ebc692` (CI `34068731523`, all four jobs green).**
 > "Fix all of this in the right way." Three defects, all of them the same mistake in
 > different clothes: trusting a guess in the direction where being wrong costs something.
 >
@@ -3382,7 +3384,7 @@ prod via CI, no staging)._
 
 ## What exists and is verified
 
-A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **977 tests pass (+ opt-in live tests), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** Current shape: **38 games** in `registry.ts` and **36 blocks** in `blocks/` (this section's older per-package rows still say "ten games"; they are a historical snapshot, the registry is the authority). The core play loop and the **two-phase (make→judge) loop** are **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + players through full games incl. all three flagships, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable; a markdown importer builds whole games from an LLM spec. Many audit rounds ran (security/correctness, a flagship-code audit, a docs audit); findings are fixed. The UI is mobile-responsive (no overflow at 360/390px) and free of em dashes.
+A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **1064 tests pass (+ opt-in live tests), every package typechecks (including the stricter `nuxi typecheck`), and the Nuxt app builds (SSR).** Current shape: **38 games** in `registry.ts` and **36 blocks** in `blocks/` (this section's older per-package rows still say "ten games"; they are a historical snapshot, the registry is the authority). The core play loop and the **two-phase (make→judge) loop** are **verified end-to-end against the real CLASP relay** (headless) **and in a real browser** (Playwright: host + players through full games incl. all three flagships, the Pixi Draw canvas, and auth→editor→save). Authored games **persist** and are shareable; a markdown importer builds whole games from an LLM spec. Many audit rounds ran (security/correctness, a flagship-code audit, a docs audit); findings are fixed. The UI is mobile-responsive (no overflow at 360/390px) and free of em dashes.
 
 **Shipped to date:** the **runtime-derived-content** engine primitive; **twelve games** including **five flagship "Games From Doot"** (Quip Clash, Mad Libs, Split the Room, Circuit Cypher, "What, You Didn't Know That?") built on the two-phase / buzzer patterns with content pools; blocks guess/rate/poll/rank/draw/quip/vote/fill/split/**bars**/**buzzer**; UI extras `RobotRapper` (animated CSS robot) + a client-only audio layer (`speakLines` TTS, `playDing` SFX) + the ControlBar lock-in count; the **catalog IA** (Explore = public + Games From Doot, Create = templates with per-type icons, **Your Games** `/mine` with a visibility filter, Home with a Games-From-Doot rail / Browse-by-vibe / Trending+Fresh gated to ≥5); `GameCover`/`GameTypeIcon`/`SiteFooter` + a `gameVisual` map; the `flagship` manifest flag + surfaced `manifest.version`; **end-of-game navigation** (Play again / Pick another / Home); a `/support` page + top-right Support button + footer Ko-fi/Patreon/hack.build + a Sign-up CTA; the editor's gradient theme swatches; the **make→judge host flow fix** (Collect→Lock→Start the vote) and a **host-pickable round count** for pooled games; and a docs overhaul + `examples/` (all authoring paths) + a **deep external-plugin design** (`docs/external-plugins.md`) with a standalone dev harness (`examples/external-plugin/`).
 
@@ -3390,7 +3392,7 @@ A pnpm monorepo built from the PRD, **deployed live at https://doot.games**. **9
 
 | Package | State |
 | --- | --- |
-| `@doot-games/engine` | Done + tested. Room runtime, phase/round state machine, reconnect-by-name identity (via `relay.get`), late-joiner eligibility, CLASP wrapper, answer withholding, reactive `useDootRoom`, and **runtime-derived round content** (`roundContent`/`roundReveal` + `deriveContent`/`revealSummary` host callbacks) for two-phase games. |
+| `@doot-games/engine` | Done + tested. Room runtime, phase/round state machine, reconnect-by-name identity (via `relay.get`), late-joiner eligibility, CLASP wrapper, answer withholding, reactive `useDootRoom`, and **runtime-derived round content** (`roundContent`/`roundReveal` + `deriveContent`/`revealSummary` host callbacks) for two-phase games. **PRESENCE WAS REBUILT 2026-09-06:** heartbeats are relay EVENTS (`relay.emit`), never stored and carrying no timestamp, so no two machines' clocks are ever compared; the HOST is the single writer of one `/roster` value everyone else reads; a room code is CLAIMED via `host/session` `{token, at}` rather than sensed. Measured at 73 players: 0.2 heartbeat frames/s per phone (the host beat alone), against ~7/s before and growing with the room. See `docs/clasp-primer.md`. |
 | `@doot-games/sdk` | Done. The **block** contract (`RoundBlock` + `defineBlock`, incl. `derive`/`revealSummary`/`PlayerReveal`) and the **composition** contract (`GamePlugin` + `defineGame`, incl. `buildConfig` content pools, `RoundInstance.from`), Zod manifest, round primitives, results types. |
 | `@doot-games/themes` | Done + tested. Five token packs (doot/cutesie/cyber/professional/playful), CSS generation, base stylesheet. |
 | `@doot-games/ui` | Done. Theme-aware components + the ported design-system stylesheet + the **schema-driven editor form** (`SchemaForm`) + the **Pixi drawing surface** (`DrawCanvas`) and SVG gallery thumbnail (`DrawThumb`) + **`GameCover`** (gradient covers with per-type motifs) and **`SiteFooter`**. |
@@ -3535,7 +3537,7 @@ Still deferred (low value): the dead per-round answer publish (a write-only rela
   now. When a change is about a gesture, drive the gesture.
 
 - **The editor overflows the page by 61px at a 900px viewport** (`a.support-btn` in the global topbar, between its 980px and 620px breakpoints). `scripts/editor-audit.mjs` reproduces it and reports it identically on `cf31fe4`, so it is not from the 2026-09-04 work; it was left alone rather than changing the global topbar inside a deploy audit. Smallest obvious next fix.
-- **A long results section still scrolls inside its own panel** on the host (a leaderboard past 8 rows, an awards grid past two rows). That is by design (the panel fades its last few pixels rather than growing the page), but it means a page-overflow check reports 0 while the host can only read the top. Measure `slide.scrollHeight - slide.clientHeight` in `/dev/results`, not `documentElement.scrollWidth`.
+- **Results sections: know which ones PAGE and which ones CAP.** Distributions now page (`runtime/slides.ts`, `PODIUM_PER_PAGE = 6`, `BARS_PER_PAGE = 3`, both measured in `/dev/results` across all six themes) because they were CLIPPING: a 14-subject rating ranking rendered six rows and sliced the seventh with no page to reach the rest, and a 20-answer vote gallery did the same at three. The leaderboard and awards still cap instead, at 8 rows plus a "+N more" summary, which is deliberate and NOT the same defect: the tail is counted, not silently cut mid-row. A page-overflow check reports 0 either way, so measure `slide.scrollHeight - slide.clientHeight` in `/dev/results`, never `documentElement.scrollWidth`.
 - `apps/web` typecheck via `nuxi typecheck` is heavier than the library `tsc` checks (it applies `noUncheckedIndexedAccess` to imported package source). It is **green now**, a latent guarded-index hole in `poll/block.ts` it surfaced was fixed, so keep `pnpm -r typecheck` clean. The production build remains the fast signal that everything integrates.
 - **DB driver**: only the libSQL/SQLite path is implemented; a `postgres://` `DATABASE_URL` silently falls back to the local file (with a console warning). Don't assume Postgres works in prod yet.
 - **Set `SESSION_PASSWORD`** (32+ chars) in production, it's better-auth's `secret`. The code now fails closed unless `NODE_ENV=development`, so a prod image without it won't boot (intended). Also set `PUBLIC_BASE_URL` so better-auth's Origin/CSRF check trusts your domain.
