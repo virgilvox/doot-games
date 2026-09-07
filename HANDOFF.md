@@ -5,6 +5,41 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-07. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUDIT ROUND FIVE: A ROSTER PUBLISH COULD BE LOST FOREVER (2026-09-07).**
+> One real bug, introduced by the single-writer roster and found by reading the CLASP
+> client rather than reasoning about it.
+>
+> - **A roster publish dropped by a closed socket was never retried.** `send()` in the
+>   CLASP client only writes when `readyState === OPEN` and does NOT queue, so a publish
+>   attempted during a blip simply vanishes. `maybePublishRoster` records the roster
+>   signature BEFORE publishing, so once that happened the memo suppressed every future
+>   send: each phone held a STALE roster until somebody happened to join, leave, rename or
+>   change team. Roster games (Most Likely To), the duplicate-name probe and the player-cap
+>   count all read that value. The old per-client design had no such failure, because each
+>   client derived the roster from messages it received directly; the memo is what turned a
+>   transient drop into a permanent one. `onConnect` now forgets the signature, so the next
+>   host tick republishes. The test asserts the memo suppresses the resend (the bug) and
+>   that reconnect recovers, and it FAILS without the fix.
+> - **Checked the same class and found it PRE-EXISTING, not mine:** every host publish is
+>   fire-and-forget through that same guard, so a dropped `phase`/`round` publish is also
+>   lost. Those are driven by explicit host clicks, so a host sees the room not advance and
+>   clicks again; the roster had no such feedback loop, which is why only it was fixed here.
+> - **`emit` while offline is safe, verified in the client source:** same `readyState`
+>   guard, no queue, so a phone offline for minutes does NOT flood the host with backed-up
+>   heartbeats on reconnect. A missed beat is simply the next beat's problem, which is what
+>   a heartbeat should do.
+> - **The smoke battery was re-run against the FINAL code**, because the eight-smoke run
+>   earlier in the session predated the auto-advance work, the TierHost change, the set
+>   redesign and the slides lift, and a pass from before those proves nothing. teams,
+>   host-resume, host-reload, host-kick, audience, name-filter and session all pass.
+>   `standings-smoke` failed as the fifth consecutive Playwright run against a dev server
+>   and passed twice in isolation: the same batch flake as `host-lifecycle-smoke` earlier,
+>   and the reason `docs`/memory already say to cool down between smokes.
+> - **The primer now records that the beat pacing is vestigial**, so nobody re-derives it as
+>   load-bearing. Fixing the same stale claim in `room.ts` last round but leaving it in
+>   `docs/` would have been the obvious miss; it was checked, and the prose there was
+>   already correct (it describes the old cost in the past tense).
+
 > **AUDIT ROUND FOUR: WHAT THE PRESENCE REWORK LEFT BEHIND (2026-09-07).**
 > Asked directly whether the work introduced bugs or left anything incomplete. Two real
 > defects found, both mine, both in the same place; one genuine piece of unfinished business.

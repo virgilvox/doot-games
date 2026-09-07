@@ -481,6 +481,13 @@ export class RoomRuntime {
       // survives a reconnect, but its next tick could be seconds away). A no-op
       // on the first connect, where no heartbeat has started yet.
       this.republishPresence()
+      // A roster publish attempted while the socket was down was DROPPED: the CLASP
+      // client only sends when the socket is OPEN and it does not queue. Because
+      // `maybePublishRoster` records the signature BEFORE publishing, nothing would
+      // ever send it again, and every phone would hold a stale roster until somebody
+      // happened to join or leave. Forget the signature so the next host tick
+      // republishes whatever the room actually looks like now.
+      this.lastRosterKey = null
       this.emit()
     })
     this.relay.onDisconnect(() => {

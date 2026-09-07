@@ -81,6 +81,10 @@ class FakeRelayClient implements RelayClient {
   onConnect(cb: () => void) {
     this.connectCbs.push(cb)
   }
+  /** Replay the connect callbacks, which is what the supervisor does on reconnect. */
+  fireReconnect() {
+    for (const cb of this.connectCbs) cb()
+  }
   onDisconnect() {}
   onReconnect() {}
   onError() {}
@@ -226,5 +230,48 @@ describe('what a phone is allowed to see', () => {
     // Spectators read display state only; the roster would be needless bandwidth
     // and is one more thing that could deanonymize a two-phase gallery.
     expect(aud.getSnapshot().players).toEqual([])
+  })
+})
+
+describe('a roster publish lost to a dropped socket is not lost forever', () => {
+  it('republishes on reconnect even though the roster never changed', async () => {
+    const hub = new CountingHub()
+    let clock = 1_000
+    const now = () => clock
+    const client = new FakeRelayClient(hub)
+    const host = new RoomRuntime({ relay: client, room: ROOM, role: 'host', now })
+    cleanups.push(() => host.dispose())
+    await host.connect()
+    host.loadGame(GAME)
+    const p = new RoomRuntime({
+      relay: new FakeRelayClient(hub),
+      room: ROOM,
+      role: 'player',
+      name: 'Robin',
+      now,
+    })
+    cleanups.push(() => p.dispose())
+    await p.connect()
+    await flush()
+    host.tick(now())
+    await flush()
+    expect((hub.store.get(addr.roster(ROOM)) as unknown[]).length).toBe(1)
+
+    // The socket drops. CLASP's client only sends while the socket is OPEN and it
+    // does not queue, so a publish attempted now simply vanishes. Model the loss.
+    hub.store.delete(addr.roster(ROOM))
+    clock += 5_000
+    host.tick(now())
+    await flush()
+    // Nothing was resent: the signature the host recorded still matches the room,
+    // so the memo suppressed it. That is the bug this guards.
+    expect(hub.store.has(addr.roster(ROOM))).toBe(false)
+
+    // The supervisor reconnects and replays onConnect.
+    client.fireReconnect()
+    clock += 5_000
+    host.tick(now())
+    await flush()
+    expect((hub.store.get(addr.roster(ROOM)) as unknown[])?.length).toBe(1)
   })
 })
