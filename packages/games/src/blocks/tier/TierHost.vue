@@ -18,6 +18,7 @@ import { type Ref, computed, inject, onMounted, onUnmounted, ref, watch } from '
 import type { TierInput, TierContent } from './block'
 import { type ItemConsensus, DEFAULT_TIERS, consensusBoard, runningLeaderboard, textOn } from './logic'
 import type { TierShow } from './show'
+import { type AutoAdvanceState, initialAutoAdvance, trackExpected } from '../../runtime/autoadvance'
 
 const props = defineProps<{ content: TierContent; inputs?: Map<string, TierInput>; state: RoundState }>()
 const room = injectDootRoom()
@@ -74,11 +75,17 @@ const lanes = computed(() => {
   }
   return out
 })
+// How many placements this ITEM is waiting for. Same rule as the generic host: a
+// phone whose screen locked stops beating and drops off the roster, and letting
+// that shrink the denominator makes the big screen read "3 / 3 locked in" while a
+// fourth person is still deciding -- which is exactly when a host hits Reveal and
+// cuts them off. High-water within the item; it resets when the item does.
+const itemExpected = ref<AutoAdvanceState>(initialAutoAdvance)
 const lockCount = computed(() => {
   const id = currentItem.value?.id
   let locked = 0
   if (id) for (const input of props.inputs?.values() ?? []) if (validTier(input?.placements?.[id])) locked++
-  return { locked, total: room.players.value.length }
+  return { locked, total: Math.max(itemExpected.value.expected, room.players.value.length) }
 })
 const leaderboard = computed(() => {
   const roster = room.players.value.map((p) => ({ id: p.id, name: p.name }))
@@ -167,6 +174,10 @@ onMounted(() => {
   }
   timer = setInterval(() => {
     nowMs.value = Date.now()
+    itemExpected.value = trackExpected(itemExpected.value, `${itemIndex.value}:${phase.value}`, {
+      locked: lockCount.value.locked,
+      present: room.players.value.length,
+    })
     // Auto-reveal when the per-item clock runs out — but only once at least one vote is
     // in. A timer that fires on an empty item locks a lone tester out before they can tap
     // ("it auto locks"); hold instead, and let the host's Reveal button move it on.

@@ -5,6 +5,44 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-06. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUDIT OF THE AUTO-ADVANCE FIX ITSELF (2026-09-06, straight after shipping it).**
+> The fix below landed in `9ebc692`. Auditing it found the same bug in a second place, plus
+> two flaws in the fix itself. Both were found by looking rather than by assuming, which is
+> the only reason they were found at all.
+>
+> - **Swept the whole repo for the same shape.** Every use of the roster size as a
+>   denominator: `grep` for `players.value.length` plus every "locked in" display. The
+>   result is worth writing down so nobody re-derives it: **exactly two denominators exist**.
+>   `GameHost` (fixed) and **`TierHost`** (was not). Every other block host shows a bare
+>   COUNT with no denominator ("12 answers so far"), which cannot lie, and the `done` flags
+>   in quip/faker are round-state, not tallies. The lobby `< 2` gates are floors, not
+>   denominators.
+> - **`TierHost` had the display half of the bug.** Its tally never auto-advanced (the item
+>   clock does that, gated on `locked > 0`), so nothing closed early on its own. But the
+>   denominator shrank, so the big screen read "3 / 3 locked in" while a fourth person was
+>   still deciding, which is exactly when a host hits Reveal and cuts them off. Same
+>   high-water rule, scoped per ITEM rather than per round.
+> - **Flaw one in my own fix: solo rounds showed a stale total.** `maybeAutoLock` returned
+>   early for solo blocks BEFORE tracking the expectation, so a solo round rendered whatever
+>   number the previous round left behind. The tracking now runs on every tick of every
+>   round and only the LOCK decision is gated.
+> - **Flaw two, and the more interesting one: the fix re-rendered the control bar four times
+>   a second.** `trackExpected` returned a fresh object every call, and the host stores it in
+>   a ref on a 250ms tick, so a room where absolutely nothing was happening marked
+>   `lockCount` dirty forever. It now returns the SAME object when the expectation has not
+>   moved, with a test asserting object identity, because that is the kind of property that
+>   regresses silently. This matters here specifically: the engine went to real trouble to
+>   stop heartbeats causing re-renders at party scale, and this would have quietly undone
+>   part of it.
+> - **Verified in a browser, both of them, not just in unit tests.** The auto-lock smoke is
+>   still green after the restructure. For tier, three phones, one closed: the host read
+>   `0 / 3 locked in` before and `0 / 3 locked in` after it aged off the roster, where it
+>   would previously have dropped to `0 / 2`. The 40-player `tier-flow-smoke` also passes,
+>   so the per-item tracking did not disturb the show.
+> - **Note:** `scripts/tier-flow-smoke.mjs` imports `@doot-games/engine`, so it needs
+>   `node_modules/.bin/jiti`, not bare `node`. Running it with `node` fails with a module
+>   resolution error that has nothing to do with the code under test.
+
 > **AUTO-ADVANCE COULD CLOSE A ROUND ON A LIVE PLAYER, AND TWO MORE SECTIONS WERE
 > CLIPPING (2026-09-06, the last open items from the deploy below).**
 > "Fix all of this in the right way." Three defects, all of them the same mistake in

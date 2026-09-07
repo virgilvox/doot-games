@@ -77,7 +77,12 @@ export function trackExpected(
   tally: RoundTally,
 ): AutoAdvanceState {
   if (prev.roundKey !== roundKey) return { roundKey, expected: tally.present }
-  return { roundKey, expected: Math.max(prev.expected, tally.present) }
+  // Return the SAME object when nothing changed. The host calls this four times a
+  // second and stores the result in a ref, so handing back a fresh object every
+  // tick would mark everything downstream dirty and re-render the control bar
+  // continuously in a room where nothing is happening.
+  if (tally.present <= prev.expected) return prev
+  return { roundKey, expected: tally.present }
 }
 
 /**

@@ -302,15 +302,14 @@ const answering = computed(() => state.value === 'open' || state.value === 'lock
 // can't trip it (the timer or the host still cover those). Never auto-reveals or
 // advances: the host keeps the reveal beat.
 function maybeAutoLock() {
-  if (isSolo.value) return // a solo block drives its own advancement
-  if (state.value !== 'open') {
-    // Outside an open round the expectation just tracks the room, so the next
-    // round starts from whoever is actually here.
-    autoAdvanceState.value = trackExpected(autoAdvanceState.value, `${index.value}:${state.value}`, roundTally.value)
-    return
-  }
+  // Track the expectation on EVERY tick of every round, solo ones included: the
+  // control bar renders this count, so returning early would leave a solo round
+  // showing a stale total left over from the round before it. Keying on the round
+  // state resets it at each beat, so the high-water only ever spans one open round.
   const tally = roundTally.value
-  autoAdvanceState.value = trackExpected(autoAdvanceState.value, `${index.value}:open`, tally)
+  autoAdvanceState.value = trackExpected(autoAdvanceState.value, `${index.value}:${state.value}`, tally)
+  if (isSolo.value) return // a solo block drives its own advancement
+  if (state.value !== 'open') return
   if (!autoAdvance.value) return
   if (!shouldAutoLockNow(tally, autoAdvanceState.value.expected)) return
   if (room.host.can('lock')) room.host.lock()

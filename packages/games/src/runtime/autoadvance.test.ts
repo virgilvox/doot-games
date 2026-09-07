@@ -130,3 +130,29 @@ describe('a kick is a fact, not a guess, so it lowers the bar', () => {
     expect(shouldAutoLock({ locked: 3, present: 3 }, s.expected)).toBe(true)
   })
 })
+
+describe('it costs nothing on a quiet tick', () => {
+  it('returns the SAME object when the expectation has not moved', () => {
+    // The host calls this 4x a second into a ref. A fresh object each time would
+    // mark the control bar dirty and re-render a room where nothing happened.
+    const a = trackExpected(initialAutoAdvance, '0', { locked: 0, present: 3 })
+    const b = trackExpected(a, '0', { locked: 1, present: 3 })
+    const c = trackExpected(b, '0', { locked: 2, present: 2 }) // someone went quiet
+    expect(b).toBe(a)
+    expect(c).toBe(a)
+  })
+
+  it('still returns a new object when the expectation actually grows', () => {
+    const a = trackExpected(initialAutoAdvance, '0', { locked: 0, present: 3 })
+    const b = trackExpected(a, '0', { locked: 0, present: 5 }) // two more joined
+    expect(b).not.toBe(a)
+    expect(b.expected).toBe(5)
+  })
+
+  it('returns a new object on a new round, even at the same size', () => {
+    const a = trackExpected(initialAutoAdvance, '0', { locked: 0, present: 3 })
+    const b = trackExpected(a, '1', { locked: 0, present: 3 })
+    expect(b).not.toBe(a)
+    expect(b.roundKey).toBe('1')
+  })
+})
