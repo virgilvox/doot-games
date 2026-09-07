@@ -59,15 +59,13 @@ The engine exposes this as the narrow `RelayClient` interface (`packages/engine/
   phones) purely so 145 devices could each compute the same list. One writer, one
   value, N readers makes that linear. `packages/engine/src/roster.test.ts` measures
   the fan-out so a regression shows up as a number.
-- **The beat pacing in `room.ts` is now vestigial**, and knowing that saves you
-  re-deriving it. `ROSTER_STEP` / `heartbeatIntervalFor` / `MAX_HEARTBEAT_INTERVAL_MS`
-  slow the heartbeat in a big room to mitigate exactly the fan-out the line above
-  removed. Measured after the change: 0.2 heartbeat frames/s on a phone in a 70-player
-  room, which is the host's own beat and nothing else. Slowing the beat now buys
-  nothing and costs a little responsiveness, since `presenceWindowFor` widens the
-  staleness window to 3x the beat and that window is also how long the room waits on
-  someone who walked out. A constant 5s beat and 20s window is the simpler end state;
-  it was left alone because it is a timing change in every room, not a tidy-up.
+- **Presence is UNPACED**: one cadence (5s) and one window (20s) for every room, whatever
+  its size. There used to be a scheme that slowed the beat in big rooms to mitigate the
+  fan-out the line above removed; it was deleted once that fan-out was gone, and because
+  it had already come apart (it paced by counting live players out of a map that a player
+  no longer populates, so phones were on the 5s floor while the host widened its window to
+  30s regardless). Uniform behaviour matters here: a party behaving differently from the
+  room you tested is the shape of the failure this whole area is recovering from.
 - **A room code is claimed, not sensed.** `host/session` holds `{ token, at }`. A
   different token means the code is someone else's, full stop -- no clock involved,
   so a host with a fast clock can never decide a live room looks stale and seize it.

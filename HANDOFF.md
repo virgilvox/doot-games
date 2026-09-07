@@ -5,6 +5,54 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-07. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **THE TWO OPEN DECISIONS, DECIDED (2026-09-07).**
+> Both had been left as "your call" across several rounds. Asked to decide them, so here
+> they are, with the reasoning, so nobody reopens them from scratch.
+>
+> **1. The beat pacing: REMOVED.** Presence now uses one cadence (5s) and one window (20s)
+> for every room, whatever its size.
+> - Researching it changed the answer. It was not merely vestigial, it was **already half
+>   broken**: `heartbeatMs()` paced the beat by counting live players out of `playersMap`,
+>   and a PLAYER no longer populates that map (non-hosts stopped subscribing to
+>   `player/*/ping` when the roster became host-published). So every phone was already
+>   beating at the 5s floor, while the HOST went on widening its window to 30s as though
+>   they beat at 10s. The two halves of the scheme had come apart.
+> - Removing it makes big rooms behave like small ones. That matters more than the ~40
+>   lines: a party behaving differently from the thing that was tested is exactly the shape
+>   of the failure that started all of this.
+> - It also tightens departure detection from 30s to 20s, which now counts for more than it
+>   used to: with the round-scoped expectation, that window is how long the NEXT round keeps
+>   waiting on someone who has walked out.
+> - Cost is trivial and was checked, not assumed: at 200 players the relay takes 40 beats/s
+>   instead of 20, each delivered to ONE subscriber. Pre-rework that same room cost ~4,000
+>   deliveries/s. Still ~100x below where it started.
+>
+> **2. Answering after a round locks: NO.** "Time!" keeps meaning time.
+> - The reason this was ever tempting is that the engine already accepts a late input and
+>   only the phone UI hides the surface, so the two disagree. But the disagreement is not
+>   the thing that hurt anyone.
+> - Allowing it would make a timed round unfair: a player answering after the buzzer has had
+>   more time, and possibly heard the room react. It would also make the host screen lie,
+>   showing "Answers in" while the locked-in count kept climbing.
+> - The reason the question existed at all was auto-advance closing a round on someone still
+>   playing. That is fixed at the source: the round waits on a named set that presence can no
+>   longer shrink. Papering over it with late submissions would have been the wrong repair
+>   for a bug that is already gone.
+> - Residual case, considered and accepted: a phone asleep ACROSS a round boundary is off the
+>   roster when the round opens, so it is never expected and can miss that one round. On wake
+>   `visibilitychange` re-beats and they rejoin for the next. Someone who put their phone down
+>   for 30+ seconds missing a question is a party, not a defect. If it ever does grate, the
+>   honest fix is a minimum-open floor on auto-advance (a round cannot close in under N
+>   seconds), NOT accepting answers after the buzzer.
+>
+> **Also worth recording: `scripts/load-test.mjs`'s "submissions per round" is NOISY and
+> nothing asserts on it.** It counts how many headless clients happened to observe
+> `round.state === 'open'` before the host locked, so a fast round legitimately shows a low
+> number. Runs of `{70,1,70}` and `{70,61,4}` looked alarming; an A/B against the pre-change
+> engine gave `{70,70,6}` and `{70,59,44}`, i.e. the same spread. Not a regression, and not a
+> number to read as one. Judge that harness by `page errors`, `roster sees N of N`,
+> `spawn/join fails` and the idle-presence line instead.
+
 > **AUDIT ROUND FIVE: A ROSTER PUBLISH COULD BE LOST FOREVER (2026-09-07).**
 > One real bug, introduced by the single-writer roster and found by reading the CLASP
 > client rather than reasoning about it.

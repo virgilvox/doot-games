@@ -16,11 +16,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addr } from './addresses'
 import type { RelayCallback, RelayClient, RelayValue, Unsubscribe } from './relay'
 import {
+  HEARTBEAT_INTERVAL_MS,
   HOST_HEARTBEAT_INTERVAL_MS,
   HOST_PRESENCE_WINDOW_MS,
+  PRESENCE_WINDOW_MS,
   RoomRuntime,
-  heartbeatIntervalFor,
-  presenceWindowFor,
 } from './room'
 
 class FakeHub {
@@ -276,7 +276,7 @@ describe('player presence, and what it costs the host when it is wrong', () => {
     await flush()
     expect(h.getSnapshot().players.map((p) => p.name)).toContain('Quiet')
 
-    clock += presenceWindowFor(heartbeatIntervalFor(1)) + 1_000
+    clock += PRESENCE_WINDOW_MS + 1_000
     expect(h.getSnapshot().players.map((p) => p.name)).not.toContain('Quiet')
   })
 
@@ -293,14 +293,19 @@ describe('player presence, and what it costs the host when it is wrong', () => {
     await flush()
     p.submit({ choice: 1 } as RelayValue)
 
-    clock += presenceWindowFor(heartbeatIntervalFor(1)) + 1_000
+    clock += PRESENCE_WINDOW_MS + 1_000
     // This safety net is what preserved the little data room Z2CP kept.
     expect(h.getSnapshot().players.map((p) => p.name)).toContain('Answered')
   })
 
-  it('a big room slows its beat and widens its window to match', () => {
-    // 145 phones (room Z2CP): beat capped at 10s, window 30s.
-    expect(heartbeatIntervalFor(145)).toBe(10_000)
-    expect(presenceWindowFor(heartbeatIntervalFor(145))).toBe(30_000)
+  it('uses ONE cadence and ONE window, whatever the room size', () => {
+    // The size-dependent pacing is gone: it mitigated a room-wide heartbeat
+    // broadcast that no longer exists, and it had already stopped working on the
+    // player side, where `playersMap` is now empty. A 145-phone room beats and ages
+    // out exactly like a room of three, which is one less way for a party to behave
+    // differently from the thing that was tested.
+    expect(HEARTBEAT_INTERVAL_MS).toBe(5_000)
+    expect(PRESENCE_WINDOW_MS).toBe(20_000)
+    expect(PRESENCE_WINDOW_MS / HEARTBEAT_INTERVAL_MS).toBe(4) // four missed beats of grace
   })
 })

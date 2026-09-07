@@ -31,8 +31,8 @@ import {
 } from './state-machine'
 import type { Identity, Phase, Player, RoomMeta, RoomState, RoundState } from './types'
 
-const PRESENCE_WINDOW_MS = 20_000
-const HEARTBEAT_INTERVAL_MS = 5_000
+export const PRESENCE_WINDOW_MS = 20_000
+export const HEARTBEAT_INTERVAL_MS = 5_000
 // How coarsely the memoized roster re-evaluates the clock. Presence is measured in
 // tens of seconds, so a second's granularity is invisible and keeps the host's
 // four-times-a-second tick from rebuilding the roster every time.
@@ -43,43 +43,22 @@ const PRESENCE_TICK_BUCKET_MS = 1_000
 // does not touch the snapshot, so the host sweeps for it on this cadence and emits
 // only when the present set actually changed.
 const PRESENCE_SWEEP_MS = 2_000
-// VESTIGIAL, and deliberately left in place. This pacing exists because presence used
-// to be a room-wide broadcast: every non-audience client subscribed to `player/*/ping`,
-// so N players beating cost the relay N deliveries to each of N clients, which was the
-// dominant cost of a 200-phone room. Only the HOST subscribes now (it publishes one
-// `/roster` value the rest read), so that cost is N, not N squared: measured at 0.2
-// heartbeat frames/s on a phone in a 70-player room, which is the host's own beat and
-// nothing else. Slowing the beat therefore buys nothing any more, and it costs a little
-// responsiveness, since `presenceWindowFor` widens the staleness window to 3x the beat
-// and the host notices someone leaving that much later. Removing it is a timing change
-// across every room, so it is a deliberate decision rather than a tidy-up: see HANDOFF.
-const ROSTER_STEP = 60
-// The cap on that pacing. Its ORIGINAL reason is gone: it had to stay well under
-// `PRESENCE_WINDOW_MS` because the pre-join name probe read a single retained ping and
-// asked whether it was fresher than the base window, so a beat near the window made a
-// live player read as absent and two phones could silently share one identity.
-// `probePresence` reads the host's published roster now and no longer compares any
-// timestamp, so that failure cannot happen. What still argues for a cap is duller: the
-// staleness window is 3x the beat, and it is also how long the room waits on someone who
-// walked out before the host stops expecting them, so an uncapped beat means dead air.
-const MAX_HEARTBEAT_INTERVAL_MS = 10_000
-/** The beat a room of `n` players uses (5s until it is genuinely big). */
-export function heartbeatIntervalFor(n: number): number {
-  const steps = Math.max(1, Math.ceil(n / ROSTER_STEP))
-  return Math.min(HEARTBEAT_INTERVAL_MS * steps, MAX_HEARTBEAT_INTERVAL_MS)
-}
-/**
- * How long a player stays "present" after their last beat, at that beat's cadence.
- *
- * Three missed beats of grace, not four: this window is also how long the room waits
- * on someone who has WALKED OUT before "everyone has answered" can fire and before
- * they leave the roster, so every second of slack here is a second of dead air in a
- * big room. Three beats still covers a dropped frame or a brief reconnect, and with
- * the beat capped at 10s the widest this ever gets is 30s against the old fixed 20s.
- */
-export function presenceWindowFor(intervalMs: number): number {
-  return Math.max(PRESENCE_WINDOW_MS, intervalMs * 3)
-}
+// Presence is deliberately UNPACED: every client beats on the same fixed cadence and
+// is judged by the same fixed window, whatever the room size.
+//
+// There used to be a scheme that slowed the beat above ROSTER_STEP players and widened
+// the staleness window to match, because presence was a room-wide broadcast and N phones
+// beating cost N deliveries to each of N clients. Only the HOST subscribes to
+// `player/*/ping` now (it publishes one `/roster` value the rest read), so that cost is
+// N rather than N squared -- measured at 0.2 heartbeat frames/s on a phone in a
+// 70-player room, which is the host's own beat and nothing else.
+//
+// It was also, by then, half broken: the pacing counted live players out of `playersMap`,
+// which a PLAYER no longer populates, so every phone already beat at the 5s floor while
+// the host still widened its window to 30s as though they beat at 10s. Uniform beats and
+// one window are both simpler and more correct, and a room that loses someone now notices
+// in 20s rather than 30s, which matters because that window is how long the next round
+// keeps expecting them.
 // A relay.get on a key that doesn't exist doesn't answer "absent" quickly, it
 // hangs until the relay's own multi-second get timeout. The pre-join name probe
 // reads keys that are usually ABSENT (a fresh, un-taken name), so it races each
@@ -307,8 +286,6 @@ export class RoomRuntime {
    *  present set it last reported, so a quiet room costs nothing. */
   private lastPresenceSweep = 0
   private lastPresentKey: string | null = null
-  /** Memo for the beat (see heartbeatMs), on the roster's own clock bucket. */
-  private beatCache: { at: number; v: number; ms: number } | null = null
   /** Runtime-derived content per round (two-phase). Host fills it on publish;
    *  player/viewer fill it from the relay. Overrides authored content. */
   private runtimeContent = new Map<number, RelayValue>()
@@ -1106,33 +1083,10 @@ export class RoomRuntime {
     })
   }
 
-  /**
-   * The beat this room is currently using, from the LIVE roster.
-   *
-   * Deliberately not `playersMap.size`: that map is never pruned, so it counts every
-   * player ever seen and a room that emptied out would keep a big room's slow beat
-   * forever. Counted against the widest window any pacing can produce, so this never
-   * depends on the beat it is computing, and memoized on the same coarse clock bucket
-   * as the roster since the ping handler asks for it on every inbound heartbeat.
-   */
-  private heartbeatMs(): number {
-    const bucket = Math.floor(this.now() / PRESENCE_TICK_BUCKET_MS)
-    if (this.beatCache?.at === bucket && this.beatCache.v === this.rosterVersion) return this.beatCache.ms
-    // Count against the BASE window, not the widest one. A live player always beats
-    // inside it (the cap keeps every beat under it), while a player who left drops
-    // out promptly - so the count only falls as people leave, and the window derived
-    // from it cannot widen again and resurrect names that had already aged off.
-    const cutoff = this.now() - PRESENCE_WINDOW_MS
-    let live = 0
-    for (const p of this.playersMap.values()) if (p.lastPing != null && p.lastPing > cutoff) live++
-    const ms = heartbeatIntervalFor(live)
-    this.beatCache = { at: bucket, v: this.rosterVersion, ms }
-    return ms
-  }
-  /** How stale a player's last beat may be before they read as gone. Widens with the
-   *  beat, so a big room's slower heartbeat still gets four missed beats of grace. */
+  /** How stale a player's last beat may be before they read as gone: four missed beats
+   *  of grace at the fixed cadence, the same for every room. */
   private presenceWindow(): number {
-    return presenceWindowFor(this.heartbeatMs())
+    return PRESENCE_WINDOW_MS
   }
 
   /**
@@ -1434,27 +1388,17 @@ export class RoomRuntime {
   }
 
   /**
-   * Beat this client's presence, re-pacing as the room fills. Every beat costs one
-   * delivery to every other client, so a room that grows past a comfortable roster
-   * slows its beat (and widens its staleness window to match) instead of turning the
-   * relay into a heartbeat firehose. The cadence is re-checked on each beat, so a
-   * room that empties out speeds back up on its own.
+   * Beat this client's presence on a fixed cadence, whatever the room size. Each beat
+   * is one event to the HOST, the only subscriber, so a bigger room costs the relay
+   * more beats but never more deliveries per beat. See the note on
+   * `HEARTBEAT_INTERVAL_MS` for why the old size-dependent pacing went away.
    */
   private startHeartbeat(): void {
     if (this.heartbeatTimer || this.me.role !== 'player') return
     this.watchVisibility()
-    let paced = this.heartbeatMs()
-    const beat = () => {
-      this.relay.emit(addr.playerPing(this.room, this.me.id))
-      const next = this.heartbeatMs()
-      if (next !== paced && this.heartbeatTimer) {
-        paced = next
-        clearInterval(this.heartbeatTimer)
-        this.heartbeatTimer = setInterval(beat, next)
-      }
-    }
+    const beat = () => this.relay.emit(addr.playerPing(this.room, this.me.id))
     beat()
-    this.heartbeatTimer = setInterval(beat, paced)
+    this.heartbeatTimer = setInterval(beat, HEARTBEAT_INTERVAL_MS)
   }
 
   // ---- host actions --------------------------------------------------------

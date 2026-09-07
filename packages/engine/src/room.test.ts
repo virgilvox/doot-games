@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { addr } from './addresses'
 import { playerId } from './identity'
 import type { RelayCallback, RelayClient, RelayValue, Unsubscribe } from './relay'
-import { RoomRuntime, heartbeatIntervalFor, presenceWindowFor } from './room'
+import { PRESENCE_WINDOW_MS, RoomRuntime } from './room'
 
 /**
  * An in-memory relay shared by several clients: persists values, delivers a
@@ -1453,27 +1453,30 @@ describe('host reload mid-game recovery', () => {
 
 
 describe('RoomRuntime at party scale', () => {
-  it('paces the heartbeat by roster size, keeping four missed beats of grace', () => {
-    // A normal room is untouched: the same 5s beat and 20s window as before.
-    expect(heartbeatIntervalFor(0)).toBe(5_000)
-    expect(heartbeatIntervalFor(8)).toBe(5_000)
-    expect(heartbeatIntervalFor(60)).toBe(5_000)
-    expect(presenceWindowFor(heartbeatIntervalFor(60))).toBe(20_000)
-    // A big room slows down instead of flooding every phone with other people's beats.
-    expect(heartbeatIntervalFor(61)).toBe(10_000)
-    expect(heartbeatIntervalFor(200)).toBe(10_000)
-    // ...and is capped, so presence never becomes unusably stale.
-    expect(heartbeatIntervalFor(5_000)).toBe(10_000)
-    // The widest the room ever waits on someone who walked out: three missed beats.
-    // Every second here is dead air before "everyone has answered" can fire, so the
-    // worst case stays close to the fixed 20s this replaced.
-    expect(presenceWindowFor(heartbeatIntervalFor(200))).toBe(30_000)
-    // The cap MUST stay well under the base window: the pre-join name probe reads one
-    // retained ping against that window, so a beat at (or near) the window would make a
-    // live player read as absent and the duplicate-name warning would stop firing.
-    for (const n of [0, 1, 60, 61, 200, 5_000]) {
-      expect(heartbeatIntervalFor(n) * 1.5).toBeLessThanOrEqual(20_000)
-    }
+  it('beats on ONE fixed cadence, whatever the room size', async () => {
+    // The size-dependent pacing is gone. It mitigated a room-wide heartbeat broadcast
+    // that no longer exists (only the host subscribes to player pings), and by the end
+    // it was half broken anyway: it counted live players out of `playersMap`, which a
+    // PLAYER no longer populates, so every phone already beat at the 5s floor while the
+    // host still widened its window to 30s as though they beat at 10s.
+    const hub = new FakeHub()
+    let t = 1_000
+    const host = makeHost(hub, () => t)
+    await host.connect()
+    host.loadGame(GAME)
+    host.start()
+
+    const p = makePlayer(hub, 'Robin', () => t)
+    await p.connect()
+    await flush()
+    expect(host.getSnapshot().players.map((x) => x.name)).toContain('Robin')
+
+    // One window of silence drops them, and the window is the same 20s it would be in
+    // a room of two or a room of two hundred.
+    t += PRESENCE_WINDOW_MS - 1_000
+    expect(host.getSnapshot().players.map((x) => x.name)).toContain('Robin')
+    t += 2_000
+    expect(host.getSnapshot().players.map((x) => x.name)).not.toContain('Robin')
   })
 
   it('does not re-render the room for a heartbeat that changes nothing visible', async () => {
