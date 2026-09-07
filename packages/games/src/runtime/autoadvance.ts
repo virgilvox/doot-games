@@ -36,15 +36,27 @@ export interface RoundTally {
   locked: number
   /** Eligible players the roster currently shows (a presence guess). */
   present: number
+  /** Their ids, which is what the expectation actually accumulates. */
+  presentIds: string[]
 }
 
-/** Carried between ticks. `roundKey` scopes the high-water to a single round. */
+/** Carried between ticks. `roundKey` scopes the expectation to a single round. */
 export interface AutoAdvanceState {
   roundKey: string
-  expected: number
+  /**
+   * WHO the round is waiting on, not how many.
+   *
+   * A count cannot tell "their phone went to sleep" from "the host removed them",
+   * which left kicks unfixable: recomputing the number inside the click handler
+   * reads a roster that has not caught up (the engine refreshes its snapshot on a
+   * microtask), so it re-recorded the very number it meant to lower and the round
+   * stalled anyway. With ids, a kick removes exactly one entry and nothing has to
+   * be timed correctly.
+   */
+  expected: ReadonlySet<string>
 }
 
-export const initialAutoAdvance: AutoAdvanceState = { roundKey: '', expected: 0 }
+export const initialAutoAdvance: AutoAdvanceState = { roundKey: '', expected: new Set() }
 
 /**
  * Count this round's eligible players and how many have answered. `isEligible` is
@@ -57,13 +69,13 @@ export function tallyRound(
   isEligible: (joinedAtIndex: number, roundIndex: number) => boolean,
 ): RoundTally {
   let locked = 0
-  let present = 0
+  const presentIds: string[] = []
   for (const p of players) {
     if (!isEligible(p.joinedAtIndex, roundIndex)) continue
-    present++
+    presentIds.push(p.id)
     if (hasInput(p.id)) locked++
   }
-  return { locked, present }
+  return { locked, present: presentIds.length, presentIds }
 }
 
 /**
@@ -76,28 +88,50 @@ export function trackExpected(
   roundKey: string,
   tally: RoundTally,
 ): AutoAdvanceState {
-  if (prev.roundKey !== roundKey) return { roundKey, expected: tally.present }
-  // Return the SAME object when nothing changed. The host calls this four times a
-  // second and stores the result in a ref, so handing back a fresh object every
-  // tick would mark everything downstream dirty and re-render the control bar
-  // continuously in a room where nothing is happening.
-  if (tally.present <= prev.expected) return prev
-  return { roundKey, expected: tally.present }
+  if (prev.roundKey !== roundKey) return { roundKey, expected: new Set(tally.presentIds) }
+  // Return the SAME object when nobody new appeared. The host calls this four
+  // times a second into a ref, so a fresh object every tick would mark everything
+  // downstream dirty and re-render the control bar in an idle room.
+  let grew = false
+  for (const id of tally.presentIds) {
+    if (!prev.expected.has(id)) {
+      grew = true
+      break
+    }
+  }
+  if (!grew) return prev
+  const expected = new Set(prev.expected)
+  for (const id of tally.presentIds) expected.add(id)
+  return { roundKey, expected }
 }
 
 /**
  * Whether the round should close itself. Needs at least one player, so an empty
  * room never trips it, and every expected answer in.
  */
-export function shouldAutoLock(tally: RoundTally, expected: number): boolean {
-  return expected >= 1 && tally.locked >= expected
+export function shouldAutoLock(
+  expected: ReadonlySet<string>,
+  hasInput: (id: string) => boolean,
+): boolean {
+  if (expected.size === 0) return false
+  for (const id of expected) if (!hasInput(id)) return false
+  return true
 }
 
 /**
- * Recompute the expectation from scratch. The host KICKING someone is the one
- * case where the roster shrinking is a fact rather than a guess, so the
- * high-water has to come down with it or that round could never auto-advance.
+ * Stop waiting on one player. The host KICKING someone is the one case where the
+ * roster shrinking is a fact rather than a guess. Removing them BY ID needs no
+ * knowledge of when the roster refreshes, which is exactly why this takes a pid
+ * rather than a fresh tally.
  */
-export function resetExpected(roundKey: string, tally: RoundTally): AutoAdvanceState {
-  return { roundKey, expected: tally.present }
+export function forgetPlayer(prev: AutoAdvanceState, pid: string): AutoAdvanceState {
+  if (!prev.expected.has(pid)) return prev
+  const expected = new Set(prev.expected)
+  expected.delete(pid)
+  return { roundKey: prev.roundKey, expected }
+}
+
+/** How many answers the round is waiting for, for display. */
+export function expectedCount(state: AutoAdvanceState, tally: RoundTally): number {
+  return Math.max(state.expected.size, tally.present)
 }

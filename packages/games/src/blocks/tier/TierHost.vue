@@ -85,7 +85,7 @@ const lockCount = computed(() => {
   const id = currentItem.value?.id
   let locked = 0
   if (id) for (const input of props.inputs?.values() ?? []) if (validTier(input?.placements?.[id])) locked++
-  return { locked, total: Math.max(itemExpected.value.expected, room.players.value.length) }
+  return { locked, total: Math.max(itemExpected.value.expected.size, room.players.value.length) }
 })
 const leaderboard = computed(() => {
   const roster = room.players.value.map((p) => ({ id: p.id, name: p.name }))
@@ -177,6 +177,7 @@ onMounted(() => {
     itemExpected.value = trackExpected(itemExpected.value, `${itemIndex.value}:${phase.value}`, {
       locked: lockCount.value.locked,
       present: room.players.value.length,
+      presentIds: room.players.value.map((p) => p.id),
     })
     // Auto-reveal when the per-item clock runs out — but only once at least one vote is
     // in. A timer that fires on an empty item locks a lone tester out before they can tap

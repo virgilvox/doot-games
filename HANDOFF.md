@@ -5,6 +5,48 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-06. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUDIT ROUND THREE: I WAS WRONG ABOUT THE KICK, AND THE ROSTER CLAIM IS NOW MEASURED
+> (2026-09-06). NOT YET DEPLOYED.**
+> Three things this pass: the untested paths got tested, a claim I had made twice turned out
+> to be about a scenario the UI cannot reach, and the headline justification for the whole
+> presence rework finally got measured instead of argued.
+>
+> - **THE KICK STORY WAS WRONG, twice over, and it is worth saying plainly.** I claimed that
+>   kicking a player mid-round would stall auto-advance, "fixed" it with a recompute, then
+>   found the recompute was a no-op (the engine refreshes its snapshot on a microtask, so the
+>   click handler reads the PRE-kick roster and re-records the number it means to lower), then
+>   redesigned around it. Only when the browser test refused to pass did I check the template:
+>   **the kick control renders only inside `v-if="phase === 'lobby'"`.** You cannot kick anyone
+>   mid-round at all, so none of it was reachable. The unit test had passed the whole time
+>   because it fed the function a hand-written post-kick tally: it tested my assumption, not
+>   the wiring. Lesson recorded because it is the second time this week a green unit test
+>   covered for a wrong belief about the real system.
+> - **The redesign was kept anyway, on its own merits.** The expectation is now the SET of
+>   player ids a round is waiting on, not a count. A count cannot express "stop waiting on
+>   this person", which is why the kick case was unfixable inside it; names can, with no
+>   timing to get right. `forgetPlayer` is now honestly labelled DEFENSIVE in the code: it
+>   exists so that moving the kick control into a live round (an obvious feature) cannot
+>   silently bring back a round that waits forever on someone who was removed.
+> - **The roster claim is measured now, not argued.** `scripts/load-test.mjs` at 73 players
+>   reports **`idle presence on one phone: 0.2 relay frames/s (0.2 heartbeats), 0.2
+>   re-renders/s`**. That 0.2 is exactly the 5s host beat: a phone now receives the HOST's
+>   heartbeat and nobody else's. Under the old shape a phone received every other phone's,
+>   which at that room size is ~7/s, and the beat pacing meant it grew with the room:
+>   **~7/s at 70, ~14.5/s at 145, ~20/s at 200, against a flat 0.2/s now.** Per-phone
+>   heartbeat traffic went from O(N) to O(1) in room size, which is the actual claim the
+>   rework was making and is now on the record. The same run also confirms the roster itself
+>   at scale: host saw 73 of 73, 70 of 70 submissions every round, 0 page errors, 0 overflow
+>   on lobby or results.
+> - **The per-player content path is browser-tested now.** `assignContent` blocks (doodle,
+>   wavelength, chainline, faker) are exactly what the `inputNeedsRebuild` fix targets and had
+>   only ever been unit-tested. wavelength-smoke, doodlechain-smoke and storychain-smoke all
+>   pass: rotating clue-givers, neighbour drawings down a chain, and per-player line rotation
+>   all still work with the roster now coming from the host.
+> - **Re-verified after the redesign, not carried over.** The auto-lock smoke still reads
+>   `ANSWERS OPEN 2 / 3 locked in` with a sleeping phone, and tier still holds `0 / 3` where
+>   it would have dropped to `0 / 2`. Both were re-run because the data structure changed
+>   underneath them; a pass from before the redesign would have proved nothing.
+
 > **AUDIT OF THE AUTO-ADVANCE FIX ITSELF (2026-09-06, straight after shipping it).**
 > The fix below landed in `9ebc692`. Auditing it found the same bug in a second place, plus
 > two flaws in the fix itself. Both were found by looking rather than by assuming, which is

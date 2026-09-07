@@ -16,7 +16,8 @@ import { type ScoreGameContext, getBlock, roundsMissingAnswerKey, scoreGame } fr
 import {
   type AutoAdvanceState,
   initialAutoAdvance,
-  resetExpected,
+  expectedCount,
+  forgetPlayer,
   shouldAutoLock as shouldAutoLockNow,
   tallyRound,
   trackExpected,
@@ -115,10 +116,16 @@ function kick(pid: string) {
   const who = room.players.value.find((p) => p.id === pid)?.name ?? 'this player'
   if (typeof window !== 'undefined' && !window.confirm(`Remove ${who} from the game?`)) return
   room.host.kickPlayer(pid)
-  // A kick is the one case where the roster shrinking is a fact, not a presence
-  // guess, so the round's expectation comes down with it. Without this, kicking
-  // someone mid-round would leave it waiting on an answer that can never arrive.
-  autoAdvanceState.value = resetExpected(`${index.value}:${state.value}`, roundTally.value)
+  // A kick is the one case where a shrinking roster is a fact rather than a
+  // presence guess, so the round stops expecting them. DEFENSIVE today: the kick
+  // control only renders in the lobby (see the roster block below), so there is no
+  // open round for this to unblock. It is here so that moving that control into a
+  // live round cannot silently reintroduce a round that waits forever on someone
+  // who was removed. Dropping them BY ID is also why the expectation is a set: the
+  // roster readable here is still the pre-kick one, because the engine refreshes
+  // its snapshot on a microtask, so anything recomputing a COUNT would re-record
+  // the number it meant to lower.
+  autoAdvanceState.value = forgetPlayer(autoAdvanceState.value, pid)
 }
 
 // ── Stage SFX (big screen only) ─────────────────────────────────────────────
@@ -290,7 +297,7 @@ const roundTally = computed(() => {
 // that happens to be asleep.
 const lockCount = computed(() => ({
   locked: roundTally.value.locked,
-  total: Math.max(autoAdvanceState.value.expected, roundTally.value.present),
+  total: expectedCount(autoAdvanceState.value, roundTally.value),
 }))
 const answering = computed(() => state.value === 'open' || state.value === 'locked')
 
@@ -311,7 +318,8 @@ function maybeAutoLock() {
   if (isSolo.value) return // a solo block drives its own advancement
   if (state.value !== 'open') return
   if (!autoAdvance.value) return
-  if (!shouldAutoLockNow(tally, autoAdvanceState.value.expected)) return
+  const inputs = room.inputsFor(index.value)
+  if (!shouldAutoLockNow(autoAdvanceState.value.expected, (id) => inputs.has(id))) return
   if (room.host.can('lock')) room.host.lock()
 }
 
