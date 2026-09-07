@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BARS_PER_PAGE,
   type Distribution,
   PODIUM_PER_PAGE,
   distSlides,
@@ -94,11 +95,27 @@ describe('a podium too tall to fit pages instead of clipping', () => {
   })
 })
 
-describe('only podiums page', () => {
-  it('leaves a long bar chart as one slide', () => {
-    const poll = { title: 'Best snack', bars: podium(20).bars } as Distribution
-    expect(isPodium(poll)).toBe(false)
-    expect(distSlides(poll)).toHaveLength(1)
+describe('a long BAR breakdown pages too, on its own tighter budget', () => {
+  // A 20-player Quip Clash: one bar per answer, no hero, taller rows. Three fit.
+  const gallery = { title: 'Who said it best?', bars: podium(20).bars } as Distribution
+
+  it('is not a podium, and still gets paged', () => {
+    expect(isPodium(gallery)).toBe(false)
+    expect(distSlides(gallery)).toHaveLength(Math.ceil(20 / BARS_PER_PAGE))
+  })
+
+  it('shows every answer across the pages, in order, none lost', () => {
+    const shown = distSlides(gallery).flatMap((p) => bars((p as { dist: Distribution }).dist))
+    expect(shown).toEqual(bars(gallery))
+  })
+
+  it('fits on one slide when it is short enough', () => {
+    const small = { title: 'Best snack', bars: podium(BARS_PER_PAGE).bars } as Distribution
+    expect(distSlides(small)).toHaveLength(1)
+  })
+
+  it('never crowns a bar chart, which has no winner card', () => {
+    expect(distSlides(gallery).every((p) => (p as { crown: boolean }).crown === false)).toBe(true)
   })
 })
 

@@ -13,6 +13,14 @@ import { type Ref, computed, inject, onMounted, onUnmounted, provide, reactive, 
 import GameResults from './GameResults.vue'
 import type { FilterTier } from './contentFilter'
 import { type ScoreGameContext, getBlock, roundsMissingAnswerKey, scoreGame } from './derive'
+import {
+  type AutoAdvanceState,
+  initialAutoAdvance,
+  resetExpected,
+  shouldAutoLock as shouldAutoLockNow,
+  tallyRound,
+  trackExpected,
+} from './autoadvance'
 import { scoringSummary } from './scoring-summary'
 import { standingsThrough } from './standings'
 
@@ -107,6 +115,10 @@ function kick(pid: string) {
   const who = room.players.value.find((p) => p.id === pid)?.name ?? 'this player'
   if (typeof window !== 'undefined' && !window.confirm(`Remove ${who} from the game?`)) return
   room.host.kickPlayer(pid)
+  // A kick is the one case where the roster shrinking is a fact, not a presence
+  // guess, so the round's expectation comes down with it. Without this, kicking
+  // someone mid-round would leave it waiting on an answer that can never arrive.
+  autoAdvanceState.value = resetExpected(`${index.value}:${state.value}`, roundTally.value)
 }
 
 // ── Stage SFX (big screen only) ─────────────────────────────────────────────
@@ -263,19 +275,23 @@ const stateLabel = computed(() => {
 })
 const isLast = computed(() => index.value >= rounds.value.length - 1)
 
+// How many answers this round is waiting for. Round-scoped high-water, so a phone
+// that goes quiet cannot pull the finish line closer and close the round on its
+// owner while they are still reading. See runtime/autoadvance.ts.
+const autoAdvanceState = ref<AutoAdvanceState>(initialAutoAdvance)
 // Live "locked in" count so the host knows when to advance: eligible players this
 // round who have submitted. Shown only while the round is open/locked.
-const lockCount = computed(() => {
+const roundTally = computed(() => {
   const inputs = room.inputsFor(index.value)
-  let locked = 0
-  let total = 0
-  for (const p of room.players.value) {
-    if (!isEligible(p.joinedAtIndex, index.value)) continue
-    total++
-    if (inputs.has(p.id)) locked++
-  }
-  return { locked, total }
+  return tallyRound(room.players.value, index.value, (id) => inputs.has(id), isEligible)
 })
+// The DISPLAYED denominator is the same high-water the auto-lock uses, so the big
+// screen never reads "3 / 3" while the round is still waiting on a fourth phone
+// that happens to be asleep.
+const lockCount = computed(() => ({
+  locked: roundTally.value.locked,
+  total: Math.max(autoAdvanceState.value.expected, roundTally.value.present),
+}))
 const answering = computed(() => state.value === 'open' || state.value === 'locked')
 
 // Auto-lock the round once every eligible player has answered (host-side; the
@@ -287,10 +303,16 @@ const answering = computed(() => state.value === 'open' || state.value === 'lock
 // advances: the host keeps the reveal beat.
 function maybeAutoLock() {
   if (isSolo.value) return // a solo block drives its own advancement
+  if (state.value !== 'open') {
+    // Outside an open round the expectation just tracks the room, so the next
+    // round starts from whoever is actually here.
+    autoAdvanceState.value = trackExpected(autoAdvanceState.value, `${index.value}:${state.value}`, roundTally.value)
+    return
+  }
+  const tally = roundTally.value
+  autoAdvanceState.value = trackExpected(autoAdvanceState.value, `${index.value}:open`, tally)
   if (!autoAdvance.value) return
-  if (state.value !== 'open') return
-  const { locked, total } = lockCount.value
-  if (total < 1 || locked < total) return
+  if (!shouldAutoLockNow(tally, autoAdvanceState.value.expected)) return
   if (room.host.can('lock')) room.host.lock()
 }
 

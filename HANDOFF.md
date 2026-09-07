@@ -5,6 +5,70 @@ Snapshot of where Doot stands, for the next session or contributor. Pair with [`
 _Last updated: 2026-09-06. The default branch is `main` (every push to `main` deploys to
 prod via CI, no staging)._
 
+> **AUTO-ADVANCE COULD CLOSE A ROUND ON A LIVE PLAYER, AND TWO MORE SECTIONS WERE
+> CLIPPING (2026-09-06, the last open items from the deploy below).**
+> "Fix all of this in the right way." Three defects, all of them the same mistake in
+> different clothes: trusting a guess in the direction where being wrong costs something.
+>
+> - **Auto-advance closed rounds early.** The count it compared answers against came from
+>   presence, so a phone whose screen locked stopped beating, dropped off the roster, and
+>   SHRANK the denominator until `locked === total` was true. The round closed while its
+>   owner was reading the question off the big screen, and they came back to "Time!". This
+>   is not a rare shape: reading the TV with your phone face-down, then picking it up to
+>   answer, is how people play these games.
+> - **The fix is about the DIRECTION of the guess, not its accuracy.** Presence still says
+>   who is in the room when a round OPENS; it is no longer allowed to take anyone away
+>   while the round runs. `expected` is the high-water mark of eligible players seen during
+>   THIS round. Scoping it to one round is what keeps it honest: someone who left earlier
+>   is already gone when the round opens and is never counted, and someone who leaves
+>   mid-round blocks auto-advance for that one round until the host taps Lock, then is gone
+>   next round. Bounded and self-healing, which the old failure was not. A KICK is the one
+>   case where a shrinking roster is a fact rather than a guess, so it recomputes.
+>   `packages/games/src/runtime/autoadvance.ts` + 10 tests.
+> - **Proved by A/B in a real browser, which is the only reason to trust it.**
+>   `scripts/autolock-smoke.mjs`: three phones, two answer, the third stops beating.
+>   Pre-fix, the host reads `ANSWERS IN — 2 / 2 in`, round closed, third player cut off.
+>   Post-fix, `ANSWERS OPEN — 2 / 3 locked in`, round still open, and the host can still
+>   close it by hand. The smoke FAILS on the old code and passes on the new.
+> - **Note for whoever touches that smoke:** it only exercises the bug with TIMERS OFF. The
+>   first version left them on, the engine's own deadline auto-lock closed the round at 20s,
+>   and the assertion failed for a reason that had nothing to do with the fix. A green or
+>   red result there means nothing unless the timer is out of the way.
+>
+> **The results board was clipping two more shapes.** The podium paging shipped in
+> `7150b76` fixed one; the audit found the same defect twice more.
+> - **A 20-answer vote gallery** (a Quip Clash with 20 players, one bar per answer) showed
+>   three bars, sliced the fourth in half, and had no page for the other sixteen. The pager
+>   said `2 / 2`. Now `2 / 8`, with every answer reachable and each row measured clear of
+>   the frame. Bar rows are taller than podium rows and have no hero beside them, so they
+>   get their own budget: `BARS_PER_PAGE = 3` against `PODIUM_PER_PAGE = 6`.
+> - **`distSlides` itself was untested logic inside a `.vue`,** which is the repo's own
+>   documented no. It is branching index arithmetic, and it had already been wrong once (a
+>   chunked podium restarted its numbering at #1 on every page, caught by reading the DOM
+>   rather than by a test). Lifted to `packages/games/src/runtime/slides.ts` with 18 tests.
+>   Writing them immediately caught a second thing: `crown` was being computed for
+>   distributions that have no hero to crown. Harmless today, since only the podium layout
+>   reads it, but it was a stale `true` waiting for someone to trust it.
+> - **Page size is measured, not guessed, and checked in every theme.** Pixel overflow of
+>   the last row against the slide box: `doot` -34, `playful` -30, `cyber` -42, `bubblegum`
+>   -34, `retro`/`zine` -54. Bubblegum is the theme the failing event actually used.
+>   `/dev/results` gained both shapes ("Rate, ungrouped, many", "Vote gallery, 20 answers")
+>   so the next person can see them rather than reasoning about them.
+>
+> **Measured and deliberately NOT changed**, so nobody re-opens it from first principles:
+> - The published roster is one value carrying the whole room (~10KB at 145 players, ~14KB
+>   at 200, under the 58KB offload threshold so it never touches object storage). A lobby
+>   filling up republishes a growing list once per join: ~111MB of fan-out at 145 players,
+>   against the ~511MB of heartbeat fan-out the old per-client presence cost over a
+>   45-minute game. Net win, higher peak. A 1s coalescing window was BUILT, measured at
+>   **10-17%** (joins arrive about one a second, so the window catches almost nothing) and
+>   REVERTED: it added state and a `force` flag and broke six tests to buy nothing. If rooms
+>   outgrow this, publish a DELTA; do not lengthen the window.
+> - Letting a player answer AFTER a round locks would dissolve the auto-advance problem
+>   entirely (the engine already accepts late input, and the close-round fallback relies on
+>   it; only the phone UI hides the surface). Not done, because it changes what "Time!"
+>   means and that is a product decision, not a bug fix.
+
 > **THE YAOI BUTTHOLE GAME SCORED NOBODY, AND PRESENCE WAS WHY (2026-09-06, reported live
 > during the event). SHIPPED + DEPLOYED as `7150b76` (CI `34066147229`, all four jobs green).**
 > A 145-phone room played 44 rounds and the final board read `0 / 14` for all 93 players, with
@@ -77,7 +141,7 @@ prod via CI, no staging)._
 > LOOKING at it, which is what that page is for. `PODIUM_PER_PAGE` is 6, measured rather than
 > guessed.
 >
-> **Post-deploy audit (2026-09-06, after the push). Fixes below are NOT yet deployed.**
+> **Post-deploy audit (2026-09-06, after the push). Shipped in the entry above.**
 > - **FIXED, and it was my own convention violation:** `distSlides` shipped as branching index
 >   arithmetic inside `GameResults.vue`, which has no test setup, in a repo whose rule is "when a
 >   `.vue` grows real rules, lift them into a pure module and test THAT". It is exactly where I

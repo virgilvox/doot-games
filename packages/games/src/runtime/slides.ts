@@ -25,6 +25,14 @@ export type Slide =
  */
 export const PODIUM_PER_PAGE = 6
 
+/**
+ * The same limit for a plain bar breakdown, which is taller per row (a label line
+ * plus its bar) and has no hero to share the space with. A 20-player Quip Clash
+ * makes exactly this shape: one bar per answer, of which three fit and the fourth
+ * was sliced in half with no page to reach the other sixteen.
+ */
+export const BARS_PER_PAGE = 3
+
 /** A distribution whose bars ARE an ordering (rank, a combined rating) asks for
  *  the podium layout: the winner large, the rest of the order listed under it. */
 export const isPodium = (d: Distribution) => d.layout === 'podium'
@@ -47,24 +55,29 @@ export function podiumHasWinner(d: Distribution): boolean {
 }
 
 /**
- * One slide per distribution, EXCEPT a long podium, which becomes several.
+ * One slide per distribution, EXCEPT a long one, which becomes several.
  *
  * A section that does not fit is the one thing this board must never produce:
  * the host frame is fixed and it pages, it does not scroll a TV. A 14-subject
  * rating ranking (a whole night of "rate this") rendered its hero, six rows, and
  * then a seventh sliced through the middle, with the remaining seven subjects
- * gone and no page to reach them.
+ * gone and no page to reach them. A 20-answer vote gallery did the same with a
+ * plain bar list, showing three and slicing the fourth.
  *
  * Only the FIRST page crowns: the winner is the top of the whole ranking, not the
  * top of whatever chunk you happen to be looking at.
  */
 export function distSlides(d: Distribution): Slide[] {
   const title = distTitle(d)
-  if (!isPodium(d) || d.bars.length <= PODIUM_PER_PAGE) {
-    return [{ kind: 'dist', label: title, dist: d, crown: podiumHasWinner(d) }]
+  const podium = isPodium(d)
+  const perPage = podium ? PODIUM_PER_PAGE : BARS_PER_PAGE
+  if (d.bars.length <= perPage) {
+    // `crown` is meaningless off a podium (only the podium layout renders a hero),
+    // so say false rather than leaving a stale true for a future reader to trust.
+    return [{ kind: 'dist', label: title, dist: d, crown: podium && podiumHasWinner(d) }]
   }
   const pages: Slide[] = []
-  for (let i = 0; i < d.bars.length; i += PODIUM_PER_PAGE) {
+  for (let i = 0; i < d.bars.length; i += perPage) {
     const first = i === 0
     pages.push({
       kind: 'dist',
@@ -74,12 +87,12 @@ export function distSlides(d: Distribution): Slide[] {
         // Stamp the absolute place BEFORE slicing. `podiumEntries` falls back to
         // the row's index for a block that does not supply one, which inside a
         // chunk would restart the numbering at #1 on every page.
-        bars: d.bars.slice(i, i + PODIUM_PER_PAGE).map((b, n) => ({
+        bars: d.bars.slice(i, i + perPage).map((b, n) => ({
           ...b,
-          place: b.place ?? `#${i + n + 1}`,
+          ...(podium ? { place: b.place ?? `#${i + n + 1}` } : {}),
         })),
       },
-      crown: first && podiumHasWinner(d),
+      crown: podium && first && podiumHasWinner(d),
     })
   }
   return pages

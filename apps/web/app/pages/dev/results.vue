@@ -277,6 +277,27 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
+    id: 'vote-many',
+    name: 'Vote gallery, 20 answers',
+    from: 'A 20-player Quip Clash: one vote round, one bar per answer (not a podium)',
+    results: {
+      headline: 'Robin wins!',
+      leaderboard: board(20, 5, (i) => `${Math.max(0, 5 - i)} pts`),
+      distributions: [
+        {
+          title: 'Who said it best?',
+          bars: Array.from({ length: 20 }, (_, i) => ({
+            label: `Answer number ${i + 1}, which can run on a bit`,
+            count: 20 - i,
+            max: 20,
+            note: `${20 - i} votes`,
+          })),
+        },
+      ],
+      stats: [{ label: 'Players', value: 20 }],
+    },
+  },
+  {
     id: 'mixed',
     name: 'Mixed bag',
     from: 'Guess + Poll + Rank + Rate + Draw in one custom game',
