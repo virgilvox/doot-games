@@ -8,14 +8,14 @@
  */
 import { injectDootRoom } from '@doot-games/engine/vue'
 import type { GamePlugin } from '@doot-games/sdk'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { type ViewerState, createViewer, webrtcSupported } from './stream'
 
 defineProps<{ plugin: GamePlugin; code?: string }>()
 const room = injectDootRoom()
 const supported = webrtcSupported()
 
-const video = ref<HTMLVideoElement | null>(null)
+const video = shallowRef<HTMLVideoElement | null>(null)
 const state = ref<ViewerState>('connecting')
 const soundOn = ref(false)
 let viewer: ReturnType<typeof createViewer> | null = null

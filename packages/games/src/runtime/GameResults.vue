@@ -11,7 +11,7 @@
  */
 import type { StandardResults } from '@doot-games/sdk'
 import { ConfettiBurst, Leaderboard, StatStrip, VoteBars, WinnerBoard, teamColor } from '@doot-games/ui'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { distributionToBars } from './derive'
 import { type Slide, distSlides, hasBars, isPodium, podiumEntries } from './slides'
 
@@ -150,7 +150,7 @@ watch(
 // Whether the section on screen has more below the fold. Only then is the fade at the
 // bottom of the stage right: painted unconditionally it draws a page-coloured band
 // across a short panel's own bottom border.
-const stageEl = ref<HTMLElement | null>(null)
+const stageEl = shallowRef<HTMLElement | null>(null)
 const slideOverflows = ref(false)
 async function measureSlide() {
   await nextTick()

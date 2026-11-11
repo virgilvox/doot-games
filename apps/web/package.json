@@ -21,10 +21,10 @@
     "@libsql/kysely-libsql": "^0.4.1",
     "@node-rs/argon2": "^2.0.2",
     "aws4fetch": "^1.0.20",
-    "better-auth": "^1.6.12",
+    "better-auth": "~1.6.34",
     "drizzle-orm": "^0.45.2",
     "kysely": "^0.29.2",
-    "vue": "^3.5.13"
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "nuxt": "^4.0.0"

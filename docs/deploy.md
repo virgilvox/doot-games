@@ -64,7 +64,11 @@ merging, boot the production build against a copy of a recent snapshot and confi
 `/api/ready` is 200, the schema diff is only what you intended, and the row counts match.
 
 `docker-compose.deploy.yml` runs the prebuilt image plus **Caddy** (automatic
-HTTPS). State is a **SQLite file** on a host bind-mount (`./data:/app/.data`),
+HTTPS). The `doot.games` Caddy block also sets HSTS / nosniff / Referrer-Policy, forbids
+framing of the sign-in, OAuth consent, account, admin and editor pages (`/play` and
+`/host` stay embeddable), and caps request bodies before they reach Node: 8MB on `/mcp`
+and room blobs, 3MB everywhere else (the app's largest legit bodies are 2MB configs, 5MB
+blobs, ~7MB base64 MCP images). Raise those caps if a route's own limit grows. State is a **SQLite file** on a host bind-mount (`./data:/app/.data`),
 which persists across deploys; there is **no Postgres** in this path (the app
 runs the libSQL/SQLite store). Startup migrations are idempotent, so every
 deploy migrates. Secrets live in `/opt/doot/.env` on the droplet (never in git):

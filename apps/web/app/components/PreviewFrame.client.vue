@@ -16,7 +16,7 @@
  * container (the device bezel), so a 1280px stage shrinks to the pane and a 390px
  * phone is never upscaled past 1:1 (`maxScale`). Client-only.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -34,9 +34,9 @@ const props = withDefaults(
   { maxScale: Number.POSITIVE_INFINITY, title: 'Preview' },
 )
 
-const root = ref<HTMLElement | null>(null)
-const frame = ref<HTMLIFrameElement | null>(null)
-const mountEl = ref<HTMLElement | null>(null)
+const root = shallowRef<HTMLElement | null>(null)
+const frame = shallowRef<HTMLIFrameElement | null>(null)
+const mountEl = shallowRef<HTMLElement | null>(null)
 
 const boxW = ref(props.width)
 const boxH = ref(props.height ?? 0)

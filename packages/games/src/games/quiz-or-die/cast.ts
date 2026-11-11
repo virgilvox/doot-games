@@ -1,7 +1,13 @@
 /**
  * The QUIZ OR DIE cast as SVG markup, ported from the single-file mockup. Every
- * function returns a static SVG string built from app data only (never user input),
- * rendered with `v-html` on the host's big screen / the phone's own-doll badge.
+ * function returns an SVG string rendered with `v-html` on the host's big screen
+ * and the phone's own-doll badge.
+ *
+ * SECURITY: on the phone, `shape`/`color` arrive over the public relay (the host's
+ * `show` extra), which anyone can publish to. `shape` only selects a `switch` case,
+ * but colours are interpolated into markup, so every colour goes through
+ * {@link safeColor} before it touches a string. Never interpolate any other
+ * relay-sourced value into these templates.
  *
  * Shapes: blob | blobAngry | octopus | frog | pillow | shark. The dead render as a
  * ghost. The villain host has element ids (`hostRoot`, `talkMouth`, `knifeArm`,
@@ -25,8 +31,20 @@ const seam = `<path d="M50 16 Q53 50 50 90" stroke="rgba(0,0,0,.22)" stroke-widt
 const tex = (p: string) => `<path d="${p}" fill="url(#qodWeave)"/>`
 const shadow = `<ellipse cx="50" cy="96" rx="26" ry="4" fill="rgba(0,0,0,.45)"/>`
 
+const HEX_COLOR = /^#[0-9a-f]{3,8}$/i
+
+/**
+ * `color` if it is a plain hex colour, else `fallback`. The cast palette is all
+ * hex (logic.ts COLORS), so anything else is a forged relay value, e.g. one that
+ * closes the attribute and injects an `onerror` handler.
+ */
+export function safeColor(color: unknown, fallback: string): string {
+  return typeof color === 'string' && HEX_COLOR.test(color) ? color : fallback
+}
+
 /** A living burlap doll of the given shape + colour. */
-export function doll(shape: string, color: string): string {
+export function doll(shape: string, rawColor: string): string {
+  const color = safeColor(rawColor, '#d98aa0')
   let P = ''
   switch (shape) {
     case 'blobAngry': {
@@ -79,7 +97,8 @@ export function doll(shape: string, color: string): string {
 }
 
 /** A ghost / spectre form for the dead. */
-export function ghostDoll(tint = '#cfe8e4'): string {
+export function ghostDoll(rawTint?: string): string {
+  const tint = safeColor(rawTint, '#cfe8e4')
   return `<svg viewBox="0 0 100 100">
     <g opacity=".82">
       <path d="M30 50 Q26 22 50 20 Q74 22 70 50 Q72 78 70 92 L62 84 L56 92 L50 84 L44 92 L38 84 L30 92 Q28 78 30 50Z" fill="${tint}" opacity=".28"/>

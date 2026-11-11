@@ -8,7 +8,7 @@
 import { createClaspRelay } from '@doot-games/engine'
 import { provideDootRoom, useDootRoom } from '@doot-games/engine/vue'
 import { type ViewerState, createViewer, webrtcSupported } from '@doot-games/games'
-import { onScopeDispose, ref, watch } from 'vue'
+import { onScopeDispose, ref, shallowRef, watch } from 'vue'
 
 const props = defineProps<{ room: string }>()
 const code = props.room
@@ -33,7 +33,7 @@ room.onExtra('meta', (v) => {
   if (mm?.game) gameName.value = mm.game
 })
 
-const video = ref<HTMLVideoElement | null>(null)
+const video = shallowRef<HTMLVideoElement | null>(null)
 const state = ref<ViewerState>('connecting')
 const soundOn = ref(false)
 let viewer: ReturnType<typeof createViewer> | null = null

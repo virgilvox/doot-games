@@ -9,7 +9,7 @@
  * call sites pass (inputs/state/answer/modelValue) are ignored (inheritAttrs off).
  */
 import { MediaFrame, useFitScale } from '@doot-games/ui'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import type { SlideContent } from './block'
 
 defineOptions({ inheritAttrs: false })
@@ -39,7 +39,7 @@ const layout = computed(() => {
 // Adapt the type size so the whole slide is visible at a glance on the big screen
 // (a display slide should fit, not scroll). Shrinks only when the content would
 // overflow; re-fits when the text/image/layout or the stage size changes.
-const slideRoot = ref<HTMLElement | null>(null)
+const slideRoot = shallowRef<HTMLElement | null>(null)
 // Gentle safety only: with a sane reading width the text wraps and fits at full
 // size on normal/laptop windows, so this rarely engages; the high floor keeps it
 // from ever shrinking the type to "tiny" (e.g. on a very short window it bottoms

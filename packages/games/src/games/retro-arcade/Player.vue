@@ -28,7 +28,7 @@ import {
   ToggleSwitch,
   createGamepadBridge,
 } from '@doot-games/ui'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { layoutFor } from './layouts'
 import { consoleSpec } from './logic'
 import { type ViewerState, createViewer, webrtcSupported } from './stream'
@@ -77,7 +77,7 @@ const desiredScale = computed(() => SCALE[sizeKey.value] ?? 1)
 // scale, then if the body overflows we shrink it back until it fits. So a bigger
 // size grows the controls up to the edge of the screen and no further.
 const appliedScale = ref(1)
-const rootEl = ref<HTMLElement | null>(null)
+const rootEl = shallowRef<HTMLElement | null>(null)
 let fitRaf = 0
 function measureFit(iter: number) {
   const body = rootEl.value?.querySelector('.body') as HTMLElement | null
@@ -239,8 +239,8 @@ const canWatch = webrtcSupported()
 const watching = ref(false)
 const watchSound = ref(false)
 const watchState = ref<ViewerState>('connecting')
-const landscapeVideo = ref<HTMLVideoElement | null>(null)
-const portraitVideo = ref<HTMLVideoElement | null>(null)
+const landscapeVideo = shallowRef<HTMLVideoElement | null>(null)
+const portraitVideo = shallowRef<HTMLVideoElement | null>(null)
 const activeVideo = () => (isPortrait.value ? portraitVideo.value : landscapeVideo.value)
 let viewer: ReturnType<typeof createViewer> | null = null
 function reattachStream() {

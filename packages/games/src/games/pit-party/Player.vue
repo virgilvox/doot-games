@@ -13,7 +13,7 @@
  */
 import { injectDootRoom } from '@doot-games/engine/vue'
 import { PadButton, SteeringWheel, Thumbstick } from '@doot-games/ui'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { CARTS } from './carts'
 import { CHARACTERS } from './characters'
 import { drawCart } from './carts/preview'
@@ -191,7 +191,7 @@ const heldName = computed(() => itemName(tele.value?.i ?? ''))
 // watch stream
 const canWatch = webrtcSupported()
 const watching = ref(false)
-const videoEl = ref<HTMLVideoElement | null>(null)
+const videoEl = shallowRef<HTMLVideoElement | null>(null)
 let viewer: ReturnType<typeof createViewer> | null = null
 function toggleWatch(): void {
   watching.value = !watching.value

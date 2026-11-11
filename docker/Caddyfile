@@ -3,6 +3,39 @@
 
 doot.games {
 	encode zstd gzip
+
+	header {
+		# HTTPS-only from now on (no includeSubDomains: other subdomains are
+		# managed separately and shouldn't be bound by the app's policy).
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Pages where a click could be hijacked (sign-in, OAuth consent, account and
+	# password pages, admin, the editor) may not be framed by anyone. /play and
+	# /host stay embeddable on purpose: the play surface must work in iframes
+	# (CLAUDE.md invariant 5).
+	@noframe path /login* /oauth/* /account* /admin* /editor* /forgot-password* /reset-password*
+	header @noframe {
+		Content-Security-Policy "frame-ancestors 'none'"
+		X-Frame-Options "DENY"
+	}
+
+	# Cap request bodies before they reach Node (which buffers the whole body): a
+	# single oversized POST could otherwise exhaust memory on the 1GB droplet.
+	# The app's own largest bodies: 2MB game/deck configs, 5MB room blobs, and up to
+	# ~7MB of base64 for an MCP image upload.
+	@bigbody path /mcp /api/rooms/*/blobs*
+	@normalbody not path /mcp /api/rooms/*/blobs*
+	request_body @bigbody {
+		max_size 8MB
+	}
+	request_body @normalbody {
+		max_size 3MB
+	}
+
 	reverse_proxy app:3000
 }
 

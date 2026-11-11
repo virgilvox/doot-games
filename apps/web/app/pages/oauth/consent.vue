@@ -35,6 +35,13 @@ async function decide(accept: boolean) {
       body: { accept, consent_code: consentCode.value || undefined },
     })
     if (res?.redirectURI) {
+      // The redirect URI comes from a dynamically registered OAuth client, i.e.
+      // anyone. Only ever navigate to a real web URL: a `javascript:` (or `data:`)
+      // URI here would run script on doot.games with the user's session.
+      if (!isSafeRedirect(res.redirectURI)) {
+        err.value = 'This app asked to send you somewhere unsafe, so Doot stopped. Nothing was shared.'
+        return
+      }
       window.location.href = res.redirectURI
       return
     }

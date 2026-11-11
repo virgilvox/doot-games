@@ -8,7 +8,7 @@
  * sites pass are ignored (inheritAttrs off).
  */
 import { useFitScale } from '@doot-games/ui'
-import { computed, ref } from 'vue'
+import { computed, shallowRef } from 'vue'
 import type { TitleContent } from './block'
 
 defineOptions({ inheritAttrs: false })
@@ -19,7 +19,7 @@ const title = computed(() => props.content?.title?.trim() ?? '')
 const subtitle = computed(() => props.content?.subtitle?.trim() ?? '')
 
 // Shrink a very long title/subtitle to fit the stage rather than overflow it.
-const cardRoot = ref<HTMLElement | null>(null)
+const cardRoot = shallowRef<HTMLElement | null>(null)
 useFitScale(cardRoot, () => `${title.value}|${subtitle.value}`, { min: 0.4 })
 </script>
 
