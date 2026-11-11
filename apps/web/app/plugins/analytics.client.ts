@@ -25,7 +25,9 @@ export default defineNuxtPlugin(() => {
   script.src = `${base}/count.js`
   script.dataset.goatcounter = `${base}/count`
   script.dataset.goatcounterSettings = JSON.stringify({ no_onload: true })
-  script.onload = () => count() // the entry page, once count.js is ready
+  // Count the PATH only, never the query string or fragment: URLs can carry
+  // tokens and codes (OAuth callbacks, reset links) that must not leave the site.
+  script.onload = () => count(window.location.pathname) // the entry page, once count.js is ready
   document.head.appendChild(script)
 
   // Subsequent SPA navigations (skip the first callback: that is the entry page,
@@ -36,6 +38,6 @@ export default defineNuxtPlugin(() => {
       first = false
       return
     }
-    count(to.fullPath)
+    count(to.path)
   })
 })

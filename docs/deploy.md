@@ -73,7 +73,25 @@ which persists across deploys; there is **no Postgres** in this path (the app
 runs the libSQL/SQLite store). Startup migrations are idempotent, so every
 deploy migrates. Secrets live in `/opt/doot/.env` on the droplet (never in git):
 `SESSION_PASSWORD`, `PUBLIC_BASE_URL=https://doot.games`,
-`DATABASE_URL=file:/app/.data/doot.sqlite`, and the `SPACES_*` vars.
+`DATABASE_URL=file:/app/.data/doot.sqlite`, the `SPACES_*` vars, and
+`RESEND_API_KEY` (password-reset email; optional `MAIL_FROM`, default
+`Doot <no-reply@doot.games>`).
+
+### Email (password reset)
+
+"Forgot password?" on `/login` sends a single-use, 1-hour reset link through
+[Resend](https://resend.com)'s HTTP API (`apps/web/server/utils/mailer.ts`; HTTP
+because DigitalOcean blocks outbound SMTP). The sending domain must be verified in
+Resend: its DKIM TXT (`resend._domainkey`), the SPF/bounce records it lists, and a
+`_dmarc` TXT, all on the domain's DNS. Without `RESEND_API_KEY` no email is sent
+(in development the link is printed to the server console instead).
+
+Hardening, all in `server/utils/auth.ts` + `password-reset.ts`: tokens are stored
+hashed; the link carries the token in the URL fragment (never sent to a server or
+counted by analytics); the link is built from `PUBLIC_BASE_URL`, never the request
+Host; the request endpoint answers identically whether or not an account exists and
+sends at most one email per address per minute (5/hour); a successful reset deletes
+every session and every "Connect with Claude" OAuth token for the account.
 
 To set this up on a fresh droplet: install Docker, create `/opt/doot` with a
 `data/` dir and a `.env`, add the deploy key to `authorized_keys`, set the repo

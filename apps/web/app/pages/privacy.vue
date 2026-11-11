@@ -47,6 +47,10 @@ const updated = 'June 2, 2026'
           username or short bio. Your sign-in is kept in a single secure, http-only cookie. There are no
           advertising or tracking cookies.
         </p>
+        <p>
+          We only email you when you ask us to: if you request a password reset, we send one email with a
+          single-use link through our email provider, Resend. No newsletters, no marketing.
+        </p>
       </section>
 
       <section>

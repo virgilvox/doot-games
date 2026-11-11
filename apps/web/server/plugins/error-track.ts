@@ -15,7 +15,9 @@ export default defineNitroPlugin((nitroApp) => {
       source: 'server',
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      context: event ? { method: event.method, path: event.path, status } : { status },
+      // Path only: a query string can carry tokens/codes, and this context is
+      // logged and forwarded to DOOT_ERROR_WEBHOOK.
+      context: event ? { method: event.method, path: event.path?.split('?')[0], status } : { status },
     })
   })
 })

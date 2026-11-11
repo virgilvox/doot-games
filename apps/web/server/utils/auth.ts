@@ -6,14 +6,19 @@
  * its Kysely adapter over the same libSQL database as the games store; the
  * tables are created at startup by `server/plugins/auth-migrate.ts`. Passwords
  * are hashed with argon2id (the project's chosen algorithm) rather than the
- * default scrypt. Sessions are sealed cookies, there is no server session store.
+ * default scrypt. Sessions are rows in the `session` table, referenced by a
+ * signed, httpOnly cookie (7-day lifetime, sliding daily), so they can be revoked
+ * server-side, e.g. after a password reset.
  */
 import { LibsqlDialect } from '@libsql/kysely-libsql'
 import { hash, verify } from '@node-rs/argon2'
 import { type BetterAuthOptions, betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { mcp, username } from 'better-auth/plugins'
-import { databaseUrl } from './db'
+import { sql } from 'drizzle-orm'
+import { databaseUrl, useDb } from './db'
+import { sendMail } from './mailer'
+import { buildResetUrl, RESET_TOKEN_TTL_SECONDS, ResetThrottle, resetEmail } from './password-reset'
 
 /**
  * Server-side bounds on the user-editable profile fields. The editor enforces
@@ -88,10 +93,52 @@ const secret = envSecret || 'doot-dev-session-password-change-me-32'
 const baseURL = process.env.PUBLIC_BASE_URL || undefined
 // Pin the origins better-auth's CSRF check trusts. Without this, an unset
 // baseURL would let it fall back to the request host, weakening the guard.
+// localhost is trusted only in development: in production it would be a valid
+// CSRF origin and redirect target for anyone running a local server.
 const trustedOrigins = [
   baseURL,
-  'http://localhost:3000',
+  process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined,
 ].filter((o): o is string => !!o)
+
+const resetThrottle = new ResetThrottle()
+
+/**
+ * Email a password-reset link. Called by better-auth's /request-password-reset
+ * ONLY when the address belongs to an account; the HTTP response is identical
+ * either way.
+ *
+ * Fire-and-forget: better-auth awaits this hook, so awaiting the Resend call would
+ * make "account exists" measurably slower than "no account". The link is built
+ * from PUBLIC_BASE_URL, never the request Host, so a forged Host header can't
+ * point the emailed link at another site. Logs carry no address or token.
+ */
+async function sendResetPassword({ user, token }: { user: { email: string }; token: string }): Promise<void> {
+  const base = process.env.PUBLIC_BASE_URL?.trim() || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : '')
+  if (!base) {
+    console.error('[doot] password reset requested but PUBLIC_BASE_URL is unset; no email sent')
+    return
+  }
+  if (!resetThrottle.allow(user.email)) return
+  void sendMail(resetEmail(user.email, buildResetUrl(base, token))).catch((err) => {
+    console.error('[doot] password reset email failed:', err instanceof Error ? err.message : String(err))
+  })
+}
+
+/**
+ * After a successful reset, cut off every way back in that the old password (or
+ * whoever knew it) set up. better-auth deletes the user's sessions
+ * (revokeSessionsOnPasswordReset), but "Connect with Claude" OAuth tokens live in
+ * their own tables and would otherwise keep working for up to 7 days.
+ */
+async function revokeOAuthAccess({ user }: { user: { id: string } }): Promise<void> {
+  try {
+    const db = await useDb()
+    await db.run(sql`DELETE FROM oauthAccessToken WHERE userId = ${user.id}`)
+    await db.run(sql`DELETE FROM oauthConsent WHERE userId = ${user.id}`)
+  } catch (err) {
+    console.error('[doot] revoking OAuth access after password reset failed:', err instanceof Error ? err.message : String(err))
+  }
+}
 
 export const authOptions = {
   appName: 'Doot',
@@ -106,6 +153,19 @@ export const authOptions = {
       hash: (password) => hash(password),
       verify: ({ hash: h, password }) => verify(h, password),
     },
+    // Password reset (see server/utils/password-reset.ts). The token is single use
+    // and expires after an hour; a successful reset signs out every session and
+    // revokes Claude/MCP access.
+    sendResetPassword,
+    resetPasswordTokenExpiresIn: RESET_TOKEN_TTL_SECONDS,
+    revokeSessionsOnPasswordReset: true,
+    onPasswordReset: revokeOAuthAccess,
+  },
+  // Store reset tokens HASHED, so a DB snapshot or backup can't be replayed into a
+  // reset. Only the `reset-password:` prefix: the mcp plugin keeps OAuth codes in
+  // the same table and is left on its default.
+  verification: {
+    storeIdentifier: { default: 'plain', overrides: { 'reset-password:': 'hashed' } },
   },
   // A public profile @handle (vanity URL). Optional: hosting/playing/saving never
   // need one; an account claims it from /account. The plugin adds `username`
