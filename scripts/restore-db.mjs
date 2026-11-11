@@ -31,14 +31,24 @@ const prefix = process.env.BACKUP_PREFIX || 'backups/db/'
 const outPath = process.argv[2] || './restored-doot.sqlite'
 
 // 1. Find the newest backup. Keys are timestamped, so lexicographic max = newest.
-const listUrl = `${endpoint}/${bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=1000`
-const listRes = await aws.fetch(listUrl, { method: 'GET' })
-if (!listRes.ok) {
-  console.error(`List failed (${listRes.status}):`, await listRes.text())
-  process.exit(1)
-}
-const xml = await listRes.text()
-const keys = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map((m) => m[1]).filter((k) => k.endsWith('.sqlite.gz')).sort()
+//    ListObjectsV2 returns at most 1000 keys per page in ascending order, so we MUST
+//    follow the continuation token: hourly backups pass 1000 objects in ~41 days,
+//    and stopping at page one would silently pick a weeks-old snapshot as "latest".
+const keys = []
+let token = ''
+do {
+  const page = token ? `&continuation-token=${encodeURIComponent(token)}` : ''
+  const listUrl = `${endpoint}/${bucket}?list-type=2&prefix=${encodeURIComponent(prefix)}&max-keys=1000${page}`
+  const listRes = await aws.fetch(listUrl, { method: 'GET' })
+  if (!listRes.ok) {
+    console.error(`List failed (${listRes.status}):`, await listRes.text())
+    process.exit(1)
+  }
+  const xml = await listRes.text()
+  for (const m of xml.matchAll(/<Key>([^<]+)<\/Key>/g)) if (m[1].endsWith('.sqlite.gz')) keys.push(m[1])
+  token = /<IsTruncated>true<\/IsTruncated>/.test(xml) ? (xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/) || [])[1] || '' : ''
+} while (token)
+keys.sort()
 if (!keys.length) {
   console.error(`No backups found under ${prefix}.`)
   process.exit(1)
@@ -71,7 +81,17 @@ for (const t of ['games', 'decks', 'playlists', 'bookmarks', 'user', 'session'])
 }
 c.close()
 
-console.log(
-  `\nTo restore on the droplet:\n  1. docker compose down (or stop the app container)\n  2. cp ${outPath} /opt/doot/data/doot.sqlite\n  3. docker compose up -d\nVerify /api/health and that Your Games / accounts are present.`,
-)
+console.log(`
+To restore on the droplet (as the deploy user, in /opt/doot):
+  1. docker compose stop app
+  2. mv data/doot.sqlite data/doot.sqlite.pre-restore-$(date -u +%Y%m%dT%H%M%SZ)
+     (keep the current file; never overwrite it in place)
+  3. rm -f data/doot.sqlite-journal data/doot.sqlite-wal data/doot.sqlite-shm
+     (a leftover journal would be "rolled back" INTO the restored file and corrupt it)
+  4. cp ${outPath} data/doot.sqlite
+  5. docker compose start app
+Verify /api/ready and that Your Games / accounts are present.
+
+A snapshot taken right before each deploy is also kept locally on the droplet in
+data/predeploy/ (newest 10); restore one the same way, skipping the download.`)
 if (verdict !== 'ok') process.exit(2)

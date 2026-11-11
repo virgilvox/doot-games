@@ -8,11 +8,12 @@
  * production is a documented follow-up; until then a `postgres://` URL falls
  * back to the local file with a warning so the app still runs.
  */
-import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { existsSync, mkdirSync, statSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { type Client, createClient } from '@libsql/client'
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql'
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { markMigrationDone, recordMigrationFailure, runAdditive } from './migration-status'
 
 // Accounts/sessions are owned by better-auth (its own tables); this store holds
 // only game definitions. See server/utils/auth.ts.
@@ -155,12 +156,41 @@ const DEFAULT_URL = 'file:./.data/doot.sqlite'
 /** The resolved libSQL URL, shared by the games store and better-auth. */
 export function databaseUrl(): string {
   const raw = process.env.DATABASE_URL?.trim()
-  if (!raw) return DEFAULT_URL
-  if (raw.startsWith('postgres')) {
+  let url = raw || DEFAULT_URL
+  if (raw?.startsWith('postgres')) {
     console.warn('[doot] Postgres is not wired yet; using the local SQLite file. See HANDOFF.md.')
-    return DEFAULT_URL
+    url = DEFAULT_URL
   }
-  return raw
+  assertExistingDb(url)
+  return url
+}
+
+let existingDbChecked = false
+
+/**
+ * Refuse to run against a MISSING database file when the deployment says one must
+ * already exist (`DOOT_REQUIRE_EXISTING_DB=1`, set by the production compose).
+ *
+ * libSQL silently creates an empty file for any `file:` URL. If a deploy ever
+ * changed the volume mount or the DATABASE_URL path, the app would boot "healthy"
+ * on an empty database, every account and game would appear gone, and the first
+ * new sign-up would be auto-promoted to admin. Crashing at boot instead keeps the
+ * real data untouched and makes the deploy's readiness wait fail and roll back.
+ * Fresh self-hosted installs and local dev don't set the flag, so they are unaffected.
+ */
+function assertExistingDb(url: string): void {
+  if (existingDbChecked || process.env.DOOT_REQUIRE_EXISTING_DB !== '1') return
+  if (!url.startsWith('file:')) {
+    existingDbChecked = true
+    return
+  }
+  const path = resolve(url.slice('file:'.length))
+  if (!existsSync(path) || statSync(path).size === 0) {
+    throw new Error(
+      `[doot] DOOT_REQUIRE_EXISTING_DB=1 but the database file ${path} is missing or empty. Refusing to start on an empty database. Check the data volume mount and DATABASE_URL.`,
+    )
+  }
+  existingDbChecked = true
 }
 
 let initPromise: Promise<LibSQLDatabase> | null = null
@@ -177,8 +207,10 @@ async function ensureSchema(c: Client): Promise<void> {
       updated_at INTEGER NOT NULL
     )
   `)
-  // Additive migrations for databases created before auth/visibility (SQLite
-  // errors on a duplicate column, ignore that).
+  // Additive migrations for databases created before auth/visibility. Only the
+  // benign "duplicate column" outcome is swallowed; a real failure is recorded and
+  // turns /api/ready red (see migration-status.ts).
+  const exec = (sql: string) => c.execute(sql)
   for (const ddl of [
     'ALTER TABLE games ADD COLUMN owner_id TEXT',
     "ALTER TABLE games ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'",
@@ -189,13 +221,8 @@ async function ensureSchema(c: Client): Promise<void> {
     'ALTER TABLE games ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE games ADD COLUMN last_played_at INTEGER',
     'ALTER TABLE games ADD COLUMN featured INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE decks ADD COLUMN game TEXT',
   ]) {
-    try {
-      await c.execute(ddl)
-    } catch {
-      /* column already exists */
-    }
+    await runAdditive('app-schema', exec, ddl)
   }
   // Indexes for the listing queries (owner's games, public games).
   await c.execute('CREATE INDEX IF NOT EXISTS games_owner_idx ON games(owner_id)')
@@ -227,6 +254,10 @@ async function ensureSchema(c: Client): Promise<void> {
       updated_at INTEGER NOT NULL
     )
   `)
+  // Pre-`game` decks tables (created before the column existed) get it here. This
+  // must come AFTER the CREATE above: on a fresh database it would otherwise run
+  // against a table that doesn't exist yet.
+  await runAdditive('app-schema', exec, 'ALTER TABLE decks ADD COLUMN game TEXT')
   await c.execute('CREATE INDEX IF NOT EXISTS decks_owner_idx ON decks(owner_id)')
   await c.execute('CREATE INDEX IF NOT EXISTS decks_visibility_idx ON decks(visibility)')
   // Session lineups ("playlists"): an ordered list of game ids played back to back.
@@ -279,7 +310,13 @@ async function init(): Promise<LibSQLDatabase> {
   }
   const client = createClient({ url })
   const db = drizzle(client)
-  await ensureSchema(client)
+  try {
+    await ensureSchema(client)
+  } catch (err) {
+    recordMigrationFailure('app-schema', err)
+    throw err
+  }
+  markMigrationDone('app-schema')
   return db
 }
 

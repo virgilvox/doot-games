@@ -2,6 +2,7 @@ import { createClient } from '@libsql/client'
 import { getMigrations } from 'better-auth/db/migration'
 import { authOptions } from '../utils/auth'
 import { databaseUrl } from '../utils/db'
+import { markMigrationDone, recordMigrationFailure, runAdditive } from '../utils/migration-status'
 
 /**
  * Create/extend better-auth's tables at startup so the app stays zero-config (no
@@ -22,55 +23,42 @@ import { databaseUrl } from '../utils/db'
  */
 export default defineNitroPlugin(async () => {
   const client = createClient({ url: databaseUrl() })
+  const exec = (sql: string) => client.execute(sql)
 
   try {
     const { compileMigrations } = await getMigrations(authOptions)
     const sql = await compileMigrations()
+    // Benign + expected on a redeploy: the table/column/index already exists, or
+    // it's the username UNIQUE-column ALTER SQLite rejects (handled by the manual
+    // fallback below). Anything else is recorded as a real failure: logged loudly
+    // and surfaced on /api/ready, which the deploy waits on.
     for (const stmt of sql.split(';').map((s) => s.trim()).filter(Boolean)) {
-      try {
-        await client.execute(stmt)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        // Benign + expected on a redeploy: the table/column/index already exists, or
-        // it's the username UNIQUE-column ALTER SQLite rejects (handled by the manual
-        // fallback below). Anything else is a real failure, so log it LOUDLY (not
-        // silently) rather than booting "fine" and 500ing at runtime.
-        if (/already exists|duplicate column|cannot add a unique column|duplicate index/i.test(msg)) {
-          // expected, ignore quietly
-        } else {
-          console.error('[doot] auth migration statement FAILED (investigate):', msg)
-        }
-      }
+      await runAdditive('auth-schema', exec, stmt)
     }
   } catch (err) {
-    console.error('[doot] auth migration compile failed:', err)
+    recordMigrationFailure('auth-schema', err, 'compile better-auth migrations')
   }
 
   // Manual fallback: add the profile columns the username plugin / bio field need.
-  try {
-    for (const ddl of [
-      'ALTER TABLE user ADD COLUMN username TEXT',
-      'ALTER TABLE user ADD COLUMN displayUsername TEXT',
-      'ALTER TABLE user ADD COLUMN bio TEXT',
-      // Admin/moderation columns (see server/utils/admin.ts). Plain columns, so a
-      // simple ALTER works on an existing table (unlike the UNIQUE username column).
-      // `role` is 'user' (default/null) or 'admin'; `banned` gates content actions.
-      "ALTER TABLE user ADD COLUMN role TEXT DEFAULT 'user'",
-      'ALTER TABLE user ADD COLUMN banned INTEGER NOT NULL DEFAULT 0',
-      'ALTER TABLE user ADD COLUMN banReason TEXT',
-      'ALTER TABLE user ADD COLUMN bannedAt INTEGER',
-    ]) {
-      try {
-        await client.execute(ddl)
-      } catch {
-        // Column already exists (fresh DB, or a prior boot), so ignore.
-      }
-    }
+  // Each ALTER is a no-op ("duplicate column") once applied.
+  for (const ddl of [
+    'ALTER TABLE user ADD COLUMN username TEXT',
+    'ALTER TABLE user ADD COLUMN displayUsername TEXT',
+    'ALTER TABLE user ADD COLUMN bio TEXT',
+    // Admin/moderation columns (see server/utils/admin.ts). Plain columns, so a
+    // simple ALTER works on an existing table (unlike the UNIQUE username column).
+    // `role` is 'user' (default/null) or 'admin'; `banned` gates content actions.
+    "ALTER TABLE user ADD COLUMN role TEXT DEFAULT 'user'",
+    'ALTER TABLE user ADD COLUMN banned INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE user ADD COLUMN banReason TEXT',
+    'ALTER TABLE user ADD COLUMN bannedAt INTEGER',
     // The uniqueness guard the plugin can't add via ALTER on an existing table.
-    await client.execute('CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON user(username)')
-  } catch (err) {
-    console.error('[doot] profile-column migration failed:', err)
+    'CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON user(username)',
+  ]) {
+    await runAdditive('auth-schema', exec, ddl)
   }
+  client.close()
+  markMigrationDone('auth-schema')
 
   // Now that the `user` table + role column exist, run the one-time first-admin
   // bootstrap: on an existing deployment this promotes the earliest account on the

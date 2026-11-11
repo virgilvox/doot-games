@@ -4,6 +4,13 @@ name: Deploy
 # droplet. Migrations are idempotent and run at container startup (the games
 # schema via ensureSchema, better-auth via getMigrations), so every deploy
 # migrates. Requires repo secrets DROPLET_HOST and DEPLOY_SSH_KEY.
+#
+# The rollout is guarded (see the "Pull + restart" script):
+#   1. snapshot the live DB BEFORE the new code can migrate it (data/predeploy/)
+#   2. remember the running image + config for rollback
+#   3. start the new image pinned to this commit's sha
+#   4. wait for /api/ready (startup migrations finished, no real failure)
+#   5. if it never turns ready: restore the previous config + image and fail.
 
 on:
   push:
@@ -70,7 +77,7 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: 'docker/docker-compose.deploy.yml,docker/Caddyfile'
+          source: 'docker/docker-compose.deploy.yml,docker/Caddyfile,docker/predeploy-snapshot.mjs'
           target: '/opt/doot/_stage'
           strip_components: 1
       - name: Pull + restart
@@ -79,25 +86,76 @@ jobs:
           host: ${{ secrets.DROPLET_HOST }}
           username: deploy
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GHCR_TOKEN,GHCR_USER
+          envs: GHCR_TOKEN,GHCR_USER,DEPLOY_SHA
           script: |
             set -e
-            mkdir -p /opt/doot/data
-            cp /opt/doot/_stage/docker-compose.deploy.yml /opt/doot/docker-compose.yml
-            cp /opt/doot/_stage/Caddyfile /opt/doot/Caddyfile
+            IMAGE=ghcr.io/virgilvox/doot-games
+            mkdir -p /opt/doot/data /opt/doot/rollback
             cd /opt/doot
+            SHORT=$(echo "$DEPLOY_SHA" | cut -c1-12)
+
+            # 1. Snapshot the live DB before the new code runs its migrations.
+            #    A failure here aborts the deploy before anything changes.
+            if docker compose ps --status running --services 2>/dev/null | grep -qx app; then
+              docker compose exec -T -u node -e SNAPSHOT_LABEL="$SHORT" app \
+                node --input-type=module < /opt/doot/_stage/predeploy-snapshot.mjs
+              ls -1t data/predeploy/*.sqlite 2>/dev/null | tail -n +11 | xargs -r rm -f
+            fi
+
+            # 2. Remember exactly what is running, for rollback. Tag the running
+            #    image locally as :rollback and keep the current config files.
+            RUNNING_IMAGE=$(docker inspect doot-app-1 --format '{{.Image}}' 2>/dev/null || true)
+            if [ -n "$RUNNING_IMAGE" ]; then docker tag "$RUNNING_IMAGE" "$IMAGE:rollback"; fi
+            cp docker-compose.yml rollback/docker-compose.yml 2>/dev/null || true
+            cp Caddyfile rollback/Caddyfile 2>/dev/null || true
+
+            # 3. Stage the new config and start the new image, pinned to this sha.
+            cp /opt/doot/_stage/docker-compose.deploy.yml docker-compose.yml
+            cp /opt/doot/_stage/Caddyfile Caddyfile
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            export DOOT_IMAGE_TAG="$DEPLOY_SHA"
             docker compose pull
-            docker compose up -d
+            docker compose up -d || echo "compose up reported an error; checking readiness"
+
+            # 4. Wait for /api/ready: startup migrations done with no real failure.
+            READY=0
+            for i in $(seq 1 40); do
+              if docker compose exec -T app node -e "fetch('http://127.0.0.1:3000/api/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+                READY=1; break
+              fi
+              sleep 3
+            done
+
+            # 5. Never became ready: put back the previous config + image and fail.
+            if [ "$READY" != 1 ]; then
+              echo "::error::new image never became ready, rolling back"
+              docker compose logs --tail 100 app || true
+              if [ -n "$RUNNING_IMAGE" ]; then
+                cp rollback/docker-compose.yml docker-compose.yml 2>/dev/null || true
+                cp rollback/Caddyfile Caddyfile 2>/dev/null || true
+                # Older compose files hardcode :latest, which now names the NEW
+                # image, so point :latest back at the old one locally too.
+                docker tag "$IMAGE:rollback" "$IMAGE:latest"
+                DOOT_IMAGE_TAG=rollback docker compose up -d
+                docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile || true
+              fi
+              exit 1
+            fi
+
             # Caddy bind-mounts the Caddyfile but does not watch it, so `up -d`
             # alone won't apply Caddyfile changes (e.g. a new vhost). Reload it:
             # graceful (no dropped connections) and fail-safe - an invalid config
             # is rejected and the already-running config keeps serving.
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
+            # Keep only this sha + :rollback + :latest of the app image on disk.
+            docker images "$IMAGE" --format '{{.Tag}}' | grep -E '^[0-9a-f]{40}$' | grep -vx "$DEPLOY_SHA" \
+              | xargs -r -I{} docker rmi "$IMAGE:{}" || true
             docker image prune -f
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
+          DEPLOY_SHA: ${{ github.sha }}
 
   # Post-deploy gameplay smoke: drive the real host+player core loop over the live
   # relay against prod, so a deploy that breaks gameplay (which static tests can't

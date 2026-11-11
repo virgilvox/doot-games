@@ -26,8 +26,42 @@ the droplet. Pushing to `main` runs `.github/workflows/deploy.yml`:
 1. **check** - `pnpm test` + `pnpm -r typecheck` (gates the rest).
 2. **build** - builds `docker/Dockerfile` and pushes the image to GHCR
    (`ghcr.io/virgilvox/doot-games:latest`).
-3. **deploy** - SSHes to the droplet, copies `docker/docker-compose.deploy.yml`
-   + `docker/Caddyfile`, and runs `docker compose pull && up -d`.
+3. **deploy** - SSHes to the droplet and rolls out the new image, guarded:
+   - **snapshots the live DB first** (`docker/predeploy-snapshot.mjs`, `VACUUM INTO`
+     inside the running container) to `/opt/doot/data/predeploy/<stamp>-<sha>.sqlite`,
+     keeping the newest 10. This is the restore point from *before* the new code's
+     startup migrations; a snapshot failure aborts the deploy before anything changes.
+   - tags the running image `:rollback` and keeps the current compose file + Caddyfile
+     in `/opt/doot/rollback/`.
+   - copies `docker/docker-compose.deploy.yml` + `docker/Caddyfile`, and starts the new
+     image **pinned to the commit sha** (`DOOT_IMAGE_TAG`).
+   - waits up to 2 minutes for **`/api/ready`**. If it never turns green, it restores
+     the previous config + image and fails the run.
+4. **smoke** - drives a real host+player core loop against prod.
+
+`/api/health` is liveness only (no DB; used by the container HEALTHCHECK and Caddy).
+`/api/ready` is readiness: 200 once this boot's startup migrations (app tables in
+`db.ts`, better-auth tables in `server/plugins/auth-migrate.ts`) have finished with no
+real failure and the DB answers a query, else 503. Only the benign "already applied"
+DDL errors (duplicate column, already exists) are swallowed; anything else is logged as
+`[doot] <step> migration FAILED` and keeps `/api/ready` red
+(`server/utils/migration-status.ts`). The admin Status payload includes it too.
+
+The prod compose sets **`DOOT_REQUIRE_EXISTING_DB=1`**: the app refuses to start if the
+DB file is missing or empty, instead of silently creating a blank one (which would make
+every account and game look gone and auto-promote the next sign-up to admin). A
+brand-new self-hosted install should leave it unset for its first boot.
+
+**Manual rollback** (as `deploy`, in `/opt/doot`):
+`cp rollback/docker-compose.yml docker-compose.yml && DOOT_IMAGE_TAG=rollback docker compose up -d`,
+or pin any earlier build with `DOOT_IMAGE_TAG=<full sha> docker compose up -d` (it pulls
+from GHCR if not on disk). Schema changes are additive, so older code runs on a newer DB.
+
+**Shipping a schema change safely:** only add nullable columns or `NOT NULL` with a
+constant `DEFAULT`; never rename or drop in a startup migration. SQLite can't `ADD` a
+`UNIQUE` column, so add a plain column plus `CREATE UNIQUE INDEX IF NOT EXISTS`. Before
+merging, boot the production build against a copy of a recent snapshot and confirm
+`/api/ready` is 200, the schema diff is only what you intended, and the row counts match.
 
 `docker-compose.deploy.yml` runs the prebuilt image plus **Caddy** (automatic
 HTTPS). State is a **SQLite file** on a host bind-mount (`./data:/app/.data`),
@@ -139,7 +173,9 @@ Backups are private; the upload uses `x-amz-acl: private`, never `public-read`.
   app already uses `SPACES_KEY`/`SPACES_SECRET`; reuse them or make a read-only key.
 - Add a **lifecycle rule** on the bucket to expire `backups/db/` after N days (e.g. 30),
   so old snapshots prune themselves. (Console → the Space → Settings → lifecycle, or
-  `s3api put-bucket-lifecycle-configuration`.)
+  `s3api put-bucket-lifecycle-configuration`.) **Not set yet as of 2026-11-10**: 3,341
+  hourly snapshots had accumulated since June. The app's key gets `AccessDenied` on
+  `?lifecycle`, so this needs the Console or a full-access key.
 - Consider a dedicated private bucket (or a bucket policy denying public listing) so
   backups never sit next to the public image objects.
 
@@ -154,10 +190,26 @@ SPACES_ENDPOINT=... SPACES_REGION=... SPACES_BUCKET=... SPACES_KEY=... SPACES_SE
   node scripts/restore-db.mjs ./restored.sqlite
 ```
 
-It does **not** overwrite the live DB; it prints the swap-in steps (stop the app,
-`cp restored.sqlite /opt/doot/data/doot.sqlite`, start the app). Do a periodic restore
-drill so you know the backups are good. (`scripts/backup-drill.mjs` proves the
-snapshot+restore round-trip locally with no network.)
+It pages through the whole listing (S3 returns 1000 keys per page, oldest first; an
+earlier version stopped at page one and would have picked a weeks-old snapshot as
+"latest"). It does **not** overwrite the live DB; it prints the swap-in steps:
+
+1. `docker compose stop app`
+2. `mv data/doot.sqlite data/doot.sqlite.pre-restore-<stamp>` (keep it; never overwrite in place)
+3. `rm -f data/doot.sqlite-journal data/doot.sqlite-wal data/doot.sqlite-shm` (a leftover
+   journal would be rolled back INTO the restored file and corrupt it)
+4. `cp restored.sqlite data/doot.sqlite`, then `docker compose start app`
+
+The pre-deploy snapshots in `/opt/doot/data/predeploy/` restore the same way, with no
+download. To run a restore drill against prod without touching the live file, pipe the
+script into the container (it writes only to the container's `/tmp`):
+
+```
+docker compose exec -T -u node -w /app/.output/server app \
+  node --input-type=module - /tmp/restore-drill.sqlite < scripts/restore-db.mjs
+```
+
+(`scripts/backup-drill.mjs` proves the snapshot+restore round-trip locally with no network.)
 
 ### Block volume + whole-system snapshots (secondary net)
 

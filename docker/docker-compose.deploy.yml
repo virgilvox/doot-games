@@ -4,11 +4,29 @@
 # (./data), which persists across deploys - the cheapest single-droplet setup.
 # Secrets come from /opt/doot/.env (written at provision time, never in git).
 
+# Every service rotates its json logs so a chatty container can't fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   app:
-    image: ghcr.io/virgilvox/doot-games:latest
+    # The deploy job sets DOOT_IMAGE_TAG to the commit sha it is shipping, so the
+    # previous sha is still on disk to roll back to. A manual `docker compose up -d`
+    # without it falls back to :latest (= the most recent successful build).
+    image: ghcr.io/virgilvox/doot-games:${DOOT_IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Production must boot on the EXISTING database; refuse to start on a missing
+      # or empty file rather than silently create a blank one (see db.ts).
+      DOOT_REQUIRE_EXISTING_DB: '1'
+    # Headroom over the ~250MB it idles at on the 1GB droplet, but capped so a
+    # runaway request can't push the box into swap death; it restarts instead.
+    mem_limit: 700m
+    logging: *logging
     volumes:
       - ./data:/app/.data
     expose:
@@ -26,14 +44,18 @@ services:
     restart: unless-stopped
     command: ['serve', '-listen=:8080', '-tls=none', '-automigrate']
     mem_limit: 128m
+    logging: *logging
     volumes:
       - ./data/goatcounter:/home/goatcounter/goatcounter-data
     expose:
       - '8080'
 
   caddy:
-    image: caddy:2-alpine
+    # Pinned by digest (the image prod already runs) so a deploy never silently
+    # picks up a new Caddy; bump deliberately.
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
+    logging: *logging
     ports:
       - '80:80'
       - '443:443'
